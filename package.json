@@ -1,0 +1,24 @@
+{
+  "name": "mystra",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "dev": "pnpm --filter @mystra/control-plane dev",
+    "dev:control-plane": "pnpm --filter @mystra/control-plane exec next dev -p 3000",
+    "dev:runner": "pnpm --filter @mystra/runner-daemon dev",
+    "doctor": "./scripts/doctor-local.sh",
+    "deploy:dev": "bash ./scripts/deploy-dev-machine.sh",
+    "job:castrel": "node ./scripts/castrel-job.mjs",
+    "preview": "node ./scripts/preview-containers.mjs",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

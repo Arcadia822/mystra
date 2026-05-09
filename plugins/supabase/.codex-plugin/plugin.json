@@ -1,0 +1,48 @@
+{
+  "name": "supabase",
+  "version": "0.1.0",
+  "description": "Supabase CLI, authentication, local development, and MCP guidance for Codex.",
+  "author": {
+    "name": "Mystra",
+    "url": "https://supabase.com"
+  },
+  "homepage": "https://supabase.com/docs",
+  "repository": "https://github.com/supabase/supabase",
+  "license": "MIT",
+  "keywords": [
+    "supabase",
+    "postgres",
+    "database",
+    "auth",
+    "cli",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "apps": "./.app.json",
+  "interface": {
+    "displayName": "Supabase",
+    "shortDescription": "Supabase CLI, auth, database, and MCP workflows.",
+    "longDescription": "Guidance for using Supabase from Codex, including CLI installation, login and token handling, local development, migrations, Edge Functions, generated types, and hosted or local MCP access.",
+    "developerName": "Mystra",
+    "category": "Developer",
+    "capabilities": [
+      "CLI",
+      "Authentication",
+      "Database",
+      "MCP"
+    ],
+    "websiteURL": "https://supabase.com",
+    "privacyPolicyURL": "https://supabase.com/privacy",
+    "termsOfServiceURL": "https://supabase.com/terms",
+    "defaultPrompt": [
+      "Use Supabase CLI for this project.",
+      "Help me link and migrate a Supabase project.",
+      "Configure Supabase MCP access safely."
+    ],
+    "brandColor": "#3ECF8E",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg",
+    "screenshots": []
+  }
+}

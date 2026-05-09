@@ -1,0 +1,14 @@
+{
+  "apps": {
+    "supabase": {
+      "displayName": "Supabase",
+      "homepage": "https://supabase.com",
+      "docs": "https://supabase.com/docs",
+      "auth": {
+        "type": "oauth_or_pat",
+        "hostedMcp": "https://mcp.supabase.com/mcp",
+        "tokenEnvironmentVariable": "SUPABASE_ACCESS_TOKEN"
+      }
+    }
+  }
+}

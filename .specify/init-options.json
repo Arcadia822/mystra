@@ -1,0 +1,9 @@
+{
+  "ai": "codex",
+  "ai_commands_dir": null,
+  "ai_skills": false,
+  "script": "sh",
+  "spec_kit_source": "github/spec-kit@v0.3.0",
+  "initialized_by": "manual-official-template-copy",
+  "note": "The official CLI init was blocked by unauthenticated GitHub API rate limit while fetching releases/latest; files were copied from the official v0.3.0 repository tag."
+}

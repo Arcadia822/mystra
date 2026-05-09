@@ -1,0 +1,20 @@
+{
+  "name": "mystra-local",
+  "interface": {
+    "displayName": "Mystra Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "supabase",
+      "source": {
+        "source": "local",
+        "path": "./plugins/supabase"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Supabase plugin icon">
+  <rect width="128" height="128" rx="24" fill="#111827"/>
+  <path d="M73.9 11.4c2.7-3.4 8.1-1.5 8.1 2.9v42.5h28.6c5.2 0 8.1 6 4.8 10.1L54.1 116.6c-2.7 3.4-8.1 1.5-8.1-2.9V71.2H17.4c-5.2 0-8.1-6-4.8-10.1L73.9 11.4Z" fill="#3ECF8E"/>
+  <path d="M82 14.3v42.5H53.4c-5.2 0-8.1 6-4.8 10.1L82 14.3Z" fill="#FFFFFF" opacity=".28"/>
+</svg>
