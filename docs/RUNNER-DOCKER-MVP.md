@@ -4,17 +4,24 @@ This is the current "usable by me" path:
 
 1. Mystra receives a `JobSpec`.
 2. The local runner claims the job.
-3. The runner starts one Docker container with `mystra-runner:local`.
+3. The runner starts one Docker container with the image from the run's resolved runtime contract.
 4. The container clones the GitLab repository, creates the task branch, runs Codex or Copilot, commits changes, pushes the branch, and creates a GitLab merge request.
 5. After the MR is created, the container stays running and exposes preview ports for frontend and backend review.
 
 ## Build the Runner Image
+
+The current real Docker image is Castrel-oriented and is intentionally stored outside this git repository. On this machine it lives at:
+
+```text
+/tmp/mystra-castrel-runner-image
+```
 
 ```sh
 ./scripts/build-runner-image.sh
 ```
 
 The image contains Node 24, pnpm, Python 3, uv, git, Codex CLI, and GitHub Copilot CLI.
+It is not a Mystra platform baseline. A Project opts into it by setting `runtime.image` to the built tag, usually `mystra-castrel-runner:local`.
 
 The image also includes Mystra task skills under:
 
@@ -24,12 +31,12 @@ The image also includes Mystra task skills under:
 
 MVP ships `agent-skills` at `/mystra/skills/agent-skills/SKILL.md`. The full bundled skill group is available directly under `/mystra/skills/<skill-name>`, including each skill directory's auxiliary files, templates, and references. The runner injects this path into the agent prompt and explicitly requires it for the whole development workflow: request analysis, repository inspection, implementation, verification, and final summary.
 
-## Prewarm Castrel AI
+## Prewarm A Project
 
-For `/Users/arcadia/Documents/castrel-ai`, run:
+After creating a Project in the control plane, run:
 
 ```sh
-./scripts/prewarm-castrel-ai.sh
+./scripts/prewarm-project.sh --project castrel-ai
 ```
 
 This prepares:
@@ -79,7 +86,7 @@ This is a preview-only session user for UI inspection. It does not authenticate 
 
 ## Quality Gate
 
-After the agent finishes and before Git commit, push, MR creation, or preview startup, the container runs a deterministic quality gate in this order:
+After the agent finishes and before Git commit, push, MR/PR creation, or preview startup, the container runs a deterministic quality gate in this order:
 
 ```text
 test -> build
@@ -121,7 +128,6 @@ Create `~/.mystra/runner.env`:
 mkdir -p ~/.mystra
 cat > ~/.mystra/runner.env <<'ENV'
 MYSTRA_EXECUTOR=docker
-MYSTRA_RUNNER_IMAGE=mystra-runner:local
 MYSTRA_GITLAB_TOKEN=replace-with-gitlab-user-pat
 MYSTRA_GITLAB_HTTP_BASE_URL=https://git.cloudwise.com
 MYSTRA_CACHE_ROOT=/Users/arcadia/.mystra/cache
@@ -153,21 +159,33 @@ The LaunchAgent wrapper sources `~/.mystra/runner.env` before starting the runne
 ## Create a Real Job
 
 ```sh
-curl -sS -X POST http://localhost:3000/api/jobs \
+PROJECT_ID="$(curl -sS -X POST http://localhost:3000/api/projects \
   -H 'content-type: application/json' \
   -d '{
-    "taskId": "demo-1",
-    "source": "api",
+    "name": "Castrel AI",
+    "slug": "castrel-ai",
     "repo": "ssh://git@git.cloudwise.com:36000/castrel/castrel-ai.git",
     "baseBranch": "main",
-    "branchName": "mystra/demo-1",
-    "agent": "codex",
-    "prompt": "Implement the requested change and run relevant tests.",
-    "mergeRequest": {
-      "title": "Mystra demo change",
-      "body": "Created by Mystra local docker runner."
+    "defaultAgent": "codex",
+    "runtime": {
+      "provider": "docker",
+      "image": "mystra-castrel-runner:local"
     }
-  }'
+  }' | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.id));')"
+
+curl -sS -X POST http://localhost:3000/api/jobs \
+  -H 'content-type: application/json' \
+  -d "{
+    \"taskId\": \"demo-1\",
+    \"source\": \"api\",
+    \"projectId\": \"$PROJECT_ID\",
+    \"branchName\": \"mystra/demo-1\",
+    \"prompt\": \"Implement the requested change and run relevant tests.\",
+    \"mergeRequest\": {
+      \"title\": \"Mystra demo change\",
+      \"body\": \"Created by Mystra local docker runner.\"
+    }
+  }"
 ```
 
 Poll the returned job:

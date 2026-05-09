@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { listLocalRunners } from "@/lib/local-store";
+import { getDb } from "@/lib/db";
 
 export async function GET() {
-  return NextResponse.json({ runners: listLocalRunners() });
+  return NextResponse.json({ runners: getDb().listRunners() });
 }

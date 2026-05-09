@@ -48,7 +48,6 @@ tmp_env="$(mktemp)"
 chmod 600 "$tmp_env"
 {
   write_env MYSTRA_EXECUTOR docker
-  write_env MYSTRA_RUNNER_IMAGE mystra-runner:local
   write_env MYSTRA_GITLAB_TOKEN "$MYSTRA_GITLAB_TOKEN"
   write_env MYSTRA_GITLAB_HTTP_BASE_URL "${MYSTRA_GITLAB_HTTP_BASE_URL:-https://git.cloudwise.com}"
   write_env MYSTRA_CACHE_ROOT "${REMOTE_ENV_DIR}/cache"
@@ -110,7 +109,7 @@ UNIT
 systemctl daemon-reload"
 
 ssh "$REMOTE" "cd '$REMOTE_DIR' && pnpm install --frozen-lockfile"
-ssh "$REMOTE" "cd '$REMOTE_DIR' && set -a; if [ -f '$REMOTE_ENV_DIR/proxy.env' ]; then source '$REMOTE_ENV_DIR/proxy.env'; fi; source '$REMOTE_ENV_DIR/runner.env'; set +a; ./scripts/build-runner-image.sh"
+ssh "$REMOTE" "cd '$REMOTE_DIR' && set -a; if [ -f '$REMOTE_ENV_DIR/proxy.env' ]; then source '$REMOTE_ENV_DIR/proxy.env'; fi; source '$REMOTE_ENV_DIR/runner.env'; set +a; if [ -f \"\${MYSTRA_RUNNER_IMAGE_CONTEXT:-/tmp/mystra-castrel-runner-image}/Dockerfile\" ]; then ./scripts/build-runner-image.sh; else echo 'Skipping local Castrel runner image build; MYSTRA_RUNNER_IMAGE_CONTEXT is not present on this host.'; fi"
 
 ssh "$REMOTE" "systemctl enable mystra-control-plane mystra-runner >/dev/null && systemctl restart mystra-control-plane && sleep 3 && systemctl restart mystra-runner"
 

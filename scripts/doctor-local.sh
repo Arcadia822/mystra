@@ -35,10 +35,11 @@ for name in pnpm docker git node; do
   fi
 done
 
-if docker image inspect "${MYSTRA_RUNNER_IMAGE:-mystra-runner:local}" >/dev/null 2>&1; then
-  ok "runner image exists: ${MYSTRA_RUNNER_IMAGE:-mystra-runner:local}"
+castrel_image="${MYSTRA_CASTREL_IMAGE_TAG:-mystra-castrel-runner:local}"
+if docker image inspect "$castrel_image" >/dev/null 2>&1; then
+  ok "local Castrel runner image exists: $castrel_image"
 else
-  fail "runner image missing: ${MYSTRA_RUNNER_IMAGE:-mystra-runner:local}"
+  warn "local Castrel runner image missing: $castrel_image; Projects may reference another Project.runtime.image"
 fi
 
 for var_name in MYSTRA_EXECUTOR MYSTRA_GITLAB_HTTP_BASE_URL MYSTRA_CACHE_ROOT MYSTRA_PREVIEW_HOST; do

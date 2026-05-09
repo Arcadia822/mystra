@@ -75,12 +75,27 @@ interface RunnerNode {
   firstSeenAt: string;
 }
 
-interface JobFormState {
-  taskId: string;
+interface Project {
+  id: string;
+  name: string;
+  slug: string;
   repo: string;
   baseBranch: string;
+  defaultAgent: AgentName;
+  runtime: {
+    provider: "docker";
+    image: string;
+    contextBundleRefs?: Array<{ slug: string }>;
+    mounts?: unknown[];
+    secretRefs?: unknown[];
+  };
+  prewarmConfig: Record<string, unknown>;
+}
+
+interface JobFormState {
+  taskId: string;
   branchName: string;
-  agent: AgentName;
+  projectId: string;
   title: string;
   body: string;
   prompt: string;
@@ -88,10 +103,8 @@ interface JobFormState {
 
 const initialForm: JobFormState = {
   taskId: "manual-task",
-  repo: "",
-  baseBranch: "main",
   branchName: "mystra/manual-task",
-  agent: "codex",
+  projectId: "",
   title: "Mystra manual task",
   body: "Created from Mystra control plane.",
   prompt: "",
@@ -203,6 +216,7 @@ function runnerNodesFromSessions(sessions: RunnerSession[]): RunnerNode[] {
 export default function Page() {
   const [jobs, setJobs] = useState<JobSnapshot[]>([]);
   const [runners, setRunners] = useState<RunnerSession[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [form, setForm] = useState<JobFormState>(initialForm);
   const [notice, setNotice] = useState<string>("");
@@ -214,6 +228,10 @@ export default function Page() {
     [jobs, selectedJobId],
   );
   const runnerNodes = useMemo(() => runnerNodesFromSessions(runners), [runners]);
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === form.projectId) ?? projects[0],
+    [form.projectId, projects],
+  );
   const jobSummary = useMemo(() => {
     return jobs.reduce(
       (summary, snapshot) => {
@@ -251,9 +269,10 @@ export default function Page() {
   }, [runnerNodes]);
 
   async function refresh() {
-    const [jobsResponse, runnersResponse] = await Promise.all([
+    const [jobsResponse, runnersResponse, projectsResponse] = await Promise.all([
       fetch("/api/jobs", { cache: "no-store" }),
       fetch("/api/runners", { cache: "no-store" }),
+      fetch("/api/projects", { cache: "no-store" }),
     ]);
 
     if (jobsResponse.ok) {
@@ -264,6 +283,15 @@ export default function Page() {
     if (runnersResponse.ok) {
       const payload = await runnersResponse.json() as { runners: RunnerSession[] };
       setRunners(payload.runners);
+    }
+
+    if (projectsResponse.ok) {
+      const payload = await projectsResponse.json() as { projects: Project[] };
+      setProjects(payload.projects);
+      const [firstProject] = payload.projects;
+      setForm((current) => current.projectId || !firstProject
+        ? current
+        : { ...current, projectId: firstProject.id });
     }
   }
 
@@ -279,16 +307,18 @@ export default function Page() {
     setNotice("");
 
     try {
+      const projectId = form.projectId || selectedProject?.id;
+      if (!projectId) {
+        throw new Error("Create a Project before submitting a job");
+      }
       const response = await fetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           taskId: form.taskId,
           source: "api",
-          repo: form.repo,
-          baseBranch: form.baseBranch,
+          projectId,
           branchName: form.branchName,
-          agent: form.agent,
           prompt: form.prompt,
           mergeRequest: {
             title: form.title,
@@ -352,6 +382,10 @@ export default function Page() {
             <strong>Tasks</strong>
             <span>{jobs.length} jobs in view</span>
           </a>
+          <a className="railLink" href="#projects">
+            <strong>Projects</strong>
+            <span>{projects.length} configured</span>
+          </a>
           <a className="railLink" href="#runners">
             <strong>Nodes</strong>
             <span>{runnerNodes.length} runner nodes</span>
@@ -372,8 +406,8 @@ export default function Page() {
             <strong>{jobSummary.active}</strong>
           </div>
           <div className="statusTile">
-            <span>queued</span>
-            <strong>{jobSummary.queued}</strong>
+            <span>projects</span>
+            <strong>{projects.length}</strong>
           </div>
           <div className="statusTile bad">
             <span>failed</span>
@@ -432,6 +466,41 @@ export default function Page() {
 
         {notice ? <div className="notice" role="status">{notice}</div> : null}
 
+        <section className="module" id="projects">
+          <div className="moduleHeader">
+            <div>
+              <p className="eyebrow">Projects</p>
+              <h3>Project configuration</h3>
+              <p className="sectionCopy">
+                Jobs inherit repository, default branch, default agent, and runtime image from Projects.
+              </p>
+            </div>
+            <span className="counter">{projects.length}</span>
+          </div>
+          <div className="projectGrid">
+            {projects.length === 0 ? <p className="empty">No Projects configured.</p> : null}
+            {projects.map((project) => (
+              <article className="projectCard" key={project.id}>
+                <div className="projectCardHeader">
+                  <div>
+                    <h4>{project.name}</h4>
+                    <p className="subtleText">{project.slug}</p>
+                  </div>
+                  <span className="pill active">{project.defaultAgent}</span>
+                </div>
+                <div className="detailGrid">
+                  <div className="kv"><span>Repo</span><strong>{project.repo}</strong></div>
+                  <div className="kv"><span>Base</span><strong>{project.baseBranch}</strong></div>
+                  <div className="kv"><span>Provider</span><strong>{project.runtime.provider}</strong></div>
+                  <div className="kv"><span>Image</span><strong>{project.runtime.image}</strong></div>
+                  <div className="kv"><span>Runtime</span><strong>{project.runtime.contextBundleRefs?.length ?? 0} ctx / {project.runtime.mounts?.length ?? 0} mounts</strong></div>
+                  <div className="kv"><span>Prewarm</span><strong>{Object.keys(project.prewarmConfig).length} fields</strong></div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="module" id="jobs">
           <div className="moduleHeader">
             <div>
@@ -448,7 +517,7 @@ export default function Page() {
               <div className="paneHeader">
                 <div>
                   <h4>Create job</h4>
-                  <p className="subtleText">Task creation keeps the existing API payload and MR fields.</p>
+                  <p className="subtleText">Jobs resolve repo, base branch, agent, and image from the selected Project.</p>
                 </div>
                 <span className="counter">{jobs.length}</span>
               </div>
@@ -460,32 +529,31 @@ export default function Page() {
                     onChange={(event) => setForm({ ...form, taskId: event.target.value })}
                   />
                 </label>
-                <label>
-                  Agent
+                <label className="span2">
+                  Project
                   <select
-                    value={form.agent}
-                    onChange={(event) => setForm({ ...form, agent: event.target.value as AgentName })}
+                    value={form.projectId || (selectedProject?.id ?? "")}
+                    onChange={(event) => setForm({ ...form, projectId: event.target.value })}
                   >
-                    <option value="codex">Codex CLI</option>
-                    <option value="copilot">GitHub Copilot CLI</option>
+                    {projects.length === 0 ? <option value="">No Projects</option> : null}
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name} / {project.slug}
+                      </option>
+                    ))}
                   </select>
                 </label>
+                {selectedProject ? (
+                  <div className="projectSummary span2">
+                    <div><span>Repo</span><strong>{selectedProject.repo}</strong></div>
+                    <div><span>Base</span><strong>{selectedProject.baseBranch}</strong></div>
+                    <div><span>Agent</span><strong>{selectedProject.defaultAgent}</strong></div>
+                    <div><span>Provider</span><strong>{selectedProject.runtime.provider}</strong></div>
+                    <div><span>Image</span><strong>{selectedProject.runtime.image}</strong></div>
+                    <div><span>Runtime</span><strong>{selectedProject.runtime.contextBundleRefs?.length ?? 0} ctx / {selectedProject.runtime.mounts?.length ?? 0} mounts</strong></div>
+                  </div>
+                ) : null}
                 <label className="span2">
-                  Repository
-                  <input
-                    placeholder="https://git.cloudwise.com/group/project.git"
-                    value={form.repo}
-                    onChange={(event) => setForm({ ...form, repo: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Base branch
-                  <input
-                    value={form.baseBranch}
-                    onChange={(event) => setForm({ ...form, baseBranch: event.target.value })}
-                  />
-                </label>
-                <label>
                   Task branch
                   <input
                     value={form.branchName}
@@ -517,7 +585,7 @@ export default function Page() {
                   />
                 </label>
                 <div className="formActions span2">
-                  <button className="primaryButton" disabled={isSubmitting} type="submit">
+                  <button className="primaryButton" disabled={isSubmitting || projects.length === 0} type="submit">
                     {isSubmitting ? "Creating..." : "Create job"}
                   </button>
                 </div>
@@ -707,6 +775,9 @@ export default function Page() {
               </div>
               <div className="toolList">
                 <span>mystra_create_job</span>
+                <span>mystra_create_project</span>
+                <span>mystra_list_projects</span>
+                <span>mystra_get_project</span>
                 <span>mystra_get_job</span>
                 <span>mystra_cancel_job</span>
                 <span>mystra_list_runners</span>

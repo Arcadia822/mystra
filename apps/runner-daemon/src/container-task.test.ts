@@ -59,24 +59,62 @@ describe("container task quality gate", () => {
     expect(script).toContain("backendPreviewUrl: backendPreviewUrl || null");
   });
 
-  it("injects agent-skills as a required whole-lifecycle instruction", () => {
-    expect(runner).toContain("/mystra/skills/agent-skills/SKILL.md");
-    expect(runner).toContain("available directly under /mystra/skills");
-    expect(runner).toContain("entire research and development workflow");
+  it("renders prompt context from resolved runtime bundles", () => {
+    expect(runner).toContain("function renderRuntimeContextPrompt(runtime: ResolvedRuntimeContract): string[]");
+    expect(runner).toContain("Mystra context bundles:");
+    expect(runner).toContain("bundle.source.metadata.prompt");
+    expect(runner).toContain("...renderRuntimeContextPrompt(runtime)");
     expect(runner).toContain("MYSTRA_SKILLS_DIR=/mystra/skills");
   });
 
-  it("tells task agents not to fetch Linear context from inside containers", () => {
-    expect(runner).toContain("Mystra issue context boundary:");
-    expect(runner).toContain("Linear issue IDs, titles, and requirements are already supplied");
-    expect(runner).toContain("Do not start, authenticate to, or query Linear, Linear MCP, mcp-remote");
-    expect(runner).toContain("note the missing context in your final summary instead of accessing Linear");
+  it("does not hard-code issue context policy into task prompts", () => {
+    expect(runner).not.toContain("Mystra issue context boundary:");
+    expect(runner).not.toContain("Linear issue IDs, titles, and requirements are already supplied");
+    expect(runner).not.toContain("Do not start, authenticate to, or query Linear, Linear MCP, mcp-remote");
   });
 
   it("does not mount host copilot config into task containers", () => {
     expect(runner).toContain('dockerArgs.push("-e", "COPILOT_GITHUB_TOKEN");');
     expect(runner).not.toContain("config.copilotConfigDir");
     expect(runner).not.toContain(":/root/.copilot");
+  });
+
+  it("uses the resolved runtime image instead of a Project image or global runner image", () => {
+    expect(runner).toContain("runtime.environment.image");
+    expect(runner).toContain("projectSlug: project.slug");
+    expect(runner).toContain("dockerArgs.push(image, \"sleep\", \"infinity\")");
+    expect(runner).not.toContain("project.image");
+    expect(runner).not.toContain("runnerImage:");
+    expect(runner).not.toContain("MYSTRA_RUNNER" + "_IMAGE");
+    expect(runner).not.toContain("config.runnerImage");
+  });
+
+  it("translates resolved runtime ports, mounts, caches, and secrets into Docker args", () => {
+    expect(runner).toContain("const runtimeMounts = effectiveDockerMounts(runtime.mounts)");
+    expect(runner).toContain("const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts()");
+    expect(runner).toContain("const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets()");
+    expect(runner).toContain("appendRuntimePorts(dockerArgs, runtimePorts)");
+    expect(runner).toContain("appendRuntimeSecrets(dockerArgs, containerEnv, runtimeSecrets)");
+    expect(runner).toContain("appendRuntimeMounts(dockerArgs, config, workspace, gitMirror, runtimeMounts)");
+    expect(runner).toContain("dockerArgs.push(\"-p\", port.hostBinding ?? `0.0.0.0::${port.containerPort}`)");
+    expect(runner).toContain("dockerArgs.push(\"-e\", secret.name)");
+    expect(runner).toContain("dockerArgs.push(\"-v\", `${runtimeMountSource(config, workspace, gitMirror, mount)}:${mount.target}${suffix}`)");
+  });
+
+  it("merges system mounts with resolved Project/runtime mounts instead of replacing them", () => {
+    expect(runner).toContain("function effectiveDockerMounts(runtimeMounts: ResolvedRuntimeContract[\"mounts\"]): ResolvedRuntimeContract[\"mounts\"]");
+    expect(runner).toContain("const merged = [...defaultDockerMounts()]");
+    expect(runner).toContain("merged.push(mount)");
+    expect(runner).toContain("owner: \"system\", target: \"/mystra/workspace\"");
+    expect(runner).toContain("owner: \"system\", target: \"/mystra/cache/git/repo.git\"");
+  });
+
+  it("registers Docker runtime capabilities with the control plane", () => {
+    expect(runner).toContain('providers: config.executor === "docker" ? ["docker"] : []');
+    expect(runner).toContain('contextBundleModes: config.executor === "docker" ? ["read-only", "job-scoped"] : []');
+    expect(runner).toContain('mountKinds: config.executor === "docker" ? ["workspace", "gitMirror", "cache", "contextBundle", "secret"] : []');
+    expect(runner).toContain("supportsDynamicHostPorts: config.executor === \"docker\"");
+    expect(runner).toContain('secretInjectionModes: config.executor === "docker" ? ["env"] : []');
   });
 
   it("runs copilot with an isolated workspace config home", () => {

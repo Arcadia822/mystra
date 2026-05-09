@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build the MVP as a TypeScript monorepo that reuses the Open Agents project as its framework foundation, with local-first provider implementations: SQLite for RDB state, a dummy local workflow provider for lifecycle orchestration, a single-machine Docker sandbox provider, Codex/Copilot agent adapters, and runner-local prewarm caches. The first proof is a fake-runner lifecycle; the second is a real runner container on `10.106.2.127` producing GitLab branch/MR output.
+Build the MVP as a TypeScript monorepo that reuses the Open Agents project as its framework foundation, with local-first provider implementations: SQLite for RDB state, a dummy local workflow provider for lifecycle orchestration, a single-machine Docker sandbox provider, Codex/Copilot agent adapters, and runner-local prewarm caches. The first proof is a fake-runner lifecycle; the second is a real runner container on the provided high-capacity server producing GitLab branch/MR or GitHub branch/PR output from jobs submitted through API or remote MCP.
 
 The MVP intentionally excludes control-plane auth, logs, retry, callback URLs, quality-gate fix loops, Claude CLI, and remote shared caches.
 
@@ -16,8 +16,8 @@ The MVP intentionally excludes control-plane auth, logs, retry, callback URLs, q
 - Runner daemon is pull-based over outbound long polling.
 - `/api/runner/jobs` uses the Vercel Node runtime with `maxDuration >= 30s`.
 - Docker is the MVP sandbox; Kubernetes remains future work behind the runner interface.
-- GitLab is the only repository provider in MVP.
-- Branch naming, MR title, and MR body come from task/repository context. Mystra does not sanitize names or handle branch collisions.
+- GitLab and GitHub are the MVP repository providers.
+- Branch naming, MR/PR title, and MR/PR body come from task/repository context. Mystra does not sanitize names or handle branch collisions.
 - Runner-local cache handles repo prewarm plus pnpm/uv dependency stores. Cache is never the source of truth.
 
 ## Dependency Graph
@@ -35,7 +35,7 @@ Monorepo scaffold
         -> Docker runner launcher
           -> Runner image entrypoint
             -> Codex/Copilot adapters
-              -> GitLab branch/MR delivery
+              -> GitLab branch/MR or GitHub branch/PR delivery
 ```
 
 ## Phase 1: Foundation
@@ -46,7 +46,7 @@ Monorepo scaffold
 
 **Acceptance criteria:**
 - [ ] `pnpm install` succeeds.
-- [ ] Workspace contains `apps/control-plane`, `apps/workflows`, `apps/runner-daemon`, `packages/shared`, `packages/agent-adapters`, `packages/runner-image`, and `infra`.
+- [ ] Workspace contains `apps/control-plane`, `apps/workflows`, `apps/runner-daemon`, `packages/shared`, `packages/agent-adapters`, and `infra`.
 - [ ] Root commands exist: `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`.
 - [ ] Vitest is available for unit/integration tests.
 
@@ -73,10 +73,10 @@ Monorepo scaffold
 **Acceptance criteria:**
 - [ ] Schemas match `docs/SPEC.md`.
 - [ ] `AgentName` only allows `codex` and `copilot`.
-- [ ] `PlatformCapabilities`, `PlatformDefaults`, and `ProjectConfig` are explicit first-class schemas.
+- [ ] `PlatformCapabilities`, `PlatformDefaults`, and Project create/update schemas are explicit first-class schemas.
 - [ ] `JobSpec` requires task-provided `branchName`.
 - [ ] Runner registration uses typed platform capabilities instead of an unstructured capability bag.
-- [ ] `RunResult` exposes structured status, summary, branch, MR metadata, and error fields.
+- [ ] `RunResult` exposes structured status, summary, branch, MR/PR metadata, and error fields.
 - [ ] Unknown agents and invalid run transitions are rejected.
 
 **Verification:**
@@ -111,7 +111,7 @@ Monorepo scaffold
 
 **Acceptance criteria:**
 - [ ] Tables support idempotent job creation and append-only structured events.
-- [ ] Jobs store branch name and optional MR title/body.
+- [ ] Jobs store branch name and optional MR/PR title/body.
 - [ ] No MVP `callback_url` or `run_logs` dependency remains.
 - [ ] SQLite transactions atomically claim queued runs for a runner.
 - [ ] Persistence helpers guard valid run state transitions and terminal-state races.
@@ -300,7 +300,7 @@ Monorepo scaffold
 
 ### Task 10: systemd and Runner Host Config
 
-**Description:** Add systemd unit templates and environment file examples for deploying the runner daemon on `10.106.2.127`.
+**Description:** Add systemd unit templates and environment file examples for deploying the runner daemon on the configured high-capacity server.
 
 **Acceptance criteria:**
 - [ ] Unit file starts runner daemon under a dedicated service.
@@ -331,14 +331,14 @@ Monorepo scaffold
 
 ### Task 11: Runner Image Entrypoint
 
-**Description:** Implement the runner container entrypoint that reads a normalized task file, prepares workspace from repo cache or cold clone, invokes the selected agent adapter, performs GitLab delivery, and emits `RunResult` JSON.
+**Description:** Implement the runner container entrypoint that reads a normalized task file, prepares workspace from repo cache or cold clone, invokes the selected agent adapter, performs GitLab/GitHub delivery, and emits `RunResult` JSON.
 
 **Acceptance criteria:**
 - [ ] Reads `/run/mystra/task.json`.
 - [ ] Supports fixture repo execution without real GitLab writes.
 - [ ] Emits structured `RunResult` JSON.
 - [ ] Enforces timeout passed by daemon.
-- [ ] Runs deterministic `test -> build` quality gate before push/MR creation.
+- [ ] Runs deterministic `test -> build` quality gate before push/MR/PR creation.
 - [ ] Base image includes Node 24, Python 3, uv, git, curl, ca-certificates, openssh-client, Codex CLI, and Copilot CLI.
 
 **Verification:**
@@ -348,11 +348,8 @@ Monorepo scaffold
 **Dependencies:** Task 2, Task 9
 
 **Files likely touched:**
-- `packages/runner-image/src/entrypoint.ts`
-- `packages/runner-image/src/task.ts`
-- `packages/runner-image/src/result.ts`
-- `packages/runner-image/Dockerfile`
-- `packages/runner-image/test/fixtures/*`
+- `apps/runner-daemon/assets/container-task.sh`
+- local-only Castrel image context under `/tmp/mystra-castrel-runner-image` when image changes are required
 
 **Estimated scope:** M
 
@@ -375,7 +372,7 @@ Monorepo scaffold
 - `packages/agent-adapters/src/types.ts`
 - `packages/agent-adapters/src/copilot.ts`
 - `packages/agent-adapters/src/copilot.test.ts`
-- `packages/runner-image/src/adapters.ts`
+- `apps/runner-daemon/assets/container-task.sh`
 
 **Estimated scope:** M
 
@@ -397,7 +394,7 @@ Monorepo scaffold
 **Files likely touched:**
 - `packages/agent-adapters/src/codex.ts`
 - `packages/agent-adapters/src/codex.test.ts`
-- `packages/runner-image/src/adapters.ts`
+- `apps/runner-daemon/assets/container-task.sh`
 
 **Estimated scope:** M
 
@@ -429,23 +426,24 @@ Monorepo scaffold
 
 ### Checkpoint: Real Runner Smoke
 
-- [ ] Runner daemon launches Docker container on `10.106.2.127`.
+- [ ] Runner daemon launches Docker container on the configured high-capacity server.
 - [ ] Copilot adapter succeeds in container.
 - [ ] Codex adapter succeeds with proxy/auth cache when selected.
 - [ ] Cache mounts do not expose host home or Docker socket.
 
-## Phase 5: GitLab Delivery
+## Phase 5: Repository Delivery
 
-### Task 15: GitLab Client Inside Runner Image
+### Task 15: Repository Provider Client Inside Runner Image
 
-**Description:** Implement GitLab API and Git operations helper for clone, task-provided branch push, and MR creation using user PAT inside the task container.
+**Description:** Implement GitLab and GitHub API/Git operations helpers for clone, task-provided branch push, and MR/PR creation using runtime-injected user tokens inside the task container.
 
 **Acceptance criteria:**
 - [ ] Supports configured GitLab host.
+- [ ] Supports configured GitHub host or `github.com`.
 - [ ] Uses the task-provided branch name without global Mystra naming policy.
-- [ ] Uses PAT without writing it into Git config where practical.
-- [ ] Creates merge request from pushed branch using task/repository MR title/body.
-- [ ] Handles no-change, dirty-worktree, push-rejected, and MR-create-failed outcomes as structured `RunResult` failures.
+- [ ] Uses tokens without writing them into Git config where practical.
+- [ ] Creates merge request or pull request from pushed branch using task/repository title/body.
+- [ ] Handles no-change, dirty-worktree, push-rejected, and MR/PR-create-failed outcomes as structured `RunResult` failures.
 
 **Verification:**
 - [ ] Unit tests for API request construction and result mapping.
@@ -454,23 +452,22 @@ Monorepo scaffold
 **Dependencies:** Task 11
 
 **Files likely touched:**
-- `packages/runner-image/src/gitlab.ts`
-- `packages/runner-image/src/git.ts`
-- `packages/runner-image/src/gitlab.test.ts`
+- `apps/runner-daemon/assets/container-task.sh`
+- `apps/runner-daemon/src/index.ts`
 
 **Estimated scope:** M
 
-### Task 16: End-to-End GitLab Fixture Flow
+### Task 16: End-to-End Repository Fixture Flow
 
-**Description:** Run a complete MVP flow from API/MCP job creation to runner container execution and GitLab MR result on a disposable repository.
+**Description:** Run a complete MVP flow from API/MCP job creation to runner container execution and GitLab MR or GitHub PR result on a disposable repository.
 
 **Acceptance criteria:**
 - [ ] Job created through API or MCP.
 - [ ] Workflow starts and runner claims job.
 - [ ] Agent modifies fixture repo.
 - [ ] Task-provided branch is pushed.
-- [ ] MR is created.
-- [ ] Control plane shows terminal success and MR metadata.
+- [ ] MR or PR is created.
+- [ ] Control plane shows terminal success and MR/PR metadata.
 - [ ] Cancel/timeout path is separately tested.
 
 **Verification:**
@@ -481,8 +478,9 @@ Monorepo scaffold
 **Dependencies:** Task 14, Task 15
 
 **Files likely touched:**
-- `tests/e2e/mvp-gitlab-flow.test.ts`
+- `tests/e2e/mvp-repository-flow.test.ts`
 - `tests/fixtures/gitlab-repo/*`
+- `tests/fixtures/github-repo/*`
 - `docs/RUNBOOK.md`
 
 **Estimated scope:** M
@@ -490,7 +488,7 @@ Monorepo scaffold
 ### Checkpoint: MVP Complete
 
 - [ ] All tests pass.
-- [ ] E2E GitLab fixture flow works.
+- [ ] E2E GitLab or GitHub fixture flow works.
 - [ ] Runner host preflight checks pass.
 - [ ] Documentation reflects actual deploy/run commands.
 - [ ] Tokens used during validation have been rotated.
@@ -507,7 +505,7 @@ Monorepo scaffold
 | Docker cleanup fails after cancel/timeout | Medium | Track container IDs and workspace paths; cleanup in finally blocks and periodic reaper. |
 | Cache corruption breaks runs | Medium | Treat caches as disposable; fall back to cold clone/install. |
 | Codex depends on proxy/auth cache behavior | Medium | Keep Codex adapter optional per job; Copilot is already container-validated. |
-| GitLab PAT leaks from container | High | Accepted MVP risk; inject only at runtime and do not bake into images. |
+| GitLab/GitHub token leaks from container | High | Accepted MVP risk; inject only at runtime and do not bake into images. |
 
 ## Parallelization Opportunities
 
@@ -515,7 +513,7 @@ Monorepo scaffold
 - After Task 4, Task 6 can proceed independently of runner daemon work.
 - After Task 8, Task 9 cache work can proceed while Task 10 systemd docs start.
 - After Task 11, Copilot and Codex adapters can be built in parallel.
-- GitLab client work can begin after runner-image contracts are stable.
+- GitLab/GitHub client work can begin after runner runtime contracts are stable.
 
 ## Explicitly Not in Scope
 
@@ -529,7 +527,6 @@ Monorepo scaffold
 - Remote shared cache or cross-runner cache.
 - Object storage for logs/artifacts.
 - Per-repo/per-org secret registry.
-- GitHub repository support.
 
 ## Open Questions
 

@@ -12,7 +12,6 @@ apps/workflows        Workflow provider implementations and orchestration adapte
 apps/runner-daemon    Bare-metal runner service
 packages/shared       Zod schemas, state machine, events, result contracts
 packages/agent-adapters
-packages/runner-image Docker image entrypoint, mounted skills, agent execution
 ```
 
 ## Provider Layer
@@ -21,7 +20,7 @@ Mystra defines provider seams where managed services would be used, and ships lo
 
 | Provider | MVP Implementation | Future |
 |---|---|---|
-| RdbProvider | In-memory store (SQLite planned) | Cloud RDB |
+| RdbProvider | SQLite-backed local store | Cloud RDB |
 | WorkflowProvider | Local dummy workflow | Vercel Workflow / WDK |
 | SandboxProvider | Single-machine Docker | Kubernetes |
 | RepoProvider | GitLab | GitHub |
@@ -48,20 +47,32 @@ Start a fake runner for local protocol development:
 MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner
 ```
 
-Create a job:
+Create a Project, then create a job by `projectId`:
 
 ```sh
-curl -sS -X POST http://localhost:3000/api/jobs \
+PROJECT_ID="$(curl -sS -X POST http://localhost:3000/api/projects \
   -H 'content-type: application/json' \
   -d '{
-    "taskId": "local-1",
-    "source": "api",
     "repo": "local/fixture",
+    "slug": "local-fixture",
+    "name": "Local Fixture",
     "baseBranch": "main",
-    "branchName": "mystra/local-1",
-    "agent": "codex",
-    "prompt": "Smoke test the local Mystra loop"
-  }'
+    "defaultAgent": "codex",
+    "runtime": {
+      "provider": "docker",
+      "image": "mystra-castrel-runner:local"
+    }
+  }' | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.id));')"
+
+curl -sS -X POST http://localhost:3000/api/jobs \
+  -H 'content-type: application/json' \
+  -d "{
+    \"taskId\": \"local-1\",
+    \"source\": \"api\",
+    \"projectId\": \"$PROJECT_ID\",
+    \"branchName\": \"mystra/local-1\",
+    \"prompt\": \"Smoke test the local Mystra loop\"
+  }"
 ```
 
 ## MVP Scope

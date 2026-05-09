@@ -2,12 +2,21 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_ROOT="${MYSTRA_AGENT_SKILLS_SOURCE:-$HOME/.agents/skills}"
-TARGET_ROOT="$ROOT_DIR/packages/runner-image/skills/agent-skills"
-TARGET_SKILLS="$ROOT_DIR/packages/runner-image/skills"
+IMAGE_CONTEXT="${MYSTRA_RUNNER_IMAGE_CONTEXT:-/tmp/mystra-castrel-runner-image}"
+SOURCE_ROOT="${MYSTRA_AGENT_SKILLS_SOURCE:-$ROOT_DIR/.agents/skills}"
+TARGET_ROOT="$IMAGE_CONTEXT/skills/agent-skills"
+TARGET_SKILLS="$IMAGE_CONTEXT/skills"
+
+if [ ! -d "$IMAGE_CONTEXT" ]; then
+  echo "Missing local runner image context: $IMAGE_CONTEXT" >&2
+  echo "This Castrel-oriented image is intentionally not stored in the Mystra git repository." >&2
+  exit 1
+fi
 
 skills=(
-  using-agent-skills
+  spec-kit-workflow
+  product-requirements
+  plan-eng-review
   idea-refine
   spec-driven-development
   planning-and-task-breakdown
@@ -48,5 +57,6 @@ for skill in "${skills[@]}"; do
 done
 
 rm -rf "$TARGET_ROOT/skills"
+rm -rf "$TARGET_SKILLS/using-agent-skills"
 
 echo "Synced ${#skills[@]} runner skills into $TARGET_SKILLS"

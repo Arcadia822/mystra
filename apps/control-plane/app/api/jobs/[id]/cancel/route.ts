@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { cancelLocalJob } from "@/lib/local-store";
+import { getDb } from "@/lib/db";
 import { jsonError } from "@/lib/http";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const snapshot = cancelLocalJob(id);
+    const snapshot = getDb().cancelJob(id);
     if (!snapshot) {
       return NextResponse.json({ error: "job_not_found" }, { status: 404 });
     }

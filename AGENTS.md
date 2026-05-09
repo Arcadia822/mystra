@@ -29,21 +29,30 @@ Use Spec-Kit for non-trivial features or contract changes:
 1. `/speckit.specify` to create or update the feature specification.
 2. `/speckit.clarify` when requirements are ambiguous.
 3. `/speckit.plan` to generate technical planning artifacts.
-4. `/speckit.tasks` to decompose implementation.
-5. `/speckit.analyze` before implementation when consistency risk is meaningful.
-6. Implement in small, verifiable slices.
-7. Verify with relevant tests or runtime evidence.
+4. `plan-eng-review` to review architecture, data flow, risks, tests, and
+   performance before decomposing work.
+5. `/speckit.tasks` to decompose implementation after engineering review is
+   complete or explicitly waived.
+6. `/speckit.analyze` before implementation when consistency risk is meaningful.
+7. Implement in small, verifiable slices.
+8. Verify with relevant tests or runtime evidence.
 
 Feature-specific artifacts belong in `specs/<feature>/`. Durable project rules belong in the 5xP files.
 
-## Skill Routing
+## Spec-Kit Skill Routing
 
-Use `using-agent-skills` as the meta-flow:
+Use `spec-kit-workflow` as the meta-flow. It is the project-local router that binds the generic engineering skills to Mystra's `.codex/prompts/speckit.*`, `.specify/`, and `specs/<feature>/` structure.
 
-- Vague idea: `idea-refine`.
-- New feature/change: `spec-driven-development`.
-- Have a spec, need tasks: `planning-and-task-breakdown`.
-- Implementation: `incremental-implementation`.
+- Vague idea: `idea-refine`, then `/speckit.specify` when concrete.
+- New feature/change: `spec-driven-development` through `/speckit.specify`.
+- Existing spec needs design: `/speckit.plan`.
+- Existing plan needs engineering validation: `plan-eng-review` after
+  `/speckit.plan` and before `/speckit.tasks`.
+- Existing plan needs tasks: `planning-and-task-breakdown` through
+  `/speckit.tasks`, only after engineering review is complete or explicitly
+  waived.
+- Consistency risk: `/speckit.analyze`.
+- Implementation: `incremental-implementation` through `/speckit.implement`.
 - UI work: `frontend-ui-engineering`.
 - API/contract work: `api-and-interface-design`.
 - Source/documentation-sensitive work: `source-driven-development`.
@@ -54,10 +63,16 @@ Use `using-agent-skills` as the meta-flow:
 - Docs/ADR: `documentation-and-adrs`.
 - Launch/deploy: `shipping-and-launch`.
 
+Do not use global fallback skills when a project-local copy exists under `.agents/skills/`. Do not create feature-level PRDs, plans, or task lists under `docs/`; use `specs/<feature>/`.
+
 ### GitNexus — Code Intelligence
 
 Use `gitnexus-guide` as the entry point. Ensure index is fresh (`npx gitnexus analyze`) before use.
 
+- During `/speckit.plan` and `plan-eng-review`, use GitNexus when a feature
+  touches existing execution flows, APIs, MCP routes, persistence, runner
+  behavior, sandbox/provider boundaries, or cross-package contracts. Record what
+  was checked, or why GitNexus was not useful for that phase.
 - Understand architecture / "How does X work?": `gitnexus-exploring`.
 - Blast radius / "What breaks if I change X?": `gitnexus-impact-analysis`.
 - Trace bugs / "Why is X failing?": `gitnexus-debugging`.
@@ -94,6 +109,7 @@ Use `claude-design-intake` to start any design task.
 
 ## Engineering Rules
 
+- Always load and follow relevant skills before starting work (e.g., `product-requirements` for PRD, `api-and-interface-design` for API design, `spec-driven-development` for features). Do not skip skill loading even when the task feels familiar.
 - Surface assumptions before non-trivial changes.
 - Stop on conflicting requirements instead of guessing.
 - Keep changes scoped to the requested surface.
@@ -104,14 +120,29 @@ Use `claude-design-intake` to start any design task.
 
 ## Current MVP Boundaries
 
-Mystra MVP reuses the Open Agents project as its framework foundation and starts with local-first providers: SQLite RDB, dummy local workflow, and single-machine Docker sandbox.
+Mystra MVP reuses the Open Agents project as its framework foundation and starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), dummy local workflow, and single-machine Docker sandbox.
 
-Mystra MVP excludes caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, GitHub repository support, Kubernetes sandbox workloads, cross-runner shared caches, and per-repository secret management.
+The near-term MVP goal is to let other agents and skills submit user journeys and implementation requests through Mystra remote MCP, then have Mystra develop GitLab and GitHub projects on a provided high-capacity server that runs the control plane, runner, and sandbox workloads.
+
+Mystra MVP excludes caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, per-repository secret management, and hosted RDB provider implementation (PG/Supabase implementation is post-MVP; the interface must not leak SQLite dialect).
+
+## Documentation Discipline
+
+This project is built by AI agents. Treat repository documentation as the durable memory surface.
+
+- Always follow `spec-kit-workflow` and the `.codex/prompts/speckit.*` flow for non-trivial feature, contract, or implementation work.
+- For non-trivial plans, run `plan-eng-review` after `/speckit.plan` and before
+  `/speckit.tasks`; translate review findings into plan changes, task items, or
+  explicit waived risks.
+- Keep feature artifacts in `specs/<feature>/`; keep durable project rules in the 5xP files.
+- When touching a submodule, add or update the smallest useful local documentation for its purpose, commands, configuration, contracts, and invariants.
+- Do not rely on chat history as the only explanation for a design or implementation decision.
+- If code, tests, runtime behavior, and docs disagree, stop and reconcile the contradiction before calling the work complete.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (1237 symbols, 1598 relationships, 39 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (1722 symbols, 2577 relationships, 98 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -151,3 +182,10 @@ This project is indexed by GitNexus as **mystra** (1237 symbols, 1598 relationsh
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Active Technologies
+- TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider (002-runtime-profile-context)
+- SQLite via `SqliteRdbProvider`, with future PG/Supabase compatibility preserved behind `RdbProvider` (002-runtime-profile-context)
+
+## Recent Changes
+- 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

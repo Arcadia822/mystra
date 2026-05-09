@@ -4,21 +4,21 @@
 
 Build `mystra`, an internal multi-task AI development container platform that reuses the Open Agents project as its framework foundation.
 
-The platform receives development tasks through an unauthenticated internal API/MCP surface, persists state through a local-first RDB provider, drives lifecycle through a local workflow provider, executes Codex CLI or GitHub Copilot CLI in Docker containers, records structured lifecycle events and final results, and produces reviewable GitLab branches and merge requests.
+The platform receives development tasks through an unauthenticated internal API/MCP surface, persists state through a local-first RDB provider, drives lifecycle through a local workflow provider, executes Codex CLI or GitHub Copilot CLI in Docker containers, records structured lifecycle events and final results, and produces reviewable GitLab/GitHub branches with merge requests or pull requests.
 
 The first release optimizes for internal trusted infrastructure and fast validation. It is not a public multi-tenant service.
 
 ## Assumptions
 
 1. Mystra reuses the Open Agents project as the framework foundation.
-2. The first deployment target is a single local or private bare-metal host.
-3. The MVP code-host target is GitLab only; GitHub repository integration is out of scope.
+2. The first deployment target is a single local or private high-capacity server that can run Mystra control-plane, runner, and Docker sandbox workloads.
+3. The MVP code-host targets are GitLab and GitHub.
 4. The MVP uses Docker runner containers on a configurable single host.
 5. The first RDB provider is local SQLite.
 6. The first workflow provider is a local dummy implementation; cloud workflow durability is future work.
 7. Mystra implements its own MCP server surface inside the control-plane app.
-8. Phase 1 uses a GitLab user PAT for clone, branch push, and merge request creation.
-9. MVP intentionally has no control-plane caller auth, no logs API, no retry API, and no callback URL. Runner workflow includes a deterministic `test -> build` quality gate before push/MR creation.
+8. Phase 1 uses GitLab/GitHub user tokens for clone, branch push, and merge request or pull request creation.
+9. MVP intentionally has no control-plane caller auth, no logs API, no retry API, and no callback URL. Runner workflow includes a deterministic `test -> build` quality gate before push/MR/PR creation.
 10. Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, and per-repo secret management are future work.
 
 ## Tech Stack
@@ -78,7 +78,6 @@ mystra/
     runner-daemon/       # Bare-metal daemon that registers and pulls jobs
   packages/
     shared/              # JobSpec, RunEvent, RunnerEvent, RunResult, state machine schemas
-    runner-image/        # Container entrypoint, mounted skills, and agent execution scripts
     agent-adapters/      # Codex and Copilot CLI adapter contracts and implementations
   docs/
     SPEC.md
@@ -136,10 +135,11 @@ interface RunResult {
 }
 ```
 
-Mystra does not sanitize `branchName`, generate fallback names, or resolve branch collisions in MVP. The task/repository context owns branch naming, MR title, and MR body.
+Mystra does not sanitize `branchName`, generate fallback names, or resolve branch collisions in MVP. The task/repository context owns branch naming, MR/PR title, and MR/PR body.
 
 The control plane owns persistent state:
 
+- `projects`
 - `jobs`
 - `runs`
 - `runner_sessions`
@@ -154,8 +154,8 @@ Mystra explicitly separates platform-scoped capabilities from project-scoped sta
 
 - `PlatformCapabilities` are declared by the runner platform and remain stable across jobs. This includes supported agents, executor type, and optional image identity.
 - `PlatformDefaults` are platform-level runtime defaults such as concurrency, timeout, heartbeat expiry, long-poll timeout, and container resource limits.
-- `ProjectConfig` is the per-job scoped state chosen for a repository task: repo, branch selection, agent choice, prompt, merge-request metadata, and opaque task metadata.
-- `JobSpec` remains the identity layer (`taskId`, `source`) plus the `ProjectConfig` fields needed to execute one task.
+- `Project` is the durable parent configuration for repository work: repo, default branch, default agent, runtime image, prewarm config, and opaque project metadata.
+- `JobSpec` remains the task identity layer (`taskId`, `source`) plus `projectId`, task branch, prompt, optional merge-request metadata, and optional repo/baseBranch/agent overrides.
 
 Success criteria for this boundary:
 
@@ -170,6 +170,11 @@ MVP public/control-plane APIs:
 
 ```text
 POST /mcp
+GET  /projects
+POST /projects
+GET  /projects/:slug
+PATCH /projects/:slug
+DELETE /projects/:slug
 POST /jobs
 GET  /jobs/:id
 POST /jobs/:id/cancel
@@ -192,6 +197,9 @@ MVP MCP tools:
 
 ```text
 mystra_create_job
+mystra_create_project
+mystra_list_projects
+mystra_get_project
 mystra_get_job
 mystra_cancel_job
 mystra_list_runners
@@ -227,33 +235,36 @@ export const platformDefaultsSchema = z
   })
   .strict();
 
-export const projectConfigSchema = z
+const jsonObjectSchema = z.record(z.string(), z.unknown());
+
+export const projectSchema = z
   .object({
+    id: z.string().uuid(),
+    name: z.string().min(1),
+    slug: z.string().min(1),
     repo: z.string().min(1),
     baseBranch: z.string().min(1).default("main"),
-    branchName: z.string().min(1),
-    agent: z.enum(["codex", "copilot"]),
-    prompt: z.string().min(1),
-    mergeRequest: z
-      .object({
-        title: z.string().min(1).optional(),
-        body: z.string().optional(),
-      })
-      .optional(),
-    metadata: z.record(z.string(), z.unknown()).default({}),
+    defaultAgent: agentNameSchema,
+    image: z.string().min(1),
+    prewarmConfig: jsonObjectSchema.default({}),
+    metadata: jsonObjectSchema.default({}),
+    archivedAt: z.string().datetime().nullable().default(null),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
   })
   .strict();
 
 export const jobSpecSchema = z.object({
   taskId: z.string().min(1),
   source: z.enum(["mcp", "api"]),
-  repo: projectConfigSchema.shape.repo,
-  baseBranch: projectConfigSchema.shape.baseBranch,
-  branchName: projectConfigSchema.shape.branchName,
-  agent: projectConfigSchema.shape.agent,
-  prompt: projectConfigSchema.shape.prompt,
-  mergeRequest: projectConfigSchema.shape.mergeRequest,
-  metadata: projectConfigSchema.shape.metadata,
+  projectId: z.string().uuid(),
+  repo: z.string().min(1).optional(),
+  baseBranch: z.string().min(1).optional(),
+  branchName: z.string().min(1),
+  agent: agentNameSchema.optional(),
+  prompt: z.string().min(1),
+  mergeRequest: mergeRequestSpecSchema.optional(),
+  metadata: jsonObjectSchema.default({}),
 });
 
 export type JobSpec = z.infer<typeof jobSpecSchema>;
@@ -296,7 +307,7 @@ Default limits:
 
 These defaults should be represented by a typed `PlatformDefaults` contract even if some runtime paths still read them from prose or environment-specific config today.
 
-There is no MVP fix loop after deterministic test failure. The runner executes a `test -> build` gate once; failure stops push/MR creation with `quality_gate_failed`.
+There is no MVP fix loop after deterministic test failure. The runner executes a `test -> build` gate once; failure stops push/MR/PR creation with `quality_gate_failed`.
 
 ## Credential Strategy
 
@@ -307,17 +318,24 @@ GitLab:
 - Store the PAT on the runner host and inject it into the task container as an env var or read-only secret file.
 - The task container performs clone, push, and MR creation in MVP. This intentionally gives the task container broad GitLab authority.
 
+GitHub:
+
+- Use a GitHub user token or fine-grained PAT for MVP.
+- Required permissions must cover repository clone/push and pull request creation for the target repository.
+- Store the token on the runner host and inject it into the task container as an env var or read-only secret file.
+- The task container performs clone, push, and PR creation in MVP. This intentionally gives the task container broad GitHub authority.
+
 Codex CLI:
 
 - Support `CODEX_HOME` pointing at a runner-managed credential directory.
 - For ChatGPT Pro subscription access, login is performed on the trusted runner host, then the resulting Codex auth cache is mounted into the container for Codex runs.
-- Remote runner validation on `10.106.2.127` installed Codex CLI `0.125.0`.
+- Prior remote runner validation on the development host installed Codex CLI `0.125.0`.
 - Copying local ChatGPT `~/.codex/auth.json` to a runner-managed `.codex` directory makes `codex login status` work on the runner and in Docker.
 - Full `codex exec` from the runner passed after Mihomo proxy setup and sourcing `/root/.mystra/proxy.env`.
 
 GitHub Copilot CLI:
 
-- Remote runner validation passed on `10.106.2.127` with GitHub Copilot CLI `1.0.39`, a personal fine-grained PAT with Copilot Requests permission, and Docker `debian:12`.
+- Prior remote runner validation passed on the development host with GitHub Copilot CLI `1.0.39`, a personal fine-grained PAT with Copilot Requests permission, and Docker `debian:12`.
 - Use `COPILOT_GITHUB_TOKEN` for non-interactive container runs.
 - Set `COPILOT_HOME` to an ephemeral per-run directory.
 - Pass Copilot redaction flags where supported.
@@ -383,8 +401,8 @@ Each event includes `run_id`, `job_id`, `timestamp`, `type`, `severity`, and str
 - Runner daemon may access the host Docker socket; task containers must not mount the Docker socket.
 - Task containers must not mount the host home directory.
 - Each task gets an isolated workspace volume or directory that is destroyed after release unless retained as an artifact.
-- GitLab and Copilot tokens enter containers only as environment variables or read-only secret files.
-- Branch naming, MR title, and MR body are controlled by the task definition and repository-provided templates; Mystra does not impose a global branch/MR naming policy in MVP.
+- GitLab, GitHub, and Copilot tokens enter containers only as environment variables or read-only secret files.
+- Branch naming, MR/PR title, and MR/PR body are controlled by the task definition and repository-provided templates; Mystra does not impose a global branch/MR/PR naming policy in MVP.
 
 ## Boundaries
 
@@ -399,7 +417,6 @@ Always:
 
 Ask first:
 
-- Adding GitHub repository support.
 - Replacing Docker MVP with Kubernetes, Firecracker, E2B, gVisor, or Kata.
 - Adding OAuth, tokens, rate limits, IP allowlists, or multi-tenant product features.
 - Making any workflow provider the primary state store.
@@ -426,7 +443,7 @@ MVP is complete when:
 - The runner can start a Docker container with a normalized task file.
 - The container can run Codex or Copilot against a fixture repository.
 - Strong cancel and timeout paths stop the container and mark the run correctly.
-- The result includes GitLab branch/MR metadata or a structured failure reason.
+- The result includes GitLab branch/MR metadata, GitHub branch/PR metadata, or a structured failure reason.
 - Runner cache miss/corruption falls back to cold clone/install.
 - Tests cover job idempotency, state transitions, SQL claim concurrency, runner heartbeat expiry, unknown agent rejection, credential injection shape, fake-runner completion, cancellation, and cache mount safety.
 
@@ -436,7 +453,8 @@ Before enabling real runner jobs:
 
 - Local SQLite database path is configured and writable.
 - `RUNNER_REGISTRATION_TOKEN` is configured in the control plane and runner daemon.
-- GitLab user PAT has `read_repository`, `write_repository`, and `api` scopes.
+- GitLab user PAT has `read_repository`, `write_repository`, and `api` scopes when validating GitLab flows.
+- GitHub token has repository read/write and pull request permissions when validating GitHub flows.
 - Copilot PAT has been rotated after validation and stored in the runner secret file.
 - Runner image includes Node 24, Python 3, uv, `ca-certificates`, `git`, `openssh-client`, `curl`, Codex CLI, and Copilot CLI.
 - Runner host has configured repo cache, pnpm store cache, and uv cache directories.
@@ -456,4 +474,3 @@ Before enabling real runner jobs:
 - Remote shared cache or cross-runner cache.
 - Object storage for logs/artifacts.
 - Per-repo/per-org secret registry.
-- GitHub repository support.

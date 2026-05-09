@@ -10,7 +10,6 @@ apps/workflows        Workflow provider implementations and orchestration adapte
 apps/runner-daemon    Bare-metal runner service
 packages/shared       Zod schemas, state machine, events, result contracts
 packages/agent-adapters
-packages/runner-image Docker image entrypoint, mounted skills, agent execution
 plugins/supabase      Supabase plugin skills for future/cloud provider work
 supabase              Migrations, seed, generated database types
 ```
@@ -62,7 +61,10 @@ pnpm --filter @mystra/control-plane dev
 - Runner caches are performance aids only and must fall back to cold clone/install.
 - Secrets must be injected at runtime through environment variables or read-only files.
 - Do not bake Codex auth, Copilot tokens, proxy credentials, or runner secrets into images.
-- `JobSpec` carries task identity and project configuration, not platform capabilities.
+- Project runtime config owns per-project execution settings such as Docker image, context bundles, mounts, exposed ports, cache policy, and secret references.
+- `Project.runtime.image` is the first-version Docker image contract; there is no top-level `Project.image` compatibility field.
+- `JobSpec` carries task identity and optional policy-limited runtime overrides, not platform capabilities.
+- Runner claim responses include a resolved runtime contract; runner daemons execute that contract instead of independently interpreting Project fields.
 
 ## Provider Boundary
 

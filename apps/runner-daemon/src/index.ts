@@ -3,6 +3,7 @@ import { networkInterfaces, tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import type { ResolvedRuntimeContract } from "@mystra/shared";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 
 interface RunnerConfig {
@@ -10,7 +11,6 @@ interface RunnerConfig {
   runnerName: string;
   once: boolean;
   executor: "fake" | "docker";
-  runnerImage: string;
   workspaceRoot: string;
   cacheRoot: string;
   codexAuthDir: string | undefined;
@@ -43,6 +43,12 @@ interface ClaimedJobResponse {
   run: {
     id: string;
   } | null;
+  project: {
+    id: string;
+    slug: string;
+    prewarmConfig: Record<string, unknown>;
+  } | null;
+  runtime: ResolvedRuntimeContract | null;
 }
 
 interface DockerResult {
@@ -68,7 +74,6 @@ function readConfig(): RunnerConfig {
     runnerName: process.env.MYSTRA_RUNNER_NAME ?? "local-runner",
     once: process.env.MYSTRA_RUNNER_ONCE === "1",
     executor: process.env.MYSTRA_EXECUTOR === "docker" ? "docker" : "fake",
-    runnerImage: process.env.MYSTRA_RUNNER_IMAGE ?? "mystra-runner:local",
     workspaceRoot: process.env.MYSTRA_WORKSPACE_ROOT ?? path.join(tmpdir(), "mystra-workspaces"),
     cacheRoot: process.env.MYSTRA_CACHE_ROOT ?? path.join(process.env.HOME ?? tmpdir(), ".mystra", "cache"),
     codexAuthDir: process.env.MYSTRA_CODEX_AUTH_DIR,
@@ -183,8 +188,14 @@ async function register(config: RunnerConfig): Promise<RegisterResponse> {
     runnerName: config.runnerName,
     capabilities: {
       executor: config.executor,
-      image: config.executor === "docker" ? config.runnerImage : undefined,
       agents: ["codex", "copilot"],
+      providers: config.executor === "docker" ? ["docker"] : [],
+      contextBundleModes: config.executor === "docker" ? ["read-only", "job-scoped"] : [],
+      mountKinds: config.executor === "docker" ? ["workspace", "gitMirror", "cache", "contextBundle", "secret"] : [],
+      portExposure: {
+        supportsDynamicHostPorts: config.executor === "docker",
+      },
+      secretInjectionModes: config.executor === "docker" ? ["env"] : [],
     },
     maxConcurrency: 1,
   });
@@ -318,6 +329,147 @@ async function dockerTaskScript(): Promise<string> {
   return await readFile(sourceRelativePath, "utf8");
 }
 
+function defaultDockerMounts(): ResolvedRuntimeContract["mounts"] {
+  return [
+    { kind: "workspace", owner: "system", target: "/mystra/workspace", readOnly: false },
+    { kind: "gitMirror", owner: "system", target: "/mystra/cache/git/repo.git", readOnly: true },
+    { kind: "cache", owner: "system", target: "/mystra/cache/pnpm-store", sourceRef: "pnpm-store", readOnly: false },
+    { kind: "cache", owner: "system", target: "/mystra/cache/uv", sourceRef: "uv", readOnly: false },
+    { kind: "cache", owner: "system", target: "/mystra/cache/uv-python", sourceRef: "uv-python", readOnly: false },
+  ];
+}
+
+function mountIdentity(mount: ResolvedRuntimeContract["mounts"][number]): string {
+  return `${mount.kind}:${mount.target}`;
+}
+
+function effectiveDockerMounts(runtimeMounts: ResolvedRuntimeContract["mounts"]): ResolvedRuntimeContract["mounts"] {
+  const merged = [...defaultDockerMounts()];
+  const seen = new Set(merged.map(mountIdentity));
+
+  for (const mount of runtimeMounts) {
+    const key = mountIdentity(mount);
+    if (seen.has(key)) {
+      continue;
+    }
+    merged.push(mount);
+    seen.add(key);
+  }
+
+  return merged;
+}
+
+function defaultDockerPorts(): ResolvedRuntimeContract["exposedPorts"] {
+  return [
+    { containerPort: 3000, hostBinding: "0.0.0.0::3000", name: "frontend" },
+    { containerPort: 8000, hostBinding: "0.0.0.0::8000", name: "backend" },
+  ];
+}
+
+function defaultDockerSecrets(): ResolvedRuntimeContract["secrets"] {
+  return [{ name: "MYSTRA_GITLAB_TOKEN", mode: "env" }];
+}
+
+function cachePath(config: RunnerConfig, mount: ResolvedRuntimeContract["mounts"][number]): string {
+  const cacheName = mount.sourceRef ?? path.basename(mount.target);
+  return path.join(config.cacheRoot, cacheName);
+}
+
+function runtimeMountSource(
+  config: RunnerConfig,
+  workspace: string,
+  gitMirror: string,
+  mount: ResolvedRuntimeContract["mounts"][number],
+): string {
+  switch (mount.kind) {
+    case "workspace":
+      return workspace;
+    case "gitMirror":
+      return gitMirror;
+    case "cache":
+      return cachePath(config, mount);
+    case "contextBundle":
+      if (!mount.sourceRef) {
+        throw new Error(`Runtime contextBundle mount for ${mount.target} is missing sourceRef`);
+      }
+      return path.join(config.cacheRoot, "context-bundles", mount.sourceRef);
+    case "secret":
+      if (!mount.sourceRef) {
+        throw new Error(`Runtime secret mount for ${mount.target} is missing sourceRef`);
+      }
+      return mount.sourceRef;
+  }
+}
+
+function appendRuntimeMounts(
+  dockerArgs: string[],
+  config: RunnerConfig,
+  workspace: string,
+  gitMirror: string,
+  mounts: ResolvedRuntimeContract["mounts"],
+): void {
+  for (const mount of mounts) {
+    const suffix = mount.readOnly ? ":ro" : "";
+    dockerArgs.push("-v", `${runtimeMountSource(config, workspace, gitMirror, mount)}:${mount.target}${suffix}`);
+  }
+}
+
+function appendRuntimePorts(dockerArgs: string[], ports: ResolvedRuntimeContract["exposedPorts"]): void {
+  for (const port of ports) {
+    dockerArgs.push("-p", port.hostBinding ?? `0.0.0.0::${port.containerPort}`);
+  }
+}
+
+function appendRuntimeSecrets(
+  dockerArgs: string[],
+  env: NodeJS.ProcessEnv,
+  secrets: ResolvedRuntimeContract["secrets"],
+): void {
+  for (const secret of secrets) {
+    if (secret.mode !== "env") {
+      throw new Error(`Runtime secret mode ${secret.mode} is not implemented by the Docker runner`);
+    }
+    const target = secret.target ?? secret.name;
+    if (target === secret.name) {
+      dockerArgs.push("-e", secret.name);
+    } else {
+      env[target] = process.env[secret.name];
+      dockerArgs.push("-e", target);
+    }
+  }
+}
+
+function previewPort(
+  ports: ResolvedRuntimeContract["exposedPorts"],
+  name: string,
+  containerPort: number,
+): number | undefined {
+  return ports.find((port) => port.name === name)?.containerPort
+    ?? ports.find((port) => port.containerPort === containerPort)?.containerPort;
+}
+
+function renderRuntimeContextPrompt(runtime: ResolvedRuntimeContract): string[] {
+  const lines = ["Mystra context bundles:"];
+  if (runtime.contextBundles.length === 0) {
+    lines.push("- No explicit context bundles were resolved for this run.");
+    return lines;
+  }
+
+  for (const bundle of runtime.contextBundles) {
+    const mountedAt = bundle.mountPath ? ` mounted at ${bundle.mountPath}` : "";
+    lines.push(`- ${bundle.slug}: ${bundle.required ? "required" : "optional"}, ${bundle.accessMode}, ${bundle.source.kind}${mountedAt}`);
+    if (bundle.source.ref) {
+      lines.push(`  - Source ref: ${bundle.source.ref}`);
+    }
+    const prompt = bundle.source.metadata.prompt ?? bundle.source.metadata.instructions;
+    if (typeof prompt === "string" && prompt.trim()) {
+      lines.push(`  - ${prompt.trim()}`);
+    }
+  }
+
+  return lines;
+}
+
 async function executeFakeJob(
   config: RunnerConfig,
   token: string,
@@ -356,11 +508,22 @@ async function executeDockerJob(
   token: string,
   claim: ClaimedJobResponse,
 ): Promise<void> {
-  if (!claim.job || !claim.run) {
+  if (!claim.job || !claim.run || !claim.project) {
     return;
   }
 
-  const { job, run } = claim;
+  const { job, run, project, runtime } = claim;
+  if (!runtime) {
+    throw new Error(`Claimed Docker job ${job.id} is missing resolved runtime`);
+  }
+  if (runtime.provider !== "docker") {
+    throw new Error(`Claimed Docker job ${job.id} uses unsupported runtime provider ${runtime.provider}`);
+  }
+
+  const image = runtime.environment.image;
+  const runtimeMounts = effectiveDockerMounts(runtime.mounts);
+  const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts();
+  const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets();
   const gitlabToken = requiredEnv("MYSTRA_GITLAB_TOKEN");
   const gitMirror = await refreshGitMirror(config, job.spec.repo);
   await mkdir(config.workspaceRoot, { recursive: true });
@@ -370,17 +533,14 @@ async function executeDockerJob(
   const resultPath = path.join(workspace, "result.json");
 
   await mkdir(workspace, { recursive: true });
+  for (const mount of runtimeMounts) {
+    if (mount.kind === "cache") {
+      await mkdir(cachePath(config, mount), { recursive: true });
+    }
+  }
   await writeFile(scriptPath, await dockerTaskScript(), { mode: 0o755 });
   await writeFile(promptPath, [
-    "Mystra container skill:",
-    "- Read and follow /mystra/skills/agent-skills/SKILL.md before planning, editing, testing, and summarizing.",
-    "- The full agent-skills group is available directly under /mystra/skills; use the relevant phase skill files during the whole workflow.",
-    "- agent-skills is required for the entire research and development workflow, not only for final review.",
-    "",
-    "Mystra issue context boundary:",
-    "- Linear issue IDs, titles, and requirements are already supplied in this prompt by Mystra.",
-    "- Do not start, authenticate to, or query Linear, Linear MCP, mcp-remote, or any OAuth flow from inside this task container.",
-    "- If more issue context seems necessary, proceed from the prompt and note the missing context in your final summary instead of accessing Linear.",
+    ...renderRuntimeContextPrompt(runtime),
     "",
     "User task:",
     job.spec.prompt,
@@ -394,21 +554,20 @@ async function executeDockerJob(
   console.log(`[mystra-runner] docker claimed job=${job.id} run=${run.id} task=${job.spec.taskId}`);
   await emitEvent(config, token, run.id, "container.starting", {
     executor: "docker",
-    image: config.runnerImage,
+    image,
+    projectSlug: project.slug,
   });
 
   const containerName = `mystra-${run.id}`;
+  const containerEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    MYSTRA_GITLAB_TOKEN: gitlabToken,
+  };
   const dockerArgs = [
     "run",
     "-d",
     "--name",
     containerName,
-	    "-p",
-	    "0.0.0.0::3000",
-	    "-p",
-	    "0.0.0.0::8000",
-    "-e",
-    "MYSTRA_GITLAB_TOKEN",
     "-e",
     "MYSTRA_SKILLS_DIR=/mystra/skills",
     "-e",
@@ -453,17 +612,10 @@ async function executeDockerJob(
     "UV_PYTHON_INSTALL_DIR=/mystra/cache/uv-python",
     "-e",
     "UV_LINK_MODE=copy",
-    "-v",
-    `${workspace}:/mystra/workspace`,
-    "-v",
-    `${gitMirror}:/mystra/cache/git/repo.git:ro`,
-    "-v",
-    `${path.join(config.cacheRoot, "pnpm-store")}:/mystra/cache/pnpm-store`,
-    "-v",
-    `${path.join(config.cacheRoot, "uv")}:/mystra/cache/uv`,
-    "-v",
-    `${path.join(config.cacheRoot, "uv-python")}:/mystra/cache/uv-python`,
   ];
+  appendRuntimePorts(dockerArgs, runtimePorts);
+  appendRuntimeSecrets(dockerArgs, containerEnv, runtimeSecrets);
+  appendRuntimeMounts(dockerArgs, config, workspace, gitMirror, runtimeMounts);
 
   if (job.spec.agent === "codex" && config.codexAuthDir) {
     dockerArgs.push("-v", `${config.codexAuthDir}:/root/.codex`);
@@ -474,23 +626,27 @@ async function executeDockerJob(
   }
   appendContainerProxyEnv(dockerArgs, config, job.spec.repo);
 
-  dockerArgs.push(config.runnerImage, "sleep", "infinity");
+  dockerArgs.push(image, "sleep", "infinity");
 
   try {
     const containerId = await runCommandCapture("docker", dockerArgs, {
-      env: {
-        ...process.env,
-        MYSTRA_GITLAB_TOKEN: gitlabToken,
-      },
+      env: containerEnv,
     });
-    const frontendPort = await runCommandCapture("docker", ["port", containerName, "3000/tcp"]);
-    const backendPort = await runCommandCapture("docker", ["port", containerName, "8000/tcp"]);
-    const frontendUrl = `http://${config.previewHost}:${frontendPort.split(":").at(-1)}`;
-    const backendUrl = `http://${config.previewHost}:${backendPort.split(":").at(-1)}`;
+    const frontendContainerPort = previewPort(runtimePorts, "frontend", 3000);
+    const backendContainerPort = previewPort(runtimePorts, "backend", 8000);
+    const frontendPort = frontendContainerPort
+      ? await runCommandCapture("docker", ["port", containerName, `${frontendContainerPort}/tcp`])
+      : "";
+    const backendPort = backendContainerPort
+      ? await runCommandCapture("docker", ["port", containerName, `${backendContainerPort}/tcp`])
+      : "";
+    const frontendUrl = frontendPort ? `http://${config.previewHost}:${frontendPort.split(":").at(-1)}` : null;
+    const backendUrl = backendPort ? `http://${config.previewHost}:${backendPort.split(":").at(-1)}` : null;
 
     await emitEvent(config, token, run.id, "container.started", {
       executor: "docker",
-      image: config.runnerImage,
+      image,
+      projectSlug: project.slug,
       containerId,
       containerName,
       frontendUrl,

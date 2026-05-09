@@ -2,25 +2,33 @@ import { describe, expect, it } from "vitest";
 
 import {
   agentNameSchema,
+  contextBundleCreateSchema,
+  contextBundleSchema,
   jobSpecSchema,
+  jobRuntimeOverrideSchema,
   platformCapabilitiesSchema,
   platformDefaultsSchema,
-  projectConfigSchema,
+  projectCreateSchema,
+  projectRuntimeConfigSchema,
+  projectSchema,
+  projectUpdateSchema,
+  resolvedRuntimeContractSchema,
   runnerRegistrationSchema,
 } from "./schemas.js";
 
 describe("jobSpecSchema", () => {
-  it("accepts a minimal API job with a task-provided branch name", () => {
+  it("accepts a minimal API job with projectId and a task-provided branch name", () => {
     const parsed = jobSpecSchema.parse({
       taskId: "task-1",
       source: "api",
-      repo: "gitlab.example.com/group/project",
+      projectId: "00000000-0000-4000-8000-000000000001",
       branchName: "feature/mystra-task-1",
-      agent: "codex",
       prompt: "Update the README",
     });
 
-    expect(parsed.baseBranch).toBe("main");
+    expect(parsed.projectId).toBe("00000000-0000-4000-8000-000000000001");
+    expect(parsed.baseBranch).toBeUndefined();
+    expect(parsed.agent).toBeUndefined();
     expect(parsed.metadata).toEqual({});
     expect(parsed.branchName).toBe("feature/mystra-task-1");
   });
@@ -29,13 +37,17 @@ describe("jobSpecSchema", () => {
     const parsed = jobSpecSchema.parse({
       taskId: "task-2",
       source: "mcp",
+      projectId: "00000000-0000-4000-8000-000000000002",
       repo: "gitlab.example.com/group/project",
+      baseBranch: "develop",
       branchName: "UPPER/space allowed by task",
       agent: "copilot",
       prompt: "Make the requested change",
     });
 
     expect(parsed.branchName).toBe("UPPER/space allowed by task");
+    expect(parsed.baseBranch).toBe("develop");
+    expect(parsed.agent).toBe("copilot");
   });
 
   it("rejects jobs without a branch name", () => {
@@ -43,8 +55,18 @@ describe("jobSpecSchema", () => {
       jobSpecSchema.parse({
         taskId: "task-3",
         source: "api",
-        repo: "gitlab.example.com/group/project",
-        agent: "codex",
+        projectId: "00000000-0000-4000-8000-000000000003",
+        prompt: "Update the README",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects jobs without a projectId", () => {
+    expect(() =>
+      jobSpecSchema.parse({
+        taskId: "task-missing-project",
+        source: "api",
+        branchName: "feature/missing-project",
         prompt: "Update the README",
       }),
     ).toThrow();
@@ -60,9 +82,8 @@ describe("jobSpecSchema", () => {
       jobSpecSchema.parse({
         taskId: "task-4",
         source: "api",
-        repo: "gitlab.example.com/group/project",
+        projectId: "00000000-0000-4000-8000-000000000004",
         branchName: "feature/task-4",
-        agent: "codex",
         prompt: "Update the README",
         callbackUrl: "https://example.com/callback",
       }),
@@ -76,11 +97,21 @@ describe("platformCapabilitiesSchema", () => {
       agents: ["codex", "copilot"],
       executor: "docker",
       image: "ghcr.io/acme/mystra-runner:latest",
+      providers: ["docker"],
+      contextBundleModes: ["read-only"],
+      mountKinds: ["workspace", "gitMirror"],
+      portExposure: { supportsDynamicHostPorts: true },
+      secretInjectionModes: ["env"],
     });
 
     expect(parsed.agents).toEqual(["codex", "copilot"]);
     expect(parsed.executor).toBe("docker");
     expect(parsed.image).toBe("ghcr.io/acme/mystra-runner:latest");
+    expect(parsed.providers).toEqual(["docker"]);
+    expect(parsed.contextBundleModes).toEqual(["read-only"]);
+    expect(parsed.mountKinds).toEqual(["workspace", "gitMirror"]);
+    expect(parsed.portExposure.supportsDynamicHostPorts).toBe(true);
+    expect(parsed.secretInjectionModes).toEqual(["env"]);
   });
 
   it("accepts capabilities without an image override", () => {
@@ -90,6 +121,7 @@ describe("platformCapabilitiesSchema", () => {
     });
 
     expect(parsed.image).toBeUndefined();
+    expect(parsed.providers).toEqual([]);
   });
 
   it("rejects unknown capability keys", () => {
@@ -116,6 +148,161 @@ describe("platformCapabilitiesSchema", () => {
       platformCapabilitiesSchema.parse({
         agents: ["codex"],
         executor: "kubernetes",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects unsupported runtime capability values", () => {
+    expect(() =>
+      platformCapabilitiesSchema.parse({
+        agents: ["codex"],
+        executor: "docker",
+        providers: ["kubernetes"],
+      }),
+    ).toThrow();
+    expect(() =>
+      platformCapabilitiesSchema.parse({
+        agents: ["codex"],
+        executor: "docker",
+        mountKinds: ["dockerSocket"],
+      }),
+    ).toThrow();
+    expect(() =>
+      platformCapabilitiesSchema.parse({
+        agents: ["codex"],
+        executor: "docker",
+        contextBundleModes: ["mutable"],
+      }),
+    ).toThrow();
+    expect(() =>
+      platformCapabilitiesSchema.parse({
+        agents: ["codex"],
+        executor: "docker",
+        secretInjectionModes: ["vault"],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("runtime schemas", () => {
+  it("accepts Project-owned Docker runtime config", () => {
+    const parsed = projectRuntimeConfigSchema.parse({
+      provider: "docker",
+      image: "registry.example.com/castrel/runtime:latest",
+      contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
+      mounts: [{ kind: "workspace", target: "/mystra/workspace", readOnly: false }],
+      secretRefs: [{ name: "MYSTRA_GITLAB_TOKEN", mode: "env" }],
+    });
+
+    expect(parsed.image).toBe("registry.example.com/castrel/runtime:latest");
+    expect(parsed.overridePolicy.allowImageOverride).toBe(false);
+    expect(parsed.contextBundleRefs[0]?.slug).toBe("agent-skills");
+    expect(parsed.mounts[0]?.owner).toBe("project");
+  });
+
+  it("accepts only constrained job runtime overrides", () => {
+    const parsed = jobRuntimeOverrideSchema.parse({
+      runtimeProfile: "frontend-dev",
+      provider: "docker",
+      image: "registry.example.com/castrel/frontend:latest",
+      contextBundleRefs: [{ slug: "issue-context", accessMode: "job-scoped" }],
+      metadata: { reason: "smoke-test" },
+    });
+
+    expect(parsed.runtimeProfile).toBe("frontend-dev");
+    expect(parsed.contextBundleRefs?.[0]?.required).toBe(true);
+  });
+
+  it("rejects job runtime overrides for mount, secret, cache, or port mutation", () => {
+    const base = {
+      provider: "docker",
+      image: "registry.example.com/castrel/runtime:latest",
+    };
+
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, mounts: [] })).toThrow();
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, secretRefs: [] })).toThrow();
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, cache: { entries: [] } })).toThrow();
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, exposedPorts: [] })).toThrow();
+  });
+
+  it("rejects forbidden runtime mounts", () => {
+    expect(() =>
+      projectRuntimeConfigSchema.parse({
+        provider: "docker",
+        image: "registry.example.com/castrel/runtime:latest",
+        mounts: [{ kind: "workspace", target: "/root/.codex", readOnly: true }],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      projectRuntimeConfigSchema.parse({
+        provider: "docker",
+        image: "registry.example.com/castrel/runtime:latest",
+        mounts: [{ kind: "workspace", target: "/var/run/docker.sock", readOnly: true }],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts resolved runtime contracts for runner claims", () => {
+    const parsed = resolvedRuntimeContractSchema.parse({
+      provider: "docker",
+      environment: {
+        image: "mystra-runner:local",
+      },
+      contextBundles: [],
+      mounts: [],
+      exposedPorts: [{ containerPort: 3000, hostBinding: "0.0.0.0::3000" }],
+      cache: { coldStartAllowed: true, entries: [] },
+      secrets: [{ name: "MYSTRA_GITLAB_TOKEN", mode: "env" }],
+    });
+
+    expect(parsed.environment.image).toBe("mystra-runner:local");
+    expect(parsed.environment.metadata).toEqual({});
+  });
+
+  it("accepts context bundle definitions and create payloads", () => {
+    const created = contextBundleCreateSchema.parse({
+      slug: "agent-skills",
+      displayName: "Agent Skills",
+      source: { kind: "local-template", ref: "agent-skills" },
+      accessMode: "read-only",
+      mountPath: "/mystra/skills",
+      failureMode: "fail-run",
+    });
+
+    expect(created.archivedAt).toBeNull();
+    expect(created.source.metadata).toEqual({});
+
+    const persisted = contextBundleSchema.parse({
+      id: "00000000-0000-4000-8000-000000000020",
+      ...created,
+      createdAt: "2026-05-09T00:00:00.000Z",
+      updatedAt: "2026-05-09T00:00:00.000Z",
+    });
+
+    expect(persisted.mountPath).toBe("/mystra/skills");
+  });
+
+  it("rejects context bundle mount paths that target host home or Docker socket", () => {
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: "bad-home",
+        displayName: "Bad Home",
+        source: { kind: "local-template", ref: "bad-home" },
+        accessMode: "read-only",
+        mountPath: "/root/.codex",
+        failureMode: "fail-run",
+      }),
+    ).toThrow();
+
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: "bad-docker",
+        displayName: "Bad Docker",
+        source: { kind: "local-template", ref: "bad-docker" },
+        accessMode: "read-only",
+        mountPath: "/var/run/docker.sock",
+        failureMode: "fail-run",
       }),
     ).toThrow();
   });
@@ -153,54 +340,93 @@ describe("platformDefaultsSchema", () => {
   });
 });
 
-describe("projectConfigSchema", () => {
-  it("accepts project-scoped config and applies metadata/baseBranch defaults", () => {
-    const parsed = projectConfigSchema.parse({
+describe("projectSchema", () => {
+  it("accepts a persisted project and applies JSON/archive defaults", () => {
+    const parsed = projectSchema.parse({
+      id: "00000000-0000-4000-8000-000000000010",
+      name: "Castrel AI",
+      slug: "castrel-ai",
       repo: "gitlab.example.com/group/project",
-      branchName: "feature/project-config",
-      agent: "copilot",
-      prompt: "Implement the requested change",
+      defaultAgent: "copilot",
+      runtime: {
+        provider: "docker",
+        image: "registry.example.com/castrel/runtime:latest",
+      },
+      createdAt: "2026-05-09T00:00:00.000Z",
+      updatedAt: "2026-05-09T00:00:00.000Z",
     });
 
     expect(parsed.baseBranch).toBe("main");
+    expect(parsed.archivedAt).toBeNull();
+    expect(parsed.prewarmConfig).toEqual({});
     expect(parsed.metadata).toEqual({});
+    expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
   });
 
-  it("accepts merge request metadata", () => {
-    const parsed = projectConfigSchema.parse({
+  it("accepts project create payloads with runtime.image", () => {
+    const parsed = projectCreateSchema.parse({
+      name: "Castrel AI",
+      slug: "castrel-ai",
       repo: "gitlab.example.com/group/project",
-      branchName: "feature/mr-spec",
-      agent: "codex",
-      prompt: "Prepare a merge request",
-      mergeRequest: {
-        title: "Add typed project config",
-        body: "Document the new separation.",
+      defaultAgent: "codex",
+      runtime: {
+        provider: "docker",
+        image: "registry.example.com/castrel/runtime:latest",
       },
     });
 
-    expect(parsed.mergeRequest?.title).toBe("Add typed project config");
+    expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
   });
 
-  it("rejects platform capability fields", () => {
+  it("rejects project create payloads without runtime.image", () => {
     expect(() =>
-      projectConfigSchema.parse({
+      projectCreateSchema.parse({
+        name: "Castrel AI",
+        slug: "castrel-ai",
         repo: "gitlab.example.com/group/project",
-        branchName: "feature/invalid-project-config",
-        agent: "codex",
-        prompt: "Keep concerns separate",
-        executor: "docker",
+        defaultAgent: "codex",
       }),
     ).toThrow();
   });
 
-  it("rejects unknown project fields", () => {
+  it("rejects server-owned fields on create", () => {
     expect(() =>
-      projectConfigSchema.parse({
+      projectCreateSchema.parse({
+        id: "00000000-0000-4000-8000-000000000011",
+        name: "Castrel AI",
+        slug: "castrel-ai",
         repo: "gitlab.example.com/group/project",
-        branchName: "feature/invalid-project-config",
-        agent: "codex",
-        prompt: "Keep concerns separate",
-        image: "ghcr.io/acme/mystra-runner:latest",
+        defaultAgent: "codex",
+        runtime: {
+          provider: "docker",
+          image: "registry.example.com/castrel/runtime:latest",
+        },
+      }),
+    ).toThrow();
+  });
+
+  it("accepts update payloads that restore archived projects", () => {
+    const parsed = projectUpdateSchema.parse({
+      archivedAt: null,
+      defaultAgent: "copilot",
+    });
+
+    expect(parsed.archivedAt).toBeNull();
+    expect(parsed.defaultAgent).toBe("copilot");
+  });
+
+  it("rejects platform capability fields", () => {
+    expect(() =>
+      projectCreateSchema.parse({
+        name: "Castrel AI",
+        slug: "castrel-ai",
+        repo: "gitlab.example.com/group/project",
+        defaultAgent: "codex",
+        runtime: {
+          provider: "docker",
+          image: "ghcr.io/acme/mystra-runner:latest",
+        },
+        executor: "docker",
       }),
     ).toThrow();
   });

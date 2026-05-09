@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
+import { runnerRegistrationSchema } from "@mystra/shared";
 
+import { getDb } from "@/lib/db";
 import { jsonError } from "@/lib/http";
-import { registerLocalRunner } from "@/lib/local-store";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const session = registerLocalRunner({
-      runnerName: String(body.runnerName ?? "local-runner"),
-      capabilities: typeof body.capabilities === "object" && body.capabilities !== null ? body.capabilities : undefined,
-      maxConcurrency: Number(body.maxConcurrency ?? 1),
-    });
+    const body = runnerRegistrationSchema.parse(await request.json());
+    const session = getDb().registerRunner(body);
 
     return NextResponse.json({
       runnerSessionId: session.id,

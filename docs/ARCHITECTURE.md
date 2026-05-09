@@ -58,12 +58,12 @@ Excalidraw 文件包含一个分层架构视图：
 
 Mystra 明确区分平台能力与项目状态：
 
-- `PlatformCapabilities`：runner 注册时声明的平台运行时能力，包括支持的 agent、executor 类型和可选 image 标识。
+- `PlatformCapabilities`：runner 注册时声明的平台运行时能力，包括支持的 agent 和 executor 类型。
 - `PlatformDefaults`：平台级默认限制，包括并发、超时、心跳过期、长轮询超时、CPU 和内存配额。
-- `ProjectConfig`：每个任务的项目作用域配置，包括 repo、分支、agent 选择、prompt 和 merge request spec。
-- `JobSpec`：身份层（`taskId`、`source`）加上当前任务需要的 `ProjectConfig` 字段，不承载平台级执行能力。
+- `Project`：项目作用域配置，包括 repo、默认分支、默认 agent、运行镜像、预热配置和元数据。
+- `JobSpec`：身份层（`taskId`、`source`）加 `projectId`、任务分支、prompt 和可选覆盖项，不承载平台级执行能力。
 
-当前实现中，runner 注册已经从无类型 capability bag 收紧为类型化 `PlatformCapabilities`。
+当前实现中，runner 注册已经从无类型 capability bag 收紧为类型化 `PlatformCapabilities`；Docker 运行镜像来自 Project，而不是 runner 全局配置。
 
 ## 当前 Runner 说明
 
@@ -77,4 +77,4 @@ Mystra 明确区分平台能力与项目状态：
 - Codex 容器认证缓存路径已验证。
 - 当前 Runner 上完整执行 Codex 需要 source `/root/.mystra/proxy.env`。
 - 当前代理只监听主机 loopback，因此 bridge 网络容器需要 host networking 或可从 bridge 访问的代理配置。
-- MVP runner image 基线是 Node 24、Python 3、uv、git、curl、ca-certificates、openssh-client、Codex CLI 和 GitHub Copilot CLI。
+- 当前 Castrel-oriented runner image context 不在 git 中，默认本机路径是 `/tmp/mystra-castrel-runner-image`。它不是 Mystra 平台 baseline；Project 通过 `Project.runtime.image` 显式引用具体镜像。
