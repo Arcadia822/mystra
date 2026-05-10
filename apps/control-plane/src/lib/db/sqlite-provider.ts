@@ -13,6 +13,8 @@ import {
   resolvedRuntimeContractSchema,
   runEventSchema,
   runResultSchema,
+  type CancelJobOutcome,
+  type CancellationRequestMetadata,
   type ContextBundle,
   type ContextBundleCreate,
   type AgentName,
@@ -27,6 +29,7 @@ import {
   type RunEventType,
   type RunResult,
   type RunState,
+  type StaleMarkingResult,
 } from "@mystra/shared";
 
 import { sqliteMigrations } from "./migrations";
@@ -43,6 +46,14 @@ import type {
 } from "./rdb-provider";
 
 type Row = Record<string, unknown>;
+
+const activeStates = new Set<RunState>([
+  "queued",
+  "dispatching",
+  "assigned",
+  "starting",
+  "running",
+]);
 
 const terminalStates = new Set<RunState>([
   "succeeded",
@@ -212,6 +223,12 @@ export class SqliteRdbProvider implements RdbProvider {
     this.db.exec(sqliteMigrations);
     this.ensureColumn("jobs", "runtime_override", "TEXT");
     this.ensureColumn("runs", "resolved_runtime", "TEXT");
+    this.ensureColumn("runs", "cancellation_request", "TEXT");
+    this.ensureColumn("runs", "stale_reason", "TEXT");
+    this.ensureColumn("runs", "stale_marked_at", "TEXT");
+    this.ensureColumn("runner_sessions", "stale_after_seconds", "INTEGER NOT NULL DEFAULT 90");
+    this.ensureColumn("runner_sessions", "eligible_project_ids", "TEXT");
+    this.ensureColumn("runner_sessions", "eligible_runtime_providers", "TEXT");
   }
 
   close(): void {
@@ -488,23 +505,53 @@ export class SqliteRdbProvider implements RdbProvider {
     return this.snapshotFromJobRow(row);
   }
 
+  getJobByRunId(runId: string): JobSnapshot | undefined {
+    const run = this.runById(runId);
+    return run ? this.getJob(run.jobId) : undefined;
+  }
+
   listJobs(): JobSnapshot[] {
     const rows = this.db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all() as Row[];
     return rows.map((row) => this.snapshotFromJobRow(row));
   }
 
-  cancelJob(jobId: string): JobSnapshot | undefined {
+  cancelJob(jobId: string): CancelJobOutcome & { snapshot: JobSnapshot } {
     const snapshot = this.getJob(jobId);
     if (!snapshot) {
-      return undefined;
+      throw new Error(`JOB_NOT_FOUND: Job not found: ${jobId}`);
     }
     const timestamp = now();
+
+    if (activeStates.has(snapshot.run.state) && snapshot.run.state !== "queued" && snapshot.run.state !== "dispatching") {
+      // Runner-owned work: record cancellation request metadata, don't terminalize
+      const cancellationRequest: CancellationRequestMetadata = {
+        requestedAt: timestamp,
+      };
+      this.db.prepare(`
+        UPDATE runs
+        SET cancellation_request = ?,
+            updated_at = ?
+        WHERE id = ?
+      `).run(jsonStringify(cancellationRequest), timestamp, snapshot.run.id);
+      this.insertEvent(snapshot.run.id, jobId, "cancellation.requested", "warn", { requestedAt: timestamp }, timestamp);
+      const updated = this.getJob(jobId);
+      if (!updated) {
+        throw new Error("Job snapshot lost after cancellation request");
+      }
+      return { kind: "cancellation_requested", snapshot: updated };
+    }
+
+    // Queued/dispatching work: terminalize immediately
     this.transitionRun(snapshot.run.id, "canceled", timestamp);
     if (snapshot.run.assignedRunnerSessionId) {
       this.decrementRunner(snapshot.run.assignedRunnerSessionId);
     }
     this.insertEvent(snapshot.run.id, jobId, "run.canceled", "warn", {}, timestamp);
-    return this.getJob(jobId);
+    const updated = this.getJob(jobId);
+    if (!updated) {
+      throw new Error("Job snapshot lost after cancellation");
+    }
+    return { kind: "canceled", snapshot: updated };
   }
 
   registerRunner(input: RegisterRunnerInput): RunnerSession {
@@ -517,6 +564,9 @@ export class SqliteRdbProvider implements RdbProvider {
       capabilities,
       maxConcurrency: input.maxConcurrency ?? 1,
       activeRunCount: 0,
+      staleAfterSeconds: input.staleAfterSeconds ?? 90,
+      ...(input.eligibleProjectIds ? { eligibleProjectIds: input.eligibleProjectIds } : {}),
+      ...(input.eligibleRuntimeProviders ? { eligibleRuntimeProviders: input.eligibleRuntimeProviders } : {}),
       lastHeartbeatAt: timestamp,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -524,9 +574,10 @@ export class SqliteRdbProvider implements RdbProvider {
     this.db.prepare(`
       INSERT INTO runner_sessions (
         id, runner_name, token, capabilities, max_concurrency, active_run_count,
+        stale_after_seconds, eligible_project_ids, eligible_runtime_providers,
         last_heartbeat_at, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       session.id,
       session.runnerName,
@@ -534,6 +585,9 @@ export class SqliteRdbProvider implements RdbProvider {
       jsonStringify(session.capabilities),
       session.maxConcurrency,
       session.activeRunCount,
+      session.staleAfterSeconds,
+      session.eligibleProjectIds ? jsonStringify(session.eligibleProjectIds) : null,
+      session.eligibleRuntimeProviders ? jsonStringify(session.eligibleRuntimeProviders) : null,
       session.lastHeartbeatAt,
       session.createdAt,
       session.updatedAt,
@@ -571,11 +625,24 @@ export class SqliteRdbProvider implements RdbProvider {
       if (!runner) {
         throw new Error(`RUNNER_NOT_FOUND: Runner not found: ${runnerId}`);
       }
-      if (runner.activeRunCount >= runner.maxConcurrency) {
+
+      // Calculate active work from durable active runs, not activeRunCount
+      const activeRuns = this.db.prepare(`
+        SELECT COUNT(*) AS count FROM runs
+        WHERE assigned_runner_session_id = ?
+          AND state IN ('assigned', 'starting', 'running')
+      `).get(runnerId) as Row;
+      const activeCount = numberField(activeRuns, "count");
+      if (activeCount >= runner.maxConcurrency) {
         return undefined;
       }
+
+      // Build eligibility filter for projects
+      const eligibleProjectIds = runner.eligibleProjectIds;
+      const eligibleRuntimeProviders = runner.eligibleRuntimeProviders;
+
       const rows = this.db.prepare(`
-        SELECT runs.*, jobs.agent AS job_agent
+        SELECT runs.*, jobs.agent AS job_agent, jobs.project_id AS job_project_id
         FROM runs
         JOIN jobs ON jobs.id = runs.job_id
         WHERE state = 'queued'
@@ -584,7 +651,23 @@ export class SqliteRdbProvider implements RdbProvider {
       const row = rows.find((candidate) => {
         const runtime = parseResolvedRuntime(candidate, "resolved_runtime", stringField(candidate, "id"));
         const agent = agentNameSchema.parse(stringField(candidate, "job_agent"));
-        return runnerSupportsRuntime(runner.capabilities, agent, runtime);
+        if (!runnerSupportsRuntime(runner.capabilities, agent, runtime)) {
+          return false;
+        }
+        // Check project eligibility
+        if (eligibleProjectIds && eligibleProjectIds.length > 0) {
+          const projectId = nullableStringField(candidate, "job_project_id");
+          if (!projectId || !eligibleProjectIds.includes(projectId)) {
+            return false;
+          }
+        }
+        // Check runtime provider eligibility
+        if (eligibleRuntimeProviders && eligibleRuntimeProviders.length > 0 && runtime) {
+          if (!eligibleRuntimeProviders.includes(runtime.provider)) {
+            return false;
+          }
+        }
+        return true;
       });
       if (!row) {
         return undefined;
@@ -659,6 +742,56 @@ export class SqliteRdbProvider implements RdbProvider {
     return snapshot;
   }
 
+  markStaleRunners(): StaleMarkingResult[] {
+    const timestamp = now();
+    const results: StaleMarkingResult[] = [];
+
+    const runners = this.db.prepare("SELECT * FROM runner_sessions").all() as Row[];
+    for (const row of runners) {
+      const runnerId = stringField(row, "id");
+      const staleAfterSeconds = numberField(row, "stale_after_seconds");
+      const lastHeartbeatAt = stringField(row, "last_heartbeat_at");
+      const heartbeatAgeMs = new Date(timestamp).getTime() - new Date(lastHeartbeatAt).getTime();
+      if (heartbeatAgeMs <= staleAfterSeconds * 1000) {
+        continue;
+      }
+
+      // Mark active runs as failed with stale reason
+      const staleRuns = this.db.prepare(`
+        SELECT id FROM runs
+        WHERE assigned_runner_session_id = ?
+          AND state IN ('assigned', 'starting', 'running')
+      `).all(runnerId) as Row[];
+
+      const staleRunIds: string[] = [];
+      for (const runRow of staleRuns) {
+        const runId = stringField(runRow, "id");
+        staleRunIds.push(runId);
+        this.db.prepare(`
+          UPDATE runs
+          SET state = 'failed',
+              stale_reason = 'runner_stale',
+              stale_marked_at = ?,
+              failure_reason = 'Runner session stopped reporting heartbeats',
+              finished_at = ?,
+              updated_at = ?
+          WHERE id = ?
+        `).run(timestamp, timestamp, timestamp, runId);
+        this.insertEvent(runId, this.runById(runId)?.jobId ?? "", "run.stale_marked", "error", {
+          reason: "runner_stale",
+          runnerSessionId: runnerId,
+        }, timestamp);
+        this.decrementRunner(runnerId);
+      }
+
+      if (staleRunIds.length > 0) {
+        results.push({ runnerSessionId: runnerId, staleRunIds });
+      }
+    }
+
+    return results;
+  }
+
   private projectFromRow(row: Row): Project {
     const projectId = stringField(row, "id");
     return projectSchema.parse({
@@ -725,14 +858,26 @@ export class SqliteRdbProvider implements RdbProvider {
   }
 
   private runFromRow(row: Row): RunRecord {
+    const runId = stringField(row, "id");
     const assignedRunnerSessionId = nullableStringField(row, "assigned_runner_session_id");
-    const result = parseJsonResult(row, "result", stringField(row, "id"));
-    const resolvedRuntime = parseResolvedRuntime(row, "resolved_runtime", stringField(row, "id"));
+    const result = parseJsonResult(row, "result", runId);
+    const resolvedRuntime = parseResolvedRuntime(row, "resolved_runtime", runId);
     const failureReason = nullableStringField(row, "failure_reason");
     const startedAt = nullableStringField(row, "started_at");
     const finishedAt = nullableStringField(row, "finished_at");
+    const cancellationRequestRaw = nullableStringField(row, "cancellation_request");
+    const staleReason = nullableStringField(row, "stale_reason");
+    const staleMarkedAt = nullableStringField(row, "stale_marked_at");
+    let cancellationRequest: CancellationRequestMetadata | undefined;
+    if (cancellationRequestRaw) {
+      try {
+        cancellationRequest = JSON.parse(cancellationRequestRaw) as CancellationRequestMetadata;
+      } catch {
+        cancellationRequest = undefined;
+      }
+    }
     return {
-      id: stringField(row, "id"),
+      id: runId,
       jobId: stringField(row, "job_id"),
       state: stringField(row, "state") as RunState,
       attempt: numberField(row, "attempt"),
@@ -740,6 +885,9 @@ export class SqliteRdbProvider implements RdbProvider {
       ...(resolvedRuntime ? { resolvedRuntime } : {}),
       ...(result ? { result } : {}),
       ...(failureReason ? { failureReason } : {}),
+      ...(cancellationRequest ? { cancellationRequest } : {}),
+      ...(staleReason ? { staleReason } : {}),
+      ...(staleMarkedAt ? { staleMarkedAt } : {}),
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
       ...(startedAt ? { startedAt } : {}),
@@ -749,6 +897,24 @@ export class SqliteRdbProvider implements RdbProvider {
 
   private runnerFromRow(row: Row): RunnerSession {
     const runnerId = stringField(row, "id");
+    const eligibleProjectIdsRaw = nullableStringField(row, "eligible_project_ids");
+    const eligibleRuntimeProvidersRaw = nullableStringField(row, "eligible_runtime_providers");
+    let eligibleProjectIds: string[] | undefined;
+    if (eligibleProjectIdsRaw) {
+      try {
+        eligibleProjectIds = JSON.parse(eligibleProjectIdsRaw) as string[];
+      } catch {
+        eligibleProjectIds = undefined;
+      }
+    }
+    let eligibleRuntimeProviders: string[] | undefined;
+    if (eligibleRuntimeProvidersRaw) {
+      try {
+        eligibleRuntimeProviders = JSON.parse(eligibleRuntimeProvidersRaw) as string[];
+      } catch {
+        eligibleRuntimeProviders = undefined;
+      }
+    }
     return {
       id: runnerId,
       token: stringField(row, "token"),
@@ -756,6 +922,9 @@ export class SqliteRdbProvider implements RdbProvider {
       capabilities: platformCapabilitiesSchema.parse(parseJsonObject(row, "capabilities", runnerId)),
       maxConcurrency: numberField(row, "max_concurrency"),
       activeRunCount: numberField(row, "active_run_count"),
+      staleAfterSeconds: numberField(row, "stale_after_seconds"),
+      ...(eligibleProjectIds ? { eligibleProjectIds } : {}),
+      ...(eligibleRuntimeProviders ? { eligibleRuntimeProviders } : {}),
       lastHeartbeatAt: stringField(row, "last_heartbeat_at"),
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),

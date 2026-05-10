@@ -32,9 +32,7 @@ Define the minimal state boundary between control plane and headless runner.
 - Stale marking does not retry, requeue, or rebalance work in the MVP.
 - Older runner observations must not overwrite newer terminal or stale outcomes.
 
-## Candidate API/Provider Changes
-
-These are planning-level contracts, not final implementation names:
+## Implemented API/Provider Shape
 
 ```ts
 type CancelJobOutcome =
@@ -52,6 +50,21 @@ type StaleMarkingResult = {
   staleRunIds: string[];
 };
 ```
+
+Control-plane route behavior:
+
+- `POST /api/jobs/:jobId/cancel` returns `kind: "canceled"` for queued work and
+  `kind: "cancellation_requested"` for runner-owned work.
+- `GET /api/runner/jobs/:runId` is runner-authenticated and returns the current
+  snapshot for the assigned runner, including cancellation request metadata.
+- `POST /api/runner/jobs/:runId/events` records observations such as
+  `cleanup.started` and `run.cleanup_failed`.
+- `POST /api/runner/jobs/:runId/result` records terminal runner observations
+  using existing terminal states: `succeeded`, `failed`, `canceled`, or
+  `timed_out`.
+- `markStaleRunners()` marks active work `failed` with `staleReason:
+  "runner_stale"` and a `run.stale_marked` event. It does not requeue or
+  reassign work.
 
 ## Non-Goals
 

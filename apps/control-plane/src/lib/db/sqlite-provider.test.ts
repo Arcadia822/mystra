@@ -46,6 +46,14 @@ function corrupt(sql: string, ...params: unknown[]): void {
   db = new SqliteRdbProvider(dbPath);
 }
 
+function mutateRaw(sql: string, ...params: unknown[]): void {
+  db.close();
+  const raw = new Database(dbPath);
+  raw.prepare(sql).run(...params);
+  raw.close();
+  db = new SqliteRdbProvider(dbPath);
+}
+
 beforeEach(async () => {
   tempDir = await mkdtemp(path.join(tmpdir(), "mystra-sqlite-"));
   dbPath = path.join(tempDir, "mystra.db");
@@ -337,7 +345,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
       branchName: "mystra/cancel",
       prompt: "Cancel it",
     });
-    expect(db.cancelJob(second.job.id)?.run.state).toBe("canceled");
+    expect(db.cancelJob(second.job.id).snapshot.run.state).toBe("canceled");
 
     db.close();
     db = new SqliteRdbProvider(dbPath);
@@ -382,6 +390,293 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     expect(claimed?.run.state).toBe("assigned");
     expect(claimed?.runtime?.provider).toBe("docker");
     expect(claimed?.runtime?.environment.image).toBe(project.runtime.image);
+  });
+
+  it("persists config-derived runner registration fields across reopen", () => {
+    const project = db.createProject(projectInput("eligible-runner"));
+    const runner = db.registerRunner({
+      runnerName: "runner-configured",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 2,
+      staleAfterSeconds: 45,
+      eligibleProjectIds: [project.id],
+      eligibleRuntimeProviders: ["docker"],
+    });
+
+    expect(runner.maxConcurrency).toBe(2);
+    expect(runner.staleAfterSeconds).toBe(45);
+    expect(runner.eligibleProjectIds).toEqual([project.id]);
+    expect(runner.eligibleRuntimeProviders).toEqual(["docker"]);
+
+    db.close();
+    db = new SqliteRdbProvider(dbPath);
+
+    const reopened = db.listRunners()[0];
+    expect(reopened?.maxConcurrency).toBe(2);
+    expect(reopened?.staleAfterSeconds).toBe(45);
+    expect(reopened?.eligibleProjectIds).toEqual([project.id]);
+    expect(reopened?.eligibleRuntimeProviders).toEqual(["docker"]);
+  });
+
+  it("calculates runner capacity from durable active runs instead of activeRunCount", () => {
+    const project = db.createProject(projectInput("durable-capacity"));
+    db.createJob({
+      taskId: "task-durable-capacity-1",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/durable-capacity-1",
+      prompt: "First",
+    });
+    db.createJob({
+      taskId: "task-durable-capacity-2",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/durable-capacity-2",
+      prompt: "Second",
+    });
+    const runner = db.registerRunner({
+      runnerName: "runner-durable-capacity",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+    });
+
+    expect(db.claimNextRun(runner.id)?.run.state).toBe("assigned");
+    mutateRaw("UPDATE runner_sessions SET active_run_count = 0 WHERE id = ?", runner.id);
+
+    expect(db.claimNextRun(runner.id)).toBeUndefined();
+  });
+
+  it("respects project and runtime provider eligibility while claiming", () => {
+    const ineligibleProject = db.createProject(projectInput("claim-ineligible"));
+    const eligibleProject = db.createProject(projectInput("claim-eligible"));
+    db.createJob({
+      taskId: "task-ineligible-project",
+      source: "api",
+      projectId: ineligibleProject.id,
+      branchName: "mystra/ineligible-project",
+      prompt: "Should not be claimed",
+    });
+    db.createJob({
+      taskId: "task-eligible-project",
+      source: "api",
+      projectId: eligibleProject.id,
+      branchName: "mystra/eligible-project",
+      prompt: "Should be claimed",
+    });
+    const wrongRuntimeRunner = db.registerRunner({
+      runnerName: "runner-wrong-runtime",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+        providers: ["docker"],
+        contextBundleModes: ["read-only"],
+        mountKinds: ["workspace", "gitMirror", "cache"],
+        portExposure: { supportsDynamicHostPorts: true },
+        secretInjectionModes: ["env"],
+      },
+      maxConcurrency: 1,
+      eligibleProjectIds: [eligibleProject.id],
+      eligibleRuntimeProviders: ["fake"],
+    });
+    expect(db.claimNextRun(wrongRuntimeRunner.id)).toBeUndefined();
+
+    const eligibleRunner = db.registerRunner({
+      runnerName: "runner-eligible",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+        providers: ["docker"],
+        contextBundleModes: ["read-only"],
+        mountKinds: ["workspace", "gitMirror", "cache"],
+        portExposure: { supportsDynamicHostPorts: true },
+        secretInjectionModes: ["env"],
+      },
+      maxConcurrency: 1,
+      eligibleProjectIds: [eligibleProject.id],
+      eligibleRuntimeProviders: ["docker"],
+    });
+    const claimed = db.claimNextRun(eligibleRunner.id);
+
+    expect(claimed?.job.spec.taskId).toBe("task-eligible-project");
+    expect(claimed?.project?.id).toBe(eligibleProject.id);
+  });
+
+  it("records cancellation request metadata for runner-owned work", () => {
+    const project = db.createProject(projectInput("cancel-owned"));
+    const snapshot = db.createJob({
+      taskId: "task-cancel-owned",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/cancel-owned",
+      prompt: "Cancel while running",
+    });
+    const runner = db.registerRunner({
+      runnerName: "runner-cancel-owned",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+    });
+    const claimed = db.claimNextRun(runner.id);
+    expect(claimed?.job.id).toBe(snapshot.job.id);
+
+    const outcome = db.cancelJob(snapshot.job.id);
+
+    expect(outcome.kind).toBe("cancellation_requested");
+    expect(outcome.snapshot.run.state).toBe("assigned");
+    expect(outcome.snapshot.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
+    expect(outcome.snapshot.events.map((event) => event.type)).toContain("cancellation.requested");
+
+    db.close();
+    db = new SqliteRdbProvider(dbPath);
+
+    expect(db.getJob(snapshot.job.id)?.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
+  });
+
+  it("marks stale runner-owned runs as failed without requeueing or reassigning", () => {
+    const project = db.createProject(projectInput("stale-runner"));
+    const snapshot = db.createJob({
+      taskId: "task-stale-runner",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/stale-runner",
+      prompt: "Runner disappears",
+    });
+    const runner = db.registerRunner({
+      runnerName: "runner-stale",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+      staleAfterSeconds: 1,
+    });
+    expect(db.claimNextRun(runner.id)?.run.id).toBe(snapshot.run.id);
+    mutateRaw(
+      "UPDATE runner_sessions SET last_heartbeat_at = ? WHERE id = ?",
+      "2026-05-10T00:00:00.000Z",
+      runner.id,
+    );
+
+    const stale = db.markStaleRunners();
+    const marked = db.getJob(snapshot.job.id);
+    const replacementRunner = db.registerRunner({
+      runnerName: "runner-replacement",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+    });
+
+    expect(stale).toEqual([{ runnerSessionId: runner.id, staleRunIds: [snapshot.run.id] }]);
+    expect(marked?.run.state).toBe("failed");
+    expect(marked?.run.staleReason).toBe("runner_stale");
+    expect(marked?.events.map((event) => event.type)).toContain("run.stale_marked");
+    expect(db.claimNextRun(replacementRunner.id)).toBeUndefined();
+  });
+
+  it("records cleanup observations before accepting a canceled terminal result", () => {
+    const project = db.createProject(projectInput("cleanup-cancel"));
+    const snapshot = db.createJob({
+      taskId: "task-cleanup-cancel",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/cleanup-cancel",
+      prompt: "Cancel and clean up",
+    });
+    const runner = db.registerRunner({
+      runnerName: "runner-cleanup-cancel",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+    });
+    const claimed = db.claimNextRun(runner.id);
+    expect(claimed?.run.id).toBe(snapshot.run.id);
+
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "container.started",
+      severity: "info",
+      data: { containerId: "container-cleanup-cancel" },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "agent.started",
+      severity: "info",
+      data: {},
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "cleanup.started",
+      severity: "warn",
+      data: { reason: "cancel" },
+    });
+
+    const canceled = db.completeRun(runner.id, snapshot.run.id, {
+      status: "canceled",
+      summary: "Runner stopped work after cancellation request.",
+    });
+
+    expect(canceled.run.state).toBe("canceled");
+    expect(canceled.run.result?.status).toBe("canceled");
+    expect(canceled.events.map((event) => event.type)).toEqual([
+      "job.created",
+      "run.queued",
+      "run.assigned",
+      "container.started",
+      "agent.started",
+      "cleanup.started",
+      "run.canceled",
+    ]);
+    expect(db.listRunners()[0]?.activeRunCount).toBe(0);
+    expect(() =>
+      db.completeRun(runner.id, snapshot.run.id, {
+        status: "succeeded",
+        summary: "Late success should not overwrite cancellation.",
+      }),
+    ).toThrow(/Invalid run state transition/);
+  });
+
+  it("records cleanup failures and rejects stale terminal observations after timeout", () => {
+    const project = db.createProject(projectInput("cleanup-timeout"));
+    const snapshot = db.createJob({
+      taskId: "task-cleanup-timeout",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/cleanup-timeout",
+      prompt: "Timeout and clean up",
+    });
+    const runner = db.registerRunner({
+      runnerName: "runner-cleanup-timeout",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+    });
+    expect(db.claimNextRun(runner.id)?.run.id).toBe(snapshot.run.id);
+
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "container.started",
+      severity: "info",
+      data: { containerId: "container-cleanup-timeout" },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "agent.started",
+      severity: "info",
+      data: {},
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "cleanup.started",
+      severity: "warn",
+      data: { reason: "timeout" },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "run.cleanup_failed",
+      severity: "error",
+      data: { summary: "Container stop exceeded cleanup timeout." },
+    });
+
+    const timedOut = db.completeRun(runner.id, snapshot.run.id, {
+      status: "timed_out",
+      summary: "Execution exceeded timeout.",
+    });
+
+    expect(timedOut.run.state).toBe("timed_out");
+    expect(timedOut.events.map((event) => event.type)).toContain("run.cleanup_failed");
+    expect(timedOut.events.map((event) => event.type)).toContain("run.timed_out");
+    expect(() =>
+      db.completeRun(runner.id, snapshot.run.id, {
+        status: "failed",
+        summary: "Late failure should not overwrite timeout.",
+      }),
+    ).toThrow(/Invalid run state transition/);
   });
 });
 

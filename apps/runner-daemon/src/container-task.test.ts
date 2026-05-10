@@ -117,6 +117,65 @@ describe("container task quality gate", () => {
     expect(runner).toContain('secretInjectionModes: config.executor === "docker" ? ["env"] : []');
   });
 
+  it("reads config-first durability settings from local runner env", () => {
+    expect(runner).toContain('positiveIntEnv("MYSTRA_RUNNER_CONCURRENCY", 1)');
+    expect(runner).toContain('positiveIntEnv("MYSTRA_RUNNER_POLL_INTERVAL_SECONDS", 5)');
+    expect(runner).toContain('positiveIntEnv("MYSTRA_RUNNER_STALE_AFTER_SECONDS", 90)');
+    expect(runner).toContain('positiveIntEnv("MYSTRA_RUNNER_DEFAULT_EXECUTION_TIMEOUT_SECONDS", 3600)');
+    expect(runner).toContain('positiveIntEnv("MYSTRA_RUNNER_CANCEL_CHECK_INTERVAL_SECONDS", 10)');
+    expect(runner).toContain('positiveIntEnv("MYSTRA_RUNNER_CLEANUP_TIMEOUT_SECONDS", 30)');
+    expect(runner).toContain('csvEnv("MYSTRA_RUNNER_ELIGIBLE_PROJECT_IDS")');
+    expect(runner).toContain('csvEnv("MYSTRA_RUNNER_ELIGIBLE_RUNTIME_PROVIDERS")');
+  });
+
+  it("registers config-derived concurrency and eligibility with the control plane", () => {
+    expect(runner).toContain("maxConcurrency: config.concurrency");
+    expect(runner).toContain("staleAfterSeconds: config.staleAfterSeconds");
+    expect(runner).toContain("eligibleProjectIds: config.eligibleProjectIds");
+    expect(runner).toContain("eligibleRuntimeProviders: config.eligibleRuntimeProviders");
+  });
+
+  it("uses the configured poll interval instead of a tight empty-queue loop", () => {
+    expect(runner).toContain("function sleep(ms: number, signal?: AbortSignal): Promise<void>");
+    expect(runner).toContain("await sleep(config.pollIntervalSeconds * 1000)");
+  });
+
+  it("supervises bounded active jobs from local concurrency", () => {
+    expect(runner).toContain("const activeJobs = new Set<Promise<void>>()");
+    expect(runner).toContain("activeJobs.size < config.concurrency");
+    expect(runner).toContain("activeJobs.add(activeJob)");
+    expect(runner).toContain("activeJobs.delete(activeJob)");
+    expect(runner).toContain("await Promise.race([...activeJobs, sleep(config.pollIntervalSeconds * 1000)])");
+  });
+
+  it("polls active runs for cancellation requests and stops local execution", () => {
+    expect(runner).toContain("async function pollCancellationRequest(");
+    expect(runner).toContain("apiUrl(config, `/api/runner/jobs/${runId}`)");
+    expect(runner).toContain("snapshot.run?.cancellationRequest");
+    expect(runner).toContain("cancellationRequested = true");
+    expect(runner).toContain("executionAbort.abort()");
+    expect(runner).toContain("signal: executionAbort.signal");
+  });
+
+  it("uses a local execution timeout watchdog and cleanup timeout", () => {
+    expect(runner).toContain("config.defaultExecutionTimeoutSeconds * 1000");
+    expect(runner).toContain("executionTimedOut = true");
+    expect(runner).toContain("type,");
+    expect(runner).toContain("\"cleanup.started\"");
+    expect(runner).toContain("\"stop\"");
+    expect(runner).toContain("\"--time\"");
+    expect(runner).toContain("String(config.cleanupTimeoutSeconds)");
+    expect(runner).toContain("status: executionTimedOut ? \"timed_out\" : \"canceled\"");
+  });
+
+  it("reports cleanup failure instead of reading a missing stopped-container result", () => {
+    expect(runner).toContain("\"run.cleanup_failed\"");
+    expect(runner).toContain("errorCode: \"cleanup_failed\"");
+    expect(runner).toContain("if (terminalOverride) {");
+    expect(runner).toContain("result = terminalOverride");
+    expect(runner).toContain("Docker task failed before writing a result");
+  });
+
   it("runs copilot with an isolated workspace config home", () => {
     expect(script).toContain('COPILOT_SANDBOX_HOME="${WORKSPACE}/copilot-home"');
     expect(script).toContain('COPILOT_SANDBOX_CLI_CONFIG_DIR="${COPILOT_SANDBOX_HOME}/.copilot"');

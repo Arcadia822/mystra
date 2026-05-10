@@ -32,6 +32,18 @@ type RunnerLocalConfig = {
 - The control plane may persist config-derived registration fields for durable
   visibility, but it does not own hosted runner configuration in this feature.
 
+## Current Environment Mapping
+
+- `MYSTRA_RUNNER_NAME`
+- `MYSTRA_RUNNER_CONCURRENCY`
+- `MYSTRA_RUNNER_POLL_INTERVAL_SECONDS`
+- `MYSTRA_RUNNER_STALE_AFTER_SECONDS`
+- `MYSTRA_RUNNER_DEFAULT_EXECUTION_TIMEOUT_SECONDS`
+- `MYSTRA_RUNNER_CANCEL_CHECK_INTERVAL_SECONDS`
+- `MYSTRA_RUNNER_CLEANUP_TIMEOUT_SECONDS`
+- `MYSTRA_RUNNER_ELIGIBLE_PROJECT_IDS`
+- `MYSTRA_RUNNER_ELIGIBLE_RUNTIME_PROVIDERS`
+
 ## Non-Goals
 
 - No central scheduler.

@@ -9,6 +9,14 @@ import { captureException, flushSentry, initSentry } from "./sentry.js";
 interface RunnerConfig {
   controlPlaneUrl: string;
   runnerName: string;
+  concurrency: number;
+  pollIntervalSeconds: number;
+  staleAfterSeconds: number;
+  defaultExecutionTimeoutSeconds: number;
+  cancelCheckIntervalSeconds: number;
+  cleanupTimeoutSeconds: number;
+  eligibleProjectIds: string[] | undefined;
+  eligibleRuntimeProviders: string[] | undefined;
   once: boolean;
   executor: "fake" | "docker";
   workspaceRoot: string;
@@ -42,6 +50,10 @@ interface ClaimedJobResponse {
   } | null;
   run: {
     id: string;
+    state?: string;
+    cancellationRequest?: {
+      requestedAt: string;
+    } | null;
   } | null;
   project: {
     id: string;
@@ -52,7 +64,7 @@ interface ClaimedJobResponse {
 }
 
 interface DockerResult {
-  status: "succeeded" | "failed";
+  status: "succeeded" | "failed" | "canceled" | "timed_out";
   summary: string;
   branch?: string;
   mrUrl?: string;
@@ -72,6 +84,14 @@ function readConfig(): RunnerConfig {
   return {
     controlPlaneUrl: process.env.MYSTRA_CONTROL_PLANE_URL ?? "http://localhost:3000",
     runnerName: process.env.MYSTRA_RUNNER_NAME ?? "local-runner",
+    concurrency: positiveIntEnv("MYSTRA_RUNNER_CONCURRENCY", 1),
+    pollIntervalSeconds: positiveIntEnv("MYSTRA_RUNNER_POLL_INTERVAL_SECONDS", 5),
+    staleAfterSeconds: positiveIntEnv("MYSTRA_RUNNER_STALE_AFTER_SECONDS", 90),
+    defaultExecutionTimeoutSeconds: positiveIntEnv("MYSTRA_RUNNER_DEFAULT_EXECUTION_TIMEOUT_SECONDS", 3600),
+    cancelCheckIntervalSeconds: positiveIntEnv("MYSTRA_RUNNER_CANCEL_CHECK_INTERVAL_SECONDS", 10),
+    cleanupTimeoutSeconds: positiveIntEnv("MYSTRA_RUNNER_CLEANUP_TIMEOUT_SECONDS", 30),
+    eligibleProjectIds: csvEnv("MYSTRA_RUNNER_ELIGIBLE_PROJECT_IDS"),
+    eligibleRuntimeProviders: csvEnv("MYSTRA_RUNNER_ELIGIBLE_RUNTIME_PROVIDERS"),
     once: process.env.MYSTRA_RUNNER_ONCE === "1",
     executor: process.env.MYSTRA_EXECUTOR === "docker" ? "docker" : "fake",
     workspaceRoot: process.env.MYSTRA_WORKSPACE_ROOT ?? path.join(tmpdir(), "mystra-workspaces"),
@@ -81,6 +101,26 @@ function readConfig(): RunnerConfig {
     previewHost: process.env.MYSTRA_PREVIEW_HOST ?? detectPreviewHost(),
     containerProxyUrl: process.env.MYSTRA_CONTAINER_PROXY_URL ?? defaultContainerProxyUrl(),
   };
+}
+
+function positiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
+}
+
+function csvEnv(name: string): string[] | undefined {
+  const values = (process.env[name] ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return values.length > 0 ? values : undefined;
 }
 
 function defaultContainerProxyUrl(): string | undefined {
@@ -197,7 +237,10 @@ async function register(config: RunnerConfig): Promise<RegisterResponse> {
       },
       secretInjectionModes: config.executor === "docker" ? ["env"] : [],
     },
-    maxConcurrency: 1,
+    maxConcurrency: config.concurrency,
+    staleAfterSeconds: config.staleAfterSeconds,
+    eligibleProjectIds: config.eligibleProjectIds,
+    eligibleRuntimeProviders: config.eligibleRuntimeProviders,
   });
 }
 
@@ -245,9 +288,40 @@ async function emitQualityGateEvent(
   }, status === "passed" ? "info" : "error");
 }
 
+async function pollCancellationRequest(
+  config: RunnerConfig,
+  token: string,
+  runId: string,
+  stopSignal: AbortSignal,
+  isActive: () => boolean,
+  requestCancel: () => void,
+): Promise<void> {
+  while (isActive()) {
+    await sleep(config.cancelCheckIntervalSeconds * 1000, stopSignal);
+    if (!isActive()) {
+      return;
+    }
+
+    try {
+      const snapshot = await getJson<ClaimedJobResponse>(
+        apiUrl(config, `/api/runner/jobs/${runId}`),
+        token,
+      );
+      if (snapshot.run?.cancellationRequest) {
+        requestCancel();
+        return;
+      }
+    } catch (error) {
+      captureException(error);
+      console.warn(`[mystra-runner] cancellation poll failed for run=${runId}`, error);
+    }
+  }
+}
+
 function runCommand(command: string, args: string[], options: {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
+  signal?: AbortSignal;
 } = {}): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -255,9 +329,18 @@ function runCommand(command: string, args: string[], options: {
       env: options.env ?? process.env,
       stdio: "inherit",
     });
+    const abort = () => {
+      child.kill("SIGTERM");
+    };
 
+    if (options.signal?.aborted) {
+      abort();
+    } else {
+      options.signal?.addEventListener("abort", abort, { once: true });
+    }
     child.on("error", reject);
     child.on("exit", (code) => {
+      options.signal?.removeEventListener("abort", abort);
       if (code === 0) {
         resolve();
         return;
@@ -628,6 +711,11 @@ async function executeDockerJob(
 
   dockerArgs.push(image, "sleep", "infinity");
 
+  let terminalOverride: DockerResult | undefined;
+  let cancellationRequested = Boolean(run.cancellationRequest);
+  let executionTimedOut = false;
+  let cleanupRequired = false;
+
   try {
     const containerId = await runCommandCapture("docker", dockerArgs, {
       env: containerEnv,
@@ -655,37 +743,113 @@ async function executeDockerJob(
     await emitEvent(config, token, run.id, "agent.started", {
       agent: job.spec.agent,
     });
-    await runCommand("docker", [
-      "exec",
-      "-e",
-      `MYSTRA_FRONTEND_PREVIEW_URL=${frontendUrl}`,
-      "-e",
-      `MYSTRA_BACKEND_PREVIEW_URL=${backendUrl}`,
-      containerName,
-      "bash",
-      "/mystra/workspace/task.sh",
-    ], {
-      env: {
-        ...process.env,
-        MYSTRA_GITLAB_TOKEN: gitlabToken,
+
+    const executionAbort = new AbortController();
+    const pollStop = new AbortController();
+    let executionActive = true;
+    const timeout = setTimeout(() => {
+      executionTimedOut = true;
+      executionAbort.abort();
+    }, config.defaultExecutionTimeoutSeconds * 1000);
+    const cancellationPoll = pollCancellationRequest(
+      config,
+      token,
+      run.id,
+      pollStop.signal,
+      () => executionActive,
+      () => {
+        cancellationRequested = true;
+        executionAbort.abort();
       },
-    });
+    );
+
+    if (cancellationRequested) {
+      executionAbort.abort();
+    }
+
+    try {
+      await runCommand("docker", [
+        "exec",
+        "-e",
+        `MYSTRA_FRONTEND_PREVIEW_URL=${frontendUrl}`,
+        "-e",
+        `MYSTRA_BACKEND_PREVIEW_URL=${backendUrl}`,
+        containerName,
+        "bash",
+        "/mystra/workspace/task.sh",
+      ], {
+        env: {
+          ...process.env,
+          MYSTRA_GITLAB_TOKEN: gitlabToken,
+        },
+        signal: executionAbort.signal,
+      });
+    } catch (error) {
+      if (cancellationRequested || executionTimedOut) {
+        cleanupRequired = true;
+      } else {
+        throw error;
+      }
+    } finally {
+      executionActive = false;
+      pollStop.abort();
+      clearTimeout(timeout);
+      await cancellationPoll;
+    }
+
+    if (cleanupRequired) {
+      const reason = executionTimedOut ? "timeout" : "cancel";
+      await emitEvent(config, token, run.id, "cleanup.started", { reason }, "warn");
+      try {
+        await runCommand("docker", [
+          "stop",
+          "--time",
+          String(config.cleanupTimeoutSeconds),
+          containerName,
+        ]);
+      } catch (error) {
+        captureException(error);
+        await emitEvent(config, token, run.id, "run.cleanup_failed", {
+          reason,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        }, "error");
+        terminalOverride = {
+          status: "failed",
+          summary: `Docker cleanup failed after ${reason}.`,
+          branch: job.spec.branchName,
+          errorCode: "cleanup_failed",
+          errorMessage: error instanceof Error ? error.message : String(error),
+        };
+      }
+
+      terminalOverride ??= {
+        status: executionTimedOut ? "timed_out" : "canceled",
+        summary: executionTimedOut
+          ? `Docker task exceeded ${config.defaultExecutionTimeoutSeconds}s execution timeout.`
+          : "Docker task was canceled and cleaned up.",
+        branch: job.spec.branchName,
+      };
+    }
   } catch (error) {
     captureException(error);
     console.error(error);
   }
 
   let result: DockerResult;
-  try {
-    result = JSON.parse(await readFile(resultPath, "utf8")) as DockerResult;
-  } catch (error) {
-    result = {
-      status: "failed",
-      summary: "Docker task failed before writing a result",
-      branch: job.spec.branchName,
-      errorCode: "missing_result",
-      errorMessage: error instanceof Error ? error.message : String(error),
-    };
+  if (terminalOverride) {
+    result = terminalOverride;
+  } else {
+    try {
+      result = JSON.parse(await readFile(resultPath, "utf8")) as DockerResult;
+    } catch (error) {
+      result = {
+        status: "failed",
+        summary: "Docker task failed before writing a result",
+        branch: job.spec.branchName,
+        errorCode: "missing_result",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   await emitQualityGateEvent(config, token, run.id, result);
@@ -706,30 +870,76 @@ async function executeJob(
   await executeFakeJob(config, token, claim);
 }
 
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolveSleep) => {
+    const timeout = setTimeout(resolveSleep, ms);
+    const abort = () => {
+      clearTimeout(timeout);
+      resolveSleep();
+    };
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
 async function main(): Promise<void> {
   initSentry("mystra-runner");
   const config = readConfig();
   const registration = await register(config);
+  const activeJobs = new Set<Promise<void>>();
+  let stopAfterActiveJobs = false;
+
   console.log(
     `[mystra-runner] registered ${config.runnerName} session=${registration.runnerSessionId} executor=${config.executor}`,
   );
 
   while (true) {
     await postJson(apiUrl(config, "/api/runner/heartbeat"), {}, registration.runnerToken);
-    const claim = await getJson<ClaimedJobResponse>(
-      apiUrl(config, "/api/runner/jobs"),
-      registration.runnerToken,
-    );
+    let claimedAny = false;
 
-    if (claim.job && claim.run) {
-      await executeJob(config, registration.runnerToken, claim);
-      if (config.once) {
-        return;
+    while (!stopAfterActiveJobs && activeJobs.size < config.concurrency) {
+      const claim = await getJson<ClaimedJobResponse>(
+        apiUrl(config, "/api/runner/jobs"),
+        registration.runnerToken,
+      );
+      if (!claim.job || !claim.run) {
+        break;
       }
-    } else if (config.once) {
+
+      claimedAny = true;
+      const activeJob = executeJob(config, registration.runnerToken, claim)
+        .catch((error: unknown) => {
+          captureException(error);
+          console.error(error);
+        })
+        .finally(() => {
+          activeJobs.delete(activeJob);
+        });
+      activeJobs.add(activeJob);
+
+      if (config.once) {
+        stopAfterActiveJobs = true;
+      }
+    }
+
+    if (config.once && !claimedAny && activeJobs.size === 0) {
       console.log("[mystra-runner] no queued job found");
       return;
     }
+
+    if (stopAfterActiveJobs && activeJobs.size === 0) {
+      return;
+    }
+
+    if (activeJobs.size > 0) {
+      await Promise.race([...activeJobs, sleep(config.pollIntervalSeconds * 1000)]);
+      continue;
+    }
+
+    await sleep(config.pollIntervalSeconds * 1000);
   }
 }
 
