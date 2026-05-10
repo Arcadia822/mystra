@@ -160,7 +160,7 @@ The first build slice should be:
 | Plan drifts into central scheduling | Keep eligibility and concurrency runner-local; control plane only stores facts and filters claims. |
 | Assigned cancellation bypasses cleanup | Make assigned/running cancellation a desired state observed by runner; terminalize queued cancellation directly. |
 | Stale marking becomes retry semantics | Mark stale/failed with reason only; defer retry/rebalance to a separate spec. |
-| Active count becomes inconsistent | Prefer deriving active counts from active assigned/running states where practical; if keeping counters, make decrement idempotent and test duplicate terminal paths. |
+| Active count becomes inconsistent | Do not use `activeRunCount` as the correctness source; calculate active work from durable active runs at claim time. |
 | Runner-local config becomes hosted management | Read config at runner startup from env/file; no hosted runner CRUD in this slice. |
 
 ## Engineering Review
@@ -170,13 +170,19 @@ Review artifact: [checklists/engineering-review.md](./checklists/engineering-rev
 Outcome: Proceed to tasks only after preserving the following constraints:
 
 1. Do not add a new scheduler module or queue priority model.
-2. Prefer durable run-state queries over mutable `activeRunCount` as the source
-   of truth for local concurrency when feasible; if the counter remains, test
-   duplicate terminal and stale paths.
+2. Use durable run-state queries, not mutable `activeRunCount`, as the source
+   of truth for local concurrency.
 3. Avoid adding new run-state enum values unless events plus existing states
    cannot represent cancellation requested and cleanup in progress.
 4. Keep stale handling terminal/visible only; do not requeue, retry, or assign
    work elsewhere in this feature.
+
+Owner decisions recorded after review:
+
+- `activeRunCount` is not needed for correctness; calculate active work from
+  durable runs every time claim eligibility is checked.
+- Keep state enum expansion minimal.
+- Stale work is not retried, requeued, reassigned, or rebalanced in this spec.
 
 ## Complexity Tracking
 

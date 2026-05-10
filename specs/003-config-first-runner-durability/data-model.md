@@ -31,10 +31,15 @@ Existing fields:
 - `runnerName`
 - `capabilities`
 - `maxConcurrency`
-- `activeRunCount`
 - `lastHeartbeatAt`
 - `createdAt`
 - `updatedAt`
+
+Removed or deprecated correctness field:
+- `activeRunCount`: not needed for the MVP durability model. Active work should
+  be calculated from durable active runs assigned to the runner whenever claim
+  eligibility is checked. If retained temporarily for UI display, it is derived
+  data and not a source of truth.
 
 Planned additions or refinements:
 - `staleAfterSeconds`

@@ -1,197 +1,194 @@
 # Tasks: Config-First Headless Runner Durability
 
 **Input**: Design documents from `/specs/003-config-first-runner-durability/`
-**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md, checklists/engineering-review.md
+**Prerequisites**: [spec.md](./spec.md), [plan.md](./plan.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/), [checklists/engineering-review.md](./checklists/engineering-review.md)
 
-**Tests**: Included because this feature changes runner/control-plane contracts and durability behavior.
+**Tests**: Included because the spec requires independent durability, cancellation, timeout, stale-state, and restart evidence.
 
-**Organization**: Tasks are grouped by technical scenario to enable independent implementation and validation.
+**Organization**: Tasks are grouped by technical scenario so each scenario can be implemented and tested as an independently useful slice.
 
 ## Format: `[ID] [P?] [Story] Description`
 
-- **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which technical scenario this task belongs to (US1, US2, US3, US4)
-- Include exact file paths in descriptions
+- **[P]**: Can run in parallel because it touches different files and does not depend on incomplete tasks.
+- **[Story]**: Maps to technical scenarios in [spec.md](./spec.md).
+- Every task includes exact file paths.
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Setup
 
-**Purpose**: Establish the narrow config-first contract and keep implementation scope bounded.
+**Purpose**: Confirm the feature directory and local evidence path before implementation starts.
 
-- [ ] T001 Review and preserve engineering-review constraints in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/checklists/engineering-review.md`
-- [ ] T002 [P] Add runner local config contract tests in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`
-- [ ] T003 [P] Add runner state transition expectation tests in `/Users/arcadia/Documents/mystra/packages/shared/src/state.test.ts`
-- [ ] T004 [P] Add runner daemon source-behavior tests for config/watchdog hooks in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`
-
----
-
-## Phase 2: Foundational (Blocking Prerequisites)
-
-**Purpose**: Shared contracts and persistence support that all scenarios depend on.
-
-**CRITICAL**: No scenario implementation can begin until this phase is complete.
-
-- [ ] T005 Add runner local config, eligibility, timeout, and observation schemas in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`
-- [ ] T006 Add or refine run state helpers for cancellation requested, cleanup observation, timeout, stale, and idempotent terminal handling in `/Users/arcadia/Documents/mystra/packages/shared/src/state.ts`
-- [ ] T007 Extend `RunnerSession`, registration input, cancellation outcome, and stale-marking provider contracts in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`
-- [ ] T008 Add SQLite migration/storage changes for config-derived runner fields and stale/cancellation metadata in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [ ] T009 Update runner API route parsing for registration, heartbeat, claim, event, result, and cancel contract changes in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
-- [ ] T010 Verify foundational contracts with `pnpm --filter @mystra/shared test` and `pnpm --filter @mystra/control-plane test`, then record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-
-**Checkpoint**: Shared contracts and durable state boundaries are ready.
+- [ ] T001 Run `.specify/scripts/bash/check-prerequisites.sh --json` from `/Users/arcadia/Documents/mystra` and confirm `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability` is the active feature directory.
+- [ ] T002 [P] Re-run or record the GitNexus fallback in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md` if `npx gitnexus analyze` still fails.
+- [ ] T003 [P] Inspect existing runner/control-plane tests in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`, `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`, `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`, and `/Users/arcadia/Documents/mystra/packages/shared/src/state.test.ts` before adding new assertions.
 
 ---
 
-## Phase 3: User Story 1 - Runner Runs From Local Config (Priority: P1) MVP
+## Phase 2: Foundational
 
-**Goal**: Runner local config controls concurrency, polling, timeout defaults, cancellation check interval, cleanup timeout, and eligible claim scope.
+**Purpose**: Add shared contracts and provider surfaces that block all scenarios.
 
-**Independent Test**: Start/register a runner with local config for concurrency and eligibility, submit eligible and ineligible work, and verify claim behavior respects local config without a central scheduler.
+**Critical**: No scenario implementation should start until these contracts are in place.
 
-### Tests for User Story 1
+- [ ] T004 [P] Add runner local config, eligibility, observation, cancellation-outcome, and stale-result Zod schemas/types in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`.
+- [ ] T005 [P] Add shared schema tests for runner config defaults, eligibility lists, observation payloads, and invalid timeout/concurrency values in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`.
+- [ ] T006 Add or intentionally avoid new run-state values in `/Users/arcadia/Documents/mystra/packages/shared/src/state.ts`, documenting the chosen event-vs-state representation in code comments only where needed.
+- [ ] T007 Add run-state transition tests for cancellation-request, cleanup, timeout, stale, and terminal-state immutability in `/Users/arcadia/Documents/mystra/packages/shared/src/state.test.ts`.
+- [ ] T008 Extend `RunnerSession`, `RegisterRunnerInput`, cancellation outcome, runner observation, and stale marking provider types in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`.
+- [ ] T009 Update SQLite schema fields/indexes for config-derived runner visibility, eligibility metadata, stale timestamps, and desired cancellation metadata in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/migrations.ts`.
+- [ ] T010 Update row parsing and serialization helpers for the new runner/run fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [ ] T011 [P] Add migration/provider fixture coverage for existing databases and new runner/run fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
 
-- [ ] T011 [P] [US1] Add shared schema tests for runner config defaults and validation in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`
-- [ ] T012 [P] [US1] Add control-plane tests for config-derived eligibility and local concurrency claim filtering in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`
-- [ ] T013 [P] [US1] Add route tests for runner registration and claim eligibility in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
-- [ ] T014 [P] [US1] Add runner daemon tests for reading config from env/file-compatible inputs in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`
-
-### Implementation for User Story 1
-
-- [ ] T015 [US1] Implement runner config parsing and defaults in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
-- [ ] T016 [US1] Send config-derived concurrency and eligibility during runner registration in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
-- [ ] T017 [US1] Persist config-derived runner fields and eligibility in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [ ] T018 [US1] Update `claimNextRun` eligibility filtering without adding a scheduler module in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [ ] T019 [US1] Update runner registration route contract in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/register/route.ts`
-- [ ] T020 [US1] Verify US1 with `pnpm --filter @mystra/shared test` and `pnpm --filter @mystra/control-plane test`, then record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-
-**Checkpoint**: Runner local config governs local concurrency and claim eligibility.
+**Checkpoint**: Shared schemas, provider types, and SQLite persistence compile and have focused tests before any route or runner behavior changes.
 
 ---
 
-## Phase 4: User Story 2 - Control Plane Stores Desired And Observed State (Priority: P1)
+## Phase 3: Technical Scenario 1 - Runner Runs From Local Config (Priority: P1)
 
-**Goal**: Cancellation requests and runner observations are durable facts, while the control plane remains a state store rather than a live scheduler.
+**Goal**: Runner startup config controls concurrency, polling, timeout intervals, cleanup intervals, and eligibility scope.
 
-**Independent Test**: Submit, claim, cancel, complete, and restart state access; verify desired cancellation and runner observations remain explainable from durable records.
+**Independent Test**: Start or simulate a runner config with concurrency `2`, project/runtime eligibility, and interval settings; verify only eligible work is claimed and the runner never owns more than two active jobs.
 
-### Tests for User Story 2
+### Tests for Technical Scenario 1
 
-- [ ] T021 [P] [US2] Add provider tests for queued cancellation versus assigned/running cancellation requested in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`
-- [ ] T022 [P] [US2] Add provider tests for duplicate terminal result and stale/terminal overwrite protection in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`
-- [ ] T023 [P] [US2] Add route tests for cancel and runner event/result observations in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
+- [ ] T012 [P] [US1] Add runner config parsing tests for env/file defaults, numeric validation, and eligibility scope in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`.
+- [ ] T013 [P] [US1] Add control-plane route tests for runner registration storing config-derived concurrency and eligibility in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.
+- [ ] T014 [P] [US1] Add SQLite provider tests proving `claimNextRun` respects runner concurrency, project eligibility, and runtime provider eligibility in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
+- [ ] T015 [P] [US1] Add SQLite provider tests proving runner active work is calculated from durable assigned/starting/running runs instead of `activeRunCount` in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
 
-### Implementation for User Story 2
+### Implementation for Technical Scenario 1
 
-- [ ] T024 [US2] Change `cancelJob` so queued runs can terminalize but assigned/running runs record cancellation requested in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [ ] T025 [US2] Add durable runner observation handling for cleanup started, cancelled, timed out, cleanup failed, failed, and completed events in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [ ] T026 [US2] Update cancel route response shape for immediate canceled versus cancellation requested outcomes in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/[id]/cancel/route.ts`
-- [ ] T027 [US2] Update MCP cancel tool output to reflect cancellation requested when runner cleanup is pending in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/mcp/route.ts`
-- [ ] T028 [US2] Verify US2 with `pnpm --filter @mystra/control-plane test`, then record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
+- [ ] T016 [US1] Extend `RunnerConfig` and `readConfig` with concurrency, poll interval, stale window, execution timeout, cancellation check interval, cleanup timeout, eligible project ids, and eligible runtime providers in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
+- [ ] T017 [US1] Send config-derived concurrency and eligibility metadata during runner registration in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
+- [ ] T018 [US1] Parse and persist config-derived runner registration fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/register/route.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [ ] T019 [US1] Apply project/runtime eligibility filtering and local concurrency limits in `claimNextRun`, calculating active work from durable active runs instead of `activeRunCount`, in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [ ] T020 [US1] Replace the fixed single-job loop with bounded local active-job supervision that respects configured `concurrency` and `pollIntervalSeconds` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
 
-**Checkpoint**: Desired state and runner observations are durable and idempotent.
-
----
-
-## Phase 5: User Story 3 - Runner Owns Local Timeout And Cleanup (Priority: P1)
-
-**Goal**: Runner-local watchdog handles timeout, observes cancellation, stops execution, performs cleanup, and reports outcomes.
-
-**Independent Test**: Run one timeout task and one cancelled task; verify runner-local cleanup and durable result reporting.
-
-### Tests for User Story 3
-
-- [ ] T029 [P] [US3] Add runner daemon tests for timeout watchdog and timeout result reporting in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`
-- [ ] T030 [P] [US3] Add runner daemon tests for cancellation polling and cleanup result reporting in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`
-- [ ] T031 [P] [US3] Add control-plane route tests for timeout/cancel observation events in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
-
-### Implementation for User Story 3
-
-- [ ] T032 [US3] Add runner-local watchdog loop for execution timeout and cancellation checks in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
-- [ ] T033 [US3] Add container stop and cleanup timeout behavior around Docker execution in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
-- [ ] T034 [US3] Add cancellation/timeout observation POSTs from runner to control plane in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
-- [ ] T035 [US3] Update fake executor behavior to honor timeout/cancel reporting where practical in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
-- [ ] T036 [US3] Verify US3 with `pnpm --filter @mystra/runner-daemon test` and `pnpm --filter @mystra/control-plane test`, then record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-
-**Checkpoint**: Runner local cleanup is observable and durable.
+**Checkpoint**: `pnpm --filter @mystra/shared test`, `pnpm --filter @mystra/control-plane test`, and `pnpm --filter @mystra/runner-daemon test` should pass for config-first claiming.
 
 ---
 
-## Phase 6: User Story 4 - Stale Runner State Is Marked, Not Magically Rescheduled (Priority: P2)
+## Phase 4: Technical Scenario 2 - Control Plane Stores Desired And Observed State (Priority: P1)
 
-**Goal**: Non-reporting runners and their active work become stale/failed from durable timestamps, without retry, requeue, or rebalance.
+**Goal**: The control plane durably records cancellation intent and runner observations without becoming a live scheduler.
 
-**Independent Test**: Stop a runner with active work, wait past stale window, and verify durable stale state without reassignment.
+**Independent Test**: Submit, claim, cancel, complete, and restart control-plane/provider state; verify desired and observed states remain explainable from SQLite records and events.
 
-### Tests for User Story 4
+### Tests for Technical Scenario 2
 
-- [ ] T037 [P] [US4] Add provider tests for stale runner/session detection and active run stale marking in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`
-- [ ] T038 [P] [US4] Add route or MCP tests exposing stale runner/run state without retry behavior in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
-- [ ] T039 [P] [US4] Add UI data-shape expectation for stale status if needed in `/Users/arcadia/Documents/mystra/apps/control-plane/app/page.tsx`
+- [ ] T021 [P] [US2] Add provider tests for queued cancellation terminalizing immediately while assigned/running cancellation records desired state in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
+- [ ] T022 [P] [US2] Add route tests for `/api/jobs/[id]/cancel`, `/api/runner/jobs/[id]/events`, and `/api/runner/jobs/[id]/result` desired/observed-state responses in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.
+- [ ] T023 [P] [US2] Add restart-style provider tests that reopen the SQLite database and verify queued, assigned, running, cancellation-requested, terminal, and event records in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
 
-### Implementation for User Story 4
+### Implementation for Technical Scenario 2
 
-- [ ] T040 [US4] Add provider method for stale runner/run marking in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`
-- [ ] T041 [US4] Implement stale runner/run marking from durable timestamps in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [ ] T042 [US4] Expose stale state through existing runners/jobs/MCP surfaces without adding retry APIs in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runners/route.ts`
-- [ ] T043 [US4] Ensure stale runner reports cannot overwrite newer terminal/stale outcomes in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [ ] T044 [US4] Verify US4 with `pnpm --filter @mystra/control-plane test`, then record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
+- [ ] T024 [US2] Change `cancelJob` to return a typed cancellation outcome and record desired cancellation for assigned/running work in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [ ] T025 [US2] Update `/api/jobs/[id]/cancel` to expose cancellation-requested vs canceled outcomes without adding a public retry/log/callback surface in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/[id]/cancel/route.ts`.
+- [ ] T026 [US2] Add runner observation validation and idempotency checks for cleanup, canceled, timed-out, failed, and completed observations in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [ ] T027 [US2] Update `/api/runner/jobs/[id]/events` and `/api/runner/jobs/[id]/result` to use the new observation contracts in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/events/route.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/result/route.ts`.
 
-**Checkpoint**: Stale state is visible, durable, and not a retry system.
-
----
-
-## Phase 7: Polish & Cross-Cutting Concerns
-
-**Purpose**: Documentation, consistency, and full verification after selected stories are implemented.
-
-- [ ] T045 [P] Update runner durability quickstart with final config format and commands in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-- [ ] T046 [P] Update runner environment/operator documentation in `/Users/arcadia/Documents/mystra/docs/RUNNER-ENVIRONMENT.md`
-- [ ] T047 [P] Update feature plan with any implementation deviations in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/plan.md`
-- [ ] T048 Run `pnpm --filter @mystra/shared test` and record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-- [ ] T049 Run `pnpm --filter @mystra/control-plane test` and record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-- [ ] T050 Run `pnpm --filter @mystra/runner-daemon test` and record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-- [ ] T051 Run `pnpm typecheck` and record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-- [ ] T052 Run `pnpm test` if the final touched surface spans shared, control-plane, and runner-daemon packages, then record evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`
-- [ ] T053 Run `gitnexus_detect_changes` or `mcp__gitnexus__.detect_changes` before commit and record affected flows in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/plan.md`
+**Checkpoint**: Control-plane tests should show desired state and runner observations surviving provider restart without any scheduler or retry behavior.
 
 ---
 
-## Dependencies & Execution Order
+## Phase 5: Technical Scenario 3 - Runner Owns Local Timeout And Cleanup (Priority: P1)
+
+**Goal**: The runner observes cancellation/timeout locally, stops execution, performs cleanup, and reports durable outcomes.
+
+**Independent Test**: Run or simulate one timed-out job and one cancellation-requested job; verify the runner stops local execution, applies cleanup timeout, and reports timed-out/canceled or cleanup-failed outcomes.
+
+### Tests for Technical Scenario 3
+
+- [ ] T028 [P] [US3] Add runner-daemon tests for timeout watchdog behavior and cleanup-failure reporting in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`.
+- [ ] T029 [P] [US3] Add runner-daemon tests for cancellation polling and local cleanup reporting in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`.
+- [ ] T030 [P] [US3] Add control-plane provider tests rejecting duplicate or stale terminal observations after cancellation/timeout in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
+
+### Implementation for Technical Scenario 3
+
+- [ ] T031 [US3] Add an authenticated runner-facing way to inspect cancellation desired state for active runs in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/route.ts` or the existing claim/result route files under `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/`.
+- [ ] T032 [US3] Track active child process/container handles and deadline metadata per active run in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
+- [ ] T033 [US3] Implement cancellation polling and execution-timeout watchdog logic using `cancelCheckIntervalSeconds` and `defaultExecutionTimeoutSeconds` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
+- [ ] T034 [US3] Implement bounded cleanup using `cleanupTimeoutSeconds`, stop Docker containers or fake executions, emit cleanup-started events, and report canceled/timed-out/cleanup-failed results in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
+- [ ] T035 [US3] Ensure Docker task workspace cleanup and result reading remain safe when the container is stopped before writing `result.json` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
+
+**Checkpoint**: Runner-daemon tests should cover timeout, cancellation, cleanup failure, and ordinary success without relying on a central cleanup command.
+
+---
+
+## Phase 6: Technical Scenario 4 - Stale Runner State Is Marked, Not Magically Rescheduled (Priority: P2)
+
+**Goal**: Non-reporting runners and their active runs become stale or failed from durable timestamps, with no automatic retry or rebalance.
+
+**Independent Test**: Claim a run, stop heartbeats, run stale evaluation, and verify runner/run state is visibly stale or failed while no new run attempt is created and no other runner receives the work.
+
+### Tests for Technical Scenario 4
+
+- [ ] T036 [P] [US4] Add SQLite provider tests for stale runner detection from `lastHeartbeatAt` and configured `staleAfterSeconds` in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
+- [ ] T037 [P] [US4] Add SQLite provider tests proving stale active runs are marked visible/terminal without retry, requeue, rebalance, or new attempts in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
+- [ ] T038 [P] [US4] Add route tests exposing stale runner/run state through existing runner/job inspection surfaces in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.
+
+### Implementation for Technical Scenario 4
+
+- [ ] T039 [US4] Add provider method(s) to mark stale runner sessions and associated active runs from durable timestamps in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [ ] T040 [US4] Add a minimal internal stale-evaluation route or callable control-plane helper without public retry/rebalance semantics in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/heartbeat/route.ts` or a new internal route under `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/`.
+- [ ] T041 [US4] Reject old runner observations that would overwrite newer terminal or stale outcomes in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [ ] T042 [US4] Document the stale evaluation command or route behavior in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.
+
+**Checkpoint**: Stale evaluation produces honest durable state only; no task is retried, requeued, reassigned, or duplicated.
+
+---
+
+## Phase 7: Polish And Cross-Cutting Concerns
+
+**Purpose**: Reconcile feature docs, module knowledge, and full verification after the scenarios land.
+
+- [ ] T043 [P] Update runner module documentation for local config variables, concurrency, timeout, cancellation cleanup, and stale behavior in `/Users/arcadia/Documents/mystra/apps/runner-daemon/README.md` or the smallest nearby existing runner doc.
+- [ ] T044 [P] Update control-plane/provider documentation for desired vs observed state and stale marking in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/README.md` or the smallest nearby existing provider doc.
+- [ ] T045 Update `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/contracts/runner-config.md` and `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/contracts/runner-state.md` to match final implemented names and response shapes.
+- [ ] T046 Run `pnpm --filter @mystra/shared test` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.
+- [ ] T047 Run `pnpm --filter @mystra/control-plane test` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.
+- [ ] T048 Run `pnpm --filter @mystra/runner-daemon test` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.
+- [ ] T049 Run `pnpm typecheck` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.
+- [ ] T050 Run `pnpm test` from `/Users/arcadia/Documents/mystra` when the touched surface justifies broad regression evidence and record the result in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.
+
+---
+
+## Dependencies And Execution Order
 
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies.
-- **Foundational (Phase 2)**: Depends on Setup completion and blocks all scenario work.
-- **US1 (Phase 3)**: Depends on Foundational; MVP slice.
-- **US2 (Phase 4)**: Depends on Foundational; can proceed after shared state contracts exist.
-- **US3 (Phase 5)**: Depends on US2 observation contracts and Foundational runner config.
-- **US4 (Phase 6)**: Depends on Foundational and benefits from US2 terminal/idempotency behavior.
-- **Polish (Phase 7)**: Depends on all selected scenarios.
+- **Foundational (Phase 2)**: Depends on Setup and blocks all scenario work.
+- **Scenario 1 (Phase 3)**: Depends on Foundational and should land before Scenario 2/3 because config and claim limits are core runner inputs.
+- **Scenario 2 (Phase 4)**: Depends on Foundational and can begin after cancellation/provider contracts are stable.
+- **Scenario 3 (Phase 5)**: Depends on Scenario 2 cancellation/observation contracts and can proceed in parallel with later Scenario 2 route finishing once provider contracts are stable.
+- **Scenario 4 (Phase 6)**: Depends on Foundational and Scenario 2 observation idempotency; can be implemented after P1 behavior is stable.
+- **Polish (Phase 7)**: Depends on the implemented scenario set.
 
-### User Story Dependencies
+### Scenario Dependencies
 
-- **US1**: First implementation slice; establishes config-first runner scope.
-- **US2**: Can start after Foundational but should align with US1 config-derived registration.
-- **US3**: Requires US2 observation/reporting semantics.
-- **US4**: Can be implemented after foundational stale fields exist, but terminal overwrite protection from US2 should be in place first.
+- **US1 (P1)**: First MVP slice after Foundational.
+- **US2 (P1)**: Can start after Foundational, but cancellation behavior should be coordinated with US3.
+- **US3 (P1)**: Depends on US2 runner observation/cancellation desired-state contracts.
+- **US4 (P2)**: Depends on durable runner/run timestamps and terminal-observation idempotency.
 
 ### Parallel Opportunities
 
-- T002, T003, and T004 can run in parallel.
-- US1 tests T011-T014 can run in parallel.
-- US2 tests T021-T023 can run in parallel.
-- US3 tests T029-T031 can run in parallel.
-- US4 tests T037-T039 can run in parallel.
-- Documentation tasks T045-T047 can run in parallel after implementation behavior is known.
+- T002 and T003 can run in parallel.
+- T004 and T005 can begin together; T006 and T007 can begin together after applying the spec3 state representation rule from the engineering review.
+- T012, T013, T014, and T015 can be written in parallel before US1 implementation.
+- T021, T022, and T023 can be written in parallel before US2 implementation.
+- T028, T029, and T030 can be written in parallel before US3 implementation.
+- T036, T037, and T038 can be written in parallel before US4 implementation.
+- T043 and T044 can be written in parallel after implementation behavior is stable.
 
 ---
 
-## Parallel Example: User Story 1
+## Parallel Example: Scenario 1
 
 ```text
-Task: "Add shared schema tests for runner config defaults and validation in /Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts"
-Task: "Add control-plane tests for config-derived eligibility and local concurrency claim filtering in /Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts"
-Task: "Add route tests for runner registration and claim eligibility in /Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts"
-Task: "Add runner daemon tests for reading config from env/file-compatible inputs in /Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts"
+Task: "Add runner config parsing tests for env/file defaults, numeric validation, and eligibility scope in /Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts"
+Task: "Add control-plane route tests for runner registration storing config-derived concurrency and eligibility in /Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts"
+Task: "Add SQLite provider tests proving claimNextRun respects runner concurrency, project eligibility, and runtime provider eligibility in /Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts"
 ```
 
 ---
@@ -201,19 +198,33 @@ Task: "Add runner daemon tests for reading config from env/file-compatible input
 ### MVP First
 
 1. Complete Phase 1 and Phase 2.
-2. Implement US1 only: config-derived runner registration and eligibility-bound claims.
-3. Stop and validate with shared and control-plane tests.
+2. Complete Scenario 1 so local config and eligible claiming work.
+3. Complete Scenario 2 and Scenario 3 together enough to prove runner-owned cancellation/timeout cleanup.
+4. Stop and validate all P1 success criteria before stale marking.
 
 ### Incremental Delivery
 
-1. Add US1: config-first claim scope.
-2. Add US2: durable desired/observed state.
-3. Add US3: runner-local timeout/cancel cleanup.
-4. Add US4: stale marking without retry/rebalance.
-5. Run broad verification and update docs.
+1. Config-first claiming.
+2. Durable cancellation desired state and runner observations.
+3. Runner-local timeout/cancellation cleanup.
+4. Stale marking without retry or rebalance.
+5. Documentation and broad verification.
 
-### Guardrails
+### Stop Conditions
 
-- Do not add scheduler, priority, rebalance, retry, logs, callback, or hosted runner-management surfaces.
-- Do not let `activeRunCount` become the only correctness source unless idempotency tests prove it safe.
-- Do not expand this feature into delivery-provider reliability or secret management.
+- Stop if implementation requires caller auth, logs API, retry API, callback URLs, a hosted runner config API, queue priority, central scheduler, Kubernetes controller behavior, cross-runner shared cache, or per-repository secret management.
+- Stop only if cancellation-requested vs canceled cannot be made operator-visible by following the spec3 event-based state model; first try the smallest shared-schema/provider-contract adjustment inside this feature.
+- Stop if implementation tries to use `activeRunCount` as a correctness source; use durable active-run queries instead.
+
+---
+
+## Summary
+
+- **Total tasks**: 49
+- **US1 tasks**: 8
+- **US2 tasks**: 7
+- **US3 tasks**: 8
+- **US4 tasks**: 7
+- **Parallel opportunities**: 15 test/documentation/setup tasks can run in parallel after their prerequisites.
+- **Suggested MVP scope**: Phase 1, Phase 2, Scenario 1, Scenario 2, and Scenario 3.
+- **Format validation**: All executable tasks use `- [ ] T###` with `[P]` only for parallelizable tasks and `[US#]` only inside scenario phases.
