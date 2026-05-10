@@ -186,6 +186,8 @@ This project is indexed by GitNexus as **mystra** (1722 symbols, 2577 relationsh
 ## Active Technologies
 - TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider (002-runtime-profile-context)
 - SQLite via `SqliteRdbProvider`, with future PG/Supabase compatibility preserved behind `RdbProvider` (002-runtime-profile-context)
+- TypeScript 5.9 with Node.js 24 runtime assumptions + Next.js 16 route handlers, Zod 4 shared schemas, Vitest 4, existing `better-sqlite3` provider, Node `child_process` for runner execution (003-config-first-runner-durability)
+- SQLite via `SqliteRdbProvider`, behind `RdbProvider` so future PG/Supabase compatibility is preserved (003-config-first-runner-durability)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider
