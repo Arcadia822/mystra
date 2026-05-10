@@ -59,7 +59,7 @@ specs/003-config-first-runner-durability/
 
 ```text
 packages/shared/src/
-├── schemas.ts              # runner config, runner observation, stale state schemas
+├── schemas.ts              # runner config, runner observation, stale metadata schemas
 ├── schemas.test.ts
 ├── state.ts                # run state transition helpers if needed
 └── state.test.ts
@@ -84,9 +84,10 @@ apps/runner-daemon/src/
 └── container-task.test.ts  # existing source-level runner behavior tests
 ```
 
-**Structure Decision**: Keep the current monorepo layout. Shared config/state
-contracts live in `packages/shared/src/schemas.ts`. Durable ownership remains in
-`RdbProvider` and `SqliteRdbProvider`. Runner-local behavior stays in
+**Structure Decision**: Keep the current monorepo layout. Shared config,
+desired-state, and observation contracts live in `packages/shared/src/schemas.ts`.
+Durable ownership remains in `RdbProvider` and `SqliteRdbProvider`. Runner-local
+behavior stays in
 `apps/runner-daemon/src/index.ts`, where the current `readConfig -> register ->
 heartbeat -> claim -> executeJob` loop already exists. No new scheduler package
 or worker orchestration service is introduced.
@@ -98,7 +99,7 @@ Detailed decisions live in [research.md](./research.md).
 Key conclusions:
 
 1. Preserve a config-first runner model rather than adding central scheduling.
-2. Split desired state from runner observations.
+2. Split control-plane desired intent metadata from runner observations.
 3. Keep timeout and cleanup local to the runner.
 4. Mark stale sessions/runs durably without retry or rebalance.
 5. Treat GitNexus evidence as partially stale because `npx gitnexus analyze`
@@ -121,11 +122,28 @@ The first build slice should be:
 2. Extend registration and runner session persistence only as far as needed to
    store config-derived observation fields.
 3. Change cancellation from immediate terminal state for assigned/running work
-   into durable cancellation requested state, leaving queued cancellation
-   terminal if no runner owns it.
+   into durable cancellation request metadata plus a visible event, leaving
+   queued cancellation terminal if no runner owns it.
 4. Add runner-local watchdog behavior for timeout/cancel cleanup and result
    reporting.
 5. Add stale marking from durable timestamps without retry/reassignment.
+
+### State Representation Rule
+
+Implementation MUST NOT add `cancellation_requested`,
+`cleanup_in_progress`, or `stale` to `RunState` in the first implementation
+pass. These concepts are represented by:
+
+- existing active states (`assigned`, `starting`, `running`) plus cancellation
+  request metadata and events;
+- runner observation/result records for cleanup progress and cleanup failure;
+- existing terminal states (`failed`, `timed_out`, or `canceled`) plus stale
+  reason metadata/events for stale evaluation.
+
+If a future implementation proves this event-based model cannot satisfy a
+documented operator-visibility requirement, stop and revise this plan before
+changing `RunState`. Do not make that enum change opportunistically while
+implementing provider or runner tasks.
 
 ## GitNexus / Code Evidence
 
@@ -158,7 +176,7 @@ The first build slice should be:
 | Risk | Mitigation |
 |---|---|
 | Plan drifts into central scheduling | Keep eligibility and concurrency runner-local; control plane only stores facts and filters claims. |
-| Assigned cancellation bypasses cleanup | Make assigned/running cancellation a desired state observed by runner; terminalize queued cancellation directly. |
+| Assigned cancellation bypasses cleanup | Make assigned/running cancellation durable request metadata plus an event observed by runner; terminalize queued cancellation directly. |
 | Stale marking becomes retry semantics | Mark stale/failed with reason only; defer retry/rebalance to a separate spec. |
 | Active count becomes inconsistent | Do not use `activeRunCount` as the correctness source; calculate active work from durable active runs at claim time. |
 | Runner-local config becomes hosted management | Read config at runner startup from env/file; no hosted runner CRUD in this slice. |
@@ -172,8 +190,8 @@ Outcome: Proceed to tasks only after preserving the following constraints:
 1. Do not add a new scheduler module or queue priority model.
 2. Use durable run-state queries, not mutable `activeRunCount`, as the source
    of truth for local concurrency.
-3. Avoid adding new run-state enum values unless events plus existing states
-   cannot represent cancellation requested and cleanup in progress.
+3. Do not add new run-state enum values in the initial implementation; use
+   events, desired-state metadata, runner observations, and existing states.
 4. Keep stale handling terminal/visible only; do not requeue, retry, or assign
    work elsewhere in this feature.
 
@@ -181,7 +199,8 @@ Owner decisions recorded after review:
 
 - `activeRunCount` is not needed for correctness; calculate active work from
   durable runs every time claim eligibility is checked.
-- Keep state enum expansion minimal.
+- Keep the run-state enum unchanged for the first implementation pass unless
+  the plan is revised with new evidence.
 - Stale work is not retried, requeued, reassigned, or rebalanced in this spec.
 
 ## Complexity Tracking
