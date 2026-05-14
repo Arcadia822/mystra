@@ -4,12 +4,13 @@
 **Created**: 2026-05-09  
 **Status**: Ready for planning  
 **Input**: User description: "Introduce Project as the parent configuration for jobs and replace the in-memory local store with a SQLite-backed RdbProvider while keeping the future PG/Supabase boundary clean."
+**Dependency Note**: Runtime-image and runtime-contract details in this feature are interpreted through `002-runtime-profile-context`. `Project` remains the durable repository/execution unit, but runtime image ownership now lives under `Project.runtime.image`, not a top-level `Project.image` field. A future `workspace` scope may sit above `Project`, but does not replace it as the execution configuration unit in this feature.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Create Project Configuration (Priority: P1)
 
-A platform operator creates a Project with name, slug, repository, default branch, default agent, runtime image, and optional prewarm metadata so later jobs can reference stable project configuration.
+A platform operator creates a Project with name, slug, repository, default branch, default agent, structured runtime configuration, and optional prewarm metadata so later jobs can reference stable project configuration.
 
 **Why this priority**: Without Project records, callers must keep repeating repo/baseBranch/agent/image details and Mystra cannot support multiple GitLab/GitHub projects cleanly.
 
@@ -19,13 +20,13 @@ A platform operator creates a Project with name, slug, repository, default branc
 
 1. **Given** no project exists with slug `castrel-ai`, **When** the operator posts a valid project payload, **Then** the API returns `201` with `{ project }` containing the full Project record and persists it.
 2. **Given** a project already exists with slug `castrel-ai`, **When** the operator posts another project with the same slug, **Then** the API returns `409` with a clear error.
-3. **Given** a project payload omits `image`, **When** the operator posts it, **Then** the API returns `400` and no project is created.
+3. **Given** a project payload omits required runtime image information for the Docker provider, **When** the operator posts it, **Then** the API returns `400` and no project is created.
 
 ---
 
 ### User Story 2 - Submit Job by Project (Priority: P1)
 
-An agent or CI caller submits a job with `projectId`, `branchName`, and `prompt`; Mystra resolves repo/baseBranch/agent/image defaults from the Project while allowing explicit job-level overrides where permitted.
+An agent or CI caller submits a job with `projectId`, `branchName`, and `prompt`; Mystra resolves repo/baseBranch/agent/runtime defaults from the Project while allowing explicit job-level overrides where permitted.
 
 **Why this priority**: Remote MCP and HTTP callers need a small stable contract. Project-based job creation is the main path for other agents and skills to use Mystra.
 
@@ -73,7 +74,7 @@ A platform operator restarts the control plane and still sees existing jobs, run
 
 ### User Story 5 - Runner Uses Project Image (Priority: P1)
 
-A runner daemon claims a run and receives the Project runtime image in the claim response so different projects can run in different containers.
+A runner daemon claims a run and receives the resolved Project runtime contract in the claim response so different projects can run in different containers.
 
 **Why this priority**: The MVP must support multiple project environments on the high-capacity server; runner-global `MYSTRA_RUNNER_IMAGE` is too coarse.
 
@@ -81,8 +82,8 @@ A runner daemon claims a run and receives the Project runtime image in the claim
 
 **Acceptance Scenarios**:
 
-1. **Given** a queued run for a Project, **When** a runner claims it, **Then** the claim response includes `project: { id, slug, image, prewarmConfig }`.
-2. **Given** a claimed run, **When** the Docker executor starts, **Then** it uses `claimedJob.project.image`.
+1. **Given** a queued run for a Project, **When** a runner claims it, **Then** the claim response includes the Project identity plus the resolved runtime contract needed for execution.
+2. **Given** a claimed run, **When** the Docker executor starts, **Then** it uses the resolved runtime image from the claim contract.
 3. **Given** image pull or startup fails, **When** the executor reports failure, **Then** the run becomes `failed` with a clear `failureReason`.
 
 ---
@@ -108,7 +109,7 @@ A future sandbox provider can read Project prewarm configuration, while the bare
 - `projectId` missing, unknown, or archived must reject job creation.
 - Explicit job overrides must not mutate Project defaults.
 - Project archive must not delete historical jobs.
-- Runner claim must not return a job without Project image.
+- Runner claim must not return a job without the resolved runtime image required for execution.
 - SQLite schema must not expose SQLite-only details through `RdbProvider`.
 
 ## Requirements *(mandatory)*
@@ -116,7 +117,7 @@ A future sandbox provider can read Project prewarm configuration, while the bare
 ### Functional Requirements
 
 - **FR-001**: System MUST provide Project CRUD APIs: `GET/POST /api/projects`, `GET/PATCH/DELETE /api/projects/{slug}`.
-- **FR-002**: System MUST validate Project input with shared Zod schemas and require `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`, and `image`.
+- **FR-002**: System MUST validate Project input with shared Zod schemas and require `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`, and runtime configuration sufficient for the selected provider.
 - **FR-003**: System MUST enforce globally unique Project slugs.
 - **FR-004**: System MUST implement soft archive for Projects through `archivedAt` and MUST NOT physically delete Projects in MVP.
 - **FR-005**: System MUST reject new job creation for archived Projects.
@@ -129,8 +130,8 @@ A future sandbox provider can read Project prewarm configuration, while the bare
 - **FR-012**: SQLite startup MUST apply the MVP schema automatically for projects, jobs, runs, runner sessions, run events, and artifacts.
 - **FR-013**: SQLite MUST use WAL mode.
 - **FR-014**: JSON fields MUST be serialized/deserialized at the provider boundary and parse failures MUST include field name and record id.
-- **FR-015**: Runner claim responses MUST include `project: { id, slug, image, prewarmConfig }`.
-- **FR-016**: Runner daemon MUST use `claimedJob.project.image` and MUST remove `MYSTRA_RUNNER_IMAGE` as the normal runtime image source.
+- **FR-015**: Runner claim responses MUST include Project identity plus the resolved runtime contract required for execution.
+- **FR-016**: Runner daemon MUST use the resolved runtime contract and MUST remove `MYSTRA_RUNNER_IMAGE` as the normal runtime image source.
 - **FR-017**: MCP surface MUST add `mystra_create_project`, `mystra_list_projects`, and `mystra_get_project`.
 - **FR-018**: Existing `mystra_create_job` MCP input MUST require `projectId`.
 - **FR-019**: Scripts MUST rename/generalize `castrel-job.mjs` to `submit-job.mjs` and `prewarm-castrel-ai.sh` to `prewarm-project.sh`.
@@ -138,7 +139,7 @@ A future sandbox provider can read Project prewarm configuration, while the bare
 
 ### Key Entities
 
-- **Project**: Stable project configuration including repo, base branch, default agent, runtime image, prewarm config, metadata, archive state, and timestamps.
+- **Project**: Stable project configuration including repo, base branch, default agent, structured runtime configuration, prewarm config, metadata, archive state, and timestamps.
 - **Job**: A submitted work request with `projectId`, task identity, branch, prompt, optional MR/PR metadata, and resolved repo/baseBranch/agent snapshots.
 - **Run**: Attempt to execute a job, with state, assigned runner, result, failure reason, and timestamps.
 - **RunnerSession**: Registered runner identity, token, capabilities, concurrency, heartbeat, and timestamps.
@@ -152,7 +153,7 @@ A future sandbox provider can read Project prewarm configuration, while the bare
 - **SC-001**: A Project created through API remains queryable after control-plane restart using the same SQLite file.
 - **SC-002**: A job can be created with only `projectId`, `branchName`, and `prompt`, and its snapshot contains resolved repo/baseBranch/agent values.
 - **SC-003**: All existing API and MCP job creation paths reject missing `projectId` with a clear `400`.
-- **SC-004**: Runner claim returns project image data and Docker execution no longer depends on `MYSTRA_RUNNER_IMAGE`.
+- **SC-004**: Runner claim returns the resolved runtime data needed for execution and Docker execution no longer depends on `MYSTRA_RUNNER_IMAGE`.
 - **SC-005**: `pnpm --filter @mystra/shared test` passes after schema changes.
 - **SC-006**: `pnpm --filter @mystra/control-plane test` passes provider and route tests.
 - **SC-007**: `pnpm --filter @mystra/control-plane typecheck` and `pnpm --filter @mystra/runner-daemon typecheck` pass.
