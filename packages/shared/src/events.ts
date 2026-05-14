@@ -23,6 +23,7 @@ export const runEventTypeSchema = z.enum([
   "git.branch_created",
   "git.commit_created",
   "git.push_succeeded",
+  "review.created",
   "mr.created",
   "run.succeeded",
   "run.failed",

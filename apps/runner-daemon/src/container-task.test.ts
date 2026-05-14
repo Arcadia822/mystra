@@ -12,12 +12,13 @@ const workflowProviders = readFileSync(resolve(currentDir, "workflow-providers.t
 describe("container task quality gate", () => {
   it("runs the deterministic test-build gate before push and MR creation", () => {
     const gateIndex = script.indexOf("run_quality_gates 0");
-    const pushIndex = script.indexOf('git push -u origin "$MYSTRA_BRANCH_NAME"');
-    const mrIndex = script.indexOf("GitLab MR create failed");
+    const pushIndex = script.indexOf("push_step()");
+    const reviewIndex = script.indexOf("review_create_step()");
 
     expect(gateIndex).toBeGreaterThan(0);
     expect(pushIndex).toBeGreaterThan(gateIndex);
-    expect(mrIndex).toBeGreaterThan(gateIndex);
+    expect(reviewIndex).toBeGreaterThan(pushIndex);
+    expect(script).not.toContain('git push -u origin "$MYSTRA_BRANCH_NAME"');
   });
 
   it("removes the bounded quality-gate fix loop from the shell lifecycle", () => {
@@ -47,14 +48,24 @@ describe("container task quality gate", () => {
     expect(runner).toContain('agentAdapterModules: csvEnv("MYSTRA_AGENT_ADAPTER_MODULES")');
     expect(runner).toContain('workflowProviderModules: csvEnv("MYSTRA_WORKFLOW_PROVIDER_MODULES")');
     expect(runner).toContain('workflowBlueprintFiles: csvEnv("MYSTRA_WORKFLOW_BLUEPRINT_FILES")');
+    expect(runner).toContain('repoProviderModules: csvEnv("MYSTRA_REPO_PROVIDER_MODULES")');
+    expect(runner).toContain('sandboxProviderModules: csvEnv("MYSTRA_SANDBOX_PROVIDER_MODULES")');
     expect(runner).toContain("moduleSpecifiers: config.agentAdapterModules");
     expect(runner).toContain("moduleSpecifiers: config.workflowProviderModules");
+    expect(runner).toContain("moduleSpecifiers: config.repoProviderModules");
+    expect(runner).toContain("moduleSpecifiers: config.sandboxProviderModules");
     expect(runner).toContain("blueprintFiles: config.workflowBlueprintFiles");
     expect(runner).toContain('const workflowRegistry = config.executor === "docker"');
     expect(runner).toContain('const agentRegistryBundle = config.executor === "docker"');
+    expect(runner).toContain('const repoRegistryBundle = config.executor === "docker"');
+    expect(runner).toContain('const sandboxRegistryBundle = config.executor === "docker"');
     expect(runner).toContain("const agentRegistry = agentRegistryBundle?.registry");
     expect(runner).toContain("await createRunnerAgentAdapterRegistry({");
-    expect(runner).toContain("executeJob(config, registration.runnerToken, claim, workflowRegistry, agentRegistry)");
+    expect(runner).toContain("await createRunnerRepoProviderRegistry({");
+    expect(runner).toContain("await createRunnerSandboxProviderRegistry({");
+    expect(runner).toContain("repoRegistryBundle?.registry");
+    expect(runner).toContain("sandboxRegistryBundle?.registry");
+    expect(runner).toContain("executeJob(");
     expect(runner).not.toContain("const workflowRegistry = await createRunnerWorkflowProviderRegistry({");
     expect(workflowProviders).toContain("LocalWorkflowProvider");
     expect(workflowProviders).toContain("createWorkflowProviderRegistry");
@@ -72,6 +83,11 @@ describe("container task quality gate", () => {
     expect(runner).toContain("nodeId: node.id");
     expect(runner).toContain("handler: node.handler");
     expect(runner).toContain("nodeKind: node.kind");
+    expect(runner).toContain("buildGitLabReviewCreatedEventData");
+    expect(runner).toContain("buildGitLabMergeRequestEventData");
+    expect(runner).toContain('"review.created"');
+    expect(runner).toContain("reviewStatus: output.reviewResult?.status");
+    expect(runner).toContain("branch: branchReceipt.branchName");
   });
 
   it("treats docs-only changes as a no-code quality gate pass", () => {
@@ -99,6 +115,12 @@ describe("container task quality gate", () => {
     expect(script).toContain("portIsReachable(\"http://127.0.0.1:8000\")");
     expect(script).toContain("frontendPreviewUrl: frontendPreviewUrl || null");
     expect(script).toContain("backendPreviewUrl: backendPreviewUrl || null");
+  });
+
+  it("records sandbox outcomes that match current Docker retention and cleanup behavior", () => {
+    expect(runner).toContain("sandboxProvider.inspect(sandboxSession");
+    expect(runner).toContain("sandboxProvider.collectOutcome(sandboxSession");
+    expect(runner).toContain("retained: !cleanupRequired");
   });
 
   it("renders prompt context from resolved runtime bundles", () => {
@@ -204,16 +226,16 @@ describe("container task quality gate", () => {
     expect(runner).toContain("executionTimedOut = true");
     expect(runner).toContain("type,");
     expect(runner).toContain("\"cleanup.started\"");
-    expect(runner).toContain("\"stop\"");
-    expect(runner).toContain("\"--time\"");
-    expect(runner).toContain("String(config.cleanupTimeoutSeconds)");
+    expect(runner).toContain("sandboxProvider.stop(sandboxSession, reason");
+    expect(runner).toContain("cleanupTimeoutSeconds: config.cleanupTimeoutSeconds");
     expect(runner).toContain("status: executionTimedOut ? \"timed_out\" : \"canceled\"");
   });
 
   it("reports cleanup failure instead of reading a missing stopped-container result", () => {
     expect(runner).toContain("\"run.cleanup_failed\"");
     expect(runner).toContain("errorCode: \"cleanup_failed\"");
-    expect(runner).toContain("const result = terminalOverride ?? workflowDockerResult ?? {");
+    expect(runner).toContain("const finalResult = terminalOverride ?? workflowDockerResult ?? {");
+    expect(runner).toContain("sandboxOutcome: finalResult.sandboxOutcome ?? await sandboxProvider.collectOutcome");
     expect(runner).toContain("Workflow execution did not produce a terminal result");
     expect(runner).not.toContain("JSON.parse(await readFile(resultPath, \"utf8\"))");
   });

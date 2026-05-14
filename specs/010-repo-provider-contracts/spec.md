@@ -98,24 +98,26 @@ through the normalized delivery result.
 
 ### Technical Scenario 4 - Credentials And Repository Metadata Stay At The Right Boundary (Priority: P2)
 
-A platform operator can configure repository access without turning repository
-credentials into Mystra-global system secrets or leaking provider-specific token
-handling into unrelated contracts.
+A platform operator can configure repository access without forcing workflow or
+agent contracts to understand provider-specific token names, while still
+respecting the MVP exclusion of per-repository secret-management product
+features.
 
 **Why this priority**: Repository delivery is credential-sensitive and easy to
 get wrong. If auth handling leaks into workflow or agent contracts now, the
 provider seam is fiction.
 
 **Independent Test**: Review project/runtime configuration and provider
-contracts; verify repository auth is referenced through managed project/runtime
-inputs and that provider-specific token handling stays inside the provider
-implementation boundary.
+contracts; verify repository auth is represented through provider-owned auth
+bindings or execution-time references, and that provider-specific token handling
+stays inside the provider implementation boundary.
 
 **Acceptance Scenarios**:
 
 1. **Given** a project targets GitLab or GitHub, **When** repository access is
-   resolved for execution, **Then** the provider uses project/runtime-managed
-   secret references rather than Mystra-global hardcoded credentials.
+   resolved for execution, **Then** the provider receives an opaque auth binding
+   or execution-time reference instead of requiring workflow or agent contracts
+   to read raw provider-specific environment-variable names.
 2. **Given** a future repository provider is added, **When** its auth mechanism
    differs from GitLab or GitHub, **Then** workflow and runner contracts do not
    need redesign merely to support the new auth style.
@@ -133,8 +135,9 @@ implementation boundary.
 
 ### Functional Requirements
 
-- **FR-001**: Mystra MUST define a typed `RepoProvider` contract for repository
-  preparation, branch delivery, and merge-request/pull-request creation.
+- **FR-001**: Mystra MUST define a typed `RepoProvider` contract for
+  repository-host access semantics, branch delivery, and
+  merge-request/pull-request creation.
 - **FR-002**: The `RepoProvider` contract MUST let workflow and runner code
   request repository operations without embedding GitLab-specific or
   GitHub-specific host logic.
@@ -147,9 +150,12 @@ implementation boundary.
 - **FR-005**: Repository-provider results MUST normalize branch URL, review URL,
   provider review identifier, and partial-success failure states into a
   Mystra-owned delivery result contract.
-- **FR-006**: Repository credentials MUST be referenced through project/runtime
-  managed inputs and MUST NOT require Mystra-global provider-specific secrets in
-  unrelated workflow or agent contracts.
+- **FR-006**: Repository-provider contracts MUST isolate repository auth behind
+  provider-owned bindings or execution-time references. The MVP MAY continue to
+  source concrete credentials from runner-managed environment injection, but it
+  MUST NOT require workflow, MCP, or agent contracts to depend on raw
+  provider-specific secret names, and it MUST NOT expand into per-repository
+  secret-management product scope.
 - **FR-007**: The provider contract MUST make "no diff", "invalid repository
   auth", "push failed", and "review creation failed after push" observable as
   distinct outcomes.
@@ -163,8 +169,10 @@ implementation boundary.
   merge-request/pull-request delivery.
 - **RepositoryTarget**: Project-owned repository identity, host, default branch,
   and provider selection metadata.
-- **RepositoryAuthRef**: A project/runtime-managed reference to repository
-  credentials consumed by the active provider.
+- **RepositoryAuthBinding**: A provider-owned opaque auth reference that can be
+  resolved from runner-managed execution inputs today and from richer managed
+  secret references later, without leaking provider-specific token names into
+  unrelated contracts.
 - **ReviewRequest**: Provider-agnostic review-delivery intent including branch,
   title, body, and task context.
 - **ReviewResult**: Normalized outcome containing branch metadata, MR/PR URL,

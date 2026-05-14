@@ -448,7 +448,6 @@ push_step() {
     git add -A
     git commit -m "${MYSTRA_COMMIT_MESSAGE:-Mystra task ${MYSTRA_TASK_ID}}"
   fi
-  git push -u origin "$MYSTRA_BRANCH_NAME"
   write_push_output
 }
 
@@ -624,19 +623,6 @@ review_create_step() {
   OUTPUT_FILE="${MYSTRA_STEP_OUTPUT_FILE:-$RESULT_FILE}" node <<'NODE'
 const fs = require("fs");
 const outputFile = process.env.OUTPUT_FILE || process.env.RESULT_FILE || "/mystra/workspace/result.json";
-const repo = process.env.MYSTRA_REPO;
-const token = process.env.MYSTRA_GITLAB_TOKEN;
-const sourceBranch = process.env.MYSTRA_BRANCH_NAME;
-const targetBranch = process.env.MYSTRA_BASE_BRANCH;
-const title = process.env.MYSTRA_MR_TITLE || `Mystra task ${process.env.MYSTRA_TASK_ID}`;
-const qualityNote = "\n- Quality gate: passed (`test -> build`)";
-const input = new URL(repo.includes("://") ? repo : "https://" + repo);
-const repoUrl = input.protocol === "ssh:"
-  ? new URL(input.pathname, new URL(process.env.MYSTRA_GITLAB_HTTP_BASE_URL))
-  : input;
-const projectPath = repoUrl.pathname.replace(/^\/+/, "").replace(/\.git$/, "");
-const apiBase = `${repoUrl.protocol}//${repoUrl.host}/api/v4`;
-const endpoint = `${apiBase}/projects/${encodeURIComponent(projectPath)}/merge_requests`;
 
 async function portIsReachable(url) {
   if (!url) {
@@ -663,74 +649,17 @@ async function portIsReachable(url) {
     fs.existsSync("backend/pyproject.toml") && await portIsReachable("http://127.0.0.1:8000")
       ? process.env.MYSTRA_BACKEND_PREVIEW_URL
       : "";
-  const backendNote = backendPreviewUrl
-    ? "\n- Backend note: the backend port is reserved in the retained container. It may still require repository-specific DB/Redis environment before the backend process stays up."
-    : "";
-  const loginNote = frontendPreviewUrl
-    ? "\n- Preview login: `preview@mystra.local` / `mystra-preview`"
-    : "";
-  const previewBlock = frontendPreviewUrl
-    ? `\n\n---\n\nMystra preview:\n\n- Frontend: ${frontendPreviewUrl}\n- Backend: ${backendPreviewUrl || "not exposed"}\n- Container: ${process.env.HOSTNAME || "unknown"}${loginNote}${qualityNote}${backendNote}\n`
-    : "";
-  const description = `${process.env.MYSTRA_MR_BODY || process.env.MYSTRA_PROMPT || ""}${previewBlock}`;
-  const body = new URLSearchParams({
-    source_branch: sourceBranch,
-    target_branch: targetBranch,
-    title,
-    description,
-    remove_source_branch: "false",
-  });
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "PRIVATE-TOKEN": token,
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    body,
-  });
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`GitLab MR create failed ${response.status}: ${text}`);
-  }
-  const mr = JSON.parse(text);
-  if (frontendPreviewUrl) {
-    const noteBody = new URLSearchParams({
-      body: `Mystra preview status:\n\n- Frontend: ${frontendPreviewUrl}\n- Backend port: ${backendPreviewUrl || "not exposed"}\n- Login: preview@mystra.local / mystra-preview\n- Quality gate: passed (test -> build)\n\nThe task container is intentionally kept running for review. Backend may still require repository-specific DB/Redis environment before the process stays up.`,
-    });
-    await fetch(`${endpoint}/${mr.iid}/notes`, {
-      method: "POST",
-      headers: {
-        "PRIVATE-TOKEN": token,
-        "content-type": "application/x-www-form-urlencoded",
-      },
-      body: noteBody,
-    });
-  }
   fs.writeFileSync(outputFile, JSON.stringify({
-    status: "succeeded",
-    summary: `Created GitLab MR !${mr.iid}`,
-    branch: sourceBranch,
-    mrUrl: mr.web_url,
-    mrIid: mr.iid,
-    metadata: {
-      repo: projectPath,
-      targetBranch,
-      frontendPreviewUrl: frontendPreviewUrl || null,
-      backendPreviewUrl: backendPreviewUrl || null,
-      qualityGate: {
-        status: "passed",
-        sequence: ["test", "build"],
-        logPath: "/mystra/workspace/quality-gate.log",
-      },
-    },
+    frontendPreviewUrl: frontendPreviewUrl || null,
+    backendPreviewUrl: backendPreviewUrl || null,
+    previewContainer: process.env.HOSTNAME || null,
   }, null, 2));
 })().catch((error) => {
   fs.writeFileSync(outputFile, JSON.stringify({
     status: "failed",
-    summary: "GitLab MR creation failed",
-    branch: sourceBranch,
-    errorCode: "mr_create_failed",
+    summary: "Review preparation failed",
+    branch: process.env.MYSTRA_BRANCH_NAME,
+    errorCode: "review_prepare_failed",
     errorMessage: String(error.message || error),
   }, null, 2));
   process.exit(1);

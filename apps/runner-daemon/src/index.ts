@@ -4,8 +4,14 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { type AgentProcessResult } from "@mystra/agent-adapters";
-import type { ResolvedRuntimeContract } from "@mystra/shared";
+import type { BranchDeliveryReceipt, CleanupOutcome, RepoProviderKind, ResolvedRuntimeContract, ReviewResult, SandboxOutcome } from "@mystra/shared";
 import { createRunnerAgentAdapterRegistry, type RunnerAgentAdapterRegistry } from "./agent-adapters.js";
+import {
+  buildGitLabMergeRequestEventData,
+  buildGitLabReviewCreatedEventData,
+} from "./repo-providers/gitlab.js";
+import { createRunnerRepoProviderRegistry, type RunnerRepoProviderRegistry } from "./repo-providers.js";
+import { createRunnerSandboxProviderRegistry, type RunnerSandboxProviderRegistry } from "./sandbox-providers.js";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 import { createRunnerWorkflowProviderRegistry, type RunnerWorkflowProviderRegistry } from "./workflow-providers.js";
 
@@ -33,6 +39,8 @@ interface RunnerConfig {
   agentAdapterModules: string[] | undefined;
   workflowProviderModules: string[] | undefined;
   workflowBlueprintFiles: string[] | undefined;
+  repoProviderModules: string[] | undefined;
+  sandboxProviderModules: string[] | undefined;
 }
 
 interface RegisterResponse {
@@ -77,6 +85,8 @@ interface DockerResult {
   branch?: string;
   mrUrl?: string;
   mrIid?: number;
+  reviewResult?: ReviewResult;
+  sandboxOutcome?: SandboxOutcome;
   errorCode?: string;
   errorMessage?: string;
   metadata?: Record<string, unknown>;
@@ -112,6 +122,12 @@ interface PushStepOutput {
   branchName: string;
 }
 
+interface ReviewPreparationStepOutput {
+  frontendPreviewUrl: string | null;
+  backendPreviewUrl: string | null;
+  previewContainer: string | null;
+}
+
 const MAX_INLINE_AGENT_PROMPT_BYTES = 16 * 1024;
 
 function readConfig(): RunnerConfig {
@@ -139,6 +155,8 @@ function readConfig(): RunnerConfig {
     agentAdapterModules: csvEnv("MYSTRA_AGENT_ADAPTER_MODULES"),
     workflowProviderModules: csvEnv("MYSTRA_WORKFLOW_PROVIDER_MODULES"),
     workflowBlueprintFiles: csvEnv("MYSTRA_WORKFLOW_BLUEPRINT_FILES"),
+    repoProviderModules: csvEnv("MYSTRA_REPO_PROVIDER_MODULES"),
+    sandboxProviderModules: csvEnv("MYSTRA_SANDBOX_PROVIDER_MODULES"),
   };
 }
 
@@ -432,32 +450,6 @@ function runCommand(command: string, args: string[], options: {
   });
 }
 
-function runCommandCapture(command: string, args: string[], options: {
-  env?: NodeJS.ProcessEnv;
-  cwd?: string;
-} = {}): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const errorChunks: Buffer[] = [];
-    const child = spawn(command, args, {
-      cwd: options.cwd,
-      env: options.env ?? process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => errorChunks.push(chunk));
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (code === 0) {
-        resolve(Buffer.concat(chunks).toString("utf8").trim());
-        return;
-      }
-      reject(new Error(`${command} ${args.join(" ")} exited with ${code ?? "unknown"}: ${Buffer.concat(errorChunks).toString("utf8")}`));
-    });
-  });
-}
-
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -604,13 +596,71 @@ function appendRuntimeSecrets(
   }
 }
 
-function previewPort(
-  ports: ResolvedRuntimeContract["exposedPorts"],
-  name: string,
-  containerPort: number,
-): number | undefined {
-  return ports.find((port) => port.name === name)?.containerPort
-    ?? ports.find((port) => port.containerPort === containerPort)?.containerPort;
+function repositoryTargetForJob(claim: ClaimedJobResponse): {
+  projectId: string;
+  repoUrl: string;
+  hostKind: "gitlab" | "github" | "unknown";
+  defaultBaseBranch: string;
+} | undefined {
+  if (!claim.job || !claim.project) {
+    return undefined;
+  }
+
+  const repoUrl = claim.job.spec.repo;
+  return {
+    projectId: claim.project.id,
+    repoUrl,
+    hostKind: repoUrl.includes("gitlab")
+      ? "gitlab"
+      : repoUrl.includes("github")
+        ? "github"
+        : "unknown",
+    defaultBaseBranch: claim.job.spec.baseBranch,
+  };
+}
+
+function repositoryAuthBindingForProvider(providerName: RepoProviderKind) {
+  const reference = providerName === "gitlab" ? "MYSTRA_GITLAB_TOKEN" : "MYSTRA_GITHUB_TOKEN";
+  return {
+    kind: "runner-env" as const,
+    provider: providerName,
+    reference,
+    metadata: {},
+  };
+}
+
+function dockerResultFromReviewResult(reviewResult: ReviewResult): DockerResult {
+  if (reviewResult.status === "review_created" && reviewResult.review) {
+    return {
+      status: "succeeded",
+      summary: `Created ${reviewResult.review.provider === "gitlab" ? "GitLab MR" : "review"} ${reviewResult.review.displayId}`,
+      branch: reviewResult.branch.branchName,
+      mrUrl: reviewResult.review.url,
+      mrIid: reviewResult.review.number,
+      reviewResult,
+      ...(Object.keys(reviewResult.metadata).length > 0 ? { metadata: reviewResult.metadata } : {}),
+    };
+  }
+
+  return {
+    status: "failed",
+    summary: reviewResult.errorMessage ?? "Review creation failed",
+    branch: reviewResult.branch.branchName,
+    reviewResult,
+    errorCode: reviewResult.errorCode ?? "review_create_failed",
+    errorMessage: reviewResult.errorMessage ?? "Review creation failed",
+    ...(Object.keys(reviewResult.metadata).length > 0 ? { metadata: reviewResult.metadata } : {}),
+  };
+}
+
+function dockerResultFromBranchDeliveryReceipt(receipt: BranchDeliveryReceipt): DockerResult {
+  return {
+    status: "failed",
+    summary: receipt.errorMessage ?? "Branch delivery failed",
+    branch: receipt.branchName,
+    errorCode: receipt.errorCode ?? "push_failed",
+    errorMessage: receipt.errorMessage ?? "Branch delivery failed",
+  };
 }
 
 function renderRuntimeContextPrompt(runtime: ResolvedRuntimeContract): string[] {
@@ -750,6 +800,11 @@ async function resultFromWorkflowExecution(
       };
     }
 
+    if (failedNodeId === "push") {
+      const pushReceipt = await readWorkflowStepOutput<BranchDeliveryReceipt>(outputPath);
+      return dockerResultFromBranchDeliveryReceipt(pushReceipt);
+    }
+
     const output = await readWorkflowStepOutput<DockerResult>(outputPath);
     return {
       ...output,
@@ -805,6 +860,8 @@ async function executeDockerJob(
   claim: ClaimedJobResponse,
   workflowRegistry: RunnerWorkflowProviderRegistry,
   agentRegistry: RunnerAgentAdapterRegistry,
+  repoRegistry: RunnerRepoProviderRegistry,
+  sandboxRegistry: RunnerSandboxProviderRegistry,
 ): Promise<void> {
   if (!claim.job || !claim.run || !claim.project) {
     return;
@@ -816,6 +873,18 @@ async function executeDockerJob(
   }
   if (runtime.provider !== "docker") {
     throw new Error(`Claimed Docker job ${job.id} uses unsupported runtime provider ${runtime.provider}`);
+  }
+  const repositoryTarget = repositoryTargetForJob(claim);
+  if (!repositoryTarget) {
+    throw new Error(`Claimed Docker job ${job.id} is missing repository target metadata`);
+  }
+  const repoProvider = repoRegistry.select(repositoryTarget);
+  if (!repoProvider) {
+    throw new Error(`Claimed Docker job ${job.id} uses unsupported repository provider for ${repositoryTarget.repoUrl}`);
+  }
+  const sandboxProvider = sandboxRegistry.get(runtime.provider);
+  if (!sandboxProvider) {
+    throw new Error(`Claimed Docker job ${job.id} uses unregistered sandbox provider ${runtime.provider}`);
   }
 
   const image = runtime.environment.image;
@@ -872,6 +941,8 @@ async function executeDockerJob(
     executor: "docker",
     image,
     projectSlug: project.slug,
+    sandboxProvider: sandboxProvider.providerName,
+    repositoryProvider: repoProvider.providerName,
   });
 
   const containerName = `mystra-${run.id}`;
@@ -956,25 +1027,34 @@ async function executeDockerJob(
   let cleanupRequired = false;
 
   try {
-    const containerId = await runCommandCapture("docker", dockerArgs, {
+    const sandboxSession = await sandboxProvider.launch({
+      runId: run.id,
+      runtime,
+      workspacePath: workspace,
+      gitMirrorPath: gitMirror,
+      retentionPolicy: "retain_for_preview",
+    }, {
+      dockerArgs,
       env: containerEnv,
+      containerName,
     });
-    const frontendContainerPort = previewPort(runtimePorts, "frontend", 3000);
-    const backendContainerPort = previewPort(runtimePorts, "backend", 8000);
-    const frontendPort = frontendContainerPort
-      ? await runCommandCapture("docker", ["port", containerName, `${frontendContainerPort}/tcp`])
-      : "";
-    const backendPort = backendContainerPort
-      ? await runCommandCapture("docker", ["port", containerName, `${backendContainerPort}/tcp`])
-      : "";
-    const frontendUrl = frontendPort ? `http://${config.previewHost}:${frontendPort.split(":").at(-1)}` : null;
-    const backendUrl = backendPort ? `http://${config.previewHost}:${backendPort.split(":").at(-1)}` : null;
+    const sessionId = sandboxSession.sessionId;
+    const sandboxObservation = await sandboxProvider.inspect(sandboxSession, {
+      runtimePorts,
+      previewHost: config.previewHost,
+    });
+    const frontendUrl = typeof sandboxObservation.metadata.frontendUrl === "string"
+      ? sandboxObservation.metadata.frontendUrl
+      : null;
+    const backendUrl = typeof sandboxObservation.metadata.backendUrl === "string"
+      ? sandboxObservation.metadata.backendUrl
+      : null;
 
     await emitEvent(config, token, run.id, "container.started", {
       executor: "docker",
       image,
       projectSlug: project.slug,
-      containerId,
+      containerId: sessionId,
       containerName,
       frontendUrl,
       backendUrl,
@@ -1005,6 +1085,7 @@ async function executeDockerJob(
 
     let workflowDockerResult: DockerResult | undefined;
     let workflowStarted = false;
+    let cleanupOutcome: CleanupOutcome | undefined;
     let workflowLifecycleData: {
       provider: string;
       blueprintName: string;
@@ -1189,7 +1270,7 @@ async function executeDockerJob(
           "git.push": async (_inputs, context) => {
             await emitWorkflowNodeEvent(config, token, run.id, "started", context.node);
             try {
-              const output = await executeContainerWorkflowStep<PushStepOutput>({
+              const prepared = await executeContainerWorkflowStep<PushStepOutput>({
                 containerName,
                 stepCommand: "push",
                 nodeId: "push",
@@ -1202,13 +1283,31 @@ async function executeDockerJob(
                 frontendUrl,
                 backendUrl,
               });
+              const pushOutputPath = workflowStepOutputHostPath(workspace, "push");
+              const receipt = await repoProvider.pushBranch({
+                target: repositoryTarget,
+                branchName: prepared.branchName,
+                baseBranch: job.spec.baseBranch,
+                commitMessage: job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`,
+                auth: repositoryAuthBindingForProvider(repoProvider.providerName),
+                metadata: {
+                  localRepoPath: path.join(workspace, "repo"),
+                  gitlabHttpBaseUrl: config.gitlabHttpBaseUrl ?? undefined,
+                },
+              });
+              await writeFile(pushOutputPath, JSON.stringify(receipt, null, 2));
+              if (receipt.status !== "pushed") {
+                throw new Error(receipt.errorMessage ?? "Branch delivery failed");
+              }
               await emitEvent(config, token, run.id, "git.push_succeeded", {
-                branchName: output.branchName,
+                branchName: receipt.branchName,
+                ...(receipt.commitSha ? { commitSha: receipt.commitSha } : {}),
               });
               await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
-                branchName: output.branchName,
+                branchName: receipt.branchName,
+                ...(receipt.commitSha ? { commitSha: receipt.commitSha } : {}),
               });
-              return { ...output };
+              return { ...receipt };
             } catch (error) {
               await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
                 summary: error instanceof Error ? error.message : String(error),
@@ -1219,7 +1318,8 @@ async function executeDockerJob(
           "review.create": async (_inputs, context) => {
             await emitWorkflowNodeEvent(config, token, run.id, "started", context.node);
             try {
-              const output = await executeContainerWorkflowStep<DockerResult>({
+              const branchReceipt = await readWorkflowStepOutput<BranchDeliveryReceipt>(workflowStepOutputHostPath(workspace, "push"));
+              const prepared = await executeContainerWorkflowStep<ReviewPreparationStepOutput | DockerResult>({
                 containerName,
                 stepCommand: "review-create",
                 nodeId: "review_create",
@@ -1232,18 +1332,54 @@ async function executeDockerJob(
                 frontendUrl,
                 backendUrl,
               });
-              if (output.status === "succeeded") {
-                await emitEvent(config, token, run.id, "mr.created", {
-                  mrUrl: output.mrUrl,
-                  mrIid: output.mrIid,
+              if ("status" in prepared) {
+                throw new Error(prepared.errorMessage ?? prepared.summary);
+              }
+              const reviewOutputPath = workflowStepOutputHostPath(workspace, "review_create");
+              let output: DockerResult;
+              try {
+                const reviewResult = await repoProvider.createReview({
+                  target: repositoryTarget,
+                  auth: repositoryAuthBindingForProvider(repoProvider.providerName),
+                  branch: branchReceipt,
+                  title: job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`,
+                  body: job.spec.mergeRequest?.body ?? job.spec.prompt,
+                  metadata: {
+                    frontendPreviewUrl: prepared.frontendPreviewUrl ?? undefined,
+                    backendPreviewUrl: prepared.backendPreviewUrl ?? undefined,
+                    previewContainer: prepared.previewContainer ?? undefined,
+                    gitlabHttpBaseUrl: config.gitlabHttpBaseUrl ?? undefined,
+                    qualityGate: {
+                      status: "passed",
+                      sequence: ["test", "build"],
+                      logPath: "/mystra/workspace/quality-gate.log",
+                    },
+                  },
                 });
+                output = dockerResultFromReviewResult(reviewResult);
+              } catch (error) {
+                output = {
+                  status: "failed",
+                  summary: "Review creation failed",
+                  branch: branchReceipt.branchName,
+                  errorCode: "review_create_failed",
+                  errorMessage: error instanceof Error ? error.message : String(error),
+                };
+              }
+              await writeFile(reviewOutputPath, JSON.stringify(output, null, 2));
+              if (output.status === "succeeded") {
+                const reviewCreated = buildGitLabReviewCreatedEventData(output);
+                const mrCreated = buildGitLabMergeRequestEventData(output);
+                await emitEvent(config, token, run.id, "review.created", reviewCreated);
+                await emitEvent(config, token, run.id, "mr.created", mrCreated);
                 await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
-                  mrUrl: output.mrUrl,
-                  mrIid: output.mrIid,
+                  mrUrl: mrCreated.mrUrl,
+                  mrIid: mrCreated.mrIid,
+                  reviewStatus: output.reviewResult?.status,
                 });
                 return {
-                  reviewUrl: output.mrUrl ?? "",
-                  mrIid: output.mrIid ?? 0,
+                  reviewUrl: reviewCreated.reviewUrl ?? "",
+                  mrIid: reviewCreated.reviewNumber ?? 0,
                 };
               }
               throw new Error(output.errorMessage ?? output.summary);
@@ -1294,43 +1430,79 @@ async function executeDockerJob(
     if (cleanupRequired) {
       const reason = executionTimedOut ? "timeout" : "cancel";
       await emitEvent(config, token, run.id, "cleanup.started", { reason }, "warn");
-      try {
-        await runCommand("docker", [
-          "stop",
-          "--time",
-          String(config.cleanupTimeoutSeconds),
-          containerName,
-        ]);
-      } catch (error) {
-        captureException(error);
+      const stopOutcome = await sandboxProvider.stop(sandboxSession, reason, {
+        cleanupTimeoutSeconds: config.cleanupTimeoutSeconds,
+      });
+      cleanupOutcome = stopOutcome;
+      if (stopOutcome.status === "failed") {
+        captureException(new Error(stopOutcome.errorMessage ?? "Docker cleanup failed"));
+        const cleanupErrorMessage = stopOutcome.errorMessage ?? "Docker cleanup failed";
         await emitEvent(config, token, run.id, "run.cleanup_failed", {
-          reason,
-          errorMessage: error instanceof Error ? error.message : String(error),
+        reason,
+        errorMessage: cleanupErrorMessage,
         }, "error");
+        const sandboxOutcome = await sandboxProvider.collectOutcome(sandboxSession, {
+        status: "failed",
+        observation: sandboxObservation,
+        cleanup: stopOutcome,
+        finishedAt: new Date().toISOString(),
+        retained: true,
+        });
         terminalOverride = {
-          status: "failed",
-          summary: `Docker cleanup failed after ${reason}.`,
-          branch: job.spec.branchName,
-          errorCode: "cleanup_failed",
-          errorMessage: error instanceof Error ? error.message : String(error),
+        status: "failed",
+        summary: `Docker cleanup failed after ${reason}.`,
+        branch: job.spec.branchName,
+        errorCode: "cleanup_failed",
+        errorMessage: cleanupErrorMessage,
+        sandboxOutcome,
         };
       }
 
-      terminalOverride ??= {
+      if (!terminalOverride) {
+        const sandboxOutcome = await sandboxProvider.collectOutcome(sandboxSession, {
+        status: executionTimedOut ? "timed_out" : "canceled",
+        observation: sandboxObservation,
+        cleanup: stopOutcome,
+        finishedAt: new Date().toISOString(),
+        retained: false,
+        });
+        terminalOverride = {
         status: executionTimedOut ? "timed_out" : "canceled",
         summary: executionTimedOut
           ? `Docker task exceeded ${config.defaultExecutionTimeoutSeconds}s execution timeout.`
           : "Docker task was canceled and cleaned up.",
         branch: job.spec.branchName,
-      };
+        sandboxOutcome,
+        };
+      }
     }
 
-    const result = terminalOverride ?? workflowDockerResult ?? {
-      status: "failed",
-      summary: "Docker task failed before writing a result",
-      branch: job.spec.branchName,
-      errorCode: "missing_result",
-      errorMessage: "Workflow execution did not produce a terminal result",
+    const finalResult = terminalOverride ?? workflowDockerResult ?? {
+        status: "failed",
+        summary: "Docker task failed before writing a result",
+        branch: job.spec.branchName,
+        errorCode: "missing_result",
+        errorMessage: "Workflow execution did not produce a terminal result",
+      };
+    const result = {
+      ...finalResult,
+      sandboxOutcome: finalResult.sandboxOutcome ?? await sandboxProvider.collectOutcome(sandboxSession, {
+        status: finalResult.status,
+        observation: sandboxObservation,
+        cleanup: cleanupRequired
+        ? cleanupOutcome ?? {
+          status: "failed",
+          attemptedAt: new Date().toISOString(),
+          errorCode: "cleanup_failed",
+          errorMessage: "Cleanup was required but no cleanup outcome was recorded",
+        }
+        : {
+          status: "skipped",
+          attemptedAt: new Date().toISOString(),
+        },
+        finishedAt: new Date().toISOString(),
+        retained: !cleanupRequired,
+      }),
     };
 
     await emitQualityGateEvent(config, token, run.id, result);
@@ -1359,12 +1531,14 @@ async function executeJob(
   claim: ClaimedJobResponse,
   workflowRegistry?: RunnerWorkflowProviderRegistry,
   agentRegistry?: RunnerAgentAdapterRegistry,
+  repoRegistry?: RunnerRepoProviderRegistry,
+  sandboxRegistry?: RunnerSandboxProviderRegistry,
 ): Promise<void> {
   if (config.executor === "docker") {
-    if (!workflowRegistry || !agentRegistry) {
-      throw new Error("Workflow and agent registries must be initialized before executing Docker jobs");
+    if (!workflowRegistry || !agentRegistry || !repoRegistry || !sandboxRegistry) {
+      throw new Error("Workflow, agent, repo, and sandbox registries must be initialized before executing Docker jobs");
     }
-    await executeDockerJob(config, token, claim, workflowRegistry, agentRegistry);
+    await executeDockerJob(config, token, claim, workflowRegistry, agentRegistry, repoRegistry, sandboxRegistry);
     return;
   }
   await executeFakeJob(config, token, claim);
@@ -1401,12 +1575,22 @@ async function main(): Promise<void> {
       blueprintFiles: config.workflowBlueprintFiles,
     })
     : undefined;
+  const repoRegistryBundle = config.executor === "docker"
+    ? await createRunnerRepoProviderRegistry({
+      moduleSpecifiers: config.repoProviderModules,
+    })
+    : undefined;
+  const sandboxRegistryBundle = config.executor === "docker"
+    ? await createRunnerSandboxProviderRegistry({
+      moduleSpecifiers: config.sandboxProviderModules,
+    })
+    : undefined;
   const registration = await register(config, agentRegistryBundle?.agentNames);
   const activeJobs = new Set<Promise<void>>();
   let stopAfterActiveJobs = false;
 
   console.log(
-    `[mystra-runner] registered ${config.runnerName} session=${registration.runnerSessionId} executor=${config.executor}`,
+    `[mystra-runner] registered ${config.runnerName} session=${registration.runnerSessionId} executor=${config.executor} repoProviders=${repoRegistryBundle?.providerNames.length ?? 0} sandboxProviders=${sandboxRegistryBundle?.providerNames.length ?? 0}`,
   );
 
   while (true) {
@@ -1423,7 +1607,15 @@ async function main(): Promise<void> {
       }
 
       claimedAny = true;
-      const activeJob = executeJob(config, registration.runnerToken, claim, workflowRegistry, agentRegistry)
+      const activeJob = executeJob(
+        config,
+        registration.runnerToken,
+        claim,
+        workflowRegistry,
+        agentRegistry,
+        repoRegistryBundle?.registry,
+        sandboxRegistryBundle?.registry,
+      )
         .catch((error: unknown) => {
           captureException(error);
           console.error(error);
