@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@mystra/shared": "workspace:*",
+    "@mystra/workflows": "workspace:*",
     "@sentry/node": "^10.51.0",
     "zod": "^4.1.13"
   },

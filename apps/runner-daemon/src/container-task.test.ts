@@ -6,10 +6,11 @@ import { describe, expect, it } from "vitest";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const script = readFileSync(resolve(currentDir, "../assets/container-task.sh"), "utf8");
 const runner = readFileSync(resolve(currentDir, "index.ts"), "utf8");
+const workflowProviders = readFileSync(resolve(currentDir, "workflow-providers.ts"), "utf8");
 
 describe("container task quality gate", () => {
   it("runs the deterministic test-build gate before push and MR creation", () => {
-    const gateIndex = script.indexOf("while true; do");
+    const gateIndex = script.indexOf("run_quality_gates 0");
     const pushIndex = script.indexOf('git push -u origin "$MYSTRA_BRANCH_NAME"');
     const mrIndex = script.indexOf("GitLab MR create failed");
 
@@ -18,18 +19,53 @@ describe("container task quality gate", () => {
     expect(mrIndex).toBeGreaterThan(gateIndex);
   });
 
-  it("runs a bounded quality-gate fix loop before final failure", () => {
+  it("removes the bounded quality-gate fix loop from the shell lifecycle", () => {
     expect(script).toContain('errorCode === "quality_gate_failed"');
     expect(script).toContain('sequence: ["test", "build"]');
     expect(script).toContain('logPath: "/mystra/workspace/quality-gate.log"');
-    expect(script).toContain("fixAttempts: Number(process.env.MYSTRA_QUALITY_FIX_ATTEMPTS_USED || 0)");
-    expect(script).toContain('QUALITY_FIX_ATTEMPTS="${MYSTRA_QUALITY_FIX_ATTEMPTS:-2}"');
-    expect(script).toContain("write_quality_fix_prompt()");
-    expect(script).toContain('run_agent "$QUALITY_FIX_PROMPT"');
-    expect(script).toContain("while true; do");
-    expect(script).toContain("|| return $?");
-    expect(script).toContain("Mystra will only create it after the quality gate passes");
-    expect(runner).toContain("MYSTRA_QUALITY_FIX_ATTEMPTS");
+    expect(script).not.toContain('QUALITY_FIX_ATTEMPTS="${MYSTRA_QUALITY_FIX_ATTEMPTS:-2}"');
+    expect(script).not.toContain("write_quality_fix_prompt()");
+    expect(script).not.toContain('run_agent "$QUALITY_FIX_PROMPT"');
+    expect(script).not.toContain("while true; do");
+    expect(runner).not.toContain("MYSTRA_QUALITY_FIX_ATTEMPTS");
+  });
+
+  it("exposes workflow step commands for the local provider", () => {
+    expect(script).toContain('case "${1:-}" in');
+    expect(script).toContain('clone)');
+    expect(script).toContain('agent)');
+    expect(script).toContain('quality-gate)');
+    expect(script).toContain('push)');
+    expect(script).toContain('review-create)');
+    expect(script).toContain('MYSTRA_STEP_OUTPUT_FILE');
+    expect(script).toContain("Missing container workflow command. Use one of: clone, agent, quality-gate, push, review-create.");
+    expect(script).toContain("Deprecated container workflow entrypoint: use explicit workflow step commands instead of 'main'.");
+    expect(script).toContain("run_command quality-gate");
+    expect(runner).toContain('workflowProviderName: process.env.MYSTRA_WORKFLOW_PROVIDER ?? "local"');
+    expect(runner).toContain("workflowBlueprintName: process.env.MYSTRA_WORKFLOW_BLUEPRINT");
+    expect(runner).toContain('workflowProviderModules: csvEnv("MYSTRA_WORKFLOW_PROVIDER_MODULES")');
+    expect(runner).toContain('workflowBlueprintFiles: csvEnv("MYSTRA_WORKFLOW_BLUEPRINT_FILES")');
+    expect(runner).toContain("moduleSpecifiers: config.workflowProviderModules");
+    expect(runner).toContain("blueprintFiles: config.workflowBlueprintFiles");
+    expect(runner).toContain('const workflowRegistry = config.executor === "docker"');
+    expect(runner).toContain("executeJob(config, registration.runnerToken, claim, workflowRegistry)");
+    expect(runner).not.toContain("const workflowRegistry = await createRunnerWorkflowProviderRegistry({");
+    expect(workflowProviders).toContain("LocalWorkflowProvider");
+    expect(workflowProviders).toContain("createWorkflowProviderRegistry");
+    expect(workflowProviders).toContain("mvpCodingBlueprint");
+    expect(workflowProviders).toContain("loadWorkflowBlueprints");
+  });
+
+  it("emits workflow node lifecycle events around local provider execution", () => {
+    expect(runner).toContain('"workflow.start_requested"');
+    expect(runner).toContain('"workflow.started"');
+    expect(runner).toContain('"workflow.start_failed"');
+    expect(runner).toContain("async function emitWorkflowNodeEvent(");
+    expect(runner).toContain("`workflow.node.${phase}`");
+    expect(runner).toContain('phase: "started" | "succeeded" | "failed"');
+    expect(runner).toContain("nodeId: node.id");
+    expect(runner).toContain("handler: node.handler");
+    expect(runner).toContain("nodeKind: node.kind");
   });
 
   it("treats docs-only changes as a no-code quality gate pass", () => {
@@ -171,9 +207,9 @@ describe("container task quality gate", () => {
   it("reports cleanup failure instead of reading a missing stopped-container result", () => {
     expect(runner).toContain("\"run.cleanup_failed\"");
     expect(runner).toContain("errorCode: \"cleanup_failed\"");
-    expect(runner).toContain("if (terminalOverride) {");
-    expect(runner).toContain("result = terminalOverride");
-    expect(runner).toContain("Docker task failed before writing a result");
+    expect(runner).toContain("const result = terminalOverride ?? workflowDockerResult ?? {");
+    expect(runner).toContain("Workflow execution did not produce a terminal result");
+    expect(runner).not.toContain("JSON.parse(await readFile(resultPath, \"utf8\"))");
   });
 
   it("runs copilot with an isolated workspace config home", () => {

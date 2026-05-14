@@ -8,8 +8,7 @@ PROMPT_FILE="${WORKSPACE}/prompt.txt"
 FRONTEND_LOG="${WORKSPACE}/frontend-preview.log"
 BACKEND_LOG="${WORKSPACE}/backend-preview.log"
 QUALITY_LOG="${WORKSPACE}/quality-gate.log"
-QUALITY_FIX_PROMPT="${WORKSPACE}/quality-fix-prompt.txt"
-QUALITY_FIX_ATTEMPTS="${MYSTRA_QUALITY_FIX_ATTEMPTS:-2}"
+BASE_COMMIT_FILE="${WORKSPACE}/base-commit"
 COPILOT_SANDBOX_HOME="${WORKSPACE}/copilot-home"
 COPILOT_SANDBOX_CLI_CONFIG_DIR="${COPILOT_SANDBOX_HOME}/.copilot"
 COPILOT_SANDBOX_CONFIG_DIR="${COPILOT_SANDBOX_HOME}/.config"
@@ -33,7 +32,6 @@ if (errorCode === "quality_gate_failed") {
       status: "failed",
       sequence: ["test", "build"],
       logPath: "/mystra/workspace/quality-gate.log",
-      fixAttempts: Number(process.env.MYSTRA_QUALITY_FIX_ATTEMPTS_USED || 0),
     },
   };
 }
@@ -41,17 +39,27 @@ require("fs").writeFileSync(file, JSON.stringify(result, null, 2));
 NODE
 }
 
+write_step_output() {
+  if [ -z "${MYSTRA_STEP_OUTPUT_FILE:-}" ]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$MYSTRA_STEP_OUTPUT_FILE")"
+  cat >"$MYSTRA_STEP_OUTPUT_FILE"
+}
+
 on_error() {
   code=$?
   write_result failed "Container task failed with exit code ${code}" "container_task_failed"
   exit "$code"
 }
-trap on_error ERR
 
-mkdir -p "$WORKSPACE"
-cd "$WORKSPACE"
+ensure_workspace() {
+  mkdir -p "$WORKSPACE"
+  cd "$WORKSPACE"
+}
 
-CLONE_URL="$(node <<'NODE'
+clone_url() {
+  node <<'NODE'
 const repo = process.env.MYSTRA_REPO;
 const token = process.env.MYSTRA_GITLAB_TOKEN;
 if (!repo) throw new Error("MYSTRA_REPO is required");
@@ -71,22 +79,28 @@ url.username = "oauth2";
 url.password = token;
 console.log(url.toString());
 NODE
-)"
+}
 
-if [ -d "${MYSTRA_GIT_REFERENCE_PATH:-}" ]; then
-  git clone --reference-if-able "$MYSTRA_GIT_REFERENCE_PATH" --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"
-else
-  git clone --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"
-fi
-cd "$REPO_DIR"
-git checkout -B "$MYSTRA_BRANCH_NAME"
-BASE_COMMIT="$(git rev-parse HEAD)"
+configure_package_managers() {
+  if [ -n "${NPM_CONFIG_STORE_DIR:-}" ]; then
+    pnpm config set store-dir "$NPM_CONFIG_STORE_DIR" --global
+  elif [ -n "${PNPM_STORE_DIR:-}" ]; then
+    pnpm config set store-dir "$PNPM_STORE_DIR" --global
+  fi
+}
 
-if [ -n "${NPM_CONFIG_STORE_DIR:-}" ]; then
-  pnpm config set store-dir "$NPM_CONFIG_STORE_DIR" --global
-elif [ -n "${PNPM_STORE_DIR:-}" ]; then
-  pnpm config set store-dir "$PNPM_STORE_DIR" --global
-fi
+ensure_repo() {
+  ensure_workspace
+  if [ ! -d "$REPO_DIR/.git" ]; then
+    echo "Repository has not been cloned yet" >&2
+    exit 2
+  fi
+  cd "$REPO_DIR"
+}
+
+base_commit() {
+  cat "$BASE_COMMIT_FILE"
+}
 
 run_agent() {
   agent_prompt_file="$1"
@@ -119,13 +133,6 @@ run_agent() {
       ;;
   esac
 }
-
-run_agent "$PROMPT_FILE"
-
-if [ -z "$(git status --porcelain)" ] && [ "$(git rev-parse HEAD)" = "$BASE_COMMIT" ]; then
-  write_result failed "Agent finished without repository changes" "no_changes"
-  exit 0
-fi
 
 package_has_script() {
   node -e '
@@ -210,7 +217,7 @@ run_quality_gates() {
   printf 'Attempt: %s\n' "$gate_attempt" >>"$QUALITY_LOG"
 
   changed_files="$( {
-    git diff --name-only "$BASE_COMMIT" HEAD
+    git diff --name-only "$(base_commit)" HEAD
     git diff --name-only
     git diff --cached --name-only
     git ls-files --others --exclude-standard
@@ -247,50 +254,148 @@ run_quality_gates() {
   printf '\nQuality gate passed.\n' >>"$QUALITY_LOG"
 }
 
-write_quality_fix_prompt() {
-  fix_attempt="$1"
-  {
-    printf 'Mystra quality gate failed after the agent implementation.\n\n'
-    printf 'This is fix attempt %s of %s.\n\n' "$fix_attempt" "$QUALITY_FIX_ATTEMPTS"
-    printf 'Original task:\n'
-    cat "$PROMPT_FILE"
-    printf '\n\nQuality gate log tail:\n'
-    tail -220 "$QUALITY_LOG" 2>/dev/null || true
-    printf '\n\nInstructions:\n'
-    printf -- '- Fix only failures caused by your implementation.\n'
-    printf -- '- Do not fix or rewrite unrelated pre-existing tests or features.\n'
-    printf -- '- If a failure is clearly unrelated to this task, leave the implementation unchanged and summarize that blocker.\n'
-    printf -- '- Run the smallest relevant verification after your fix.\n'
-    printf -- '- Do not create the MR yourself; Mystra will only create it after the quality gate passes.\n'
-  } >"$QUALITY_FIX_PROMPT"
+write_clone_output() {
+  [ -n "${MYSTRA_STEP_OUTPUT_FILE:-}" ] || return 0
+  node <<'NODE' | write_step_output
+const fs = require("fs");
+console.log(JSON.stringify({
+  workspacePath: "/mystra/workspace/repo",
+  baseCommit: fs.readFileSync("/mystra/workspace/base-commit", "utf8").trim(),
+}, null, 2));
+NODE
 }
 
-quality_fix_attempt=0
-while true; do
-  if run_quality_gates "$quality_fix_attempt"; then
-    break
+changed_files_json() {
+  node <<'NODE'
+const { execSync } = require("child_process");
+const baseCommit = require("fs").readFileSync("/mystra/workspace/base-commit", "utf8").trim();
+const output = execSync(`
+  {
+    git diff --name-only ${JSON.stringify(baseCommit)} HEAD
+    git diff --name-only
+    git diff --cached --name-only
+    git ls-files --others --exclude-standard
+  } | sort -u
+`, { shell: "/bin/bash" }).toString("utf8").trim();
+const changedFiles = output ? output.split("\n").filter(Boolean) : [];
+console.log(JSON.stringify(changedFiles));
+NODE
+}
+
+write_agent_output() {
+  no_changes="$1"
+  changed_files_json="$2"
+  node - "$no_changes" "$changed_files_json" <<'NODE' | write_step_output
+const [noChangesRaw, changedFilesRaw] = process.argv.slice(2);
+console.log(JSON.stringify({
+  branchName: process.env.MYSTRA_BRANCH_NAME,
+  noChanges: noChangesRaw === "1",
+  changedFiles: JSON.parse(changedFilesRaw),
+}, null, 2));
+NODE
+}
+
+write_quality_gate_output() {
+  status="$1"
+  summary="${2:-}"
+  error_code="${3:-}"
+  node - "$status" "$summary" "$error_code" <<'NODE' | write_step_output
+const [status, summary, errorCode] = process.argv.slice(2);
+const output = {
+  status,
+  metadata: {
+    qualityGate: {
+      status,
+      sequence: ["test", "build"],
+      logPath: "/mystra/workspace/quality-gate.log",
+    },
+  },
+};
+if (summary) {
+  output.summary = summary;
+}
+if (errorCode) {
+  output.errorCode = errorCode;
+  output.errorMessage = summary;
+}
+console.log(JSON.stringify(output, null, 2));
+NODE
+}
+
+write_push_output() {
+  node <<'NODE' | write_step_output
+console.log(JSON.stringify({
+  branchName: process.env.MYSTRA_BRANCH_NAME,
+}, null, 2));
+NODE
+}
+
+clone_step() {
+  ensure_workspace
+  CLONE_URL="$(clone_url)"
+  if [ -d "$REPO_DIR" ]; then
+    rm -rf "$REPO_DIR"
   fi
 
-  if [ "$quality_fix_attempt" -ge "$QUALITY_FIX_ATTEMPTS" ]; then
-    export MYSTRA_QUALITY_FIX_ATTEMPTS_USED="$quality_fix_attempt"
-    write_result failed "Quality gate failed during test -> build after ${quality_fix_attempt} fix attempt(s). See quality-gate.log in the retained workspace." "quality_gate_failed"
+  if [ -d "${MYSTRA_GIT_REFERENCE_PATH:-}" ]; then
+    git clone --reference-if-able "$MYSTRA_GIT_REFERENCE_PATH" --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"
+  else
+    git clone --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"
+  fi
+  cd "$REPO_DIR"
+  git checkout -B "$MYSTRA_BRANCH_NAME"
+  git rev-parse HEAD >"$BASE_COMMIT_FILE"
+  configure_package_managers
+  write_clone_output
+}
+
+agent_step() {
+  ensure_repo
+  run_agent "$PROMPT_FILE"
+
+  changed_files="$(changed_files_json)"
+  if [ -z "$(git status --porcelain)" ] && [ "$changed_files" = "[]" ]; then
+    if [ -n "${MYSTRA_STEP_OUTPUT_FILE:-}" ]; then
+      write_agent_output 1 "$changed_files"
+      return 0
+    fi
+    write_result failed "Agent finished without repository changes" "no_changes"
     exit 0
   fi
 
-  quality_fix_attempt=$((quality_fix_attempt + 1))
-  write_quality_fix_prompt "$quality_fix_attempt"
-  run_agent "$QUALITY_FIX_PROMPT"
-done
+  write_agent_output 0 "$changed_files"
+}
 
-git config user.name "${MYSTRA_GIT_AUTHOR_NAME:-Mystra Runner}"
-git config user.email "${MYSTRA_GIT_AUTHOR_EMAIL:-mystra-runner@example.invalid}"
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  git add -A
-  git commit -m "${MYSTRA_COMMIT_MESSAGE:-Mystra task ${MYSTRA_TASK_ID}}"
-fi
-git push -u origin "$MYSTRA_BRANCH_NAME"
+quality_gate_step() {
+  ensure_repo
+  if run_quality_gates 0; then
+    write_quality_gate_output passed
+    return 0
+  fi
+
+  if [ -n "${MYSTRA_STEP_OUTPUT_FILE:-}" ]; then
+    write_quality_gate_output failed "Quality gate failed during test -> build. See quality-gate.log in the retained workspace." "quality_gate_failed"
+    exit 1
+  fi
+
+  write_result failed "Quality gate failed during test -> build. See quality-gate.log in the retained workspace." "quality_gate_failed"
+  exit 0
+}
+
+push_step() {
+  ensure_repo
+  git config user.name "${MYSTRA_GIT_AUTHOR_NAME:-Mystra Runner}"
+  git config user.email "${MYSTRA_GIT_AUTHOR_EMAIL:-mystra-runner@example.invalid}"
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    git add -A
+    git commit -m "${MYSTRA_COMMIT_MESSAGE:-Mystra task ${MYSTRA_TASK_ID}}"
+  fi
+  git push -u origin "$MYSTRA_BRANCH_NAME"
+  write_push_output
+}
 
 start_preview_services() {
+  ensure_repo
   if [ -f frontend/package.json ]; then
     (
       cd frontend
@@ -455,10 +560,12 @@ NODE
   fi
 }
 
-start_preview_services
-
-node <<'NODE'
+review_create_step() {
+  ensure_repo
+  start_preview_services
+  OUTPUT_FILE="${MYSTRA_STEP_OUTPUT_FILE:-$RESULT_FILE}" node <<'NODE'
 const fs = require("fs");
+const outputFile = process.env.OUTPUT_FILE || process.env.RESULT_FILE || "/mystra/workspace/result.json";
 const repo = process.env.MYSTRA_REPO;
 const token = process.env.MYSTRA_GITLAB_TOKEN;
 const sourceBranch = process.env.MYSTRA_BRANCH_NAME;
@@ -542,7 +649,7 @@ async function portIsReachable(url) {
       body: noteBody,
     });
   }
-  fs.writeFileSync(process.env.RESULT_FILE || "/mystra/workspace/result.json", JSON.stringify({
+  fs.writeFileSync(outputFile, JSON.stringify({
     status: "succeeded",
     summary: `Created GitLab MR !${mr.iid}`,
     branch: sourceBranch,
@@ -561,13 +668,77 @@ async function portIsReachable(url) {
     },
   }, null, 2));
 })().catch((error) => {
-  fs.writeFileSync(process.env.RESULT_FILE || "/mystra/workspace/result.json", JSON.stringify({
+  fs.writeFileSync(outputFile, JSON.stringify({
     status: "failed",
     summary: "GitLab MR creation failed",
     branch: sourceBranch,
     errorCode: "mr_create_failed",
     errorMessage: String(error.message || error),
   }, null, 2));
-  process.exit(0);
+  process.exit(1);
 });
 NODE
+}
+
+run_command() {
+  case "${1:-}" in
+    clone)
+      clone_step
+      ;;
+    agent)
+      agent_step
+      ;;
+    quality-gate)
+      quality_gate_step
+      ;;
+    push)
+      push_step
+      ;;
+    review-create)
+      review_create_step
+      ;;
+    *)
+      echo "Unknown container workflow command: ${1:-}" >&2
+      return 2
+      ;;
+  esac
+}
+
+compat_main() {
+  echo "Deprecated container workflow entrypoint: use explicit workflow step commands instead of 'main'." >&2
+  trap on_error ERR
+  run_command clone
+  run_command agent
+  run_command quality-gate
+  run_command push
+  run_command review-create
+}
+
+case "${1:-}" in
+  "")
+    echo "Missing container workflow command. Use one of: clone, agent, quality-gate, push, review-create." >&2
+    exit 2
+    ;;
+  clone)
+    run_command clone
+    ;;
+  agent)
+    run_command agent
+    ;;
+  quality-gate)
+    run_command quality-gate
+    ;;
+  push)
+    run_command push
+    ;;
+  review-create)
+    run_command review-create
+    ;;
+  main)
+    compat_main
+    ;;
+  *)
+    echo "Unknown container workflow command: ${1}" >&2
+    exit 2
+    ;;
+esac

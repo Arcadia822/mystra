@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import type { ResolvedRuntimeContract } from "@mystra/shared";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
+import { createRunnerWorkflowProviderRegistry, type RunnerWorkflowProviderRegistry } from "./workflow-providers.js";
 
 interface RunnerConfig {
   controlPlaneUrl: string;
@@ -25,6 +26,10 @@ interface RunnerConfig {
   gitlabHttpBaseUrl: string | undefined;
   previewHost: string;
   containerProxyUrl: string | undefined;
+  workflowProviderName: string;
+  workflowBlueprintName: string | undefined;
+  workflowProviderModules: string[] | undefined;
+  workflowBlueprintFiles: string[] | undefined;
 }
 
 interface RegisterResponse {
@@ -80,6 +85,29 @@ interface QualityGateMetadata {
   logPath?: unknown;
 }
 
+interface CloneStepOutput {
+  workspacePath: string;
+  baseCommit: string;
+}
+
+interface AgentStepOutput {
+  branchName: string;
+  noChanges: boolean;
+  changedFiles: string[];
+}
+
+interface QualityGateStepOutput {
+  status: "passed" | "failed";
+  summary?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface PushStepOutput {
+  branchName: string;
+}
+
 function readConfig(): RunnerConfig {
   return {
     controlPlaneUrl: process.env.MYSTRA_CONTROL_PLANE_URL ?? "http://localhost:3000",
@@ -100,6 +128,10 @@ function readConfig(): RunnerConfig {
     gitlabHttpBaseUrl: process.env.MYSTRA_GITLAB_HTTP_BASE_URL,
     previewHost: process.env.MYSTRA_PREVIEW_HOST ?? detectPreviewHost(),
     containerProxyUrl: process.env.MYSTRA_CONTAINER_PROXY_URL ?? defaultContainerProxyUrl(),
+    workflowProviderName: process.env.MYSTRA_WORKFLOW_PROVIDER ?? "local",
+    workflowBlueprintName: process.env.MYSTRA_WORKFLOW_BLUEPRINT,
+    workflowProviderModules: csvEnv("MYSTRA_WORKFLOW_PROVIDER_MODULES"),
+    workflowBlueprintFiles: csvEnv("MYSTRA_WORKFLOW_BLUEPRINT_FILES"),
   };
 }
 
@@ -257,6 +289,45 @@ async function emitEvent(
     severity,
     data,
   }, token);
+}
+
+async function emitWorkflowNodeEvent(
+  config: RunnerConfig,
+  token: string,
+  runId: string,
+  phase: "started" | "succeeded" | "failed",
+  node: {
+    id: string;
+    handler: string;
+    kind: string;
+  },
+  data: Record<string, unknown> = {},
+  severity: "debug" | "info" | "warn" | "error" = "info",
+): Promise<void> {
+  await emitEvent(
+    config,
+    token,
+    runId,
+    `workflow.node.${phase}`,
+    {
+      nodeId: node.id,
+      handler: node.handler,
+      nodeKind: node.kind,
+      ...data,
+    },
+    severity,
+  );
+}
+
+async function emitWorkflowLifecycleEvent(
+  config: RunnerConfig,
+  token: string,
+  runId: string,
+  type: "workflow.start_requested" | "workflow.started" | "workflow.start_failed",
+  data: Record<string, unknown>,
+  severity: "debug" | "info" | "warn" | "error" = "info",
+): Promise<void> {
+  await emitEvent(config, token, runId, type, data, severity);
 }
 
 function qualityGateMetadata(result: DockerResult): QualityGateMetadata | null {
@@ -553,6 +624,124 @@ function renderRuntimeContextPrompt(runtime: ResolvedRuntimeContract): string[] 
   return lines;
 }
 
+function workflowStepOutputHostPath(workspace: string, nodeId: string): string {
+  return path.join(workspace, "workflow-step-output", `${nodeId}.json`);
+}
+
+function workflowStepOutputContainerPath(nodeId: string): string {
+  return `/mystra/workspace/workflow-step-output/${nodeId}.json`;
+}
+
+async function readWorkflowStepOutput<T>(outputPath: string): Promise<T> {
+  return JSON.parse(await readFile(outputPath, "utf8")) as T;
+}
+
+async function executeContainerWorkflowStep<T>(options: {
+  containerName: string;
+  stepCommand: "clone" | "agent" | "quality-gate" | "push" | "review-create";
+  nodeId: string;
+  workspace: string;
+  env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
+  frontendUrl?: string | null;
+  backendUrl?: string | null;
+}): Promise<T> {
+  const outputPath = workflowStepOutputHostPath(options.workspace, options.nodeId);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await rm(outputPath, { force: true });
+
+  const args = [
+    "exec",
+    "-e",
+    `MYSTRA_STEP_OUTPUT_FILE=${workflowStepOutputContainerPath(options.nodeId)}`,
+    "-e",
+    `MYSTRA_FRONTEND_PREVIEW_URL=${options.frontendUrl ?? ""}`,
+    "-e",
+    `MYSTRA_BACKEND_PREVIEW_URL=${options.backendUrl ?? ""}`,
+    options.containerName,
+    "bash",
+    "/mystra/workspace/task.sh",
+    options.stepCommand,
+  ];
+
+  try {
+    await runCommand("docker", args, {
+      ...(options.env ? { env: options.env } : {}),
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
+  } catch (error) {
+    try {
+      return await readWorkflowStepOutput<T>(outputPath);
+    } catch {
+      throw error;
+    }
+  }
+
+  return await readWorkflowStepOutput<T>(outputPath);
+}
+
+async function resultFromWorkflowExecution(
+  workspace: string,
+  branchName: string,
+  failedNodeId: string | undefined,
+  errorMessage: string | undefined,
+): Promise<DockerResult> {
+  if (!failedNodeId) {
+    return {
+      status: "failed",
+      summary: "Workflow execution failed before a terminal node completed.",
+      branch: branchName,
+      errorCode: "workflow_failed",
+      ...(errorMessage ? { errorMessage } : {}),
+    };
+  }
+
+  const outputPath = workflowStepOutputHostPath(workspace, failedNodeId);
+
+  try {
+    if (failedNodeId === "agent") {
+      const agentOutput = await readWorkflowStepOutput<AgentStepOutput>(outputPath);
+      if (agentOutput.noChanges) {
+        return {
+          status: "failed",
+          summary: "Agent finished without repository changes",
+          branch: branchName,
+          errorCode: "no_changes",
+          errorMessage: "Agent finished without repository changes",
+        };
+      }
+    }
+
+    if (failedNodeId === "quality_gate") {
+      const qualityGate = await readWorkflowStepOutput<QualityGateStepOutput>(outputPath);
+      return {
+        status: "failed",
+        summary: qualityGate.summary ?? "Quality gate failed during test -> build. See quality-gate.log in the retained workspace.",
+        branch: branchName,
+        errorCode: qualityGate.errorCode ?? "quality_gate_failed",
+        ...((qualityGate.errorMessage ?? qualityGate.summary)
+          ? { errorMessage: qualityGate.errorMessage ?? qualityGate.summary }
+          : {}),
+        ...(qualityGate.metadata ? { metadata: qualityGate.metadata } : {}),
+      };
+    }
+
+    const output = await readWorkflowStepOutput<DockerResult>(outputPath);
+    return {
+      ...output,
+      branch: output.branch ?? branchName,
+    };
+  } catch {
+    return {
+      status: "failed",
+      summary: "Workflow execution failed before writing a terminal node result",
+      branch: branchName,
+      errorCode: "workflow_failed",
+      ...(errorMessage ? { errorMessage } : {}),
+    };
+  }
+}
+
 async function executeFakeJob(
   config: RunnerConfig,
   token: string,
@@ -590,6 +779,7 @@ async function executeDockerJob(
   config: RunnerConfig,
   token: string,
   claim: ClaimedJobResponse,
+  workflowRegistry: RunnerWorkflowProviderRegistry,
 ): Promise<void> {
   if (!claim.job || !claim.run || !claim.project) {
     return;
@@ -613,7 +803,6 @@ async function executeDockerJob(
   const workspace = await mkdtemp(path.join(config.workspaceRoot, `${run.id}-`));
   const scriptPath = path.join(workspace, "task.sh");
   const promptPath = path.join(workspace, "prompt.txt");
-  const resultPath = path.join(workspace, "result.json");
 
   await mkdir(workspace, { recursive: true });
   for (const mount of runtimeMounts) {
@@ -667,8 +856,6 @@ async function executeDockerJob(
     `MYSTRA_BRANCH_NAME=${job.spec.branchName}`,
     "-e",
     `MYSTRA_AGENT=${job.spec.agent}`,
-    "-e",
-    `MYSTRA_QUALITY_FIX_ATTEMPTS=${process.env.MYSTRA_QUALITY_FIX_ATTEMPTS ?? "2"}`,
     "-e",
     `MYSTRA_PROMPT=${job.spec.prompt}`,
     "-e",
@@ -740,9 +927,6 @@ async function executeDockerJob(
       frontendUrl,
       backendUrl,
     });
-    await emitEvent(config, token, run.id, "agent.started", {
-      agent: job.spec.agent,
-    });
 
     const executionAbort = new AbortController();
     const pollStop = new AbortController();
@@ -767,25 +951,268 @@ async function executeDockerJob(
       executionAbort.abort();
     }
 
+    let workflowDockerResult: DockerResult | undefined;
+    let workflowStarted = false;
+    let workflowLifecycleData: {
+      provider: string;
+      blueprintName: string;
+      blueprintVersion: string;
+    } = {
+      provider: "local",
+      blueprintName: "mvp.coding",
+      blueprintVersion: "1.0.0",
+    };
     try {
-      await runCommand("docker", [
-        "exec",
-        "-e",
-        `MYSTRA_FRONTEND_PREVIEW_URL=${frontendUrl}`,
-        "-e",
-        `MYSTRA_BACKEND_PREVIEW_URL=${backendUrl}`,
-        containerName,
-        "bash",
-        "/mystra/workspace/task.sh",
-      ], {
-        env: {
-          ...process.env,
-          MYSTRA_GITLAB_TOKEN: gitlabToken,
+      const { provider: workflowProvider, blueprint: workflowBlueprint } = workflowRegistry.resolve(
+        config.workflowProviderName,
+        config.workflowBlueprintName,
+      );
+      workflowLifecycleData = {
+        provider: workflowProvider.providerName,
+        blueprintName: workflowBlueprint.name,
+        blueprintVersion: workflowBlueprint.version,
+      };
+
+      await emitWorkflowLifecycleEvent(
+        config,
+        token,
+        run.id,
+        "workflow.start_requested",
+        {
+          ...workflowLifecycleData,
+          entryNodes: workflowBlueprint.entryNodes,
+          nodeCount: workflowBlueprint.nodes.length,
+        },
+      );
+
+      await emitWorkflowLifecycleEvent(
+        config,
+        token,
+        run.id,
+        "workflow.started",
+        {
+          ...workflowLifecycleData,
+          entryNodes: workflowBlueprint.entryNodes,
+          nodeCount: workflowBlueprint.nodes.length,
+        },
+      );
+      workflowStarted = true;
+
+      const workflowResult = await workflowProvider.executeBlueprint(workflowBlueprint, {
+        workflowInput: {
+          repo: job.spec.repo,
+          prompt: job.spec.prompt,
+          branchName: job.spec.branchName,
         },
         signal: executionAbort.signal,
+        handlers: {
+          "git.clone": async (_inputs, context) => {
+            await emitWorkflowNodeEvent(config, token, run.id, "started", context.node);
+            try {
+              const output = await executeContainerWorkflowStep<CloneStepOutput>({
+                containerName,
+                stepCommand: "clone",
+                nodeId: "clone",
+                workspace,
+                env: {
+                  ...process.env,
+                  MYSTRA_GITLAB_TOKEN: gitlabToken,
+                },
+                signal: executionAbort.signal,
+                frontendUrl,
+                backendUrl,
+              });
+              await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
+                baseCommit: output.baseCommit,
+              });
+              return { ...output };
+            } catch (error) {
+              await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                summary: error instanceof Error ? error.message : String(error),
+              }, "error");
+              throw error;
+            }
+          },
+          "agent.execute": async (_inputs, context) => {
+            await emitWorkflowNodeEvent(config, token, run.id, "started", context.node, {
+              agent: job.spec.agent,
+            });
+            await emitEvent(config, token, run.id, "agent.started", {
+              agent: job.spec.agent,
+            });
+            try {
+              const output = await executeContainerWorkflowStep<AgentStepOutput>({
+                containerName,
+                stepCommand: "agent",
+                nodeId: "agent",
+                workspace,
+                env: {
+                  ...process.env,
+                  MYSTRA_GITLAB_TOKEN: gitlabToken,
+                },
+                signal: executionAbort.signal,
+                frontendUrl,
+                backendUrl,
+              });
+              if (output.noChanges) {
+                await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                  summary: "Agent finished without repository changes",
+                }, "error");
+                throw new Error("Agent finished without repository changes");
+              }
+              await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
+                changedFilesCount: output.changedFiles.length,
+              });
+              return { ...output };
+            } catch (error) {
+              if (!(error instanceof Error && error.message === "Agent finished without repository changes")) {
+                await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                  summary: error instanceof Error ? error.message : String(error),
+                }, "error");
+              }
+              throw error;
+            }
+          },
+          "quality_gate.run": async (_inputs, context) => {
+            await emitWorkflowNodeEvent(config, token, run.id, "started", context.node);
+            try {
+              const output = await executeContainerWorkflowStep<QualityGateStepOutput>({
+                containerName,
+                stepCommand: "quality-gate",
+                nodeId: "quality_gate",
+                workspace,
+                env: {
+                  ...process.env,
+                  MYSTRA_GITLAB_TOKEN: gitlabToken,
+                },
+                signal: executionAbort.signal,
+                frontendUrl,
+                backendUrl,
+              });
+              await emitEvent(
+                config,
+                token,
+                run.id,
+                `quality_gate.${output.status}`,
+                {
+                  sequence: ["test", "build"],
+                  logPath: "/mystra/workspace/quality-gate.log",
+                },
+                output.status === "passed" ? "info" : "error",
+              );
+              if (output.status !== "passed") {
+                await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                  summary: output.summary ?? "Quality gate failed",
+                }, "error");
+                throw new Error(output.summary ?? "Quality gate failed");
+              }
+              await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
+                sequence: ["test", "build"],
+              });
+              return { ...output };
+            } catch (error) {
+              if (!(error instanceof Error && (error.message === "Quality gate failed" || error.message.includes("Quality gate failed")))) {
+                await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                  summary: error instanceof Error ? error.message : String(error),
+                }, "error");
+              }
+              throw error;
+            }
+          },
+          "git.push": async (_inputs, context) => {
+            await emitWorkflowNodeEvent(config, token, run.id, "started", context.node);
+            try {
+              const output = await executeContainerWorkflowStep<PushStepOutput>({
+                containerName,
+                stepCommand: "push",
+                nodeId: "push",
+                workspace,
+                env: {
+                  ...process.env,
+                  MYSTRA_GITLAB_TOKEN: gitlabToken,
+                },
+                signal: executionAbort.signal,
+                frontendUrl,
+                backendUrl,
+              });
+              await emitEvent(config, token, run.id, "git.push_succeeded", {
+                branchName: output.branchName,
+              });
+              await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
+                branchName: output.branchName,
+              });
+              return { ...output };
+            } catch (error) {
+              await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                summary: error instanceof Error ? error.message : String(error),
+              }, "error");
+              throw error;
+            }
+          },
+          "review.create": async (_inputs, context) => {
+            await emitWorkflowNodeEvent(config, token, run.id, "started", context.node);
+            try {
+              const output = await executeContainerWorkflowStep<DockerResult>({
+                containerName,
+                stepCommand: "review-create",
+                nodeId: "review_create",
+                workspace,
+                env: {
+                  ...process.env,
+                  MYSTRA_GITLAB_TOKEN: gitlabToken,
+                },
+                signal: executionAbort.signal,
+                frontendUrl,
+                backendUrl,
+              });
+              if (output.status === "succeeded") {
+                await emitEvent(config, token, run.id, "mr.created", {
+                  mrUrl: output.mrUrl,
+                  mrIid: output.mrIid,
+                });
+                await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
+                  mrUrl: output.mrUrl,
+                  mrIid: output.mrIid,
+                });
+                return {
+                  reviewUrl: output.mrUrl ?? "",
+                  mrIid: output.mrIid ?? 0,
+                };
+              }
+              throw new Error(output.errorMessage ?? output.summary);
+            } catch (error) {
+              await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                summary: error instanceof Error ? error.message : String(error),
+              }, "error");
+              throw error;
+            }
+          },
+        },
       });
+
+      workflowDockerResult = workflowResult.status === "succeeded"
+        ? await readWorkflowStepOutput<DockerResult>(workflowStepOutputHostPath(workspace, "review_create"))
+        : await resultFromWorkflowExecution(
+          workspace,
+          job.spec.branchName,
+          workflowResult.failedNodeId,
+          workflowResult.errorMessage,
+        );
     } catch (error) {
-      if (cancellationRequested || executionTimedOut) {
+      if (!workflowStarted && !cancellationRequested && !executionTimedOut && !executionAbort.signal.aborted) {
+        await emitWorkflowLifecycleEvent(
+          config,
+          token,
+          run.id,
+          "workflow.start_failed",
+          {
+            ...workflowLifecycleData,
+            summary: error instanceof Error ? error.message : String(error),
+          },
+          "error",
+        );
+      }
+      if (cancellationRequested || executionTimedOut || executionAbort.signal.aborted) {
         cleanupRequired = true;
       } else {
         throw error;
@@ -830,41 +1257,46 @@ async function executeDockerJob(
         branch: job.spec.branchName,
       };
     }
+
+    const result = terminalOverride ?? workflowDockerResult ?? {
+      status: "failed",
+      summary: "Docker task failed before writing a result",
+      branch: job.spec.branchName,
+      errorCode: "missing_result",
+      errorMessage: "Workflow execution did not produce a terminal result",
+    };
+
+    await emitQualityGateEvent(config, token, run.id, result);
+    await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
+    await rm(scriptPath, { force: true });
+    console.log(`[mystra-runner] docker completed run=${run.id} status=${result.status}`);
   } catch (error) {
     captureException(error);
     console.error(error);
+    const result: DockerResult = {
+      status: "failed",
+      summary: "Docker workflow execution failed before writing a result",
+      branch: job.spec.branchName,
+      errorCode: "workflow_failed",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    };
+    await emitQualityGateEvent(config, token, run.id, result);
+    await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
+    await rm(scriptPath, { force: true });
   }
-
-  let result: DockerResult;
-  if (terminalOverride) {
-    result = terminalOverride;
-  } else {
-    try {
-      result = JSON.parse(await readFile(resultPath, "utf8")) as DockerResult;
-    } catch (error) {
-      result = {
-        status: "failed",
-        summary: "Docker task failed before writing a result",
-        branch: job.spec.branchName,
-        errorCode: "missing_result",
-        errorMessage: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  await emitQualityGateEvent(config, token, run.id, result);
-  await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
-  await rm(scriptPath, { force: true });
-  console.log(`[mystra-runner] docker completed run=${run.id} status=${result.status}`);
 }
 
 async function executeJob(
   config: RunnerConfig,
   token: string,
   claim: ClaimedJobResponse,
+  workflowRegistry?: RunnerWorkflowProviderRegistry,
 ): Promise<void> {
   if (config.executor === "docker") {
-    await executeDockerJob(config, token, claim);
+    if (!workflowRegistry) {
+      throw new Error("Workflow registry must be initialized before executing Docker jobs");
+    }
+    await executeDockerJob(config, token, claim, workflowRegistry);
     return;
   }
   await executeFakeJob(config, token, claim);
@@ -888,6 +1320,12 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 async function main(): Promise<void> {
   initSentry("mystra-runner");
   const config = readConfig();
+  const workflowRegistry = config.executor === "docker"
+    ? await createRunnerWorkflowProviderRegistry({
+      moduleSpecifiers: config.workflowProviderModules,
+      blueprintFiles: config.workflowBlueprintFiles,
+    })
+    : undefined;
   const registration = await register(config);
   const activeJobs = new Set<Promise<void>>();
   let stopAfterActiveJobs = false;
@@ -910,7 +1348,7 @@ async function main(): Promise<void> {
       }
 
       claimedAny = true;
-      const activeJob = executeJob(config, registration.runnerToken, claim)
+      const activeJob = executeJob(config, registration.runnerToken, claim, workflowRegistry)
         .catch((error: unknown) => {
           captureException(error);
           console.error(error);
