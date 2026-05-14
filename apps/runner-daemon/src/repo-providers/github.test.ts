@@ -2,6 +2,8 @@ import { EventEmitter } from "node:events";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { reviewRequestSchema } from "@mystra/shared";
+
 import { githubRepoProvider } from "./github.js";
 
 const spawnMock = vi.hoisted(() => vi.fn());
@@ -114,6 +116,147 @@ describe("github repo provider", () => {
       branchUrl: "https://github.enterprise.example/acme/project/tree/mystra%2Ftask-501",
       commitSha: "fedcba",
     });
+  });
+
+  it("rejects no-diff GitHub review requests before provider review creation begins", () => {
+    expect(() =>
+      reviewRequestSchema.parse({
+        target: {
+          projectId: "00000000-0000-4000-8000-000000000506",
+          repoUrl: "https://github.com/acme/project.git",
+          hostKind: "github",
+          defaultBaseBranch: "main",
+        },
+        auth: {
+          kind: "runner-env",
+          provider: "github",
+          reference: "MYSTRA_GITHUB_TOKEN",
+          metadata: {},
+        },
+        branch: {
+          status: "no_diff",
+          branchName: "mystra/task-506",
+        },
+        title: "Mystra task 506",
+        body: "No diff means no review should be created",
+        metadata: {},
+      }),
+    ).toThrow("Review creation requires a pushed branch receipt");
+  });
+
+  it("returns auth_invalid when the configured GitHub runner-env token is missing", async () => {
+    const result = await githubRepoProvider.createReview({
+      target: {
+        projectId: "00000000-0000-4000-8000-000000000507",
+        repoUrl: "https://github.com/acme/project.git",
+        hostKind: "github",
+        defaultBaseBranch: "main",
+      },
+      auth: {
+        kind: "runner-env",
+        provider: "github",
+        reference: "MYSTRA_GITHUB_TOKEN",
+        metadata: {},
+      },
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-507",
+      },
+      title: "Mystra task 507",
+      body: "Implement the requested change",
+      metadata: {},
+    });
+
+    expect(result).toEqual({
+      status: "auth_invalid",
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-507",
+      },
+      errorCode: "auth_invalid",
+      errorMessage: "Missing GitHub auth token in MYSTRA_GITHUB_TOKEN",
+      metadata: {},
+    });
+  });
+
+  it("returns push_failed when git push is rejected after auth is configured", async () => {
+    mockSpawnSequence(
+      { code: 0 },
+      { code: 1 },
+    );
+    process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
+
+    const receipt = await githubRepoProvider.pushBranch({
+      target: {
+        projectId: "00000000-0000-4000-8000-000000000508",
+        repoUrl: "https://github.com/acme/project.git",
+        hostKind: "github",
+        defaultBaseBranch: "main",
+      },
+      branchName: "mystra/task-508",
+      baseBranch: "main",
+      commitMessage: "Mystra task 508",
+      auth: {
+        kind: "runner-env",
+        provider: "github",
+        reference: "MYSTRA_GITHUB_TOKEN",
+        metadata: {},
+      },
+      metadata: {
+        localRepoPath: "/tmp/mystra-github-repo",
+      },
+    });
+
+    expect(receipt).toEqual({
+      status: "failed",
+      branchName: "mystra/task-508",
+      errorCode: "push_failed",
+      errorMessage: "git push -u origin mystra/task-508 exited with 1",
+    });
+  });
+
+  it("returns review_failed_after_push when pull request creation fails after a pushed branch", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("branch already has a pull request", { status: 422 }));
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
+
+    const result = await githubRepoProvider.createReview({
+      target: {
+        projectId: "00000000-0000-4000-8000-000000000509",
+        repoUrl: "https://github.com/acme/project.git",
+        hostKind: "github",
+        defaultBaseBranch: "main",
+      },
+      auth: {
+        kind: "runner-env",
+        provider: "github",
+        reference: "MYSTRA_GITHUB_TOKEN",
+        metadata: {},
+      },
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-509",
+        branchUrl: "https://github.com/acme/project/tree/mystra/task-509",
+      },
+      title: "Mystra task 509",
+      body: "Implement the requested change",
+      metadata: {},
+    });
+
+    expect(result).toEqual({
+      status: "review_failed_after_push",
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-509",
+        branchUrl: "https://github.com/acme/project/tree/mystra/task-509",
+      },
+      errorCode: "review_create_failed",
+      errorMessage: "GitHub pull request create failed 422: branch already has a pull request",
+      metadata: {},
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("creates normalized GitHub review handles from pull request responses", async () => {
