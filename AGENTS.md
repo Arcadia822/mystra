@@ -120,9 +120,16 @@ Use `claude-design-intake` to start any design task.
 
 ## Current MVP Boundaries
 
-Mystra MVP reuses the Open Agents project as its framework foundation and starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), dummy local workflow, and single-machine Docker sandbox.
+Mystra MVP uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces where upstream does not provide reusable package contracts. It starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), a Mystra-owned local workflow implementation, and single-machine Docker sandbox.
 
 The near-term MVP goal is to let other agents and skills submit user journeys and implementation requests through Mystra remote MCP, then have Mystra develop GitLab and GitHub projects on a provided high-capacity server that runs the control plane, runner, and sandbox workloads.
+
+The north-star model is a hosted **Mystra platform** serving many independent
+**workspaces**. Each workspace may contain multiple projects with their own
+workflow variants, runtime images, product routes, user stories, and acceptance
+criteria, while sharing platform-owned provider pools such as sandbox capacity.
+Use this as the architectural direction when designing extensible interfaces,
+even if the current MVP only proves one local path.
 
 Mystra MVP excludes caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, per-repository secret management, and hosted RDB provider implementation (PG/Supabase implementation is post-MVP; the interface must not leak SQLite dialect).
 
@@ -188,6 +195,8 @@ This project is indexed by GitNexus as **mystra** (1722 symbols, 2577 relationsh
 - SQLite via `SqliteRdbProvider`, with future PG/Supabase compatibility preserved behind `RdbProvider` (002-runtime-profile-context)
 - TypeScript 5.9 with Node.js 24 runtime assumptions + Next.js 16 route handlers, Zod 4 shared schemas, Vitest 4, existing `better-sqlite3` provider, Node `child_process` for runner execution (003-config-first-runner-durability)
 - SQLite via `SqliteRdbProvider`, behind `RdbProvider` so future PG/Supabase compatibility is preserved (003-config-first-runner-durability)
+- TypeScript 5.9 with Node.js 24 runtime assumptions; Open Agents upstream currently serves as the source-authoritative architecture/code baseline rather than a direct Mystra runtime dependency or packaged SDK + Next.js 16 route handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, existing Mystra monorepo packages, and the upstream `vercel-labs/open-agents` repository as the architecture/code reference (004-open-agents-framework, 005-open-agents-source-baseline)
+- Mystra persists state through `RdbProvider` with SQLite first; Open Agents upstream assumes hosted Postgres/KV-style managed services that Mystra must classify as reused concept, replaced seam, or excluded (004-open-agents-framework)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider
