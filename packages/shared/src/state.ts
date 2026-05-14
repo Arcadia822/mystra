@@ -55,3 +55,34 @@ export function assertRunStateTransition(from: RunState, to: RunState): void {
     throw new Error(`Invalid run state transition: ${from} -> ${to}`);
   }
 }
+
+// --- 003-config-first-runner-durability: State set predicates ---
+
+export const activeRunStates = [
+  "queued",
+  "dispatching",
+  "assigned",
+  "starting",
+  "running",
+] as const satisfies readonly RunState[];
+
+const activeRunStateSet = new Set<RunState>(activeRunStates);
+
+/**
+ * Returns true if the run state is an active (non-terminal) state.
+ * Cancellation requests, cleanup progress, and stale evaluation are NOT
+ * first-class run states; they are represented by events, desired-state
+ * metadata, and runner observations on existing active/terminal states.
+ */
+export function isActiveRunState(state: RunState): boolean {
+  return activeRunStateSet.has(state);
+}
+
+/**
+ * Returns true if a runner session owns this run (assigned, starting, or running).
+ * These are the states where cancellation should be recorded as desired-state
+ * metadata rather than an immediate terminal transition.
+ */
+export function isRunnerOwnedRunState(state: RunState): boolean {
+  return state === "assigned" || state === "starting" || state === "running";
+}

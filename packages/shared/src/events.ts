@@ -27,6 +27,10 @@ export const runEventTypeSchema = z.enum([
   "run.timed_out",
   "run.needs_human_review",
   "artifact.created",
+  "cancellation.requested",
+  "cleanup.started",
+  "run.cleanup_failed",
+  "run.stale_marked",
 ]);
 export type RunEventType = z.infer<typeof runEventTypeSchema>;
 

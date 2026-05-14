@@ -312,6 +312,9 @@ export const runnerRegistrationSchema = z
     runnerName: z.string().min(1),
     capabilities: platformCapabilitiesSchema,
     maxConcurrency: z.number().int().positive().default(1),
+    staleAfterSeconds: z.number().int().positive().default(90),
+    eligibleProjectIds: z.array(z.string().uuid()).optional(),
+    eligibleRuntimeProviders: z.array(z.string().min(1)).optional(),
   })
   .strict();
 export type RunnerRegistration = z.infer<typeof runnerRegistrationSchema>;
@@ -323,3 +326,88 @@ export const runnerPollRequestSchema = z
   })
   .strict();
 export type RunnerPollRequest = z.infer<typeof runnerPollRequestSchema>;
+
+// --- 003-config-first-runner-durability: Runner Local Config ---
+
+export const runnerLocalConfigSchema = z
+  .object({
+    runnerName: z.string().min(1),
+    concurrency: z.number().int().positive().default(1),
+    pollIntervalSeconds: z.number().int().positive().default(5),
+    staleAfterSeconds: z.number().int().positive().default(90),
+    defaultExecutionTimeoutSeconds: z.number().int().positive().default(3600),
+    cancelCheckIntervalSeconds: z.number().int().positive().default(10),
+    cleanupTimeoutSeconds: z.number().int().positive().default(30),
+    eligibleProjectIds: z.array(z.string().uuid()).optional(),
+    eligibleRuntimeProviders: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+export type RunnerLocalConfig = z.infer<typeof runnerLocalConfigSchema>;
+
+// --- 003-config-first-runner-durability: Cancellation Outcome ---
+
+export const cancelJobOutcomeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("canceled") }).strict(),
+  z.object({ kind: z.literal("cancellation_requested") }).strict(),
+]);
+export type CancelJobOutcome = z.infer<typeof cancelJobOutcomeSchema>;
+
+// --- 003-config-first-runner-durability: Runner Observation ---
+
+export const runnerObservationSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("cleanup.started"),
+      reason: z.enum(["cancel", "timeout"]),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("run.canceled"),
+      summary: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("run.timed_out"),
+      summary: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("run.cleanup_failed"),
+      summary: z.string().min(1),
+    })
+    .strict(),
+]);
+export type RunnerObservation = z.infer<typeof runnerObservationSchema>;
+
+// --- 003-config-first-runner-durability: Stale Marking Result ---
+
+export const staleMarkingResultSchema = z
+  .object({
+    runnerSessionId: z.string().uuid(),
+    staleRunIds: z.array(z.string().uuid()),
+  })
+  .strict();
+export type StaleMarkingResult = z.infer<typeof staleMarkingResultSchema>;
+
+// --- 003-config-first-runner-durability: Cancellation Request Metadata ---
+
+export const cancellationRequestMetadataSchema = z
+  .object({
+    requestedAt: z.string().datetime(),
+    requestedBy: z.string().min(1).optional(),
+  })
+  .strict();
+export type CancellationRequestMetadata = z.infer<typeof cancellationRequestMetadataSchema>;
+
+// --- 003-config-first-runner-durability: Runner Eligibility ---
+
+export const runnerEligibilitySchema = z
+  .object({
+    eligibleProjectIds: z.array(z.string().uuid()).optional(),
+    eligibleRuntimeProviders: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+export type RunnerEligibility = z.infer<typeof runnerEligibilitySchema>;

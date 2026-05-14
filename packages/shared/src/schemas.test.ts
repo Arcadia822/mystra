@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   agentNameSchema,
+  cancelJobOutcomeSchema,
+  cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
   contextBundleSchema,
   jobSpecSchema,
@@ -13,7 +15,11 @@ import {
   projectSchema,
   projectUpdateSchema,
   resolvedRuntimeContractSchema,
+  runnerEligibilitySchema,
+  runnerLocalConfigSchema,
+  runnerObservationSchema,
   runnerRegistrationSchema,
+  staleMarkingResultSchema,
 } from "./schemas.js";
 
 describe("jobSpecSchema", () => {
@@ -455,5 +461,188 @@ describe("runnerRegistrationSchema", () => {
         },
       }),
     ).toThrow();
+  });
+});
+
+// --- 003-config-first-runner-durability schema tests ---
+
+describe("runnerLocalConfigSchema", () => {
+  it("applies MVP defaults for config-first runner", () => {
+    const parsed = runnerLocalConfigSchema.parse({
+      runnerName: "local-runner",
+    });
+
+    expect(parsed.concurrency).toBe(1);
+    expect(parsed.pollIntervalSeconds).toBe(5);
+    expect(parsed.staleAfterSeconds).toBe(90);
+    expect(parsed.defaultExecutionTimeoutSeconds).toBe(3600);
+    expect(parsed.cancelCheckIntervalSeconds).toBe(10);
+    expect(parsed.cleanupTimeoutSeconds).toBe(30);
+    expect(parsed.eligibleProjectIds).toBeUndefined();
+    expect(parsed.eligibleRuntimeProviders).toBeUndefined();
+  });
+
+  it("accepts explicit concurrency and eligibility", () => {
+    const parsed = runnerLocalConfigSchema.parse({
+      runnerName: "gpu-runner",
+      concurrency: 4,
+      pollIntervalSeconds: 3,
+      staleAfterSeconds: 120,
+      defaultExecutionTimeoutSeconds: 7200,
+      cancelCheckIntervalSeconds: 5,
+      cleanupTimeoutSeconds: 60,
+      eligibleProjectIds: ["00000000-0000-4000-8000-000000000001"],
+      eligibleRuntimeProviders: ["docker"],
+    });
+
+    expect(parsed.concurrency).toBe(4);
+    expect(parsed.eligibleProjectIds).toHaveLength(1);
+    expect(parsed.eligibleRuntimeProviders).toEqual(["docker"]);
+  });
+
+  it("rejects non-positive concurrency", () => {
+    expect(() =>
+      runnerLocalConfigSchema.parse({
+        runnerName: "bad-runner",
+        concurrency: 0,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects non-positive timeout values", () => {
+    expect(() =>
+      runnerLocalConfigSchema.parse({
+        runnerName: "bad-runner",
+        defaultExecutionTimeoutSeconds: -1,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      runnerLocalConfigSchema.parse({
+        runnerName: "bad-runner",
+        cleanupTimeoutSeconds: 0,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects unknown fields", () => {
+    expect(() =>
+      runnerLocalConfigSchema.parse({
+        runnerName: "runner",
+        retryCount: 3,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("cancelJobOutcomeSchema", () => {
+  it("accepts immediate canceled outcome for queued work", () => {
+    const parsed = cancelJobOutcomeSchema.parse({ kind: "canceled" });
+    expect(parsed.kind).toBe("canceled");
+  });
+
+  it("accepts cancellation_requested outcome for runner-owned work", () => {
+    const parsed = cancelJobOutcomeSchema.parse({ kind: "cancellation_requested" });
+    expect(parsed.kind).toBe("cancellation_requested");
+  });
+
+  it("rejects unknown outcome kinds", () => {
+    expect(() => cancelJobOutcomeSchema.parse({ kind: "retried" })).toThrow();
+  });
+});
+
+describe("runnerObservationSchema", () => {
+  it("accepts cleanup.started observation", () => {
+    const parsed = runnerObservationSchema.parse({
+      type: "cleanup.started",
+      reason: "cancel",
+    });
+    expect(parsed.type).toBe("cleanup.started");
+  });
+
+  it("accepts run.canceled observation", () => {
+    const parsed = runnerObservationSchema.parse({
+      type: "run.canceled",
+      summary: "Runner observed cancellation and stopped execution",
+    });
+    expect(parsed.type).toBe("run.canceled");
+  });
+
+  it("accepts run.timed_out observation", () => {
+    const parsed = runnerObservationSchema.parse({
+      type: "run.timed_out",
+      summary: "Execution exceeded timeout",
+    });
+    expect(parsed.type).toBe("run.timed_out");
+  });
+
+  it("accepts run.cleanup_failed observation", () => {
+    const parsed = runnerObservationSchema.parse({
+      type: "run.cleanup_failed",
+      summary: "Container stop failed",
+    });
+    expect(parsed.type).toBe("run.cleanup_failed");
+  });
+
+  it("rejects unknown observation types", () => {
+    expect(() =>
+      runnerObservationSchema.parse({
+        type: "run.retried",
+        summary: "Should not exist",
+      }),
+    ).toThrow();
+  });
+});
+
+describe("staleMarkingResultSchema", () => {
+  it("accepts stale marking result with run ids", () => {
+    const parsed = staleMarkingResultSchema.parse({
+      runnerSessionId: "00000000-0000-4000-8000-000000000001",
+      staleRunIds: ["00000000-0000-4000-8000-000000000010"],
+    });
+    expect(parsed.staleRunIds).toHaveLength(1);
+  });
+
+  it("accepts stale marking result with no active runs", () => {
+    const parsed = staleMarkingResultSchema.parse({
+      runnerSessionId: "00000000-0000-4000-8000-000000000002",
+      staleRunIds: [],
+    });
+    expect(parsed.staleRunIds).toEqual([]);
+  });
+});
+
+describe("cancellationRequestMetadataSchema", () => {
+  it("accepts minimal cancellation request", () => {
+    const parsed = cancellationRequestMetadataSchema.parse({
+      requestedAt: "2026-05-10T00:00:00.000Z",
+    });
+    expect(parsed.requestedAt).toBe("2026-05-10T00:00:00.000Z");
+    expect(parsed.requestedBy).toBeUndefined();
+  });
+
+  it("accepts cancellation request with requestedBy", () => {
+    const parsed = cancellationRequestMetadataSchema.parse({
+      requestedAt: "2026-05-10T00:00:00.000Z",
+      requestedBy: "operator",
+    });
+    expect(parsed.requestedBy).toBe("operator");
+  });
+});
+
+describe("runnerEligibilitySchema", () => {
+  it("accepts empty eligibility (no local restriction)", () => {
+    const parsed = runnerEligibilitySchema.parse({});
+    expect(parsed.eligibleProjectIds).toBeUndefined();
+    expect(parsed.eligibleRuntimeProviders).toBeUndefined();
+  });
+
+  it("accepts explicit project and provider eligibility", () => {
+    const parsed = runnerEligibilitySchema.parse({
+      eligibleProjectIds: ["00000000-0000-4000-8000-000000000001"],
+      eligibleRuntimeProviders: ["docker"],
+    });
+    expect(parsed.eligibleProjectIds).toHaveLength(1);
+    expect(parsed.eligibleRuntimeProviders).toEqual(["docker"]);
   });
 });

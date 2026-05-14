@@ -1,4 +1,6 @@
 import type {
+  CancelJobOutcome,
+  CancellationRequestMetadata,
   ContextBundle,
   ContextBundleCreate,
   JobSpec,
@@ -10,6 +12,7 @@ import type {
   RunEvent,
   RunResult,
   RunState,
+  StaleMarkingResult,
 } from "@mystra/shared";
 
 export type JobRecord = {
@@ -28,6 +31,9 @@ export type RunRecord = {
   resolvedRuntime?: ResolvedRuntimeContract;
   result?: RunResult;
   failureReason?: string;
+  cancellationRequest?: CancellationRequestMetadata;
+  staleReason?: string;
+  staleMarkedAt?: string;
   createdAt: string;
   updatedAt: string;
   startedAt?: string;
@@ -41,6 +47,9 @@ export type RunnerSession = {
   capabilities: PlatformCapabilities;
   maxConcurrency: number;
   activeRunCount: number;
+  staleAfterSeconds: number;
+  eligibleProjectIds?: string[];
+  eligibleRuntimeProviders?: string[];
   lastHeartbeatAt: string;
   createdAt: string;
   updatedAt: string;
@@ -62,6 +71,9 @@ export type RegisterRunnerInput = {
   runnerName: string;
   capabilities?: unknown;
   maxConcurrency?: number;
+  staleAfterSeconds?: number;
+  eligibleProjectIds?: string[] | undefined;
+  eligibleRuntimeProviders?: string[] | undefined;
 };
 
 export interface RdbProvider {
@@ -80,8 +92,9 @@ export interface RdbProvider {
 
   createJob(input: unknown): JobSnapshot;
   getJob(id: string): JobSnapshot | undefined;
+  getJobByRunId(runId: string): JobSnapshot | undefined;
   listJobs(): JobSnapshot[];
-  cancelJob(id: string): JobSnapshot | undefined;
+  cancelJob(id: string): CancelJobOutcome & { snapshot: JobSnapshot };
 
   registerRunner(input: RegisterRunnerInput): RunnerSession;
   authenticateRunner(token: string | null): RunnerSession | undefined;
@@ -90,4 +103,6 @@ export interface RdbProvider {
   claimNextRun(runnerId: string): JobSnapshot | undefined;
   appendRunEvent(runnerId: string, runId: string, input: unknown): RunEvent;
   completeRun(runnerId: string, runId: string, input: unknown): JobSnapshot;
+
+  markStaleRunners(): StaleMarkingResult[];
 }

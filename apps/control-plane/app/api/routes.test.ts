@@ -2,14 +2,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resetDbForTests } from "@/lib/db";
+import { getDb, resetDbForTests } from "@/lib/db";
 import { GET as listContextBundles, POST as postContextBundle } from "./context-bundles/route";
+import { POST as cancelJob } from "./jobs/[id]/cancel/route";
+import { GET as getJob } from "./jobs/[id]/route";
 import { POST as postJob } from "./jobs/route";
 import { POST as postMcp } from "./mcp/route";
 import { GET as getProject, PATCH as patchProject, DELETE as deleteProject } from "./projects/[slug]/route";
 import { GET as listProjects, POST as postProject } from "./projects/route";
+import { POST as appendRunnerJobEvent } from "./runner/jobs/[id]/events/route";
+import { POST as completeRunnerJob } from "./runner/jobs/[id]/result/route";
+import { GET as getRunnerJob } from "./runner/jobs/[id]/route";
 import { GET as claimRunnerJob } from "./runner/jobs/route";
 import { POST as registerRunner } from "./runner/register/route";
 
@@ -418,6 +424,149 @@ describe("Job and MCP project contracts", () => {
     );
 
     expect(claim.runtime.environment.image).toBe("mystra-runner:local");
+  });
+
+  it("stores config-derived runner registration fields", async () => {
+    const created = await createProject("runner-registration-config");
+    const response = await registerRunner(jsonRequest("http://localhost/api/runner/register", {
+      runnerName: "runner-config",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+      },
+      maxConcurrency: 2,
+      staleAfterSeconds: 45,
+      eligibleProjectIds: [created.project.id],
+      eligibleRuntimeProviders: ["docker"],
+    }));
+    expect(response.status).toBe(200);
+
+    const runner = getDb().listRunners()[0];
+    expect(runner?.maxConcurrency).toBe(2);
+    expect(runner?.staleAfterSeconds).toBe(45);
+    expect(runner?.eligibleProjectIds).toEqual([created.project.id]);
+    expect(runner?.eligibleRuntimeProviders).toEqual(["docker"]);
+  });
+
+  it("exposes cancellation requests and runner observations through existing routes", async () => {
+    const created = await createProject("runner-observation-routes");
+    const createdJob = await json<{ job: { id: string } }>(await postJob(jsonRequest("http://localhost/api/jobs", {
+      taskId: "task-runner-observation-routes",
+      source: "api",
+      projectId: created.project.id,
+      branchName: "mystra/runner-observation-routes",
+      prompt: "Cancel through route",
+    })));
+    const registered = await json<{ runnerToken: string }>(await registerRunner(jsonRequest("http://localhost/api/runner/register", {
+      runnerName: "runner-observation",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+      },
+      maxConcurrency: 1,
+    })));
+    const authRequest = (url: string, body: unknown) =>
+      new Request(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${registered.runnerToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    const claimed = await json<{ run: { id: string; state: string } }>(
+      await claimRunnerJob(new Request("http://localhost/api/runner/jobs", {
+        headers: { authorization: `Bearer ${registered.runnerToken}` },
+      })),
+    );
+    expect(claimed.run.state).toBe("assigned");
+
+    const cancellation = await json<{ kind: string; snapshot: { run: { cancellationRequest?: { requestedAt: string } } } }>(
+      await cancelJob(jsonRequest(`http://localhost/api/jobs/${createdJob.job.id}/cancel`, {}), {
+        params: Promise.resolve({ id: createdJob.job.id }),
+      }),
+    );
+    expect(cancellation.kind).toBe("cancellation_requested");
+    expect(cancellation.snapshot.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
+
+    const inspectedRun = await json<{ run: { cancellationRequest?: { requestedAt: string } } }>(
+      await getRunnerJob(new Request(`http://localhost/api/runner/jobs/${claimed.run.id}`, {
+        headers: { authorization: `Bearer ${registered.runnerToken}` },
+      }), {
+        params: Promise.resolve({ id: claimed.run.id }),
+      }),
+    );
+    expect(inspectedRun.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
+
+    const cleanup = await json<{ event: { type: string } }>(await appendRunnerJobEvent(
+      authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
+        type: "cleanup.started",
+        severity: "warn",
+        data: { reason: "cancel" },
+      }),
+      { params: Promise.resolve({ id: claimed.run.id }) },
+    ));
+    expect(cleanup.event.type).toBe("cleanup.started");
+
+    const result = await json<{ run: { state: string; result?: { status: string } }; events: Array<{ type: string }> }>(
+      await completeRunnerJob(
+        authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/result`, {
+          status: "canceled",
+          summary: "Runner observed cancellation and cleaned up.",
+        }),
+        { params: Promise.resolve({ id: claimed.run.id }) },
+      ),
+    );
+    expect(result.run.state).toBe("canceled");
+    expect(result.run.result?.status).toBe("canceled");
+    expect(result.events.map((event) => event.type)).toContain("cleanup.started");
+    expect(result.events.map((event) => event.type)).toContain("run.canceled");
+  });
+
+  it("exposes stale-marked runs through the existing job inspection route", async () => {
+    const created = await createProject("runner-stale-route");
+    const createdJob = await json<{ job: { id: string }; run: { id: string } }>(await postJob(jsonRequest("http://localhost/api/jobs", {
+      taskId: "task-runner-stale-route",
+      source: "api",
+      projectId: created.project.id,
+      branchName: "mystra/runner-stale-route",
+      prompt: "Runner will become stale",
+    })));
+    const registered = await json<{ runnerToken: string; runnerSessionId: string }>(await registerRunner(jsonRequest("http://localhost/api/runner/register", {
+      runnerName: "runner-stale-route",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+      },
+      maxConcurrency: 1,
+      staleAfterSeconds: 1,
+    })));
+    await claimRunnerJob(new Request("http://localhost/api/runner/jobs", {
+      headers: { authorization: `Bearer ${registered.runnerToken}` },
+    }));
+    getDb().close();
+    resetDbForTests();
+    // Test-only timestamp adjustment: stale evaluation itself remains provider-owned.
+    const database = new Database(process.env.MYSTRA_DB_PATH ?? "");
+    database.prepare("UPDATE runner_sessions SET last_heartbeat_at = ? WHERE id = ?").run(
+      "2026-05-10T00:00:00.000Z",
+      registered.runnerSessionId,
+    );
+    database.close();
+    resetDbForTests();
+
+    expect(getDb().markStaleRunners()).toEqual([
+      { runnerSessionId: registered.runnerSessionId, staleRunIds: [createdJob.run.id] },
+    ]);
+    const inspected = await json<{ run: { state: string; staleReason?: string }; events: Array<{ type: string }> }>(
+      await getJob(new Request(`http://localhost/api/jobs/${createdJob.job.id}`), {
+        params: Promise.resolve({ id: createdJob.job.id }),
+      }),
+    );
+
+    expect(inspected.run.state).toBe("failed");
+    expect(inspected.run.staleReason).toBe("runner_stale");
+    expect(inspected.events.map((event) => event.type)).toContain("run.stale_marked");
   });
 
   it("rejects runner registration with untyped capabilities", async () => {
