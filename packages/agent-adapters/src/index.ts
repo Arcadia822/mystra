@@ -34,8 +34,41 @@ function parseExecutionRequest(input: AgentExecutionRequest): AgentExecutionRequ
   return agentExecutionRequestSchema.parse(input);
 }
 
+function sanitizeExitCode(value: unknown): number {
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isInteger(parsed)) {
+      return parsed;
+    }
+  }
+  return 1;
+}
+
+function sanitizeProcessText(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function asProcessRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
 function parseProcessResult(result: AgentProcessResult): AgentProcessResult {
-  return agentProcessResultSchema.parse(result);
+  const parsed = agentProcessResultSchema.safeParse(result);
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const raw = asProcessRecord(result);
+  return agentProcessResultSchema.parse({
+    exitCode: sanitizeExitCode(raw?.exitCode),
+    stdout: sanitizeProcessText(raw?.stdout),
+    stderr: sanitizeProcessText(raw?.stderr),
+  });
 }
 
 export class CodexAdapter implements AgentAdapter {

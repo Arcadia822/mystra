@@ -9,6 +9,7 @@ describe("agent adapters", () => {
   it("builds the codex command and environment from a typed adapter", () => {
     const adapter = new CodexAdapter({
       authDir: "/auth/codex",
+      timeoutSeconds: 45,
     });
 
     expect(adapter.buildCommand({
@@ -27,6 +28,7 @@ describe("agent adapters", () => {
       workingDirectory: "/repo",
     })).toEqual({
       CODEX_HOME: "/auth/codex",
+      CODEX_TIMEOUT_SECONDS: "45",
     });
     expect(adapter.isSuccess({ exitCode: 0, stdout: "", stderr: "" })).toBe(true);
     expect(adapter.parseOutput({ exitCode: 1, stdout: "", stderr: "codex failed" })).toEqual({
@@ -75,6 +77,40 @@ describe("agent adapters", () => {
       COPILOT_CLI_CONFIG_DIR: "/sandbox/.copilot",
     });
     expect(adapter.isSuccess({ exitCode: 0, stdout: "", stderr: "" })).toBe(true);
+    expect(adapter.parseOutput({ exitCode: 9, stdout: "", stderr: "" })).toEqual({
+      success: false,
+      errorMessage: "copilot exited with 9",
+      metadata: {},
+    });
+  });
+
+  it("parses unexpected process output defensively instead of throwing", () => {
+    const codex = new CodexAdapter();
+    const copilot = new CopilotAdapter({
+      cliConfigDir: "/sandbox/.copilot",
+      homeDir: "/sandbox",
+      configDir: "/sandbox/.config",
+      cacheDir: "/sandbox/.cache",
+    });
+
+    expect(codex.parseOutput({
+      exitCode: 1,
+      stdout: undefined,
+      stderr: undefined,
+    } as unknown as Parameters<typeof codex.parseOutput>[0])).toEqual({
+      success: false,
+      errorMessage: "codex exited with 1",
+      metadata: {},
+    });
+    expect(copilot.parseOutput({
+      exitCode: 1,
+      stdout: 42,
+      stderr: null,
+    } as unknown as Parameters<typeof copilot.parseOutput>[0])).toEqual({
+      success: false,
+      errorMessage: "copilot exited with 1",
+      metadata: {},
+    });
   });
 
   it("registers adapters by agent name and supports startup extension", () => {
