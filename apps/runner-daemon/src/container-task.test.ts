@@ -48,7 +48,8 @@ describe("container task quality gate", () => {
     expect(runner).toContain("moduleSpecifiers: config.workflowProviderModules");
     expect(runner).toContain("blueprintFiles: config.workflowBlueprintFiles");
     expect(runner).toContain('const workflowRegistry = config.executor === "docker"');
-    expect(runner).toContain("executeJob(config, registration.runnerToken, claim, workflowRegistry)");
+    expect(runner).toContain("const agentRegistry = config.executor === \"docker\"");
+    expect(runner).toContain("executeJob(config, registration.runnerToken, claim, workflowRegistry, agentRegistry)");
     expect(runner).not.toContain("const workflowRegistry = await createRunnerWorkflowProviderRegistry({");
     expect(workflowProviders).toContain("LocalWorkflowProvider");
     expect(workflowProviders).toContain("createWorkflowProviderRegistry");
@@ -213,14 +214,24 @@ describe("container task quality gate", () => {
   });
 
   it("runs copilot with an isolated workspace config home", () => {
-    expect(script).toContain('COPILOT_SANDBOX_HOME="${WORKSPACE}/copilot-home"');
-    expect(script).toContain('COPILOT_SANDBOX_CLI_CONFIG_DIR="${COPILOT_SANDBOX_HOME}/.copilot"');
-    expect(script).toContain('mkdir -p "$COPILOT_SANDBOX_CLI_CONFIG_DIR" "$COPILOT_SANDBOX_CONFIG_DIR" "$COPILOT_SANDBOX_CACHE_DIR"');
-    expect(script).toContain('HOME="$COPILOT_SANDBOX_HOME"');
-    expect(script).toContain('XDG_CONFIG_HOME="$COPILOT_SANDBOX_CONFIG_DIR"');
-    expect(script).toContain('XDG_CACHE_HOME="$COPILOT_SANDBOX_CACHE_DIR"');
-    expect(script).toContain('--config-dir "$COPILOT_SANDBOX_CLI_CONFIG_DIR"');
-    expect(script).toContain("--disable-mcp-server linear");
-    expect(script).toContain("--deny-url mcp.linear.app");
+    expect(runner).toContain('cliConfigDir: "/mystra/workspace/copilot-home/.copilot"');
+    expect(runner).toContain('homeDir: "/mystra/workspace/copilot-home"');
+    expect(runner).toContain('configDir: "/mystra/workspace/copilot-home/.config"');
+    expect(runner).toContain('cacheDir: "/mystra/workspace/copilot-home/.cache"');
+    expect(runner).toContain('denyMcpServers: ["linear"]');
+    expect(runner).toContain('deniedUrls: ["mcp.linear.app"]');
+  });
+
+  it("delegates agent command construction to adapter-provided payloads", () => {
+    expect(script).toContain("MYSTRA_AGENT_COMMAND_JSON");
+    expect(script).toContain("MYSTRA_AGENT_ENV_JSON");
+    expect(script).toContain("MYSTRA_AGENT_PREPARE_DIRS_JSON");
+    expect(script).not.toContain("codex exec");
+    expect(script).not.toContain('case "$MYSTRA_AGENT" in');
+    expect(script).not.toContain("Unsupported agent: $MYSTRA_AGENT");
+    expect(runner).toContain("createAgentAdapterRegistry");
+    expect(runner).toContain("MYSTRA_AGENT_COMMAND_JSON");
+    expect(runner).toContain("MYSTRA_AGENT_ENV_JSON");
+    expect(runner).toContain("MYSTRA_AGENT_PREPARE_DIRS_JSON");
   });
 });

@@ -103,35 +103,51 @@ base_commit() {
 }
 
 run_agent() {
-  agent_prompt_file="$1"
-  case "$MYSTRA_AGENT" in
-    codex)
-      codex exec \
-        --dangerously-bypass-approvals-and-sandbox \
-        --cd "$REPO_DIR" \
-        "$(cat "$agent_prompt_file")"
-      ;;
-    copilot)
-      mkdir -p "$COPILOT_SANDBOX_CLI_CONFIG_DIR" "$COPILOT_SANDBOX_CONFIG_DIR" "$COPILOT_SANDBOX_CACHE_DIR"
-      env \
-        HOME="$COPILOT_SANDBOX_HOME" \
-        XDG_CONFIG_HOME="$COPILOT_SANDBOX_CONFIG_DIR" \
-        XDG_CACHE_HOME="$COPILOT_SANDBOX_CACHE_DIR" \
-        copilot \
-        --config-dir "$COPILOT_SANDBOX_CLI_CONFIG_DIR" \
-        --disable-mcp-server linear \
-        --deny-url mcp.linear.app \
-        --prompt "$(cat "$agent_prompt_file")" \
-        --allow-all \
-        --no-ask-user \
-        --no-color \
-        --stream off
-      ;;
-    *)
-      echo "Unsupported agent: $MYSTRA_AGENT" >&2
-      exit 2
-      ;;
-  esac
+  node <<'NODE'
+const { mkdirSync } = require("fs");
+const { spawn } = require("child_process");
+
+const command = JSON.parse(process.env.MYSTRA_AGENT_COMMAND_JSON || "null");
+const agentEnv = JSON.parse(process.env.MYSTRA_AGENT_ENV_JSON || "{}");
+const prepareDirs = JSON.parse(process.env.MYSTRA_AGENT_PREPARE_DIRS_JSON || "[]");
+
+if (!Array.isArray(command) || command.length === 0) {
+  throw new Error("MYSTRA_AGENT_COMMAND_JSON must contain a command array");
+}
+if (!agentEnv || typeof agentEnv !== "object" || Array.isArray(agentEnv)) {
+  throw new Error("MYSTRA_AGENT_ENV_JSON must contain an environment object");
+}
+if (!Array.isArray(prepareDirs)) {
+  throw new Error("MYSTRA_AGENT_PREPARE_DIRS_JSON must contain a directory list");
+}
+
+for (const dir of prepareDirs) {
+  if (typeof dir === "string" && dir.length > 0) {
+    mkdirSync(dir, { recursive: true });
+  }
+}
+
+const child = spawn(command[0], command.slice(1), {
+  cwd: process.env.REPO_DIR || "/mystra/workspace/repo",
+  env: {
+    ...process.env,
+    ...agentEnv,
+  },
+  stdio: "inherit",
+});
+
+child.on("exit", (code, signal) => {
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 1);
+});
+child.on("error", (error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
+NODE
 }
 
 package_has_script() {

@@ -3,6 +3,7 @@ import { networkInterfaces, tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { CodexAdapter, CopilotAdapter, createAgentAdapterRegistry } from "@mystra/agent-adapters";
 import type { ResolvedRuntimeContract } from "@mystra/shared";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 import { createRunnerWorkflowProviderRegistry, type RunnerWorkflowProviderRegistry } from "./workflow-providers.js";
@@ -108,6 +109,8 @@ interface PushStepOutput {
   branchName: string;
 }
 
+type RunnerAgentAdapterRegistry = ReturnType<typeof createAgentAdapterRegistry>;
+
 function readConfig(): RunnerConfig {
   return {
     controlPlaneUrl: process.env.MYSTRA_CONTROL_PLANE_URL ?? "http://localhost:3000",
@@ -133,6 +136,22 @@ function readConfig(): RunnerConfig {
     workflowProviderModules: csvEnv("MYSTRA_WORKFLOW_PROVIDER_MODULES"),
     workflowBlueprintFiles: csvEnv("MYSTRA_WORKFLOW_BLUEPRINT_FILES"),
   };
+}
+
+function createRunnerAgentAdapterRegistry(config: RunnerConfig): RunnerAgentAdapterRegistry {
+  return createAgentAdapterRegistry({
+    codex: new CodexAdapter({
+      ...(config.codexAuthDir ? { authDir: "/root/.codex" } : {}),
+    }),
+    copilot: new CopilotAdapter({
+      cliConfigDir: "/mystra/workspace/copilot-home/.copilot",
+      homeDir: "/mystra/workspace/copilot-home",
+      configDir: "/mystra/workspace/copilot-home/.config",
+      cacheDir: "/mystra/workspace/copilot-home/.cache",
+      denyMcpServers: ["linear"],
+      deniedUrls: ["mcp.linear.app"],
+    }),
+  });
 }
 
 function positiveIntEnv(name: string, fallback: number): number {
@@ -780,6 +799,7 @@ async function executeDockerJob(
   token: string,
   claim: ClaimedJobResponse,
   workflowRegistry: RunnerWorkflowProviderRegistry,
+  agentRegistry: RunnerAgentAdapterRegistry,
 ): Promise<void> {
   if (!claim.job || !claim.run || !claim.project) {
     return;
@@ -794,6 +814,16 @@ async function executeDockerJob(
   }
 
   const image = runtime.environment.image;
+  const agentAdapter = agentRegistry.get(job.spec.agent);
+  const agentExecutionRequest = {
+    prompt: job.spec.prompt,
+    workingDirectory: "/mystra/workspace/repo",
+  } as const;
+  const agentCommand = agentAdapter.buildCommand(agentExecutionRequest);
+  const agentEnvironment = agentAdapter.buildEnvironment(agentExecutionRequest);
+  const agentPrepareDirs = [...new Set(
+    Object.values(agentEnvironment).filter((value) => value.startsWith("/")),
+  )];
   const runtimeMounts = effectiveDockerMounts(runtime.mounts);
   const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts();
   const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets();
@@ -856,6 +886,12 @@ async function executeDockerJob(
     `MYSTRA_BRANCH_NAME=${job.spec.branchName}`,
     "-e",
     `MYSTRA_AGENT=${job.spec.agent}`,
+    "-e",
+    `MYSTRA_AGENT_COMMAND_JSON=${JSON.stringify(agentCommand)}`,
+    "-e",
+    `MYSTRA_AGENT_ENV_JSON=${JSON.stringify(agentEnvironment)}`,
+    "-e",
+    `MYSTRA_AGENT_PREPARE_DIRS_JSON=${JSON.stringify(agentPrepareDirs)}`,
     "-e",
     `MYSTRA_PROMPT=${job.spec.prompt}`,
     "-e",
@@ -1291,12 +1327,13 @@ async function executeJob(
   token: string,
   claim: ClaimedJobResponse,
   workflowRegistry?: RunnerWorkflowProviderRegistry,
+  agentRegistry?: RunnerAgentAdapterRegistry,
 ): Promise<void> {
   if (config.executor === "docker") {
-    if (!workflowRegistry) {
-      throw new Error("Workflow registry must be initialized before executing Docker jobs");
+    if (!workflowRegistry || !agentRegistry) {
+      throw new Error("Workflow and agent registries must be initialized before executing Docker jobs");
     }
-    await executeDockerJob(config, token, claim, workflowRegistry);
+    await executeDockerJob(config, token, claim, workflowRegistry, agentRegistry);
     return;
   }
   await executeFakeJob(config, token, claim);
@@ -1320,6 +1357,9 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 async function main(): Promise<void> {
   initSentry("mystra-runner");
   const config = readConfig();
+  const agentRegistry = config.executor === "docker"
+    ? createRunnerAgentAdapterRegistry(config)
+    : undefined;
   const workflowRegistry = config.executor === "docker"
     ? await createRunnerWorkflowProviderRegistry({
       moduleSpecifiers: config.workflowProviderModules,
@@ -1348,7 +1388,7 @@ async function main(): Promise<void> {
       }
 
       claimedAny = true;
-      const activeJob = executeJob(config, registration.runnerToken, claim, workflowRegistry)
+      const activeJob = executeJob(config, registration.runnerToken, claim, workflowRegistry, agentRegistry)
         .catch((error: unknown) => {
           captureException(error);
           console.error(error);

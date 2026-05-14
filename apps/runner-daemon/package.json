@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mystra/agent-adapters": "workspace:*",
     "@mystra/shared": "workspace:*",
     "@mystra/workflows": "workspace:*",
     "@sentry/node": "^10.51.0",
