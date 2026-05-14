@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const script = readFileSync(resolve(currentDir, "../assets/container-task.sh"), "utf8");
 const runner = readFileSync(resolve(currentDir, "index.ts"), "utf8");
+const agentAdapters = readFileSync(resolve(currentDir, "agent-adapters.ts"), "utf8");
 const workflowProviders = readFileSync(resolve(currentDir, "workflow-providers.ts"), "utf8");
 
 describe("container task quality gate", () => {
@@ -43,12 +44,16 @@ describe("container task quality gate", () => {
     expect(script).toContain("run_command quality-gate");
     expect(runner).toContain('workflowProviderName: process.env.MYSTRA_WORKFLOW_PROVIDER ?? "local"');
     expect(runner).toContain("workflowBlueprintName: process.env.MYSTRA_WORKFLOW_BLUEPRINT");
+    expect(runner).toContain('agentAdapterModules: csvEnv("MYSTRA_AGENT_ADAPTER_MODULES")');
     expect(runner).toContain('workflowProviderModules: csvEnv("MYSTRA_WORKFLOW_PROVIDER_MODULES")');
     expect(runner).toContain('workflowBlueprintFiles: csvEnv("MYSTRA_WORKFLOW_BLUEPRINT_FILES")');
+    expect(runner).toContain("moduleSpecifiers: config.agentAdapterModules");
     expect(runner).toContain("moduleSpecifiers: config.workflowProviderModules");
     expect(runner).toContain("blueprintFiles: config.workflowBlueprintFiles");
     expect(runner).toContain('const workflowRegistry = config.executor === "docker"');
-    expect(runner).toContain("const agentRegistry = config.executor === \"docker\"");
+    expect(runner).toContain('const agentRegistryBundle = config.executor === "docker"');
+    expect(runner).toContain("const agentRegistry = agentRegistryBundle?.registry");
+    expect(runner).toContain("await createRunnerAgentAdapterRegistry({");
     expect(runner).toContain("executeJob(config, registration.runnerToken, claim, workflowRegistry, agentRegistry)");
     expect(runner).not.toContain("const workflowRegistry = await createRunnerWorkflowProviderRegistry({");
     expect(workflowProviders).toContain("LocalWorkflowProvider");
@@ -214,12 +219,12 @@ describe("container task quality gate", () => {
   });
 
   it("runs copilot with an isolated workspace config home", () => {
-    expect(runner).toContain('cliConfigDir: "/mystra/workspace/copilot-home/.copilot"');
-    expect(runner).toContain('homeDir: "/mystra/workspace/copilot-home"');
-    expect(runner).toContain('configDir: "/mystra/workspace/copilot-home/.config"');
-    expect(runner).toContain('cacheDir: "/mystra/workspace/copilot-home/.cache"');
-    expect(runner).toContain('denyMcpServers: ["linear"]');
-    expect(runner).toContain('deniedUrls: ["mcp.linear.app"]');
+    expect(agentAdapters).toContain('cliConfigDir: "/mystra/workspace/copilot-home/.copilot"');
+    expect(agentAdapters).toContain('homeDir: "/mystra/workspace/copilot-home"');
+    expect(agentAdapters).toContain('configDir: "/mystra/workspace/copilot-home/.config"');
+    expect(agentAdapters).toContain('cacheDir: "/mystra/workspace/copilot-home/.cache"');
+    expect(agentAdapters).toContain('denyMcpServers: ["linear"]');
+    expect(agentAdapters).toContain('deniedUrls: ["mcp.linear.app"]');
   });
 
   it("delegates agent command construction to adapter-provided payloads", () => {
@@ -229,7 +234,7 @@ describe("container task quality gate", () => {
     expect(script).not.toContain("codex exec");
     expect(script).not.toContain('case "$MYSTRA_AGENT" in');
     expect(script).not.toContain("Unsupported agent: $MYSTRA_AGENT");
-    expect(runner).toContain("createAgentAdapterRegistry");
+    expect(agentAdapters).toContain("createAgentAdapterRegistry");
     expect(runner).toContain("MYSTRA_AGENT_COMMAND_JSON");
     expect(runner).toContain("MYSTRA_AGENT_ENV_JSON");
     expect(runner).toContain("MYSTRA_AGENT_PREPARE_DIRS_JSON");
@@ -240,5 +245,18 @@ describe("container task quality gate", () => {
     expect(runner).toContain("processResult:");
     expect(runner).toContain("agentAdapter.parseOutput(output.processResult)");
     expect(runner).toContain('errorCode: "agent_failed"');
+  });
+
+  it("spills oversized agent prompts to a workspace file instead of argv-only transport", () => {
+    expect(runner).toContain("const MAX_INLINE_AGENT_PROMPT_BYTES = 16 * 1024");
+    expect(runner).toContain('Buffer.byteLength(prompt, "utf8") > MAX_INLINE_AGENT_PROMPT_BYTES');
+    expect(runner).toContain('const agentPromptPath = path.join(workspace, "agent-prompt.txt")');
+    expect(runner).toContain("await writeFile(agentPromptPath, job.spec.prompt)");
+    expect(runner).toContain("promptFilePath: agentPromptFilePath");
+    expect(runner).toContain("agentAdapter.buildExecutionOptions?.(agentExecutionRequest)");
+    expect(runner).toContain("MYSTRA_AGENT_STDIN_FILE");
+    expect(script).toContain("const stdinFile = process.env.MYSTRA_AGENT_STDIN_FILE || \"\"");
+    expect(script).toContain("const stdinBuffer = stdinFile ? readFileSync(stdinFile) : null");
+    expect(script).toContain("child.stdin.end(stdinBuffer)");
   });
 });

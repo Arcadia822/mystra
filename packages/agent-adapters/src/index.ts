@@ -4,9 +4,14 @@ export const agentAdaptersPackageName = "@mystra/agent-adapters";
 
 export const agentExecutionRequestSchema = z.object({
   prompt: z.string().min(1),
+  promptFilePath: z.string().min(1).optional(),
   workingDirectory: z.string().min(1),
 }).strict();
 export type AgentExecutionRequest = z.infer<typeof agentExecutionRequestSchema>;
+
+export interface AgentExecutionOptions {
+  stdinFilePath?: string;
+}
 
 export const agentProcessResultSchema = z.object({
   exitCode: z.number().int(),
@@ -26,6 +31,7 @@ export interface AgentAdapter {
   readonly agentName: string;
   buildCommand(input: AgentExecutionRequest): string[];
   buildEnvironment(input: AgentExecutionRequest): Record<string, string>;
+  buildExecutionOptions?(input: AgentExecutionRequest): AgentExecutionOptions;
   parseOutput(result: AgentProcessResult): AgentParsedResult;
   isSuccess(result: AgentProcessResult): boolean;
 }
@@ -87,7 +93,7 @@ export class CodexAdapter implements AgentAdapter {
       "--dangerously-bypass-approvals-and-sandbox",
       "--cd",
       request.workingDirectory,
-      request.prompt,
+      request.promptFilePath ? "-" : request.prompt,
     ];
   }
 
@@ -96,6 +102,13 @@ export class CodexAdapter implements AgentAdapter {
       ...(this.options.authDir ? { CODEX_HOME: this.options.authDir } : {}),
       ...(this.options.timeoutSeconds ? { CODEX_TIMEOUT_SECONDS: String(this.options.timeoutSeconds) } : {}),
     };
+  }
+
+  buildExecutionOptions(input: AgentExecutionRequest): AgentExecutionOptions {
+    const request = parseExecutionRequest(input);
+    return request.promptFilePath
+      ? { stdinFilePath: request.promptFilePath }
+      : {};
   }
 
   parseOutput(result: AgentProcessResult): AgentParsedResult {
@@ -131,6 +144,9 @@ export class CopilotAdapter implements AgentAdapter {
       "--config-dir",
       this.options.cliConfigDir,
     ];
+    if (request.promptFilePath) {
+      command.push("--attachment", request.promptFilePath);
+    }
     for (const server of this.options.denyMcpServers ?? []) {
       command.push("--disable-mcp-server", server);
     }
@@ -139,7 +155,9 @@ export class CopilotAdapter implements AgentAdapter {
     }
     command.push(
       "--prompt",
-      request.prompt,
+      request.promptFilePath
+        ? "Follow the attached instructions file as the complete user task."
+        : request.prompt,
       "--allow-all",
       "--no-ask-user",
       "--no-color",

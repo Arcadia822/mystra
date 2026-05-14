@@ -3,13 +3,9 @@ import { networkInterfaces, tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  CodexAdapter,
-  CopilotAdapter,
-  createAgentAdapterRegistry,
-  type AgentProcessResult,
-} from "@mystra/agent-adapters";
+import { type AgentProcessResult } from "@mystra/agent-adapters";
 import type { ResolvedRuntimeContract } from "@mystra/shared";
+import { createRunnerAgentAdapterRegistry, type RunnerAgentAdapterRegistry } from "./agent-adapters.js";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 import { createRunnerWorkflowProviderRegistry, type RunnerWorkflowProviderRegistry } from "./workflow-providers.js";
 
@@ -34,6 +30,7 @@ interface RunnerConfig {
   containerProxyUrl: string | undefined;
   workflowProviderName: string;
   workflowBlueprintName: string | undefined;
+  agentAdapterModules: string[] | undefined;
   workflowProviderModules: string[] | undefined;
   workflowBlueprintFiles: string[] | undefined;
 }
@@ -51,7 +48,7 @@ interface ClaimedJobResponse {
       repo: string;
       baseBranch: string;
       branchName: string;
-      agent: "codex" | "copilot";
+      agent: string;
       prompt: string;
       mergeRequest?: {
         title?: string;
@@ -115,7 +112,7 @@ interface PushStepOutput {
   branchName: string;
 }
 
-type RunnerAgentAdapterRegistry = ReturnType<typeof createAgentAdapterRegistry>;
+const MAX_INLINE_AGENT_PROMPT_BYTES = 16 * 1024;
 
 function readConfig(): RunnerConfig {
   return {
@@ -139,25 +136,10 @@ function readConfig(): RunnerConfig {
     containerProxyUrl: process.env.MYSTRA_CONTAINER_PROXY_URL ?? defaultContainerProxyUrl(),
     workflowProviderName: process.env.MYSTRA_WORKFLOW_PROVIDER ?? "local",
     workflowBlueprintName: process.env.MYSTRA_WORKFLOW_BLUEPRINT,
+    agentAdapterModules: csvEnv("MYSTRA_AGENT_ADAPTER_MODULES"),
     workflowProviderModules: csvEnv("MYSTRA_WORKFLOW_PROVIDER_MODULES"),
     workflowBlueprintFiles: csvEnv("MYSTRA_WORKFLOW_BLUEPRINT_FILES"),
   };
-}
-
-function createRunnerAgentAdapterRegistry(config: RunnerConfig): RunnerAgentAdapterRegistry {
-  return createAgentAdapterRegistry({
-    codex: new CodexAdapter({
-      ...(config.codexAuthDir ? { authDir: "/root/.codex" } : {}),
-    }),
-    copilot: new CopilotAdapter({
-      cliConfigDir: "/mystra/workspace/copilot-home/.copilot",
-      homeDir: "/mystra/workspace/copilot-home",
-      configDir: "/mystra/workspace/copilot-home/.config",
-      cacheDir: "/mystra/workspace/copilot-home/.cache",
-      denyMcpServers: ["linear"],
-      deniedUrls: ["mcp.linear.app"],
-    }),
-  });
 }
 
 function positiveIntEnv(name: string, fallback: number): number {
@@ -178,6 +160,10 @@ function csvEnv(name: string): string[] | undefined {
     .map((value) => value.trim())
     .filter(Boolean);
   return values.length > 0 ? values : undefined;
+}
+
+function shouldUseAgentPromptFile(prompt: string): boolean {
+  return Buffer.byteLength(prompt, "utf8") > MAX_INLINE_AGENT_PROMPT_BYTES;
 }
 
 function defaultContainerProxyUrl(): string | undefined {
@@ -280,12 +266,12 @@ async function getJson<T>(url: string, token: string): Promise<T> {
   return await response.json() as T;
 }
 
-async function register(config: RunnerConfig): Promise<RegisterResponse> {
+async function register(config: RunnerConfig, registeredAgents: string[] = []): Promise<RegisterResponse> {
   return await postJson<RegisterResponse>(apiUrl(config, "/api/runner/register"), {
     runnerName: config.runnerName,
     capabilities: {
       executor: config.executor,
-      agents: ["codex", "copilot"],
+      agents: config.executor === "docker" ? registeredAgents : [],
       providers: config.executor === "docker" ? ["docker"] : [],
       contextBundleModes: config.executor === "docker" ? ["read-only", "job-scoped"] : [],
       mountKinds: config.executor === "docker" ? ["workspace", "gitMirror", "cache", "contextBundle", "secret"] : [],
@@ -834,12 +820,17 @@ async function executeDockerJob(
 
   const image = runtime.environment.image;
   const agentAdapter = agentRegistry.get(job.spec.agent);
+  const agentPromptFilePath = shouldUseAgentPromptFile(job.spec.prompt)
+    ? "/mystra/workspace/agent-prompt.txt"
+    : undefined;
   const agentExecutionRequest = {
     prompt: job.spec.prompt,
+    ...(agentPromptFilePath ? { promptFilePath: agentPromptFilePath } : {}),
     workingDirectory: "/mystra/workspace/repo",
   } as const;
   const agentCommand = agentAdapter.buildCommand(agentExecutionRequest);
   const agentEnvironment = agentAdapter.buildEnvironment(agentExecutionRequest);
+  const agentExecutionOptions = agentAdapter.buildExecutionOptions?.(agentExecutionRequest);
   const agentPrepareDirs = [...new Set(
     Object.values(agentEnvironment).filter((value) => value.startsWith("/")),
   )];
@@ -852,6 +843,7 @@ async function executeDockerJob(
   const workspace = await mkdtemp(path.join(config.workspaceRoot, `${run.id}-`));
   const scriptPath = path.join(workspace, "task.sh");
   const promptPath = path.join(workspace, "prompt.txt");
+  const agentPromptPath = path.join(workspace, "agent-prompt.txt");
 
   await mkdir(workspace, { recursive: true });
   for (const mount of runtimeMounts) {
@@ -871,6 +863,9 @@ async function executeDockerJob(
     "- Run the relevant local tests or type checks before finishing.",
     "- Leave the final work committed by Mystra after you finish; do not create the MR yourself.",
   ].join("\n"));
+  if (agentPromptFilePath) {
+    await writeFile(agentPromptPath, job.spec.prompt);
+  }
 
   console.log(`[mystra-runner] docker claimed job=${job.id} run=${run.id} task=${job.spec.taskId}`);
   await emitEvent(config, token, run.id, "container.starting", {
@@ -911,6 +906,8 @@ async function executeDockerJob(
     `MYSTRA_AGENT_ENV_JSON=${JSON.stringify(agentEnvironment)}`,
     "-e",
     `MYSTRA_AGENT_PREPARE_DIRS_JSON=${JSON.stringify(agentPrepareDirs)}`,
+    "-e",
+    `MYSTRA_AGENT_STDIN_FILE=${agentExecutionOptions?.stdinFilePath ?? ""}`,
     "-e",
     `MYSTRA_PROMPT=${job.spec.prompt}`,
     "-e",
@@ -1391,16 +1388,20 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 async function main(): Promise<void> {
   initSentry("mystra-runner");
   const config = readConfig();
-  const agentRegistry = config.executor === "docker"
-    ? createRunnerAgentAdapterRegistry(config)
+  const agentRegistryBundle = config.executor === "docker"
+    ? await createRunnerAgentAdapterRegistry({
+      moduleSpecifiers: config.agentAdapterModules,
+      codexAuthDir: config.codexAuthDir,
+    })
     : undefined;
+  const agentRegistry = agentRegistryBundle?.registry;
   const workflowRegistry = config.executor === "docker"
     ? await createRunnerWorkflowProviderRegistry({
       moduleSpecifiers: config.workflowProviderModules,
       blueprintFiles: config.workflowBlueprintFiles,
     })
     : undefined;
-  const registration = await register(config);
+  const registration = await register(config, agentRegistryBundle?.agentNames);
   const activeJobs = new Set<Promise<void>>();
   let stopAfterActiveJobs = false;
 

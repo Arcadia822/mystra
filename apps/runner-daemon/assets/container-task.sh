@@ -105,13 +105,14 @@ base_commit() {
 
 run_agent() {
   node <<'NODE'
-const { mkdirSync, writeFileSync } = require("fs");
+const { mkdirSync, readFileSync, writeFileSync } = require("fs");
 const { spawn } = require("child_process");
 
 const command = JSON.parse(process.env.MYSTRA_AGENT_COMMAND_JSON || "null");
 const agentEnv = JSON.parse(process.env.MYSTRA_AGENT_ENV_JSON || "{}");
 const prepareDirs = JSON.parse(process.env.MYSTRA_AGENT_PREPARE_DIRS_JSON || "[]");
 const processResultFile = process.env.MYSTRA_AGENT_PROCESS_RESULT_FILE || "/mystra/workspace/agent-process-result.json";
+const stdinFile = process.env.MYSTRA_AGENT_STDIN_FILE || "";
 
 if (!Array.isArray(command) || command.length === 0) {
   throw new Error("MYSTRA_AGENT_COMMAND_JSON must contain a command array");
@@ -137,8 +138,15 @@ const child = spawn(command[0], command.slice(1), {
     ...process.env,
     ...agentEnv,
   },
-  stdio: ["inherit", "pipe", "pipe"],
+  stdio: ["pipe", "pipe", "pipe"],
 });
+const stdinBuffer = stdinFile ? readFileSync(stdinFile) : null;
+
+if (stdinBuffer) {
+  child.stdin.end(stdinBuffer);
+} else {
+  child.stdin.end();
+}
 
 child.stdout.on("data", (chunk) => {
   stdoutChunks.push(Buffer.from(chunk));

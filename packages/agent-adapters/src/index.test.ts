@@ -38,6 +38,30 @@ describe("agent adapters", () => {
     });
   });
 
+  it("uses stdin-backed prompt files for codex when the prompt is spilled from argv", () => {
+    const adapter = new CodexAdapter();
+
+    expect(adapter.buildCommand({
+      prompt: "Implement the requested change",
+      promptFilePath: "/mystra/workspace/agent-prompt.txt",
+      workingDirectory: "/repo",
+    })).toEqual([
+      "codex",
+      "exec",
+      "--dangerously-bypass-approvals-and-sandbox",
+      "--cd",
+      "/repo",
+      "-",
+    ]);
+    expect(adapter.buildExecutionOptions?.({
+      prompt: "Implement the requested change",
+      promptFilePath: "/mystra/workspace/agent-prompt.txt",
+      workingDirectory: "/repo",
+    })).toEqual({
+      stdinFilePath: "/mystra/workspace/agent-prompt.txt",
+    });
+  });
+
   it("builds the copilot command and sandbox environment from a typed adapter", () => {
     const adapter = new CopilotAdapter({
       cliConfigDir: "/sandbox/.copilot",
@@ -82,6 +106,34 @@ describe("agent adapters", () => {
       errorMessage: "copilot exited with 9",
       metadata: {},
     });
+  });
+
+  it("uses prompt attachments for copilot when the prompt is spilled from argv", () => {
+    const adapter = new CopilotAdapter({
+      cliConfigDir: "/sandbox/.copilot",
+      homeDir: "/sandbox",
+      configDir: "/sandbox/.config",
+      cacheDir: "/sandbox/.cache",
+    });
+
+    expect(adapter.buildCommand({
+      prompt: "Implement the requested change",
+      promptFilePath: "/mystra/workspace/agent-prompt.txt",
+      workingDirectory: "/repo",
+    })).toEqual([
+      "copilot",
+      "--config-dir",
+      "/sandbox/.copilot",
+      "--attachment",
+      "/mystra/workspace/agent-prompt.txt",
+      "--prompt",
+      "Follow the attached instructions file as the complete user task.",
+      "--allow-all",
+      "--no-ask-user",
+      "--no-color",
+      "--stream",
+      "off",
+    ]);
   });
 
   it("parses unexpected process output defensively instead of throwing", () => {
