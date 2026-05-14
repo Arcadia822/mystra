@@ -119,7 +119,7 @@ GitHub parity slice.
 **Purpose**: Close the loop across docs, verification, and review.
 
 - [x] T020 [P] Update `specs/012-github-repo-provider-parity/quickstart.md`, `specs/012-github-repo-provider-parity/contracts/github-repo-provider.md`, and `specs/012-github-repo-provider-parity/contracts/github-review-context.md` to match the landed implementation details
-- [ ] T021 Run focused verification: `pnpm --filter @mystra/shared test && pnpm --filter @mystra/runner-daemon test`
+- [x] T021 Run focused verification: `pnpm --filter @mystra/shared test && pnpm --filter @mystra/runner-daemon test`
 - [ ] T022 Run broad verification: `pnpm typecheck`
 - [ ] T023 Run the project-local `code-review-and-quality` gate or an equivalent explicit review pass against the finished 012 diff before committing the completed spec
 
