@@ -85,7 +85,7 @@ GitHub parity slice.
 ### Tests for Technical Scenario 3
 
 - [x] T014 [P] [TS3] Add failure-mapping tests in `apps/runner-daemon/src/repo-providers/github.test.ts` for `no_diff`, `auth_invalid`, push rejection, and PR-create-failed-after-push
-- [ ] T015 [P] [TS3] Extend `packages/shared/src/repository.test.ts` and `apps/runner-daemon/src/container-task.test.ts` to cover normalized `review.created` data plus transitional `mr.created` compatibility when the provider is GitHub
+- [x] T015 [P] [TS3] Extend `packages/shared/src/repository.test.ts` and `apps/runner-daemon/src/container-task.test.ts` to cover normalized `review.created` data plus transitional `mr.created` compatibility when the provider is GitHub
 
 ### Implementation for Technical Scenario 3
 

@@ -65,6 +65,50 @@ describe("repository provider schemas", () => {
     expect(parsed.review).toBeUndefined();
   });
 
+  it("accepts a GitHub review-created result with a normalized review handle", () => {
+    const target = repositoryTargetSchema.parse({
+      projectId: "00000000-0000-4000-8000-000000000106",
+      repoUrl: "https://github.example.com/acme/project.git",
+      hostKind: "github",
+      defaultBaseBranch: "main",
+    });
+
+    const auth = repositoryAuthBindingSchema.parse({
+      kind: "runner-env",
+      provider: "github",
+      reference: "repo-auth/github/default",
+    });
+
+    const parsed = reviewResultSchema.parse({
+      status: "review_created",
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-106",
+        branchUrl: "https://github.example.com/acme/project/tree/mystra/task-106",
+        commitSha: "def456",
+      },
+      review: {
+        provider: "github",
+        url: "https://github.example.com/acme/project/pull/11",
+        number: 11,
+        displayId: "#11",
+      },
+      metadata: {
+        target,
+        auth,
+      },
+    });
+
+    expect(parsed.review).toEqual({
+      provider: "github",
+      url: "https://github.example.com/acme/project/pull/11",
+      number: 11,
+      displayId: "#11",
+    });
+    expect(parsed.metadata.target).toEqual(target);
+    expect(parsed.metadata.auth).toEqual(auth);
+  });
+
   it("accepts an explicit no-diff outcome without a review handle", () => {
     const parsed = reviewResultSchema.parse({
       status: "no_diff",

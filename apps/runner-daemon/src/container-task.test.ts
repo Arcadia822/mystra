@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const script = readFileSync(resolve(currentDir, "../assets/container-task.sh"), "utf8");
 const runner = readFileSync(resolve(currentDir, "index.ts"), "utf8");
+const gitlabProvider = readFileSync(resolve(currentDir, "repo-providers/gitlab.ts"), "utf8");
 const agentAdapters = readFileSync(resolve(currentDir, "agent-adapters.ts"), "utf8");
 const workflowProviders = readFileSync(resolve(currentDir, "workflow-providers.ts"), "utf8");
 
@@ -88,6 +89,21 @@ describe("container task quality gate", () => {
     expect(runner).toContain('"review.created"');
     expect(runner).toContain("reviewStatus: output.reviewResult?.status");
     expect(runner).toContain("branch: branchReceipt.branchName");
+  });
+
+  it("keeps GitHub review handles normalized while projecting transitional MR compatibility data", () => {
+    expect(runner).toContain('summary: `Created ${reviewResult.review.provider === "gitlab" ? "GitLab MR" : "review"} ${reviewResult.review.displayId}`');
+    expect(runner).toContain("mrUrl: reviewResult.review.url");
+    expect(runner).toContain("mrIid: reviewResult.review.number");
+    expect(runner).toContain('await emitEvent(config, token, run.id, "review.created", reviewCreated)');
+    expect(runner).toContain('await emitEvent(config, token, run.id, "mr.created", mrCreated)');
+
+    expect(gitlabProvider).toContain('provider: review?.provider ?? "gitlab"');
+    expect(gitlabProvider).toContain("reviewUrl: review?.url ?? input.mrUrl");
+    expect(gitlabProvider).toContain("reviewNumber: review?.number ?? input.mrIid");
+    expect(gitlabProvider).toContain('displayId: review?.displayId ?? (input.mrIid ? `!${input.mrIid}` : undefined)');
+    expect(gitlabProvider).toContain("mrUrl: review?.url ?? input.mrUrl");
+    expect(gitlabProvider).toContain("mrIid: review?.number ?? input.mrIid");
   });
 
   it("treats docs-only changes as a no-code quality gate pass", () => {
