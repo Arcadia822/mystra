@@ -90,7 +90,7 @@ GitHub parity slice.
 ### Implementation for Technical Scenario 3
 
 - [x] T016 [TS3] Update `apps/runner-daemon/src/index.ts` so `dockerResultFromReviewResult()`, workflow-node completion data, and emitted review events preserve GitHub `ReviewResult` details without re-hardcoding GitLab semantics
-- [ ] T017 [TS3] Update the compatibility projections in `apps/runner-daemon/src/repo-providers/gitlab.ts` and adjacent event/result mapping so `review.created` stays normalized while `mrUrl`, `mrIid`, and `mr.created` remain coherent during the transition
+- [x] T017 [TS3] Update the compatibility projections in `apps/runner-daemon/src/repo-providers/gitlab.ts` and adjacent event/result mapping so `review.created` stays normalized while `mrUrl`, `mrIid`, and `mr.created` remain coherent during the transition
 
 **Checkpoint**: Operators can diagnose GitHub delivery failures from structured outputs instead of shell logs.
 

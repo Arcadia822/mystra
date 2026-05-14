@@ -3,12 +3,13 @@ import { spawn } from "node:child_process";
 import type { BranchDeliveryRequest, BranchDeliveryReceipt, ReviewRequest, ReviewResult } from "@mystra/shared";
 
 import type { RepoProvider } from "../repo-providers.js";
+import {
+  buildMergeRequestEventData,
+  buildReviewCreatedEventData,
+  type ReviewProjectionInput,
+} from "../review-projections.js";
 
-export interface GitLabReviewProjectionInput {
-  mrUrl?: string;
-  mrIid?: number;
-  reviewResult?: ReviewResult;
-}
+export type GitLabReviewProjectionInput = ReviewProjectionInput;
 
 interface GitLabReviewMetadata {
   frontendPreviewUrl?: string | null;
@@ -356,22 +357,12 @@ export function buildGitLabReviewCreatedEventData(input: GitLabReviewProjectionI
   reviewNumber: number | undefined;
   displayId: string | undefined;
 } {
-  const review = input.reviewResult?.review;
-  return {
-    provider: review?.provider ?? "gitlab",
-    reviewUrl: review?.url ?? input.mrUrl,
-    reviewNumber: review?.number ?? input.mrIid,
-    displayId: review?.displayId ?? (input.mrIid ? `!${input.mrIid}` : undefined),
-  };
+  return buildReviewCreatedEventData(input);
 }
 
 export function buildGitLabMergeRequestEventData(input: GitLabReviewProjectionInput): {
   mrUrl: string | undefined;
   mrIid: number | undefined;
 } {
-  const review = input.reviewResult?.review;
-  return {
-    mrUrl: review?.url ?? input.mrUrl,
-    mrIid: review?.number ?? input.mrIid,
-  };
+  return buildMergeRequestEventData(input);
 }

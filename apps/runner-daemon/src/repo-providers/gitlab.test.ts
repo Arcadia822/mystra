@@ -104,6 +104,43 @@ describe("gitlab review projections", () => {
     });
   });
 
+  it("preserves normalized GitHub review handles through the legacy GitLab helper names", () => {
+    const reviewResult = {
+      status: "review_created" as const,
+      branch: {
+        status: "pushed" as const,
+        branchName: "mystra/task-17",
+      },
+      review: {
+        provider: "github" as const,
+        url: "https://github.com/acme/project/pull/17",
+        number: 17,
+        displayId: "#17",
+      },
+      metadata: {},
+    };
+
+    expect(buildGitLabReviewCreatedEventData({
+      mrUrl: "https://gitlab.example.com/group/project/-/merge_requests/17",
+      mrIid: 17,
+      reviewResult,
+    })).toEqual({
+      provider: "github",
+      reviewUrl: "https://github.com/acme/project/pull/17",
+      reviewNumber: 17,
+      displayId: "#17",
+    });
+
+    expect(buildGitLabMergeRequestEventData({
+      mrUrl: "https://gitlab.example.com/group/project/-/merge_requests/17",
+      mrIid: 17,
+      reviewResult,
+    })).toEqual({
+      mrUrl: "https://github.com/acme/project/pull/17",
+      mrIid: 17,
+    });
+  });
+
   it("pushes GitLab branches through the provider using runner-env auth", async () => {
     mockSpawnSequence(
       { code: 0 },

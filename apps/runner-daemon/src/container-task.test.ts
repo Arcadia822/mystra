@@ -104,12 +104,10 @@ describe("container task quality gate", () => {
     expect(reviewProjections).toContain("reviewProvider: reviewCreated.provider");
     expect(reviewProjections).toContain("reviewDisplayId: reviewCreated.displayId");
 
-    expect(gitlabProvider).toContain('provider: review?.provider ?? "gitlab"');
-    expect(gitlabProvider).toContain("reviewUrl: review?.url ?? input.mrUrl");
-    expect(gitlabProvider).toContain("reviewNumber: review?.number ?? input.mrIid");
-    expect(gitlabProvider).toContain('displayId: review?.displayId ?? (input.mrIid ? `!${input.mrIid}` : undefined)');
-    expect(gitlabProvider).toContain("mrUrl: review?.url ?? input.mrUrl");
-    expect(gitlabProvider).toContain("mrIid: review?.number ?? input.mrIid");
+    expect(gitlabProvider).toContain("buildReviewCreatedEventData");
+    expect(gitlabProvider).toContain("buildMergeRequestEventData");
+    expect(gitlabProvider).toContain("return buildReviewCreatedEventData(input);");
+    expect(gitlabProvider).toContain("return buildMergeRequestEventData(input);");
   });
 
   it("treats docs-only changes as a no-code quality gate pass", () => {
