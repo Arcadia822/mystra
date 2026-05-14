@@ -201,6 +201,15 @@ describe("container task quality gate", () => {
     expect(runner).not.toContain('const gitlabToken = requiredEnv("MYSTRA_GITLAB_TOKEN")');
   });
 
+  it("normalizes SSH clone URLs generically instead of relying on GitLab-only host glue", () => {
+    expect(script).toContain('const input = new URL(repo.includes("://") ? repo : "https://" + repo);');
+    expect(script).toContain('if (input.protocol === "ssh:") {');
+    expect(script).toContain('url = new URL(`https://${input.host}${input.pathname}`);');
+    expect(script).toContain('url.username = username;');
+    expect(script).toContain('url.password = token;');
+    expect(script).not.toContain("MYSTRA_GITLAB_HTTP_BASE_URL");
+  });
+
   it("merges system mounts with resolved Project/runtime mounts instead of replacing them", () => {
     expect(runner).toContain("function effectiveDockerMounts(runtimeMounts: ResolvedRuntimeContract[\"mounts\"]): ResolvedRuntimeContract[\"mounts\"]");
     expect(runner).toContain("const merged = [...defaultDockerMounts()]");

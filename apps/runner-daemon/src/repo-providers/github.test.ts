@@ -118,6 +118,73 @@ describe("github repo provider", () => {
     });
   });
 
+  it("uses provider-owned API base overrides for GitHub Enterprise pull request creation", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        number: 16,
+        html_url: "https://github.enterprise.example/acme/project/pull/16",
+      }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
+
+    const result = await githubRepoProvider.createReview({
+      target: {
+        projectId: "00000000-0000-4000-8000-000000000510",
+        repoUrl: "git@github.enterprise.example:acme/project.git",
+        hostKind: "github",
+        defaultBaseBranch: "main",
+      },
+      auth: {
+        kind: "runner-env",
+        provider: "github",
+        reference: "MYSTRA_GITHUB_TOKEN",
+        metadata: {},
+      },
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-510",
+      },
+      title: "Mystra task 510",
+      body: "Implement the requested change",
+      metadata: {
+        githubHttpBaseUrl: "https://github.enterprise.example/custom/api/",
+      },
+    });
+
+    expect(result).toEqual({
+      status: "review_created",
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-510",
+      },
+      review: {
+        provider: "github",
+        url: "https://github.enterprise.example/acme/project/pull/16",
+        number: 16,
+        displayId: "#16",
+      },
+      metadata: {
+        githubHttpBaseUrl: "https://github.enterprise.example/custom/api/",
+        repo: "acme/project",
+        targetBranch: "main",
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://github.enterprise.example/custom/api/repos/acme/project/pulls",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          title: "Mystra task 510",
+          head: "mystra/task-510",
+          base: "main",
+          body: "Implement the requested change",
+        }),
+      }),
+    );
+  });
+
   it("rejects no-diff GitHub review requests before provider review creation begins", () => {
     expect(() =>
       reviewRequestSchema.parse({

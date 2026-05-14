@@ -104,7 +104,7 @@ GitHub parity slice.
 
 ### Tests for Technical Scenario 4
 
-- [ ] T018 [P] [TS4] Add regression coverage in `apps/runner-daemon/src/repo-providers/github.test.ts` and `apps/runner-daemon/src/container-task.test.ts` for enterprise-host API-base overrides and SSH clone normalization
+- [x] T018 [P] [TS4] Add regression coverage in `apps/runner-daemon/src/repo-providers/github.test.ts` and `apps/runner-daemon/src/container-task.test.ts` for enterprise-host API-base overrides and SSH clone normalization
 
 ### Implementation for Technical Scenario 4
 
