@@ -45,9 +45,14 @@ Expected behavior:
    branch URL.
 3. Pull-request creation returns a normalized `ReviewResult.review` handle with
    a GitHub PR URL and `#<number>` display ID.
-4. Reviewer-facing task, preview, and quality-gate context appears in the PR
-   body.
-5. Structured outputs remain coherent for both normalized review data and any
+4. The PR title carries the task title, and the PR body stays as the task body
+   unless a frontend preview URL is present; when preview metadata exists, the
+   body appends the preview block, quality-gate summary, and backend retained
+   container note.
+5. When preview metadata is present, GitHub may also publish a best-effort
+   retained-preview follow-up comment, and `contextCommentStatus` records
+   whether that optional comment was published or failed.
+6. Structured outputs remain coherent for both normalized review data and any
    transitional MR-shaped compatibility fields.
 
 ## Edge Verification
@@ -56,4 +61,6 @@ Expected behavior:
 - No diff after quality gate
 - Missing or invalid `MYSTRA_GITHUB_TOKEN`
 - Push succeeds but PR creation fails
+- Quality-gate metadata without a frontend preview URL leaves the PR body
+  unchanged
 - Optional reviewer-context comment publication fails after PR creation

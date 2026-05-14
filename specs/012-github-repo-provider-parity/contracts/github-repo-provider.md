@@ -21,8 +21,8 @@ interface GitHubProviderInput {
   target: RepositoryTarget;
   auth: RepositoryAuthBinding; // provider === "github"
   metadata?: {
-    localRepoPath?: string;
-    githubHttpBaseUrl?: string;
+    localRepoPath?: string; // pushBranch only
+    githubHttpBaseUrl?: string; // optional API base override for createReview()
     frontendPreviewUrl?: string | null;
     backendPreviewUrl?: string | null;
     previewContainer?: string | null;
@@ -95,7 +95,12 @@ interface GitHubProviderInput {
     number,
     displayId: `#${number}`
   },
-  metadata?: Record<string, unknown>,
+  metadata?: {
+    ...inputMetadata,
+    repo?: string,
+    targetBranch?: string,
+    contextCommentStatus?: "published" | "failed"
+  },
   errorCode?,
   errorMessage?
 }
@@ -107,9 +112,19 @@ interface GitHubProviderInput {
 |---|---|---|
 | No repository diff | `no_diff` | No PR created |
 | Missing/invalid token | `auth_invalid` | Explicit auth failure, not a generic runner error |
-| Push rejected | `push_failed` via branch receipt | Review creation must not run |
+| Push rejected | branch receipt `status: "failed"` + `errorCode: "push_failed"` | Review creation must not run |
 | Push succeeds, PR create fails | `review_failed_after_push` | Preserve pushed branch metadata |
 | PR succeeds, optional follow-up comment fails | `review_created` | Record comment failure in metadata/warnings only |
+
+## Reviewer Context Notes
+
+- The PR title carries the task title.
+- The PR body starts with the task body unchanged.
+- A preview block is appended only when `frontendPreviewUrl` is present.
+- The quality-gate line currently appears only inside that preview block.
+- When both frontend and backend preview URLs are present, the PR body also adds
+  a backend retained-container note and the provider attempts a best-effort
+  follow-up issue comment.
 
 ## Leakage Guards
 
