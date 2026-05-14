@@ -14,12 +14,18 @@ The first Mystra implementation should not depend on cloud services for its core
 
 Reuse the Open Agents project as Mystra's framework foundation, then adapt the provider layer for local-first execution.
 
+Mystra's MVP keeps Codex CLI and GitHub Copilot CLI execution inside the task
+container. That is an explicit divergence from the upstream Open Agents
+agent-outside-sandbox model and must remain documented until a later feature
+replaces it with a different contract.
+
 The first provider implementations are:
 
 - `RdbProvider`: local SQLite.
 - `WorkflowProvider`: local dummy workflow implementation.
 - `SandboxProvider`: single-machine Docker.
-- `RepoProvider`: GitLab.
+- `RepoProvider`: GitLab and GitHub review delivery behind a Mystra-owned
+  repository contract.
 - `AgentProvider`: Codex CLI and GitHub Copilot CLI.
 
 Cloud services remain future provider implementations, not MVP requirements. Hosted RDB, Vercel Workflow/WDK, Vercel Sandbox, AI Gateway, or other managed services can be added later behind the same provider contracts if they earn their complexity.
@@ -34,6 +40,8 @@ Positive:
 - Provider contracts are forced early, before cloud integrations can leak into product logic.
 - Open Agents remains the framework reference while Mystra keeps control over runtime placement.
 - Single-machine Docker keeps the first sandbox implementation concrete and testable.
+- Remote MCP submission is a Mystra-owned control-surface extension, not a claim
+  that the upstream web surface is reused unchanged.
 
 Negative:
 

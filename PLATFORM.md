@@ -27,7 +27,7 @@ supabase              Migrations, seed, generated database types
 - Validation: Zod schemas shared across services.
 - Test runner: Vitest.
 - Agent CLIs: Codex CLI and GitHub Copilot CLI.
-- Repository provider in MVP: GitLab only.
+- Repository provider contract in MVP: GitLab and GitHub review delivery.
 
 ## Important Commands
 
@@ -74,9 +74,14 @@ Mystra reuses Open Agents as the framework and defines provider seams where the 
 RdbProvider        local SQLite first; cloud RDB later
 WorkflowProvider   local dummy first; Vercel Workflow or WDK later
 SandboxProvider    single-machine Docker first; Vercel Sandbox or stronger isolation later
-RepoProvider       GitLab first
+RepoProvider       GitLab and GitHub contract scope first
 AgentProvider      Codex CLI and GitHub Copilot CLI first
 ```
+
+For repository delivery, 004 treats GitLab and GitHub as MVP contract scope.
+Provider-specific realization lives in `specs/010-repo-provider-contracts/` so
+workflow, runner, and agent surfaces do not hardcode one host as the only valid
+target.
 
 Provider implementations must be replaceable without rewriting product contracts or feature specs.
 

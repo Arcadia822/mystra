@@ -1,8 +1,12 @@
 # Mystra
 
-A bare-metal coding-agent platform for running multiple AI development tasks in isolated Docker containers on your own infrastructure.
+A bare-metal coding-agent platform for running multiple AI development tasks in
+isolated Docker containers on your own infrastructure.
 
-Mystra provides a control plane that receives work through HTTP or MCP, a local-first persistence layer, and pull-based runner daemons that execute Codex CLI or GitHub Copilot CLI in Docker sandboxes. Successful runs produce reviewable GitLab branches and merge requests.
+Mystra provides a control plane that receives work through HTTP or MCP, a
+local-first persistence layer, and pull-based runner daemons that execute Codex
+CLI or GitHub Copilot CLI in Docker sandboxes. Successful runs produce
+reviewable GitLab or GitHub branches plus merge requests or pull requests.
 
 ## Architecture
 
@@ -23,7 +27,7 @@ Mystra defines provider seams where managed services would be used, and ships lo
 | RdbProvider | SQLite-backed local store | Cloud RDB |
 | WorkflowProvider | Local dummy workflow | Vercel Workflow / WDK |
 | SandboxProvider | Single-machine Docker | Kubernetes |
-| RepoProvider | GitLab | GitHub |
+| RepoProvider | GitLab and GitHub review delivery | Additional hosts or provider variants |
 | AgentProvider | Codex CLI, GitHub Copilot CLI | Claude CLI |
 
 ## Quick Start
@@ -84,8 +88,9 @@ In scope:
 - Docker task containers on the runner host
 - Codex CLI and GitHub Copilot CLI agent execution
 - GitLab branch and merge request delivery
+- GitHub branch and pull request delivery
 - Structured lifecycle events and run results
-- Deterministic test-then-build quality gate before branch/MR delivery
+- Deterministic test-then-build quality gate before branch/MR/PR delivery
 
 Explicitly out of scope for the MVP:
 
@@ -93,7 +98,6 @@ Explicitly out of scope for the MVP:
 - Logs API or log persistence
 - Retry API, callback URLs, quality-gate fix loops
 - Claude CLI adapter
-- GitHub repository support
 - Kubernetes sandbox workloads
 - Cross-runner shared caches
 

@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { contextBundleCreateSchema, jobSpecSchema, projectCreateSchema } from "@mystra/shared";
+import {
+  contextBundleCreateSchema,
+  controlPlaneLifecycleHandoffEventTypes,
+  jobSpecSchema,
+  projectCreateSchema,
+  terminalRunEventTypes,
+} from "@mystra/shared";
 import { z } from "zod";
 
 import { getDb } from "@/lib/db";
@@ -103,6 +109,9 @@ export async function POST(request: Request) {
           {
             name: "mystra_create_job",
             description: "Create a local Mystra job.",
+            lifecycle: {
+              handoffEvents: [...controlPlaneLifecycleHandoffEventTypes],
+            },
             inputSchema: {
               type: "object",
               required: ["taskId", "source", "projectId", "branchName", "prompt"],
@@ -221,6 +230,10 @@ export async function POST(request: Request) {
           {
             name: "mystra_get_job",
             description: "Get local Mystra job status.",
+            lifecycle: {
+              handoffEvents: [...controlPlaneLifecycleHandoffEventTypes],
+              terminalEvents: [...terminalRunEventTypes],
+            },
             inputSchema: {
               type: "object",
               required: ["jobId"],

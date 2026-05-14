@@ -378,6 +378,43 @@ describe("Job and MCP project contracts", () => {
     }));
   });
 
+  it("advertises shared lifecycle handoff metadata in MCP tools/list", async () => {
+    const response = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "tools-list-lifecycle",
+      method: "tools/list",
+    }));
+
+    expect(response.status).toBe(200);
+    const rpc = await json<{
+      result: {
+        tools: Array<{
+          name: string;
+          lifecycle?: {
+            handoffEvents?: string[];
+            terminalEvents?: string[];
+          };
+        }>;
+      };
+    }>(response);
+
+    const createJobTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_job");
+    const getJobTool = rpc.result.tools.find((tool) => tool.name === "mystra_get_job");
+
+    expect(createJobTool?.lifecycle?.handoffEvents).toEqual([
+      "job.created",
+      "run.queued",
+      "run.assigned",
+    ]);
+    expect(getJobTool?.lifecycle?.terminalEvents).toEqual([
+      "run.succeeded",
+      "run.failed",
+      "run.canceled",
+      "run.timed_out",
+      "run.needs_human_review",
+    ]);
+  });
+
   it("rejects MCP Project creation with top-level image", async () => {
     const response = await postMcp(jsonRequest("http://localhost/api/mcp", {
       jsonrpc: "2.0",

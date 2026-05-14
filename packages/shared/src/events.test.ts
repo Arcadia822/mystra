@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { runEventSchema } from "./events.js";
+import {
+  controlPlaneLifecycleHandoffEventTypes,
+  runEventSchema,
+  runEventTypeSchema,
+  terminalRunEventTypes,
+} from "./events.js";
 
 describe("runEventSchema", () => {
   it("accepts structured events without raw log offsets", () => {
@@ -44,5 +49,20 @@ describe("runEventSchema", () => {
     });
 
     expect(parsed.type).toBe("quality_gate.failed");
+  });
+
+  it("exports control-plane handoff and terminal event vocabularies from the shared lifecycle schema", () => {
+    expect(controlPlaneLifecycleHandoffEventTypes.map((type) => runEventTypeSchema.parse(type))).toEqual([
+      "job.created",
+      "run.queued",
+      "run.assigned",
+    ]);
+    expect(terminalRunEventTypes.map((type) => runEventTypeSchema.parse(type))).toEqual([
+      "run.succeeded",
+      "run.failed",
+      "run.canceled",
+      "run.timed_out",
+      "run.needs_human_review",
+    ]);
   });
 });

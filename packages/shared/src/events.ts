@@ -34,6 +34,20 @@ export const runEventTypeSchema = z.enum([
 ]);
 export type RunEventType = z.infer<typeof runEventTypeSchema>;
 
+export const controlPlaneLifecycleHandoffEventTypes = [
+  "job.created",
+  "run.queued",
+  "run.assigned",
+] as const satisfies readonly RunEventType[];
+
+export const terminalRunEventTypes = [
+  "run.succeeded",
+  "run.failed",
+  "run.canceled",
+  "run.timed_out",
+  "run.needs_human_review",
+] as const satisfies readonly RunEventType[];
+
 export const runEventSchema = z
   .object({
     runId: z.string().uuid(),
