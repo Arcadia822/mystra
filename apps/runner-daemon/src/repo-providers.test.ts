@@ -110,13 +110,25 @@ describe("runner repo providers", () => {
   it("registers the built-in GitLab repo provider by default", async () => {
     const bundle = await createRunnerRepoProviderRegistry();
 
-    expect(bundle.providerNames).toEqual(["gitlab"]);
+    expect(bundle.providerNames).toEqual(["gitlab", "github"]);
     expect(bundle.registry.select({
       projectId: "00000000-0000-4000-8000-000000000399",
       repoUrl: "https://gitlab.example.com/group/project.git",
       hostKind: "unknown",
       defaultBaseBranch: "main",
     })?.providerName).toBe("gitlab");
+    expect(bundle.registry.select({
+      projectId: "00000000-0000-4000-8000-000000000398",
+      repoUrl: "https://github.com/acme/project.git",
+      hostKind: "github",
+      defaultBaseBranch: "main",
+    })?.providerName).toBe("github");
+    expect(bundle.registry.select({
+      projectId: "00000000-0000-4000-8000-000000000397",
+      repoUrl: "https://github.com/acme/project.git",
+      hostKind: "unknown",
+      defaultBaseBranch: "main",
+    })?.providerName).toBe("github");
   });
 
   it("rejects duplicate startup repo provider registrations", async () => {

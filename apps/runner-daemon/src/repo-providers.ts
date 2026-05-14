@@ -9,7 +9,8 @@ import type {
   ReviewRequest,
   ReviewResult,
 } from "@mystra/shared";
-import { repoProviders as builtinRepoProviders } from "./repo-providers/gitlab.js";
+import { githubRepoProvider } from "./repo-providers/github.js";
+import { gitlabRepoProvider } from "./repo-providers/gitlab.js";
 
 export interface RepoProvider {
   readonly providerName: RepoProviderKind;
@@ -121,7 +122,10 @@ export async function createRunnerRepoProviderRegistry(
   options: RunnerRepoProviderRegistryOptions = {},
 ): Promise<RunnerRepoProviderRegistryBundle> {
   const providers: RepoProviderModuleRecord = {
-    ...(options.builtinProviders ?? builtinRepoProviders),
+    ...(options.builtinProviders ?? {
+      gitlab: gitlabRepoProvider,
+      github: githubRepoProvider,
+    }),
   };
 
   for (const moduleSpecifier of options.moduleSpecifiers ?? []) {

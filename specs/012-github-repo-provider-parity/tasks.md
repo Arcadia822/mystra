@@ -45,13 +45,13 @@ GitHub parity slice.
 
 ### Tests for Technical Scenario 1
 
-- [ ] T007 [P] [TS1] Add GitHub provider tests in `apps/runner-daemon/src/repo-providers/github.test.ts` for `github.com`, enterprise hosts, SSH-style remotes, branch URL generation, and normalized review handle projection
-- [ ] T008 [P] [TS1] Extend `apps/runner-daemon/src/repo-providers.test.ts` so the built-in registry selects GitHub by `hostKind` and `supports()` fallback without breaking GitLab registration
+- [x] T007 [P] [TS1] Add GitHub provider tests in `apps/runner-daemon/src/repo-providers/github.test.ts` for `github.com`, enterprise hosts, SSH-style remotes, branch URL generation, and normalized review handle projection
+- [x] T008 [P] [TS1] Extend `apps/runner-daemon/src/repo-providers.test.ts` so the built-in registry selects GitHub by `hostKind` and `supports()` fallback without breaking GitLab registration
 
 ### Implementation for Technical Scenario 1
 
-- [ ] T009 [TS1] Implement `apps/runner-daemon/src/repo-providers/github.ts` with provider-owned host parsing, authenticated branch push, and pull-request creation behind the shared `RepoProvider` contract
-- [ ] T010 [TS1] Update `apps/runner-daemon/src/repo-providers.ts` to register the built-in GitHub provider beside GitLab and preserve startup-module extension behavior
+- [x] T009 [TS1] Implement `apps/runner-daemon/src/repo-providers/github.ts` with provider-owned host parsing, authenticated branch push, and pull-request creation behind the shared `RepoProvider` contract
+- [x] T010 [TS1] Update `apps/runner-daemon/src/repo-providers.ts` to register the built-in GitHub provider beside GitLab and preserve startup-module extension behavior
 
 **Checkpoint**: GitHub is a first-party provider implementation under the same boundary as GitLab.
 
