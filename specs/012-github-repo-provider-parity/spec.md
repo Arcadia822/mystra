@@ -2,7 +2,7 @@
 
 **Feature Branch**: `012-github-repo-provider-parity`  
 **Created**: 2026-05-15  
-**Status**: Implemented; final closure review pending  
+**Status**: Implemented; closure verified  
 **Dependency Note**: Build on the realized `RepoProvider` seam in `specs/010-repo-provider-contracts/` and the runtime execution work committed in `b85fd0f`, which introduced shared repository contracts and a runner registry but only a concrete GitLab provider implementation.  
 **Input**: User description: "Complete Mystra MVP GitHub repository delivery parity on top of the realized RepoProvider seam"
 
@@ -172,9 +172,9 @@ provider implementation and normalized `RepositoryAuthBinding`.
 - **GitHubRepoProvider**: The concrete provider implementation that realizes
   GitHub branch push and pull-request creation behind the Mystra-owned
   `RepoProvider` interface.
-- **GitHubHostContext**: Provider-owned host resolution data derived from a
-  GitHub repository target so branch URLs, API URLs, and enterprise-host
-  behavior remain localized.
+- **GitHubRepoContext**: Provider-owned repository-resolution helper derived from
+  a GitHub repository target so repo path normalization, authenticated clone
+  URLs, branch URLs, and API-base behavior remain localized.
 - **GitHubReviewProjection**: Provider-owned mapping from GitHub pull-request and
   optional comment results into Mystra's normalized review result and structured
   events.

@@ -47,9 +47,10 @@
 
 ## Decision 4: Resolve GitHub host context inside the provider from repository metadata
 
-- **Decision**: Implement a provider-owned `GitHubHostContext` helper that can
+- **Decision**: Implement a provider-owned `GitHubRepoContext` helper that can
   parse `github.com`, enterprise hosts, HTTPS URLs, and SSH-style remotes, then
-  derive both branch URLs and the appropriate REST API base URL.
+  derive the normalized repo path, authenticated clone URL, branch URL base, and
+  appropriate REST API base URL.
 - **Rationale**: `RepositoryTarget.repoUrl` is intentionally loose, and the spec
   requires GitHub-compatible hosts without exposing GitHub API layout through
   shared contracts.

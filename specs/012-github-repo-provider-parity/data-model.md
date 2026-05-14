@@ -16,22 +16,21 @@
     `BranchDeliveryRequest`, and `ReviewRequest`
   - Produces `BranchDeliveryReceipt` and `ReviewResult`
 
-### GitHubHostContext
+### GitHubRepoContext
 
-- **Purpose**: Provider-owned resolution of repository identity and HTTP/API
-  endpoints from a repository target.
+- **Purpose**: Provider-owned resolution of repository identity plus the derived
+  authenticated clone and HTTP/API endpoints from a repository target.
 - **Fields**:
-  - `repoOwner: string`
-  - `repoName: string`
   - `repoPath: string`
-  - `webBaseUrl: string`
   - `apiBaseUrl: string`
+  - `authenticatedRepoUrl: string`
   - `branchUrlBase: string`
-  - `pullsEndpoint: string`
 - **Validation rules**:
   - Must accept `github.com` and enterprise-style hosts
   - Must reject non-GitHub hosts when `providerName === "github"`
   - Must normalize `.git` suffixes and SSH-style remote forms
+  - Must trim trailing slashes from any provider-owned API-base override before
+    constructing REST endpoints
 
 ### GitHubAuthContext
 
@@ -88,7 +87,7 @@
 
 ```text
 RepositoryTarget + RepositoryAuthBinding
-  -> GitHubHostContext + GitHubAuthContext
+  -> GitHubRepoContext + GitHubAuthContext
     -> GitHubRepoProvider.pushBranch()
       -> GitHubBranchProjection / BranchDeliveryReceipt
         -> GitHubRepoProvider.createReview()

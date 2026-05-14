@@ -22,7 +22,9 @@ surfaces working until later cleanup removes the legacy GitLab names.
 - The current environment still emits the pre-existing Node engine warning
   (`>=24 <25`, running `v26.1.0`), but the typecheck itself completed cleanly
   across the workspace
-- Final explicit code review for spec closure remains pending
+- Final explicit review pass completed on 2026-05-15 against the cumulative spec
+  012 diff; it found no blocking issues and the only minor documentation drift
+  (`GitHubRepoContext` field shape) was reconciled in the closure artifacts
 
 ## Technical Context
 
@@ -182,7 +184,7 @@ The first implementation slice for 012 should be:
 ```text
 job.spec.repo + RepositoryTarget + RepositoryAuthBinding
   -> runner provider selection
-    -> GitHubHostContext resolver
+    -> GitHubRepoContext resolver
       -> pushBranch()
         -> BranchDeliveryReceipt
           -> createReview()
