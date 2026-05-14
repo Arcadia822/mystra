@@ -62,21 +62,20 @@ ensure_workspace() {
 clone_url() {
   node <<'NODE'
 const repo = process.env.MYSTRA_REPO;
-const token = process.env.MYSTRA_GITLAB_TOKEN;
+const reference = process.env.MYSTRA_REPOSITORY_AUTH_REFERENCE;
+const username = process.env.MYSTRA_REPOSITORY_AUTH_USERNAME || "oauth2";
+const token = reference ? process.env[reference] : undefined;
 if (!repo) throw new Error("MYSTRA_REPO is required");
-if (!token) throw new Error("MYSTRA_GITLAB_TOKEN is required");
+if (!reference) throw new Error("MYSTRA_REPOSITORY_AUTH_REFERENCE is required");
+if (!token) throw new Error(`Repository auth token ${reference} is required`);
 const input = new URL(repo.includes("://") ? repo : "https://" + repo);
 let url;
 if (input.protocol === "ssh:") {
-  if (!process.env.MYSTRA_GITLAB_HTTP_BASE_URL) {
-    throw new Error("MYSTRA_GITLAB_HTTP_BASE_URL is required for ssh GitLab remotes");
-  }
-  const base = new URL(process.env.MYSTRA_GITLAB_HTTP_BASE_URL);
-  url = new URL(input.pathname, base);
+  url = new URL(`https://${input.host}${input.pathname}`);
 } else {
   url = input;
 }
-url.username = "oauth2";
+url.username = username;
 url.password = token;
 console.log(url.toString());
 NODE

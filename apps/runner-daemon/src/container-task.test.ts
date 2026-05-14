@@ -156,13 +156,29 @@ describe("container task quality gate", () => {
   it("translates resolved runtime ports, mounts, caches, and secrets into Docker args", () => {
     expect(runner).toContain("const runtimeMounts = effectiveDockerMounts(runtime.mounts)");
     expect(runner).toContain("const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts()");
-    expect(runner).toContain("const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets()");
+    expect(runner).toContain('const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets(repoProvider.providerName)');
     expect(runner).toContain("appendRuntimePorts(dockerArgs, runtimePorts)");
     expect(runner).toContain("appendRuntimeSecrets(dockerArgs, containerEnv, runtimeSecrets)");
     expect(runner).toContain("appendRuntimeMounts(dockerArgs, config, workspace, gitMirror, runtimeMounts)");
     expect(runner).toContain("dockerArgs.push(\"-p\", port.hostBinding ?? `0.0.0.0::${port.containerPort}`)");
     expect(runner).toContain("dockerArgs.push(\"-e\", secret.name)");
     expect(runner).toContain("dockerArgs.push(\"-v\", `${runtimeMountSource(config, workspace, gitMirror, mount)}:${mount.target}${suffix}`)");
+  });
+
+  it("derives clone auth env from the selected repo provider instead of hardcoding GitLab secrets", () => {
+    expect(script).toContain("MYSTRA_REPOSITORY_AUTH_REFERENCE");
+    expect(script).toContain("MYSTRA_REPOSITORY_AUTH_USERNAME");
+    expect(script).toContain("process.env[reference]");
+    expect(script).not.toContain("const token = process.env.MYSTRA_GITLAB_TOKEN;");
+    expect(script).not.toContain("MYSTRA_GITLAB_HTTP_BASE_URL is required for ssh GitLab remotes");
+
+    expect(runner).toContain("const repositoryAuth = repositoryRuntimeAuthForProvider(repoProvider.providerName)");
+    expect(runner).toContain('const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets(repoProvider.providerName)');
+    expect(runner).toContain("MYSTRA_REPOSITORY_PROVIDER");
+    expect(runner).toContain("MYSTRA_REPOSITORY_AUTH_REFERENCE");
+    expect(runner).toContain("MYSTRA_REPOSITORY_AUTH_USERNAME");
+    expect(runner).toContain("for (const [name, value] of Object.entries(env))");
+    expect(runner).not.toContain('const gitlabToken = requiredEnv("MYSTRA_GITLAB_TOKEN")');
   });
 
   it("merges system mounts with resolved Project/runtime mounts instead of replacing them", () => {

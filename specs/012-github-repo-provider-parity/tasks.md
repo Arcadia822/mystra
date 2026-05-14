@@ -29,9 +29,9 @@ GitHub parity slice.
 **⚠️ CRITICAL**: No GitHub provider work should begin until this phase is complete
 
 - [ ] T003 [P] Add shared-schema tests in `packages/shared/src/repository.test.ts` and `packages/shared/src/result.test.ts` for GitHub review handles, `review_failed_after_push`, and transitional `mrUrl` / `mrIid` serialization
-- [ ] T004 [P] Extend static runner coverage in `apps/runner-daemon/src/container-task.test.ts` to assert provider-aware clone env selection, runtime secret fallback, and review-created compatibility expectations
-- [ ] T005 Refactor `apps/runner-daemon/assets/container-task.sh` so clone/bootstrap auth selection supports GitHub and GitLab from provider-neutral repo metadata instead of hardcoding `MYSTRA_GITLAB_TOKEN` and `MYSTRA_GITLAB_HTTP_BASE_URL`
-- [ ] T006 Refactor `apps/runner-daemon/src/index.ts` so `defaultDockerSecrets()`, workflow-step env injection, and repository auth binding selection derive provider-specific secret references without adding a GitHub-only workflow branch
+- [x] T004 [P] Extend static runner coverage in `apps/runner-daemon/src/container-task.test.ts` to assert provider-aware clone env selection, runtime secret fallback, and review-created compatibility expectations
+- [x] T005 Refactor `apps/runner-daemon/assets/container-task.sh` so clone/bootstrap auth selection supports GitHub and GitLab from provider-neutral repo metadata instead of hardcoding `MYSTRA_GITLAB_TOKEN` and `MYSTRA_GITLAB_HTTP_BASE_URL`
+- [x] T006 Refactor `apps/runner-daemon/src/index.ts` so `defaultDockerSecrets()`, workflow-step env injection, and repository auth binding selection derive provider-specific secret references without adding a GitHub-only workflow branch
 
 **Checkpoint**: A GitHub-backed run can reach clone, push, and review preparation without GitLab-only secret assumptions.
 

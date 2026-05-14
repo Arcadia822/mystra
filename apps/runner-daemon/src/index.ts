@@ -98,6 +98,13 @@ interface QualityGateMetadata {
   logPath?: unknown;
 }
 
+interface RepositoryRuntimeAuthContext {
+  providerName: RepoProviderKind;
+  authBinding: ReturnType<typeof repositoryAuthBindingForProvider>;
+  token: string;
+  cloneUsername: string;
+}
+
 interface CloneStepOutput {
   workspacePath: string;
   baseCommit: string;
@@ -523,8 +530,8 @@ function defaultDockerPorts(): ResolvedRuntimeContract["exposedPorts"] {
   ];
 }
 
-function defaultDockerSecrets(): ResolvedRuntimeContract["secrets"] {
-  return [{ name: "MYSTRA_GITLAB_TOKEN", mode: "env" }];
+function defaultDockerSecrets(providerName: RepoProviderKind): ResolvedRuntimeContract["secrets"] {
+  return [{ name: repositoryAuthBindingForProvider(providerName).reference, mode: "env" }];
 }
 
 function cachePath(config: RunnerConfig, mount: ResolvedRuntimeContract["mounts"][number]): string {
@@ -629,6 +636,44 @@ function repositoryAuthBindingForProvider(providerName: RepoProviderKind) {
   };
 }
 
+function repositoryCloneUsernameForProvider(providerName: RepoProviderKind): string {
+  return providerName === "gitlab" ? "oauth2" : "x-access-token";
+}
+
+function repositoryRuntimeAuthForProvider(providerName: RepoProviderKind): RepositoryRuntimeAuthContext {
+  const authBinding = repositoryAuthBindingForProvider(providerName);
+  return {
+    providerName,
+    authBinding,
+    token: requiredEnv(authBinding.reference),
+    cloneUsername: repositoryCloneUsernameForProvider(providerName),
+  };
+}
+
+function repositoryRuntimeEnv(auth: RepositoryRuntimeAuthContext): NodeJS.ProcessEnv {
+  return {
+    [auth.authBinding.reference]: auth.token,
+    MYSTRA_REPOSITORY_PROVIDER: auth.providerName,
+    MYSTRA_REPOSITORY_AUTH_REFERENCE: auth.authBinding.reference,
+    MYSTRA_REPOSITORY_AUTH_USERNAME: auth.cloneUsername,
+  };
+}
+
+function dockerExecEnvArgs(env: NodeJS.ProcessEnv | undefined): string[] {
+  if (!env) {
+    return [];
+  }
+
+  const args: string[] = [];
+  for (const [name, value] of Object.entries(env)) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    args.push("-e", `${name}=${value}`);
+  }
+  return args;
+}
+
 function dockerResultFromReviewResult(reviewResult: ReviewResult): DockerResult {
   if (reviewResult.status === "review_created" && reviewResult.review) {
     return {
@@ -719,6 +764,7 @@ async function executeContainerWorkflowStep<T>(options: {
     `MYSTRA_FRONTEND_PREVIEW_URL=${options.frontendUrl ?? ""}`,
     "-e",
     `MYSTRA_BACKEND_PREVIEW_URL=${options.backendUrl ?? ""}`,
+    ...dockerExecEnvArgs(options.env),
     options.containerName,
     "bash",
     "/mystra/workspace/task.sh",
@@ -727,7 +773,6 @@ async function executeContainerWorkflowStep<T>(options: {
 
   try {
     await runCommand("docker", args, {
-      ...(options.env ? { env: options.env } : {}),
       ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {
@@ -905,8 +950,8 @@ async function executeDockerJob(
   )];
   const runtimeMounts = effectiveDockerMounts(runtime.mounts);
   const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts();
-  const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets();
-  const gitlabToken = requiredEnv("MYSTRA_GITLAB_TOKEN");
+  const repositoryAuth = repositoryRuntimeAuthForProvider(repoProvider.providerName);
+  const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets(repoProvider.providerName);
   const gitMirror = await refreshGitMirror(config, job.spec.repo);
   await mkdir(config.workspaceRoot, { recursive: true });
   const workspace = await mkdtemp(path.join(config.workspaceRoot, `${run.id}-`));
@@ -948,7 +993,7 @@ async function executeDockerJob(
   const containerName = `mystra-${run.id}`;
   const containerEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    MYSTRA_GITLAB_TOKEN: gitlabToken,
+    ...repositoryRuntimeEnv(repositoryAuth),
   };
   const dockerArgs = [
     "run",
@@ -961,6 +1006,12 @@ async function executeDockerJob(
     `MYSTRA_TASK_ID=${job.spec.taskId}`,
     "-e",
     `MYSTRA_REPO=${job.spec.repo}`,
+    "-e",
+    `MYSTRA_REPOSITORY_PROVIDER=${repositoryAuth.providerName}`,
+    "-e",
+    `MYSTRA_REPOSITORY_AUTH_REFERENCE=${repositoryAuth.authBinding.reference}`,
+    "-e",
+    `MYSTRA_REPOSITORY_AUTH_USERNAME=${repositoryAuth.cloneUsername}`,
     "-e",
     `MYSTRA_GITLAB_HTTP_BASE_URL=${config.gitlabHttpBaseUrl ?? ""}`,
     "-e",
@@ -1147,10 +1198,7 @@ async function executeDockerJob(
                 stepCommand: "clone",
                 nodeId: "clone",
                 workspace,
-                env: {
-                  ...process.env,
-                  MYSTRA_GITLAB_TOKEN: gitlabToken,
-                },
+                env: repositoryRuntimeEnv(repositoryAuth),
                 signal: executionAbort.signal,
                 frontendUrl,
                 backendUrl,
@@ -1179,10 +1227,7 @@ async function executeDockerJob(
                 stepCommand: "agent",
                 nodeId: "agent",
                 workspace,
-                env: {
-                  ...process.env,
-                  MYSTRA_GITLAB_TOKEN: gitlabToken,
-                },
+                env: repositoryRuntimeEnv(repositoryAuth),
                 signal: executionAbort.signal,
                 frontendUrl,
                 backendUrl,
@@ -1229,10 +1274,7 @@ async function executeDockerJob(
                 stepCommand: "quality-gate",
                 nodeId: "quality_gate",
                 workspace,
-                env: {
-                  ...process.env,
-                  MYSTRA_GITLAB_TOKEN: gitlabToken,
-                },
+                env: repositoryRuntimeEnv(repositoryAuth),
                 signal: executionAbort.signal,
                 frontendUrl,
                 backendUrl,
@@ -1275,10 +1317,7 @@ async function executeDockerJob(
                 stepCommand: "push",
                 nodeId: "push",
                 workspace,
-                env: {
-                  ...process.env,
-                  MYSTRA_GITLAB_TOKEN: gitlabToken,
-                },
+                env: repositoryRuntimeEnv(repositoryAuth),
                 signal: executionAbort.signal,
                 frontendUrl,
                 backendUrl,
@@ -1289,7 +1328,7 @@ async function executeDockerJob(
                 branchName: prepared.branchName,
                 baseBranch: job.spec.baseBranch,
                 commitMessage: job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`,
-                auth: repositoryAuthBindingForProvider(repoProvider.providerName),
+                auth: repositoryAuth.authBinding,
                 metadata: {
                   localRepoPath: path.join(workspace, "repo"),
                   gitlabHttpBaseUrl: config.gitlabHttpBaseUrl ?? undefined,
@@ -1324,10 +1363,7 @@ async function executeDockerJob(
                 stepCommand: "review-create",
                 nodeId: "review_create",
                 workspace,
-                env: {
-                  ...process.env,
-                  MYSTRA_GITLAB_TOKEN: gitlabToken,
-                },
+                env: repositoryRuntimeEnv(repositoryAuth),
                 signal: executionAbort.signal,
                 frontendUrl,
                 backendUrl,
@@ -1340,7 +1376,7 @@ async function executeDockerJob(
               try {
                 const reviewResult = await repoProvider.createReview({
                   target: repositoryTarget,
-                  auth: repositoryAuthBindingForProvider(repoProvider.providerName),
+                  auth: repositoryAuth.authBinding,
                   branch: branchReceipt,
                   title: job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`,
                   body: job.spec.mergeRequest?.body ?? job.spec.prompt,
