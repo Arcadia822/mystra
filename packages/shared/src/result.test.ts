@@ -102,4 +102,41 @@ describe("runResultSchema", () => {
     expect(parsed.reviewResult?.review?.displayId).toBe("!9");
     expect(parsed.sandboxOutcome?.session.status).toBe("retained");
   });
+
+  it("accepts normalized GitHub review results beside transitional mrUrl and mrIid compatibility fields", () => {
+    const parsed = runResultSchema.parse({
+      status: "succeeded",
+      summary: "Created the requested pull request",
+      branch: "mystra/task-12",
+      mrUrl: "https://github.com/acme/project/pull/12",
+      mrIid: 12,
+      reviewResult: {
+        status: "review_created",
+        branch: {
+          status: "pushed",
+          branchName: "mystra/task-12",
+          branchUrl: "https://github.com/acme/project/tree/mystra%2Ftask-12",
+        },
+        review: {
+          provider: "github",
+          url: "https://github.com/acme/project/pull/12",
+          number: 12,
+          displayId: "#12",
+        },
+        metadata: {
+          repo: "acme/project",
+          targetBranch: "main",
+        },
+      },
+    });
+
+    expect(parsed.mrUrl).toBe("https://github.com/acme/project/pull/12");
+    expect(parsed.mrIid).toBe(12);
+    expect(parsed.reviewResult?.review).toEqual({
+      provider: "github",
+      url: "https://github.com/acme/project/pull/12",
+      number: 12,
+      displayId: "#12",
+    });
+  });
 });
