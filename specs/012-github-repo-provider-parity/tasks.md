@@ -17,8 +17,15 @@ GitHub parity slice.
 
 **Purpose**: Freeze the exact code and compatibility touchpoints before behavior changes land.
 
-- [ ] T001 Audit GitHub parity touchpoints in `apps/runner-daemon/src/repo-providers/gitlab.ts`, `apps/runner-daemon/src/index.ts`, `apps/runner-daemon/assets/container-task.sh`, `apps/runner-daemon/src/container-task.test.ts`, `packages/shared/src/repository.ts`, `packages/shared/src/result.ts`, and `packages/shared/src/events.ts`
-- [ ] T002 [P] Reconcile the 012 spec artifacts (`plan.md`, `quickstart.md`, `contracts/*.md`) with any implementation-time contract adjustments before code review
+- [x] T001 Audit GitHub parity touchpoints in `apps/runner-daemon/src/repo-providers/gitlab.ts`, `apps/runner-daemon/src/index.ts`, `apps/runner-daemon/assets/container-task.sh`, `apps/runner-daemon/src/container-task.test.ts`, `packages/shared/src/repository.ts`, `packages/shared/src/result.ts`, and `packages/shared/src/events.ts`
+- [x] T002 [P] Reconcile the 012 spec artifacts (`plan.md`, `quickstart.md`, `contracts/*.md`) with any implementation-time contract adjustments before code review
+
+**Closure note (2026-05-15)**: T001's audit work was completed incrementally
+across planning and implementation slices; the surviving evidence now lives in
+`plan.md`'s reconciled Code Evidence section plus the landed shared/runner/GitHub
+provider tests. T002 was completed by T020's quickstart/contract reconciliation
+and the closure-alignment updates in `spec.md`, `plan.md`, `data-model.md`, and
+this task tracker.
 
 ---
 
@@ -120,8 +127,12 @@ GitHub parity slice.
 
 - [x] T020 [P] Update `specs/012-github-repo-provider-parity/quickstart.md`, `specs/012-github-repo-provider-parity/contracts/github-repo-provider.md`, and `specs/012-github-repo-provider-parity/contracts/github-review-context.md` to match the landed implementation details
 - [x] T021 Run focused verification: `pnpm --filter @mystra/shared test && pnpm --filter @mystra/runner-daemon test`
-- [ ] T022 Run broad verification: `pnpm typecheck`
+- [x] T022 Run broad verification: `pnpm typecheck`
 - [ ] T023 Run the project-local `code-review-and-quality` gate or an equivalent explicit review pass against the finished 012 diff before committing the completed spec
+
+**Verification note (2026-05-15)**: `pnpm typecheck` passed. The workspace
+still emitted the existing Node engine warning (`>=24 <25`, current
+`v26.1.0`), but it did not block type safety verification.
 
 ---
 

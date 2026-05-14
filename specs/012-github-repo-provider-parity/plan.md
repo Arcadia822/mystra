@@ -13,6 +13,17 @@ and auth handling inside provider-owned helpers, preserve reviewer-useful pull
 request context in the PR body, and keep transitional `mr*`/`mr.created`
 surfaces working until later cleanup removes the legacy GitLab names.
 
+## Implementation Status
+
+- Focused verification for the landed shared and runner slices passed during T021:
+  `pnpm --filter @mystra/shared test && pnpm --filter @mystra/runner-daemon test`
+- Broad verification passed on 2026-05-15:
+  `pnpm typecheck`
+- The current environment still emits the pre-existing Node engine warning
+  (`>=24 <25`, running `v26.1.0`), but the typecheck itself completed cleanly
+  across the workspace
+- Final explicit code review for spec closure remains pending
+
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9 with Node.js 24 runtime assumptions  
@@ -91,8 +102,10 @@ apps/runner-daemon/
 ├── src/repo-providers/
 │   ├── gitlab.ts
 │   ├── gitlab.test.ts
-│   └── [planned] github.ts
+│   ├── github.ts
+│   └── github.test.ts
 ├── src/repo-providers.test.ts
+├── src/review-projections.ts
 ├── src/index.ts
 └── assets/container-task.sh
 
@@ -189,28 +202,29 @@ Non-goals for this seam:
 
 ## Code Evidence
 
-- `apps/runner-daemon/src/repo-providers.ts` already exposes a provider registry
-  whose `select()` logic supports either explicit `hostKind` or `supports()`
-  fallback, but the default built-in registry imports only `gitlab.ts`.
-- `packages/shared/src/repository.ts` already defines provider-neutral
-  `RepositoryTarget`, `RepositoryAuthBinding`, `BranchDeliveryReceipt`, and
-  `ReviewResult` contracts with GitHub in the allowed provider set.
-- `apps/runner-daemon/src/index.ts` already knows the future GitHub auth
-  reference via `repositoryAuthBindingForProvider()`, but
-  `defaultDockerSecrets()` and all Docker step env injections still hard-require
-  `MYSTRA_GITLAB_TOKEN`.
-- `apps/runner-daemon/assets/container-task.sh` still performs clone/bootstrap
-  with `MYSTRA_GITLAB_TOKEN` and `MYSTRA_GITLAB_HTTP_BASE_URL`, which means a
-  GitHub-backed job cannot yet reach the provider-owned push/review steps
-  honestly.
-- `apps/runner-daemon/src/index.ts` still maps successful reviews through
-  `buildGitLabReviewCreatedEventData()`, `buildGitLabMergeRequestEventData()`,
-  `mrUrl`, and `mrIid`, so GitHub parity needs a deliberate compatibility
-  strategy rather than pretending the remaining GitLab names are already
-  provider-neutral.
+- `apps/runner-daemon/src/repo-providers.ts` now registers both built-in GitLab
+  and GitHub providers, preserving explicit `hostKind` selection and
+  `supports()` fallback under the same registry seam.
+- `packages/shared/src/repository.ts` and `packages/shared/src/result.ts`
+  continue to define provider-neutral repository/result contracts while allowing
+  GitHub review handles and transitional `mrUrl` / `mrIid` compatibility
+  projections.
+- `apps/runner-daemon/src/index.ts` now derives runtime auth bindings, default
+  Docker secrets, clone usernames, and provider-scoped metadata from the active
+  repository provider instead of hardcoding GitLab-only token assumptions.
+- `apps/runner-daemon/assets/container-task.sh` now clones through
+  `MYSTRA_REPOSITORY_AUTH_REFERENCE` and `MYSTRA_REPOSITORY_AUTH_USERNAME`, so
+  clone/bootstrap auth stays provider-neutral inside the shared runner path.
+- `apps/runner-daemon/src/review-projections.ts` now owns normalized
+  `review.created` and transitional `mr.created` / `mr*` compatibility mapping,
+  keeping GitHub PR details coherent without re-hardcoding GitLab semantics in
+  the runner path.
+- `apps/runner-daemon/src/repo-providers/github.ts` owns GitHub host parsing,
+  enterprise API-base overrides, PR body/context projection, optional
+  retained-preview follow-up comments, and GitHub-specific failure mapping.
 - GitNexus was refreshed during plan review (`npx gitnexus analyze` at commit
-  `1606a0d`), so graph-assisted implementation work can resume from a current
-  index; this plan still cites direct source inspection for durable evidence.
+  `1606a0d`), and the closure reconciliation here is grounded in the landed
+  source and verification results rather than stale graph assumptions.
 
 ## Implementation Order
 

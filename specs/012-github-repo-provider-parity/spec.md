@@ -2,7 +2,7 @@
 
 **Feature Branch**: `012-github-repo-provider-parity`  
 **Created**: 2026-05-15  
-**Status**: Draft  
+**Status**: Implemented; final closure review pending  
 **Dependency Note**: Build on the realized `RepoProvider` seam in `specs/010-repo-provider-contracts/` and the runtime execution work committed in `b85fd0f`, which introduced shared repository contracts and a runner registry but only a concrete GitLab provider implementation.  
 **Input**: User description: "Complete Mystra MVP GitHub repository delivery parity on top of the realized RepoProvider seam"
 

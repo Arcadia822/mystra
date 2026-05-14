@@ -77,11 +77,12 @@
   - `metadata.frontendPreviewUrl?: string | null`
   - `metadata.backendPreviewUrl?: string | null`
   - `metadata.qualityGate?: { status?: unknown; sequence?: unknown; logPath?: unknown }`
-  - `metadata.contextCommentStatus?: "not_attempted" | "published" | "failed"`
+  - `metadata.contextCommentStatus?: "published" | "failed"`
 - **Validation rules**:
   - `review` must be present when `status === "review_created"`
   - `branch.status` must stay `"pushed"` when PR creation fails after push
   - Optional comment failure must not erase a successfully created review handle
+  - When no follow-up comment is attempted, `contextCommentStatus` is omitted
 
 ## Relationships
 
