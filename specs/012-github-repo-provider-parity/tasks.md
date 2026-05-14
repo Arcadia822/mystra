@@ -108,7 +108,7 @@ GitHub parity slice.
 
 ### Implementation for Technical Scenario 4
 
-- [ ] T019 [TS4] Keep GitHub-only API host and auth interpretation inside `apps/runner-daemon/src/repo-providers/github.ts` and the bounded runner glue in `apps/runner-daemon/src/index.ts` / `apps/runner-daemon/assets/container-task.sh`, without adding new shared contract fields
+- [x] T019 [TS4] Keep GitHub-only API host and auth interpretation inside `apps/runner-daemon/src/repo-providers/github.ts` and the bounded runner glue in `apps/runner-daemon/src/index.ts` / `apps/runner-daemon/assets/container-task.sh`, without adding new shared contract fields
 
 **Checkpoint**: GitHub host/auth behavior is localized and future provider maintenance does not require new workflow contracts.
 

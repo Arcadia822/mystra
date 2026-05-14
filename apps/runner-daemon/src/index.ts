@@ -34,6 +34,7 @@ interface RunnerConfig {
   cacheRoot: string;
   codexAuthDir: string | undefined;
   gitlabHttpBaseUrl: string | undefined;
+  githubHttpBaseUrl: string | undefined;
   previewHost: string;
   containerProxyUrl: string | undefined;
   workflowProviderName: string;
@@ -157,6 +158,7 @@ function readConfig(): RunnerConfig {
     cacheRoot: process.env.MYSTRA_CACHE_ROOT ?? path.join(process.env.HOME ?? tmpdir(), ".mystra", "cache"),
     codexAuthDir: process.env.MYSTRA_CODEX_AUTH_DIR,
     gitlabHttpBaseUrl: process.env.MYSTRA_GITLAB_HTTP_BASE_URL,
+    githubHttpBaseUrl: process.env.MYSTRA_GITHUB_HTTP_BASE_URL,
     previewHost: process.env.MYSTRA_PREVIEW_HOST ?? detectPreviewHost(),
     containerProxyUrl: process.env.MYSTRA_CONTAINER_PROXY_URL ?? defaultContainerProxyUrl(),
     workflowProviderName: process.env.MYSTRA_WORKFLOW_PROVIDER ?? "local",
@@ -661,6 +663,19 @@ function repositoryRuntimeEnv(auth: RepositoryRuntimeAuthContext): NodeJS.Proces
   };
 }
 
+function repositoryProviderMetadata(config: RunnerConfig, providerName: RepoProviderKind): Record<string, unknown> {
+  switch (providerName) {
+    case "gitlab":
+      return {
+        ...(config.gitlabHttpBaseUrl ? { gitlabHttpBaseUrl: config.gitlabHttpBaseUrl } : {}),
+      };
+    case "github":
+      return {
+        ...(config.githubHttpBaseUrl ? { githubHttpBaseUrl: config.githubHttpBaseUrl } : {}),
+      };
+  }
+}
+
 function dockerExecEnvArgs(env: NodeJS.ProcessEnv | undefined): string[] {
   if (!env) {
     return [];
@@ -991,8 +1006,6 @@ async function executeDockerJob(
     "-e",
     `MYSTRA_REPOSITORY_AUTH_USERNAME=${repositoryAuth.cloneUsername}`,
     "-e",
-    `MYSTRA_GITLAB_HTTP_BASE_URL=${config.gitlabHttpBaseUrl ?? ""}`,
-    "-e",
     "MYSTRA_GIT_REFERENCE_PATH=/mystra/cache/git/repo.git",
     "-e",
     `MYSTRA_BASE_BRANCH=${job.spec.baseBranch}`,
@@ -1309,7 +1322,7 @@ async function executeDockerJob(
                 auth: repositoryAuth.authBinding,
                 metadata: {
                   localRepoPath: path.join(workspace, "repo"),
-                  gitlabHttpBaseUrl: config.gitlabHttpBaseUrl ?? undefined,
+                  ...repositoryProviderMetadata(config, repoProvider.providerName),
                 },
               });
               await writeFile(pushOutputPath, JSON.stringify(receipt, null, 2));
@@ -1362,7 +1375,7 @@ async function executeDockerJob(
                     frontendPreviewUrl: prepared.frontendPreviewUrl ?? undefined,
                     backendPreviewUrl: prepared.backendPreviewUrl ?? undefined,
                     previewContainer: prepared.previewContainer ?? undefined,
-                    gitlabHttpBaseUrl: config.gitlabHttpBaseUrl ?? undefined,
+                    ...repositoryProviderMetadata(config, repoProvider.providerName),
                     qualityGate: {
                       status: "passed",
                       sequence: ["test", "build"],

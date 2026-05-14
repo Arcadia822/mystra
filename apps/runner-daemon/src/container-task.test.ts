@@ -201,6 +201,18 @@ describe("container task quality gate", () => {
     expect(runner).not.toContain('const gitlabToken = requiredEnv("MYSTRA_GITLAB_TOKEN")');
   });
 
+  it("passes provider-owned API base overrides through bounded runner glue", () => {
+    expect(runner).toContain("githubHttpBaseUrl: string | undefined;");
+    expect(runner).toContain('githubHttpBaseUrl: process.env.MYSTRA_GITHUB_HTTP_BASE_URL,');
+    expect(runner).toContain("function repositoryProviderMetadata(config: RunnerConfig, providerName: RepoProviderKind): Record<string, unknown> {");
+    expect(runner).toContain('case "gitlab":');
+    expect(runner).toContain('case "github":');
+    expect(runner).toContain("...(config.gitlabHttpBaseUrl ? { gitlabHttpBaseUrl: config.gitlabHttpBaseUrl } : {}),");
+    expect(runner).toContain("...(config.githubHttpBaseUrl ? { githubHttpBaseUrl: config.githubHttpBaseUrl } : {}),");
+    expect(runner).toContain("...repositoryProviderMetadata(config, repoProvider.providerName),");
+    expect(runner).not.toContain('`MYSTRA_GITLAB_HTTP_BASE_URL=${config.gitlabHttpBaseUrl ?? ""}`');
+  });
+
   it("normalizes SSH clone URLs generically instead of relying on GitLab-only host glue", () => {
     expect(script).toContain('const input = new URL(repo.includes("://") ? repo : "https://" + repo);');
     expect(script).toContain('if (input.protocol === "ssh:") {');
