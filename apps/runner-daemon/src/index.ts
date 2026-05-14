@@ -6,11 +6,13 @@ import { createHash } from "node:crypto";
 import { type AgentProcessResult } from "@mystra/agent-adapters";
 import type { BranchDeliveryReceipt, CleanupOutcome, RepoProviderKind, ResolvedRuntimeContract, ReviewResult, SandboxOutcome } from "@mystra/shared";
 import { createRunnerAgentAdapterRegistry, type RunnerAgentAdapterRegistry } from "./agent-adapters.js";
-import {
-  buildGitLabMergeRequestEventData,
-  buildGitLabReviewCreatedEventData,
-} from "./repo-providers/gitlab.js";
 import { createRunnerRepoProviderRegistry, type RunnerRepoProviderRegistry } from "./repo-providers.js";
+import {
+  buildMergeRequestEventData,
+  buildReviewCreatedEventData,
+  buildWorkflowNodeReviewSuccessData,
+  dockerResultFromReviewResult,
+} from "./review-projections.js";
 import { createRunnerSandboxProviderRegistry, type RunnerSandboxProviderRegistry } from "./sandbox-providers.js";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 import { createRunnerWorkflowProviderRegistry, type RunnerWorkflowProviderRegistry } from "./workflow-providers.js";
@@ -672,30 +674,6 @@ function dockerExecEnvArgs(env: NodeJS.ProcessEnv | undefined): string[] {
     args.push("-e", `${name}=${value}`);
   }
   return args;
-}
-
-function dockerResultFromReviewResult(reviewResult: ReviewResult): DockerResult {
-  if (reviewResult.status === "review_created" && reviewResult.review) {
-    return {
-      status: "succeeded",
-      summary: `Created ${reviewResult.review.provider === "gitlab" ? "GitLab MR" : "review"} ${reviewResult.review.displayId}`,
-      branch: reviewResult.branch.branchName,
-      mrUrl: reviewResult.review.url,
-      mrIid: reviewResult.review.number,
-      reviewResult,
-      ...(Object.keys(reviewResult.metadata).length > 0 ? { metadata: reviewResult.metadata } : {}),
-    };
-  }
-
-  return {
-    status: "failed",
-    summary: reviewResult.errorMessage ?? "Review creation failed",
-    branch: reviewResult.branch.branchName,
-    reviewResult,
-    errorCode: reviewResult.errorCode ?? "review_create_failed",
-    errorMessage: reviewResult.errorMessage ?? "Review creation failed",
-    ...(Object.keys(reviewResult.metadata).length > 0 ? { metadata: reviewResult.metadata } : {}),
-  };
 }
 
 function dockerResultFromBranchDeliveryReceipt(receipt: BranchDeliveryReceipt): DockerResult {
@@ -1404,18 +1382,29 @@ async function executeDockerJob(
               }
               await writeFile(reviewOutputPath, JSON.stringify(output, null, 2));
               if (output.status === "succeeded") {
-                const reviewCreated = buildGitLabReviewCreatedEventData(output);
-                const mrCreated = buildGitLabMergeRequestEventData(output);
+                const reviewCreated = buildReviewCreatedEventData(output);
+                const mrCreated = buildMergeRequestEventData(output);
+                const workflowNodeReview = buildWorkflowNodeReviewSuccessData(output);
                 await emitEvent(config, token, run.id, "review.created", reviewCreated);
                 await emitEvent(config, token, run.id, "mr.created", mrCreated);
-                await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
-                  mrUrl: mrCreated.mrUrl,
-                  mrIid: mrCreated.mrIid,
-                  reviewStatus: output.reviewResult?.status,
-                });
+                await emitWorkflowNodeEvent(
+                  config,
+                  token,
+                  run.id,
+                  "succeeded",
+                  context.node,
+                  workflowNodeReview,
+                );
                 return {
-                  reviewUrl: reviewCreated.reviewUrl ?? "",
-                  mrIid: reviewCreated.reviewNumber ?? 0,
+                  ...(workflowNodeReview.reviewProvider ? { reviewProvider: workflowNodeReview.reviewProvider } : {}),
+                  ...(workflowNodeReview.reviewUrl ? { reviewUrl: workflowNodeReview.reviewUrl } : {}),
+                  ...(typeof workflowNodeReview.reviewNumber === "number"
+                    ? {
+                        reviewNumber: workflowNodeReview.reviewNumber,
+                        mrIid: workflowNodeReview.reviewNumber,
+                      }
+                    : {}),
+                  ...(workflowNodeReview.reviewDisplayId ? { reviewDisplayId: workflowNodeReview.reviewDisplayId } : {}),
                 };
               }
               throw new Error(output.errorMessage ?? output.summary);

@@ -7,6 +7,7 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 const script = readFileSync(resolve(currentDir, "../assets/container-task.sh"), "utf8");
 const runner = readFileSync(resolve(currentDir, "index.ts"), "utf8");
 const gitlabProvider = readFileSync(resolve(currentDir, "repo-providers/gitlab.ts"), "utf8");
+const reviewProjections = readFileSync(resolve(currentDir, "review-projections.ts"), "utf8");
 const agentAdapters = readFileSync(resolve(currentDir, "agent-adapters.ts"), "utf8");
 const workflowProviders = readFileSync(resolve(currentDir, "workflow-providers.ts"), "utf8");
 
@@ -84,19 +85,24 @@ describe("container task quality gate", () => {
     expect(runner).toContain("nodeId: node.id");
     expect(runner).toContain("handler: node.handler");
     expect(runner).toContain("nodeKind: node.kind");
-    expect(runner).toContain("buildGitLabReviewCreatedEventData");
-    expect(runner).toContain("buildGitLabMergeRequestEventData");
+    expect(runner).toContain("buildReviewCreatedEventData");
+    expect(runner).toContain("buildMergeRequestEventData");
+    expect(runner).toContain("buildWorkflowNodeReviewSuccessData");
+    expect(runner).toContain("const workflowNodeReview = buildWorkflowNodeReviewSuccessData(output)");
     expect(runner).toContain('"review.created"');
-    expect(runner).toContain("reviewStatus: output.reviewResult?.status");
     expect(runner).toContain("branch: branchReceipt.branchName");
+    expect(reviewProjections).toContain("reviewStatus: input.reviewResult?.status");
   });
 
   it("keeps GitHub review handles normalized while projecting transitional MR compatibility data", () => {
-    expect(runner).toContain('summary: `Created ${reviewResult.review.provider === "gitlab" ? "GitLab MR" : "review"} ${reviewResult.review.displayId}`');
-    expect(runner).toContain("mrUrl: reviewResult.review.url");
-    expect(runner).toContain("mrIid: reviewResult.review.number");
+    expect(runner).toContain("dockerResultFromReviewResult");
     expect(runner).toContain('await emitEvent(config, token, run.id, "review.created", reviewCreated)');
     expect(runner).toContain('await emitEvent(config, token, run.id, "mr.created", mrCreated)');
+    expect(reviewProjections).toContain('return "GitHub PR"');
+    expect(reviewProjections).toContain("mrUrl: reviewResult.review.url");
+    expect(reviewProjections).toContain("mrIid: reviewResult.review.number");
+    expect(reviewProjections).toContain("reviewProvider: reviewCreated.provider");
+    expect(reviewProjections).toContain("reviewDisplayId: reviewCreated.displayId");
 
     expect(gitlabProvider).toContain('provider: review?.provider ?? "gitlab"');
     expect(gitlabProvider).toContain("reviewUrl: review?.url ?? input.mrUrl");
