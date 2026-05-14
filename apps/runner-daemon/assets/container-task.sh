@@ -9,6 +9,7 @@ FRONTEND_LOG="${WORKSPACE}/frontend-preview.log"
 BACKEND_LOG="${WORKSPACE}/backend-preview.log"
 QUALITY_LOG="${WORKSPACE}/quality-gate.log"
 BASE_COMMIT_FILE="${WORKSPACE}/base-commit"
+AGENT_PROCESS_RESULT_FILE="${WORKSPACE}/agent-process-result.json"
 COPILOT_SANDBOX_HOME="${WORKSPACE}/copilot-home"
 COPILOT_SANDBOX_CLI_CONFIG_DIR="${COPILOT_SANDBOX_HOME}/.copilot"
 COPILOT_SANDBOX_CONFIG_DIR="${COPILOT_SANDBOX_HOME}/.config"
@@ -104,12 +105,13 @@ base_commit() {
 
 run_agent() {
   node <<'NODE'
-const { mkdirSync } = require("fs");
+const { mkdirSync, writeFileSync } = require("fs");
 const { spawn } = require("child_process");
 
 const command = JSON.parse(process.env.MYSTRA_AGENT_COMMAND_JSON || "null");
 const agentEnv = JSON.parse(process.env.MYSTRA_AGENT_ENV_JSON || "{}");
 const prepareDirs = JSON.parse(process.env.MYSTRA_AGENT_PREPARE_DIRS_JSON || "[]");
+const processResultFile = process.env.MYSTRA_AGENT_PROCESS_RESULT_FILE || "/mystra/workspace/agent-process-result.json";
 
 if (!Array.isArray(command) || command.length === 0) {
   throw new Error("MYSTRA_AGENT_COMMAND_JSON must contain a command array");
@@ -127,13 +129,24 @@ for (const dir of prepareDirs) {
   }
 }
 
+const stdoutChunks = [];
+const stderrChunks = [];
 const child = spawn(command[0], command.slice(1), {
   cwd: process.env.REPO_DIR || "/mystra/workspace/repo",
   env: {
     ...process.env,
     ...agentEnv,
   },
-  stdio: "inherit",
+  stdio: ["inherit", "pipe", "pipe"],
+});
+
+child.stdout.on("data", (chunk) => {
+  stdoutChunks.push(Buffer.from(chunk));
+  process.stdout.write(chunk);
+});
+child.stderr.on("data", (chunk) => {
+  stderrChunks.push(Buffer.from(chunk));
+  process.stderr.write(chunk);
 });
 
 child.on("exit", (code, signal) => {
@@ -141,10 +154,21 @@ child.on("exit", (code, signal) => {
     process.kill(process.pid, signal);
     return;
   }
+  writeFileSync(processResultFile, JSON.stringify({
+    exitCode: code ?? 1,
+    stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+    stderr: Buffer.concat(stderrChunks).toString("utf8"),
+  }, null, 2));
   process.exit(code ?? 1);
 });
 child.on("error", (error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(message);
+  writeFileSync(processResultFile, JSON.stringify({
+    exitCode: 1,
+    stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+    stderr: message,
+  }, null, 2));
   process.exit(1);
 });
 NODE
@@ -301,12 +325,14 @@ NODE
 write_agent_output() {
   no_changes="$1"
   changed_files_json="$2"
-  node - "$no_changes" "$changed_files_json" <<'NODE' | write_step_output
-const [noChangesRaw, changedFilesRaw] = process.argv.slice(2);
+  process_result_json="$3"
+  node - "$no_changes" "$changed_files_json" "$process_result_json" <<'NODE' | write_step_output
+const [noChangesRaw, changedFilesRaw, processResultRaw] = process.argv.slice(2);
 console.log(JSON.stringify({
   branchName: process.env.MYSTRA_BRANCH_NAME,
   noChanges: noChangesRaw === "1",
   changedFiles: JSON.parse(changedFilesRaw),
+  processResult: JSON.parse(processResultRaw),
 }, null, 2));
 NODE
 }
@@ -367,19 +393,27 @@ clone_step() {
 
 agent_step() {
   ensure_repo
-  run_agent "$PROMPT_FILE"
+  if run_agent "$PROMPT_FILE"; then
+    run_agent_status=0
+  else
+    run_agent_status=$?
+  fi
 
+  process_result_json="$(cat "$AGENT_PROCESS_RESULT_FILE")"
   changed_files="$(changed_files_json)"
   if [ -z "$(git status --porcelain)" ] && [ "$changed_files" = "[]" ]; then
     if [ -n "${MYSTRA_STEP_OUTPUT_FILE:-}" ]; then
-      write_agent_output 1 "$changed_files"
+      write_agent_output 1 "$changed_files" "$process_result_json"
       return 0
     fi
     write_result failed "Agent finished without repository changes" "no_changes"
     exit 0
   fi
 
-  write_agent_output 0 "$changed_files"
+  write_agent_output 0 "$changed_files" "$process_result_json"
+  if [ "$run_agent_status" -ne 0 ]; then
+    exit "$run_agent_status"
+  fi
 }
 
 quality_gate_step() {

@@ -3,7 +3,12 @@ import { networkInterfaces, tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { CodexAdapter, CopilotAdapter, createAgentAdapterRegistry } from "@mystra/agent-adapters";
+import {
+  CodexAdapter,
+  CopilotAdapter,
+  createAgentAdapterRegistry,
+  type AgentProcessResult,
+} from "@mystra/agent-adapters";
 import type { ResolvedRuntimeContract } from "@mystra/shared";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 import { createRunnerWorkflowProviderRegistry, type RunnerWorkflowProviderRegistry } from "./workflow-providers.js";
@@ -95,6 +100,7 @@ interface AgentStepOutput {
   branchName: string;
   noChanges: boolean;
   changedFiles: string[];
+  processResult: AgentProcessResult;
 }
 
 interface QualityGateStepOutput {
@@ -729,6 +735,19 @@ async function resultFromWorkflowExecution(
           errorMessage: "Agent finished without repository changes",
         };
       }
+      const summary = [
+        errorMessage,
+        agentOutput.processResult.stderr.trim(),
+        agentOutput.processResult.stdout.trim(),
+      ].find((value): value is string => typeof value === "string" && value.length > 0)
+        ?? "Agent execution failed";
+      return {
+        status: "failed",
+        summary,
+        branch: branchName,
+        errorCode: "agent_failed",
+        errorMessage: summary,
+      };
     }
 
     if (failedNodeId === "quality_gate") {
@@ -1090,6 +1109,18 @@ async function executeDockerJob(
                 frontendUrl,
                 backendUrl,
               });
+              const parsedAgentResult = agentAdapter.parseOutput(output.processResult);
+              if (!parsedAgentResult.success) {
+                const summary = parsedAgentResult.errorMessage
+                  ?? `Agent ${job.spec.agent} exited with ${output.processResult.exitCode}`;
+                await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
+                  summary,
+                  ...(Object.keys(parsedAgentResult.metadata).length > 0
+                    ? { agentMetadata: parsedAgentResult.metadata }
+                    : {}),
+                }, "error");
+                throw new Error(summary);
+              }
               if (output.noChanges) {
                 await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
                   summary: "Agent finished without repository changes",
@@ -1098,6 +1129,9 @@ async function executeDockerJob(
               }
               await emitWorkflowNodeEvent(config, token, run.id, "succeeded", context.node, {
                 changedFilesCount: output.changedFiles.length,
+                ...(Object.keys(parsedAgentResult.metadata).length > 0
+                  ? { agentMetadata: parsedAgentResult.metadata }
+                  : {}),
               });
               return { ...output };
             } catch (error) {

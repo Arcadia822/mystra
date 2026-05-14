@@ -234,4 +234,11 @@ describe("container task quality gate", () => {
     expect(runner).toContain("MYSTRA_AGENT_ENV_JSON");
     expect(runner).toContain("MYSTRA_AGENT_PREPARE_DIRS_JSON");
   });
+
+  it("threads agent process results back through adapter parsing", () => {
+    expect(script).toContain("processResult");
+    expect(runner).toContain("processResult:");
+    expect(runner).toContain("agentAdapter.parseOutput(output.processResult)");
+    expect(runner).toContain('errorCode: "agent_failed"');
+  });
 });
