@@ -39,9 +39,9 @@ resolution outside the provider boundary
 branches; keep GitHub auth and API host details behind `RepositoryAuthBinding`
 plus provider-owned metadata; preserve partial success when push succeeds but PR
 creation fails; keep legacy `mrUrl`, `mrIid`, and `mr.created` only as
-transitional compatibility surfaces; GitNexus CLI currently reports a stale
-index, so this planning slice relies on direct source inspection for code
-evidence  
+transitional compatibility surfaces; keep task sizing small enough that each
+implementation slice can be verified with focused runner/shared checks before
+broader `pnpm typecheck` coverage  
 **Scale/Scope**: One built-in GitHub `RepoProvider`, one narrow runner/auth
 normalization slice that lets GitHub-backed jobs reach clone and delivery
 without widening product contracts, one GitHub reviewer-context mapping, and no
@@ -208,9 +208,9 @@ Non-goals for this seam:
   `mrUrl`, and `mrIid`, so GitHub parity needs a deliberate compatibility
   strategy rather than pretending the remaining GitLab names are already
   provider-neutral.
-- GitNexus CLI status reports the local graph as stale (`Indexed commit:
-  174e777`, `Current commit: 07c46e9`), so this plan cites direct source
-  inspection instead of stale graph-derived execution facts.
+- GitNexus was refreshed during plan review (`npx gitnexus analyze` at commit
+  `1606a0d`), so graph-assisted implementation work can resume from a current
+  index; this plan still cites direct source inspection for durable evidence.
 
 ## Implementation Order
 
@@ -248,7 +248,7 @@ Non-goals for this seam:
 | GitHub Enterprise host support leaks API layout into shared contracts | Resolve web/API host context inside the provider from repo metadata and provider-owned defaults, not from new shared fields |
 | Supplemental reviewer-context publishing turns successful PRs into failures | Put required review context in the PR body and record optional comment failures as metadata/warnings unless PR creation itself failed |
 | Legacy `mr*` surfaces confuse the implementation boundary | Document them as compatibility-only output and route new logic through normalized `ReviewResult`/`review.created` first |
-| Planner assumes stale GitNexus data | Record the stale index explicitly and rely on direct source inspection until the graph is refreshed in a later slice |
+| Graph-derived facts can drift during implementation | Re-run focused GitNexus status/impact checks before editing runner/provider code and keep the plan evidence anchored in direct source inspection |
 
 ## Post-Design Constitution Re-Check
 
@@ -256,3 +256,16 @@ PASS. The plan keeps GitHub delivery inside the documented MVP boundary,
 preserves typed and replaceable provider contracts, limits runner auth work to a
 bounded compatibility slice, and records concrete verification surfaces before
 implementation claims parity.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 3 planning refinements applied, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+**UNRESOLVED:** 0
+**VERDICT:** ENG CLEARED — ready for task decomposition and small verified implementation slices.

@@ -76,7 +76,10 @@
 
 ## GitNexus Note
 
-- **Observation**: `npx gitnexus status` reports the local graph as stale.
-- **Planning impact**: This iteration uses direct source inspection for code
-  evidence and records the stale graph as explicit planning debt to refresh
-  before larger implementation or review work.
+- **Observation**: `npx gitnexus analyze` was re-run on 2026-05-15, and
+  `npx gitnexus status` now reports the local graph as up to date at commit
+  `1606a0d`.
+- **Planning impact**: Task decomposition and subsequent implementation review
+  can rely on current graph state again, but code-level findings in this
+  planning slice still cite direct source inspection so the evidence remains
+  durable even if the graph drifts later.
