@@ -9,6 +9,18 @@ interface GitHubPushMetadata {
   githubHttpBaseUrl?: string | null;
 }
 
+interface GitHubReviewMetadata {
+  frontendPreviewUrl?: string | null;
+  backendPreviewUrl?: string | null;
+  previewContainer?: string | null;
+  githubHttpBaseUrl?: string | null;
+  qualityGate?: {
+    status?: unknown;
+    sequence?: unknown;
+    logPath?: unknown;
+  };
+}
+
 interface GitHubRepoContext {
   apiBaseUrl: string;
   authenticatedRepoUrl: string;
@@ -115,6 +127,37 @@ function pushMetadata(input: BranchDeliveryRequest): GitHubPushMetadata {
     ...(typeof metadata.localRepoPath === "string" ? { localRepoPath: metadata.localRepoPath } : {}),
     ...(typeof metadata.githubHttpBaseUrl === "string" ? { githubHttpBaseUrl: metadata.githubHttpBaseUrl } : {}),
   };
+}
+
+function reviewMetadata(input: ReviewRequest): GitHubReviewMetadata {
+  const metadata = input.metadata as Record<string, unknown>;
+  const qualityGate = typeof metadata.qualityGate === "object" && metadata.qualityGate
+    ? metadata.qualityGate as GitHubReviewMetadata["qualityGate"]
+    : null;
+  return {
+    frontendPreviewUrl: typeof metadata.frontendPreviewUrl === "string" ? metadata.frontendPreviewUrl : null,
+    backendPreviewUrl: typeof metadata.backendPreviewUrl === "string" ? metadata.backendPreviewUrl : null,
+    previewContainer: typeof metadata.previewContainer === "string" ? metadata.previewContainer : null,
+    githubHttpBaseUrl: typeof metadata.githubHttpBaseUrl === "string" ? metadata.githubHttpBaseUrl : null,
+    ...(qualityGate ? { qualityGate } : {}),
+  };
+}
+
+function qualityGateNote(metadata: GitHubReviewMetadata): string {
+  return metadata.qualityGate?.status === "passed"
+    ? "\n- Quality gate: passed (`test -> build`)"
+    : "";
+}
+
+function buildPreviewDescription(metadata: GitHubReviewMetadata): string {
+  if (!metadata.frontendPreviewUrl) {
+    return "";
+  }
+
+  const backendNote = metadata.backendPreviewUrl
+    ? "\n- Backend note: the backend port is reserved in the retained container. It may still require repository-specific DB/Redis environment before the backend process stays up."
+    : "";
+  return `\n\n---\n\nMystra preview:\n\n- Frontend: ${metadata.frontendPreviewUrl}\n- Backend: ${metadata.backendPreviewUrl || "not exposed"}\n- Container: ${metadata.previewContainer || "unknown"}${qualityGateNote(metadata)}${backendNote}\n`;
 }
 
 function branchFailure(
@@ -232,14 +275,14 @@ export const githubRepoProvider: RepoProvider = {
       );
     }
 
-    const metadata = input.metadata as Record<string, unknown>;
+    const metadata = reviewMetadata(input);
 
     let repoContext: GitHubRepoContext;
     try {
       repoContext = gitHubRepoContext(
         input.target.repoUrl,
         token,
-        typeof metadata.githubHttpBaseUrl === "string" ? metadata.githubHttpBaseUrl : null,
+        metadata.githubHttpBaseUrl,
       );
     } catch (error) {
       return reviewFailure(
@@ -260,7 +303,7 @@ export const githubRepoProvider: RepoProvider = {
         title: input.title,
         head: input.branch.branchName,
         base: input.target.defaultBaseBranch,
-        body: input.body,
+        body: `${input.body}${buildPreviewDescription(metadata)}`,
       }),
     });
 

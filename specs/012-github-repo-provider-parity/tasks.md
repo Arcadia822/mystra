@@ -65,7 +65,7 @@ GitHub parity slice.
 
 ### Tests for Technical Scenario 2
 
-- [ ] T011 [P] [TS2] Add PR-body composition tests in `apps/runner-daemon/src/repo-providers/github.test.ts` for task body, preview metadata, quality-gate summary, and preview-section omission when metadata is absent
+- [x] T011 [P] [TS2] Add PR-body composition tests in `apps/runner-daemon/src/repo-providers/github.test.ts` for task body, preview metadata, quality-gate summary, and preview-section omission when metadata is absent
 - [ ] T012 [P] [TS2] Add best-effort follow-up comment tests in `apps/runner-daemon/src/repo-providers/github.test.ts` proving comment failure does not change `ReviewResult.status` away from `review_created`
 
 ### Implementation for Technical Scenario 2
