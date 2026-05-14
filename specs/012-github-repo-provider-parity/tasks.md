@@ -66,11 +66,11 @@ GitHub parity slice.
 ### Tests for Technical Scenario 2
 
 - [x] T011 [P] [TS2] Add PR-body composition tests in `apps/runner-daemon/src/repo-providers/github.test.ts` for task body, preview metadata, quality-gate summary, and preview-section omission when metadata is absent
-- [ ] T012 [P] [TS2] Add best-effort follow-up comment tests in `apps/runner-daemon/src/repo-providers/github.test.ts` proving comment failure does not change `ReviewResult.status` away from `review_created`
+- [x] T012 [P] [TS2] Add best-effort follow-up comment tests in `apps/runner-daemon/src/repo-providers/github.test.ts` proving comment failure does not change `ReviewResult.status` away from `review_created`
 
 ### Implementation for Technical Scenario 2
 
-- [ ] T013 [TS2] Implement GitHub review-context projection in `apps/runner-daemon/src/repo-providers/github.ts` so required reviewer context lives in the PR body and optional comment status is captured in provider metadata
+- [x] T013 [TS2] Implement GitHub review-context projection in `apps/runner-daemon/src/repo-providers/github.ts` so required reviewer context lives in the PR body and optional comment status is captured in provider metadata
 
 **Checkpoint**: Reviewers can open the GitHub PR and understand the task and preview state without relying on GitLab-only notes.
 

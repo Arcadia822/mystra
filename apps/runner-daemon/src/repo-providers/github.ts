@@ -160,6 +160,14 @@ function buildPreviewDescription(metadata: GitHubReviewMetadata): string {
   return `\n\n---\n\nMystra preview:\n\n- Frontend: ${metadata.frontendPreviewUrl}\n- Backend: ${metadata.backendPreviewUrl || "not exposed"}\n- Container: ${metadata.previewContainer || "unknown"}${qualityGateNote(metadata)}${backendNote}\n`;
 }
 
+function buildPreviewCommentBody(metadata: GitHubReviewMetadata): string | null {
+  if (!metadata.frontendPreviewUrl) {
+    return null;
+  }
+
+  return `Mystra retained preview status:\n\n- Frontend: ${metadata.frontendPreviewUrl}\n- Backend: ${metadata.backendPreviewUrl || "not exposed"}\n- Container: ${metadata.previewContainer || "unknown"}${qualityGateNote(metadata)}\n\nThe task container is intentionally kept running for review. Backend may still require repository-specific DB/Redis environment before the process stays up.`;
+}
+
 function branchFailure(
   input: BranchDeliveryRequest,
   errorCode: string,
@@ -317,6 +325,43 @@ export const githubRepoProvider: RepoProvider = {
     }
 
     const pullRequest = JSON.parse(text) as { number: number; html_url: string };
+    let contextCommentStatus: "published" | "failed" | undefined;
+    const commentBody = buildPreviewCommentBody(metadata);
+
+    if (commentBody) {
+      try {
+        const commentResponse = await fetch(
+          `${repoContext.apiBaseUrl}/repos/${repoContext.repoPath}/issues/${pullRequest.number}/comments`,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${token}`,
+              accept: "application/vnd.github+json",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              body: commentBody,
+            }),
+          },
+        );
+
+        if (commentResponse.ok) {
+          contextCommentStatus = "published";
+        } else {
+          contextCommentStatus = "failed";
+          console.warn(
+            `[mystra-runner] GitHub preview comment failed ${commentResponse.status}: ${await commentResponse.text()}`,
+          );
+        }
+      } catch (error) {
+        contextCommentStatus = "failed";
+        console.warn(
+          "[mystra-runner] GitHub preview comment request failed",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+
     return {
       status: "review_created",
       branch: input.branch,
@@ -330,6 +375,7 @@ export const githubRepoProvider: RepoProvider = {
         ...input.metadata,
         repo: repoContext.repoPath,
         targetBranch: input.target.defaultBaseBranch,
+        ...(contextCommentStatus ? { contextCommentStatus } : {}),
       },
     };
   },
