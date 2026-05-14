@@ -51,6 +51,28 @@ describe("runEventSchema", () => {
     expect(parsed.type).toBe("quality_gate.failed");
   });
 
+  it("accepts workflow node lifecycle events with structured node metadata", () => {
+    const parsed = runEventSchema.parse({
+      runId: "550e8400-e29b-41d4-a716-446655440000",
+      jobId: "550e8400-e29b-41d4-a716-446655440001",
+      timestamp: "2026-04-30T00:00:00.000Z",
+      type: "workflow.node.failed",
+      severity: "error",
+      data: {
+        nodeId: "quality_gate",
+        handler: "quality_gate.run",
+        nodeKind: "deterministic",
+        summary: "Quality gate failed during test -> build",
+      },
+    });
+
+    expect(parsed.type).toBe("workflow.node.failed");
+    expect(parsed.data).toEqual(expect.objectContaining({
+      nodeId: "quality_gate",
+      handler: "quality_gate.run",
+    }));
+  });
+
   it("exports control-plane handoff and terminal event vocabularies from the shared lifecycle schema", () => {
     expect(controlPlaneLifecycleHandoffEventTypes.map((type) => runEventTypeSchema.parse(type))).toEqual([
       "job.created",

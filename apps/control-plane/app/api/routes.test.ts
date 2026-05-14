@@ -606,6 +606,123 @@ describe("Job and MCP project contracts", () => {
     expect(inspected.events.map((event) => event.type)).toContain("run.stale_marked");
   });
 
+  it("accepts and persists workflow node lifecycle events from the runner", async () => {
+    const created = await createProject("workflow-node-events");
+    const createdJob = await json<{ job: { id: string }; run: { id: string } }>(await postJob(jsonRequest("http://localhost/api/jobs", {
+      taskId: "task-workflow-node-events",
+      source: "api",
+      projectId: created.project.id,
+      branchName: "mystra/workflow-node-events",
+      prompt: "Emit workflow node events",
+    })));
+    const registered = await json<{ runnerToken: string }>(await registerRunner(jsonRequest("http://localhost/api/runner/register", {
+      runnerName: "runner-node-events",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+      },
+      maxConcurrency: 1,
+    })));
+    const authRequest = (url: string, body: unknown) =>
+      new Request(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${registered.runnerToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    const claimed = await json<{ run: { id: string } }>(
+      await claimRunnerJob(new Request("http://localhost/api/runner/jobs", {
+        headers: { authorization: `Bearer ${registered.runnerToken}` },
+      })),
+    );
+
+    const event = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerJobEvent(
+      authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
+        type: "workflow.started",
+        severity: "info",
+        data: {
+          provider: "local",
+          blueprintName: "mvp.coding",
+          blueprintVersion: "1.0.0",
+        },
+      }),
+      { params: Promise.resolve({ id: claimed.run.id }) },
+    ));
+    expect(event.event.type).toBe("workflow.started");
+    expect(event.event.data).toEqual(expect.objectContaining({
+      provider: "local",
+      blueprintName: "mvp.coding",
+      blueprintVersion: "1.0.0",
+    }));
+
+    const nodeEvent = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerJobEvent(
+      authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
+        type: "workflow.node.started",
+        severity: "info",
+        data: {
+          nodeId: "clone",
+          handler: "git.clone",
+          nodeKind: "deterministic",
+        },
+      }),
+      { params: Promise.resolve({ id: claimed.run.id }) },
+    ));
+    expect(nodeEvent.event.type).toBe("workflow.node.started");
+    expect(nodeEvent.event.data).toEqual(expect.objectContaining({
+      nodeId: "clone",
+      handler: "git.clone",
+      nodeKind: "deterministic",
+    }));
+
+    const inspected = await json<{
+      events: Array<{ type: string; data: Record<string, unknown> }>;
+      workflow?: {
+        provider?: string;
+        blueprintName?: string;
+        blueprintVersion?: string;
+        status: string;
+        currentNodeId?: string;
+        nodeExecutions: Array<{
+          nodeId: string;
+          status: string;
+          handler: string;
+          nodeKind: string;
+        }>;
+      };
+    }>(
+      await getJob(new Request(`http://localhost/api/jobs/${createdJob.job.id}`), {
+        params: Promise.resolve({ id: createdJob.job.id }),
+      }),
+    );
+    expect(inspected.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "workflow.node.started",
+        data: expect.objectContaining({
+          nodeId: "clone",
+          handler: "git.clone",
+          nodeKind: "deterministic",
+        }),
+      }),
+    ]));
+    expect(inspected.workflow).toEqual(expect.objectContaining({
+      provider: "local",
+      blueprintName: "mvp.coding",
+      blueprintVersion: "1.0.0",
+      status: "running",
+      currentNodeId: "clone",
+      nodeExecutions: [
+        expect.objectContaining({
+          nodeId: "clone",
+          status: "running",
+          handler: "git.clone",
+          nodeKind: "deterministic",
+        }),
+      ],
+    }));
+  });
+
   it("rejects runner registration with untyped capabilities", async () => {
     const response = await registerRunner(jsonRequest("http://localhost/api/runner/register", {
       runnerName: "runner-invalid",

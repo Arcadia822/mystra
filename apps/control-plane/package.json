@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "pnpm --filter @mystra/shared build",
+    "pretest": "pnpm --filter @mystra/shared build",
+    "pretypecheck": "pnpm --filter @mystra/shared build",
     "build": "next build --webpack",
     "dev": "next dev",
     "lint": "tsc --noEmit",

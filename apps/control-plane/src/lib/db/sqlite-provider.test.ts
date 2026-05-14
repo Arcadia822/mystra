@@ -568,6 +568,131 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     expect(db.claimNextRun(replacementRunner.id)).toBeUndefined();
   });
 
+  it("derives additive workflow execution snapshots from node lifecycle events", () => {
+    const project = db.createProject(projectInput("workflow-snapshot"));
+    const snapshot = db.createJob({
+      taskId: "task-workflow-snapshot",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/workflow-snapshot",
+      prompt: "Derive workflow inspection state",
+    });
+    const runner = db.registerRunner({
+      runnerName: "runner-workflow-snapshot",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+    });
+    expect(db.claimNextRun(runner.id)?.run.id).toBe(snapshot.run.id);
+
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "workflow.start_requested",
+      severity: "info",
+      data: {
+        provider: "local",
+        blueprintName: "mvp.coding",
+        blueprintVersion: "1.0.0",
+      },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "workflow.started",
+      severity: "info",
+      data: {
+        provider: "local",
+        blueprintName: "mvp.coding",
+        blueprintVersion: "1.0.0",
+      },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "workflow.node.started",
+      severity: "info",
+      data: {
+        nodeId: "clone",
+        handler: "git.clone",
+        nodeKind: "deterministic",
+      },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "workflow.node.succeeded",
+      severity: "info",
+      data: {
+        nodeId: "clone",
+        handler: "git.clone",
+        nodeKind: "deterministic",
+        baseCommit: "abc123",
+      },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "workflow.node.started",
+      severity: "info",
+      data: {
+        nodeId: "agent",
+        handler: "agent.execute",
+        nodeKind: "agentic",
+        agent: "codex",
+      },
+    });
+
+    const inspected = db.getJob(snapshot.job.id);
+
+    expect(inspected?.workflow).toEqual(expect.objectContaining({
+      provider: "local",
+      blueprintName: "mvp.coding",
+      blueprintVersion: "1.0.0",
+      status: "running",
+      currentNodeId: "agent",
+      terminalNodeId: "clone",
+      nodeExecutions: [
+        expect.objectContaining({
+          nodeId: "clone",
+          status: "succeeded",
+          data: expect.objectContaining({ baseCommit: "abc123" }),
+        }),
+        expect.objectContaining({
+          nodeId: "agent",
+          status: "running",
+          data: expect.objectContaining({ agent: "codex" }),
+        }),
+      ],
+    }));
+  });
+
+  it("derives workflow metadata even before the first node execution starts", () => {
+    const project = db.createProject(projectInput("workflow-start-metadata"));
+    const snapshot = db.createJob({
+      taskId: "task-workflow-start-metadata",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/workflow-start-metadata",
+      prompt: "Capture workflow provider metadata",
+    });
+    const runner = db.registerRunner({
+      runnerName: "runner-workflow-start-metadata",
+      capabilities: { agents: ["codex"], executor: "docker" },
+      maxConcurrency: 1,
+    });
+    expect(db.claimNextRun(runner.id)?.run.id).toBe(snapshot.run.id);
+
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "workflow.started",
+      severity: "info",
+      data: {
+        provider: "local",
+        blueprintName: "mvp.coding",
+        blueprintVersion: "1.0.0",
+      },
+    });
+
+    const inspected = db.getJob(snapshot.job.id);
+
+    expect(inspected?.workflow).toEqual(expect.objectContaining({
+      provider: "local",
+      blueprintName: "mvp.coding",
+      blueprintVersion: "1.0.0",
+      status: "running",
+      nodeExecutions: [],
+    }));
+  });
+
   it("records cleanup observations before accepting a canceled terminal result", () => {
     const project = db.createProject(projectInput("cleanup-cancel"));
     const snapshot = db.createJob({

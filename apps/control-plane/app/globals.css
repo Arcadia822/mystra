@@ -691,6 +691,63 @@ button:disabled {
   background: var(--panel-strong);
 }
 
+.workflowList {
+  display: grid;
+  gap: 8px;
+}
+
+.workflowRow {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-strong);
+}
+
+.workflowRowHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.workflowPrimary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.workflowPrimary strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workflowPrimary span,
+.workflowMeta span,
+.workflowSummary {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.workflowBadges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.workflowSummary {
+  margin: 0;
+}
+
+.workflowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+}
+
 .eventRow {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

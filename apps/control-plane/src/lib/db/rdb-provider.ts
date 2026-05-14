@@ -13,6 +13,7 @@ import type {
   RunResult,
   RunState,
   StaleMarkingResult,
+  WorkflowExecutionSnapshot,
 } from "@mystra/shared";
 
 export type JobRecord = {
@@ -63,6 +64,7 @@ export type JobSnapshot = {
   job: JobRecord;
   run: RunRecord;
   events: RunEvent[];
+  workflow?: WorkflowExecutionSnapshot;
   project?: ProjectClaim;
   runtime?: ResolvedRuntimeContract;
 };

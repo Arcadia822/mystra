@@ -30,6 +30,10 @@ import {
   type RunResult,
   type RunState,
   type StaleMarkingResult,
+  type WorkflowExecutionSnapshot,
+  type WorkflowNodeExecutionSnapshot,
+  workflowExecutionSnapshotSchema,
+  workflowNodeExecutionSnapshotSchema,
 } from "@mystra/shared";
 
 import { sqliteMigrations } from "./migrations";
@@ -955,6 +959,103 @@ export class SqliteRdbProvider implements RdbProvider {
     };
   }
 
+  private workflowSnapshotFromEvents(run: RunRecord, events: RunEvent[]): WorkflowExecutionSnapshot | undefined {
+    const nodeExecutions = new Map<string, WorkflowNodeExecutionSnapshot>();
+    let provider: string | undefined;
+    let blueprintName: string | undefined;
+    let blueprintVersion: string | undefined;
+    let workflowStartedAt: string | undefined;
+    let workflowUpdatedAt: string | undefined;
+    let workflowStatus: WorkflowExecutionSnapshot["status"] | undefined;
+
+    for (const event of events) {
+      if (
+        event.type === "workflow.start_requested" ||
+        event.type === "workflow.started" ||
+        event.type === "workflow.start_failed"
+      ) {
+        provider = typeof event.data.provider === "string" ? event.data.provider : provider;
+        blueprintName = typeof event.data.blueprintName === "string" ? event.data.blueprintName : blueprintName;
+        blueprintVersion = typeof event.data.blueprintVersion === "string" ? event.data.blueprintVersion : blueprintVersion;
+        workflowStartedAt ??= event.timestamp;
+        workflowUpdatedAt = event.timestamp;
+        if (event.type === "workflow.start_failed") {
+          workflowStatus = "failed";
+        } else if (!workflowStatus) {
+          workflowStatus = "running";
+        }
+      }
+
+      if (
+        event.type !== "workflow.node.started" &&
+        event.type !== "workflow.node.succeeded" &&
+        event.type !== "workflow.node.failed"
+      ) {
+        continue;
+      }
+
+      const nodeId = typeof event.data.nodeId === "string" ? event.data.nodeId : undefined;
+      const handler = typeof event.data.handler === "string" ? event.data.handler : undefined;
+      const nodeKind = event.data.nodeKind === "deterministic" || event.data.nodeKind === "agentic"
+        ? event.data.nodeKind
+        : undefined;
+      if (!nodeId || !handler || !nodeKind) {
+        continue;
+      }
+
+      const { nodeId: _nodeId, handler: _handler, nodeKind: _nodeKind, ...detailData } = event.data;
+      const current = nodeExecutions.get(nodeId);
+      const nextStatus = event.type === "workflow.node.started"
+        ? "running"
+        : event.type === "workflow.node.succeeded"
+        ? "succeeded"
+        : "failed";
+
+      nodeExecutions.set(
+        nodeId,
+        workflowNodeExecutionSnapshotSchema.parse({
+          nodeId,
+          handler,
+          nodeKind,
+          status: nextStatus,
+          startedAt: current?.startedAt ?? event.timestamp,
+          ...(nextStatus !== "running" ? { finishedAt: event.timestamp } : {}),
+          data: {
+            ...(current?.data ?? {}),
+            ...detailData,
+          },
+        }),
+      );
+    }
+
+    const executions = [...nodeExecutions.values()];
+    if (executions.length === 0 && !provider && !blueprintName && !blueprintVersion && !workflowStartedAt) {
+      return undefined;
+    }
+
+    const runningNode = [...executions].reverse().find((execution) => execution.status === "running");
+    const terminalNode = [...executions].reverse().find((execution) => execution.status !== "running");
+    const status = run.state === "succeeded" ||
+        run.state === "failed" ||
+        run.state === "canceled" ||
+        run.state === "timed_out" ||
+        run.state === "needs_human_review"
+      ? run.state
+      : (workflowStatus ?? "running");
+
+    return workflowExecutionSnapshotSchema.parse({
+      ...(provider ? { provider } : {}),
+      ...(blueprintName ? { blueprintName } : {}),
+      ...(blueprintVersion ? { blueprintVersion } : {}),
+      status,
+      ...(runningNode ? { currentNodeId: runningNode.nodeId } : {}),
+      ...(terminalNode ? { terminalNodeId: terminalNode.nodeId } : {}),
+      nodeExecutions: executions,
+      startedAt: workflowStartedAt ?? executions[0]?.startedAt ?? run.createdAt,
+      updatedAt: workflowUpdatedAt ?? executions.at(-1)?.finishedAt ?? executions.at(-1)?.startedAt ?? run.updatedAt,
+    });
+  }
+
   private snapshotFromJobRow(row: Row): JobSnapshot {
     const job = this.jobFromRow(row);
     const runRow = this.db.prepare("SELECT * FROM runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1").get(job.id) as Row | undefined;
@@ -963,10 +1064,13 @@ export class SqliteRdbProvider implements RdbProvider {
     }
     const run = this.runFromRow(runRow);
     const eventRows = this.db.prepare("SELECT * FROM run_events WHERE job_id = ? ORDER BY created_at ASC").all(job.id) as Row[];
+    const events = eventRows.map((eventRow) => this.eventFromRow(eventRow));
+    const workflow = this.workflowSnapshotFromEvents(run, events);
     return {
       job,
       run,
-      events: eventRows.map((eventRow) => this.eventFromRow(eventRow)),
+      events,
+      ...(workflow ? { workflow } : {}),
       project: this.projectClaim(job.spec.projectId),
       ...(run.resolvedRuntime ? { runtime: run.resolvedRuntime } : {}),
     };

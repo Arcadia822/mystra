@@ -8,7 +8,6 @@ const allowedDevOrigins = (process.env.MYSTRA_CONTROL_PLANE_ALLOWED_DEV_ORIGINS 
 
 const nextConfig: NextConfig = {
   allowedDevOrigins,
-  transpilePackages: ["@mystra/shared"],
 };
 
 export default withSentryConfig(nextConfig, {
