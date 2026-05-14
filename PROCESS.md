@@ -53,7 +53,7 @@ speckit.taskstoissues
 Recommended flow for new work:
 
 ```text
-speckit.specify -> speckit.clarify -> speckit.plan -> plan-eng-review -> speckit.tasks -> speckit.analyze -> implementation -> tests/review
+speckit.specify -> speckit.clarify -> speckit.plan -> plan-eng-review -> speckit.tasks -> speckit.analyze -> implementation -> focused tests -> broader validation -> code-review-and-quality -> merge
 ```
 
 Run `plan-eng-review` after `speckit.plan` and before `speckit.tasks` for
@@ -74,6 +74,7 @@ acceptance and reason in the feature directory.
   record an explicit owner waiver.
 - Run the narrowest relevant test first, then broader checks when the touched surface justifies it.
 - For broad changes, run `pnpm typecheck` and `pnpm test`.
+- Before merge, run the project-local `code-review-and-quality` review gate. Treat review findings as part of delivery, not optional cleanup.
 - Do not introduce MVP-excluded behavior unless the product boundary is explicitly amended first.
 
 ## Documentation Quality
