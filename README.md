@@ -8,6 +8,17 @@ local-first persistence layer, and pull-based runner daemons that execute Codex
 CLI or GitHub Copilot CLI in Docker sandboxes. Successful runs produce
 reviewable GitLab or GitHub branches plus merge requests or pull requests.
 
+Open Agents is used as a source-authoritative framework baseline and reference
+architecture. Mystra owns the actual interface and SDK definitions at provider,
+workflow, and orchestration seams instead of assuming upstream ships a reusable
+package contract for each surface.
+
+The long-term shape is a hosted **Mystra platform** serving many independent
+**workspaces**. Each workspace can hold multiple projects with their own
+workflow variants, runtime images, product routes, user stories, and acceptance
+criteria, while sharing platform-owned provider pools such as sandbox capacity.
+The MVP still proves a single local path first.
+
 ## Architecture
 
 ```
@@ -25,7 +36,7 @@ Mystra defines provider seams where managed services would be used, and ships lo
 | Provider | MVP Implementation | Future |
 |---|---|---|
 | RdbProvider | SQLite-backed local store | Cloud RDB |
-| WorkflowProvider | Local dummy workflow | Vercel Workflow / WDK |
+| WorkflowProvider | Mystra-owned local workflow | External adapters if earned |
 | SandboxProvider | Single-machine Docker | Kubernetes |
 | RepoProvider | GitLab and GitHub review delivery | Additional hosts or provider variants |
 | AgentProvider | Codex CLI, GitHub Copilot CLI | Claude CLI |
@@ -108,7 +119,7 @@ Explicitly out of scope for the MVP:
 - [IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) - Phased implementation plan
 - [LOCAL-USAGE.md](docs/LOCAL-USAGE.md) - Local development usage guide
 - [RUNNER-DOCKER-MVP.md](docs/RUNNER-DOCKER-MVP.md) - Docker runner setup
-- [ADR-0001](docs/ADR-0001-control-plane-runner.md) through [ADR-0004](docs/ADR-0004-open-agents-local-provider-boundary.md) - Architecture decision records
+- [ADR-0001](docs/ADR-0001-control-plane-runner.md) through [ADR-0005](docs/ADR-0005-open-agents-source-baseline.md) - Architecture decision records
 
 ## Project Context
 

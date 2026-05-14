@@ -12,7 +12,7 @@ Control-plane APIs, runner protocol payloads, MCP tools, workflow calls, and per
 
 ### III. Providers Are Replaceable Boundaries
 
-Mystra reuses the Open Agents framework but owns its provider boundary. RDB, workflow, sandbox, repository, and agent integrations must sit behind explicit provider contracts. The first RDB provider is local SQLite. The first workflow provider is a local dummy implementation. The first sandbox provider is single-machine Docker.
+Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and orchestration boundaries. RDB, workflow, sandbox, repository, and agent integrations must sit behind explicit Mystra-owned contracts. The first RDB provider is local SQLite. The first workflow implementation is Mystra-owned and local-first. The first sandbox provider is single-machine Docker.
 
 ### IV. Runner Isolation and Secret Hygiene
 
@@ -25,7 +25,7 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 ## Additional Constraints
 
 - TypeScript and pnpm remain the default implementation stack.
-- Open Agents is the framework foundation.
+- Open Agents is a source-authoritative baseline and reference architecture, not an assumed packaged SDK.
 - Cloud services are provider implementations, not product architecture assumptions.
 - GitLab and GitHub are MVP repository providers.
 - Mystra remote MCP is the primary submission path for other agents and skills.

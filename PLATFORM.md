@@ -18,16 +18,34 @@ supabase              Migrations, seed, generated database types
 
 - Language: TypeScript.
 - Package manager: pnpm `10.25.0`.
-- Framework foundation: Open Agents project.
+- Framework baseline: Open Agents as source-authoritative reference architecture, with Mystra-owned interfaces and SDK surfaces at reusable seams.
 - App framework: Next.js route handlers for the control plane.
 - RDB provider, first implementation: local SQLite.
-- Workflow provider, first implementation: local dummy workflow.
+- Workflow interface, first implementation: Mystra-owned local workflow implementation.
 - Runner daemon: Node.js TypeScript service under systemd on bare metal.
 - Sandbox provider, first implementation: single-machine Docker task containers.
 - Validation: Zod schemas shared across services.
 - Test runner: Vitest.
 - Agent CLIs: Codex CLI and GitHub Copilot CLI.
 - Repository provider contract in MVP: GitLab and GitHub review delivery.
+
+## North Star Topology
+
+Mystra should be designed as a hosted **Mystra platform** that can serve many
+independent workstreams at once. The neutral tenancy unit is **workspace**.
+
+```text
+Mystra platform
+  -> workspace
+    -> project
+      -> workflow variant
+      -> runtime image / execution contract
+      -> jobs / runs
+```
+
+MVP may implement only one concrete local path, but contracts should preserve
+room for workspace-scoped defaults, project-scoped overrides, and shared
+platform resource pools.
 
 ## Important Commands
 
@@ -55,7 +73,7 @@ pnpm --filter @mystra/control-plane dev
 
 - Provider interfaces isolate local-first and cloud implementations.
 - SQLite is the first business state source of truth.
-- The dummy workflow provider is orchestration only, not business storage.
+- The local workflow implementation is orchestration only, not business storage.
 - Runner hosts initiate outbound connections only.
 - Runner daemon may access the host Docker socket; task containers must not mount it.
 - Runner caches are performance aids only and must fall back to cold clone/install.
@@ -65,14 +83,16 @@ pnpm --filter @mystra/control-plane dev
 - `Project.runtime.image` is the first-version Docker image contract; there is no top-level `Project.image` compatibility field.
 - `JobSpec` carries task identity and optional policy-limited runtime overrides, not platform capabilities.
 - Runner claim responses include a resolved runtime contract; runner daemons execute that contract instead of independently interpreting Project fields.
+- Platform resource pools such as `SandboxProvider` capacity should remain platform-owned and allocatable across many workspaces and projects rather than being modeled as project-private infrastructure.
+- Workflow contracts should support a shared base plus workspace/project-specific variants instead of assuming one global hardcoded lifecycle forever.
 
 ## Provider Boundary
 
-Mystra reuses Open Agents as the framework and defines provider seams where the original project uses managed services.
+Mystra uses Open Agents as a source-authoritative baseline and defines provider seams where the original project uses managed services or does not expose a reusable package/interface boundary. Mystra owns the actual interface and SDK definitions at those seams.
 
 ```text
 RdbProvider        local SQLite first; cloud RDB later
-WorkflowProvider   local dummy first; Vercel Workflow or WDK later
+WorkflowProvider   Mystra-owned local implementation first; external adapters later if earned
 SandboxProvider    single-machine Docker first; Vercel Sandbox or stronger isolation later
 RepoProvider       GitLab and GitHub contract scope first
 AgentProvider      Codex CLI and GitHub Copilot CLI first
@@ -84,6 +104,13 @@ workflow, runner, and agent surfaces do not hardcode one host as the only valid
 target.
 
 Provider implementations must be replaceable without rewriting product contracts or feature specs.
+
+## Tenancy And Resource Direction
+
+- **Mystra platform** owns shared providers, control-plane policy, and resource pools.
+- **Workspace** is the neutral coordination scope for groups of projects and product inputs.
+- **Project** owns repository identity, default runtime contract, and workflow customization inputs.
+- **Run-time allocation** should allow one shared sandbox provider pool to serve many workspaces and projects safely.
 
 ## Runner Host Facts
 

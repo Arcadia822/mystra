@@ -16,7 +16,7 @@ Stripe Minions-style practice suggests deterministic workflow nodes around agent
 
 Use a control plane backed by the configured `RdbProvider` as the source of truth and private runner daemons that register, heartbeat, pull jobs, append structured events, and publish results over outbound connections.
 
-ADR-0004 changes the first provider choices to local SQLite for RDB state and a local dummy workflow provider for orchestration. Vercel Workflow and hosted databases are future provider implementations, not MVP requirements.
+ADR-0004 and ADR-0005 change the first provider choices to local SQLite for RDB state and a Mystra-owned local workflow implementation for orchestration, while treating Open Agents as a source-authoritative baseline rather than an assumed packaged SDK. Vercel Workflow and hosted databases are future provider implementations, not MVP requirements.
 
 Use Docker runner containers on a configurable single runner host for the first implementation. The runner protocol starts with outbound long polling. The MVP code-host integrations are GitLab and GitHub using runtime-injected user tokens, and the first supported agent adapters are Codex CLI and GitHub Copilot. Claude CLI is not part of the MVP adapter surface. Mystra exposes its own Streamable HTTP MCP endpoint from the control-plane app for job control. Stronger sandbox providers, including Kubernetes sandbox workloads, remain future replacements behind a runner/runtime interface.
 

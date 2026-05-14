@@ -12,8 +12,8 @@ Excalidraw 文件包含一个分层架构视图：
    - MCP 客户端 / Agent
    - API 调用方
    - Next.js 控制平面与 HTTP/SSE MCP 端点
-   - Open Agents 框架层
-   - 本地 dummy Workflow provider
+   - Open Agents 源码基线 / 参考架构层
+   - Mystra 自有本地 Workflow interface / implementation
    - 本地 SQLite RDB provider
    - 私有 runner-daemon
    - Runner 本地 repo / pnpm / uv 预热缓存
@@ -40,9 +40,9 @@ Excalidraw 文件包含一个分层架构视图：
 
 ## 边界规则
 
-- Mystra 复用 Open Agents 项目作为框架基础，但 provider 由 Mystra 明确拥有。
+- Mystra 将 Open Agents 作为源码级基线与参考架构，而不是假定其已经提供完整可复用 SDK；provider 和 orchestration seam 由 Mystra 明确拥有。
 - 本地 SQLite RDB provider 是当前 jobs、runs、runner_sessions、events 和 artifacts 的事实源。
-- 本地 dummy Workflow provider 只负责编排，不作为业务数据库。
+- Mystra 自有本地 Workflow implementation 只负责编排，不作为业务数据库。
 - 单机 Docker 是当前 Sandbox provider；更强隔离或云 sandbox 是后续 provider 实现。
 - Control plane 在 job/run 持久化成功后发起 workflow；发起失败由补偿扫描器重试。
 - Runner 主机只主动向控制平面发起出站连接。

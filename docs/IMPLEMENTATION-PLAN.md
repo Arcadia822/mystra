@@ -2,16 +2,16 @@
 
 ## Overview
 
-Build the MVP as a TypeScript monorepo that reuses the Open Agents project as its framework foundation, with local-first provider implementations: SQLite for RDB state, a dummy local workflow provider for lifecycle orchestration, a single-machine Docker sandbox provider, Codex/Copilot agent adapters, and runner-local prewarm caches. The first proof is a fake-runner lifecycle; the second is a real runner container on the provided high-capacity server producing GitLab branch/MR or GitHub branch/PR output from jobs submitted through API or remote MCP.
+Build the MVP as a TypeScript monorepo that uses the Open Agents project as a source-authoritative framework baseline and reference architecture, while defining Mystra-owned interfaces and SDK surfaces at provider and orchestration seams. The local-first implementations are SQLite for RDB state, a Mystra-owned local workflow implementation for lifecycle orchestration, a single-machine Docker sandbox provider, Codex/Copilot agent adapters, and runner-local prewarm caches. The first proof is a fake-runner lifecycle; the second is a real runner container on the provided high-capacity server producing GitLab branch/MR or GitHub branch/PR output from jobs submitted through API or remote MCP.
 
 The MVP intentionally excludes control-plane auth, logs, retry, callback URLs, quality-gate fix loops, Claude CLI, and remote shared caches.
 
 ## Architecture Decisions
 
-- Open Agents is the framework foundation.
+- Open Agents is the source-authoritative framework baseline, not an assumed packaged SDK for all Mystra seams.
 - Local SQLite is the first shared state provider for control plane and workflow logic.
 - `apps/control-plane` owns HTTP APIs and the Streamable HTTP MCP endpoint.
-- `apps/workflows` owns workflow provider implementations. The first provider is a local dummy workflow, not a managed durable cloud workflow.
+- `apps/workflows` owns workflow provider implementations. The first implementation is Mystra-owned and local-first, not a managed durable cloud workflow.
 - `POST /jobs` persists the job/run, then asks the configured workflow provider to start. Failed workflow starts are retried by compensation.
 - Runner daemon is pull-based over outbound long polling.
 - `/api/runner/jobs` uses the Vercel Node runtime with `maxDuration >= 30s`.
