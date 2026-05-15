@@ -55,7 +55,7 @@ apps/control-plane/
 
 - Use the provided Codex screenshots as structural references, not as a palette to copy literally.
 - Emphasize quiet navigation, wide whitespace, centered work surfaces, 1px borders, soft container radii, and restrained emphasis.
-- Model the theme system after Hue-style semantic tokens: theme config object → derived semantic tokens → component treatments.
+- Model the theme system around semantic tokens: theme config object → derived semantic tokens → component treatments.
 - Keep the current documented theme set to one light and one dark baseline; future imports reuse the same contract.
 
 ## Design System Specification

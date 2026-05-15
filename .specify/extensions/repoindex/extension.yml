@@ -1,0 +1,40 @@
+schema_version: "1.0"
+
+extension:
+  id: "repoindex"                          # Lowercase, alphanumeric + hyphens only
+  name: "Repository Index"
+  version: "1.0.0"                      # Semantic versioning
+  description: "An agent to generate index to accelerate brownfield development"
+  author: "Yiyu Liu"
+  repository: "https://github.com/liuyiyu/repoindex"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=0.1.0"            # Minimum spec-kit version
+  tools:                                # Optional: External tools required
+    - name: "my-tool"
+      required: true
+      version: ">=1.0.0"
+    
+
+provides:
+  commands:
+    - name: "speckit.repoindex.overview"      # Must follow pattern: speckit.{ext-id}.{cmd}
+      file: "commands/overview.md"
+      description: "Generate overview (project technology, architecture overview, get start of a repository"
+      aliases: ["speckit.repoindex-overview"]        # Optional aliases
+
+    - name: "speckit.repoindex.architecture"      # Must follow pattern: speckit.{ext-id}.{cmd}
+      file: "commands/architecture.md"
+      description: "Generate deep architectural analysis of software repositories, providing comprehensive documentation covering project structure, core components, dependencies, and performance considerations etc."
+      aliases: ["speckit.repoindex-architecture"]        # Optional aliases
+
+    - name: "speckit.repoindex.module"      # Must follow pattern: speckit.{ext-id}.{cmd}
+      file: "commands/module.md"
+      description: "Generate  deep analysis of individual modules within a software repository. It examines module-specific business scenarios, technical components, workflows, APIs, data models, and external dependencies。"
+      aliases: ["speckit.repoindex-module"]        # Optional aliases
+
+
+tags:                                   # Optional: For catalog search
+  - "utility"
+  

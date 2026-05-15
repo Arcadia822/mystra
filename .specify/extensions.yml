@@ -1,0 +1,7 @@
+installed:
+  - id: status-report
+    version: "1.3.4"
+  - id: repoindex
+    version: "1.0.0"
+  - id: doctor
+    version: "1.0.0"

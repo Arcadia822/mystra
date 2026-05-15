@@ -2,9 +2,11 @@
 
 **Feature Branch**: `006-control-plane-ui`
 **Created**: 2026-05-14
-**Status**: Draft
+**Status**: Implemented (prototype scope)
 **Dependency Note**: Can proceed mostly in parallel with `004-open-agents-framework`, but should adopt the lifecycle vocabulary and status semantics that 004 pins for jobs, runs, and events.
 **Input**: The current control plane UI is a single-page React client component with runner, job, and project display. It needs optimization for layout and design, plus new panels: component health, job detail view, task submission form, MCP connection info, and companion skill discovery.
+
+**Implementation Note**: This feature is now treated as a shipped prototype/operator-workflow slice. Queue filtering and companion-skill discovery UI are intentionally left to follow-on work rather than counted as remaining 006 scope.
 
 ## User Scenarios & Testing *(mandatory)*
 

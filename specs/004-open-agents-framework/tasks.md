@@ -5,7 +5,7 @@
 
 **Tests**: Focused updates to `packages/shared/src/events.test.ts` and `apps/control-plane/app/api/routes.test.ts`, plus the relevant package test commands from `quickstart.md` when the first slice lands.
 
-**Organization**: Tasks are grouped by technical scenario so each planning output and the first alignment slice can be completed and reviewed incrementally.
+**Organization**: Retroactive status backfill. The 004 architecture-gate artifacts, downstream dependency wiring, and first lifecycle/control-handoff slice are now present; this file records that completed state so `spec-kit-status` reflects reality instead of a stale unchecked list.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -17,9 +17,9 @@
 
 **Purpose**: Establish the concrete artifact surfaces that 004 will use as its durable truth sources.
 
-- [ ] T001 Add the pinned Open Agents repository, immutable revision, and authoritative upstream source-file list to `specs/004-open-agents-framework/research.md`
-- [ ] T002 [P] Create the concrete module inventory artifact in `specs/004-open-agents-framework/contracts/module-inventory.md`
-- [ ] T003 [P] Update `specs/004-open-agents-framework/plan.md` and `specs/004-open-agents-framework/quickstart.md` so they reference `contracts/module-inventory.md` as a required 004 output
+- [x] T001 Add the pinned Open Agents repository, immutable revision, and authoritative upstream source-file list to `specs/004-open-agents-framework/research.md`
+- [x] T002 [P] Create the concrete module inventory artifact in `specs/004-open-agents-framework/contracts/module-inventory.md`
+- [x] T003 [P] Update `specs/004-open-agents-framework/plan.md` and `specs/004-open-agents-framework/quickstart.md` so they reference `contracts/module-inventory.md` as a required 004 output
 
 ---
 
@@ -29,10 +29,10 @@
 
 **⚠️ CRITICAL**: No user-story implementation should begin until this phase is complete.
 
-- [ ] T004 Create the subsystem-mapping table structure in `specs/004-open-agents-framework/contracts/framework-alignment.md`
-- [ ] T005 [P] Create the seam-record table structure in `specs/004-open-agents-framework/contracts/provider-seams.md`
-- [ ] T006 [P] Expand `specs/004-open-agents-framework/contracts/fork-rules.md` and `specs/004-open-agents-framework/contracts/module-inventory.md` with cross-link fields for concrete 004 surfaces
-- [ ] T007 Reconcile repository-provider wording across `PRODUCT.md`, `PLATFORM.md`, `README.md`, and `docs/ADR-0004-open-agents-local-provider-boundary.md`
+- [x] T004 Create the subsystem-mapping table structure in `specs/004-open-agents-framework/contracts/framework-alignment.md`
+- [x] T005 [P] Create the seam-record table structure in `specs/004-open-agents-framework/contracts/provider-seams.md`
+- [x] T006 [P] Expand `specs/004-open-agents-framework/contracts/fork-rules.md` and `specs/004-open-agents-framework/contracts/module-inventory.md` with cross-link fields for concrete 004 surfaces
+- [x] T007 Reconcile repository-provider wording across `PRODUCT.md`, `PLATFORM.md`, `README.md`, and `docs/ADR-0004-open-agents-local-provider-boundary.md`
 
 **Checkpoint**: Foundation ready - provenance, mapping, seam, and wording artifacts exist and can anchor the rest of the feature.
 
@@ -46,9 +46,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Populate concrete mapping entries for control surface, workflow, sandbox, persistence, repository, and agent execution in `specs/004-open-agents-framework/contracts/framework-alignment.md`
-- [ ] T009 [P] [US1] Record the approved lifecycle/control-handoff proof boundary and its upstream references in `specs/004-open-agents-framework/research.md`
-- [ ] T010 [US1] Add maintainer traceability review steps to `specs/004-open-agents-framework/quickstart.md`
+- [x] T008 [US1] Populate concrete mapping entries for control surface, workflow, sandbox, persistence, repository, and agent execution in `specs/004-open-agents-framework/contracts/framework-alignment.md`
+- [x] T009 [P] [US1] Record the approved lifecycle/control-handoff proof boundary and its upstream references in `specs/004-open-agents-framework/research.md`
+- [x] T010 [US1] Add maintainer traceability review steps to `specs/004-open-agents-framework/quickstart.md`
 
 **Checkpoint**: User Story 1 is complete when maintainers can trace at least one full subsystem boundary from Mystra to the pinned upstream source set.
 
@@ -62,9 +62,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Populate the persistence, workflow, sandbox, repository, and agent-execution seam records in `specs/004-open-agents-framework/contracts/provider-seams.md`
-- [ ] T012 [P] [US2] Classify control plane, workflows, runner daemon, repository provider, sandbox provider, and agent adapters in `specs/004-open-agents-framework/contracts/module-inventory.md`
-- [ ] T013 [US2] Update `specs/005-workflow-blueprint/spec.md`, `specs/007-mcp-server/spec.md`, `specs/009-agent-adapters/spec.md`, `specs/010-repo-provider-contracts/spec.md`, and `specs/011-docker-sandbox-provider/spec.md` to reference the concrete 004 mapping, seam, and inventory artifacts
+- [x] T011 [US2] Populate the persistence, workflow, sandbox, repository, and agent-execution seam records in `specs/004-open-agents-framework/contracts/provider-seams.md`
+- [x] T012 [P] [US2] Classify control plane, workflows, runner daemon, repository provider, sandbox provider, and agent adapters in `specs/004-open-agents-framework/contracts/module-inventory.md`
+- [x] T013 [US2] Update `specs/005-workflow-blueprint/spec.md`, `specs/007-mcp-server/spec.md`, `specs/009-agent-adapters/spec.md`, `specs/010-repo-provider-contracts/spec.md`, and `specs/011-docker-sandbox-provider/spec.md` to reference the concrete 004 mapping, seam, and inventory artifacts
 
 **Checkpoint**: User Story 2 is complete when provider implementers can see a clean seam owner and leakage guard for each managed-capability replacement.
 
@@ -78,9 +78,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Record the agent-in-container execution divergence and any other first-slice Mystra-only extensions in `specs/004-open-agents-framework/research.md` and `docs/ADR-0004-open-agents-local-provider-boundary.md`
-- [ ] T015 [P] [US3] Update `specs/004-open-agents-framework/spec.md` and `specs/004-open-agents-framework/quickstart.md` so divergence review points to the concrete mapping, seam, inventory, and fork-rule artifacts
-- [ ] T016 [US3] Update `specs/008-mcp-skills/spec.md` and `specs/009-agent-adapters/spec.md` so their dependency notes consume 004 divergence and inventory outputs rather than only chat-derived policy
+- [x] T014 [US3] Record the agent-in-container execution divergence and other first-slice Mystra-only extensions in `specs/004-open-agents-framework/research.md` and `docs/ADR-0004-open-agents-local-provider-boundary.md`
+- [x] T015 [P] [US3] Update `specs/004-open-agents-framework/spec.md` and `specs/004-open-agents-framework/quickstart.md` so divergence review points to the concrete mapping, seam, inventory, and fork-rule artifacts
+- [x] T016 [US3] Update `specs/008-mcp-skills/spec.md` and `specs/009-agent-adapters/spec.md` so their dependency notes consume 004 divergence and inventory outputs rather than only chat-derived policy
 
 **Checkpoint**: User Story 3 is complete when divergence review is explicit enough that downstream planning no longer needs to rediscover Open Agents alignment policy.
 
@@ -94,14 +94,14 @@
 
 ### Tests for User Story 4
 
-- [ ] T017 [P] [US4] Update lifecycle event coverage in `packages/shared/src/events.test.ts` for the selected first-slice vocabulary in `packages/shared/src/events.ts`
-- [ ] T018 [P] [US4] Update control-plane route coverage in `apps/control-plane/app/api/routes.test.ts` for the selected lifecycle/control handoff in `apps/control-plane/app/api/mcp/route.ts`
+- [x] T017 [P] [US4] Update lifecycle event coverage in `packages/shared/src/events.test.ts` for the selected first-slice vocabulary in `packages/shared/src/events.ts`
+- [x] T018 [P] [US4] Update control-plane route coverage in `apps/control-plane/app/api/routes.test.ts` for the selected lifecycle/control handoff in `apps/control-plane/app/api/mcp/route.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T019 [US4] Align the first-slice lifecycle/control-handoff vocabulary in `packages/shared/src/events.ts`
-- [ ] T020 [US4] Apply the aligned lifecycle/control handoff in `apps/control-plane/app/api/mcp/route.ts`
-- [ ] T021 [US4] Record the completed first-slice evidence, deferred items, and focused verification commands in `specs/004-open-agents-framework/plan.md` and `specs/004-open-agents-framework/quickstart.md`
+- [x] T019 [US4] Align the first-slice lifecycle/control-handoff vocabulary in `packages/shared/src/events.ts`
+- [x] T020 [US4] Apply the aligned lifecycle/control handoff in `apps/control-plane/app/api/mcp/route.ts`
+- [x] T021 [US4] Record the completed first-slice evidence, deferred items, and focused verification commands in `specs/004-open-agents-framework/plan.md` and `specs/004-open-agents-framework/quickstart.md`
 
 **Checkpoint**: User Story 4 is complete when the first alignment slice is documented, tested, and still scoped to one real boundary.
 
@@ -111,8 +111,8 @@
 
 **Purpose**: Close the loop on feature verification and leave a clean handoff for implementation and review.
 
-- [ ] T022 [P] Record final verification outcomes and any remaining deferred surfaces in `specs/004-open-agents-framework/checklists/engineering-review.md`
-- [ ] T023 Run the final validation workflow described in `specs/004-open-agents-framework/quickstart.md`
+- [x] T022 [P] Record final verification outcomes and remaining deferred surfaces in `specs/004-open-agents-framework/checklists/engineering-review.md`
+- [x] T023 Run the final validation workflow described in `specs/004-open-agents-framework/quickstart.md`
 
 ---
 

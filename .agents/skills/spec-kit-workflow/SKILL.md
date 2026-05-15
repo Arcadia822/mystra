@@ -128,6 +128,42 @@ run a short user story discussion, then create or update the Spec-Kit spec from
 the agreed stories. If the work is truly not user-story-shaped, record why and
 use concrete technical scenarios with named actors instead.
 
+## Feature Health Checks
+
+Use the local Spec-Kit health helpers for different jobs:
+
+- `spec-kit-status` answers **"update and inspect the current feature's status snapshot"**
+- `spec-kit-doctor` answers **"is the Spec-Kit project surface healthy?"**
+
+### Status First, Current Feature First
+
+When the workflow needs an updated view of the active feature's artifact state,
+task progress, or likely next phase, use `spec-kit-status` first and keep the
+scope on the active feature:
+
+- Prefer `/speckit.status-report.show` with the current feature/branch context.
+- Prefer explicit feature targeting (for example `--feature <name>`) when the
+  branch is not already on the feature.
+- Do **not** default to global overview modes like `--all` unless the user
+  explicitly asks for repository-wide status.
+- Treat `status` as the way to refresh the current feature's status snapshot
+  before or after `spec.md`, `plan.md`, `tasks.md`, and implementation updates.
+
+### Doctor For Structural Or Installation Health
+
+Use `spec-kit-doctor` when you need to validate the Spec-Kit system surface
+rather than feature progress:
+
+- missing or suspicious `spec/plan/tasks` artifacts
+- newly installed or modified extensions
+- missing `.specify/scripts`, `.specify/templates`, `.specify/memory`, or agent
+  bindings
+- before/after patching Spec-Kit tooling itself
+
+`doctor` is a repository-health diagnostic. It can confirm that the project
+surface is sound, but it is **not** the primary progress view for the current
+feature.
+
 ## Workflow Skill Pack
 
 This workflow is designed to coordinate a local skill pack. Use the named local
@@ -147,6 +183,8 @@ Core workflow skills:
 - `code-review-and-quality`
 - `documentation-and-adrs`
 - `git-workflow-and-versioning`
+- `spec-kit-status`
+- `spec-kit-doctor`
 
 Specialist skills used when the phase touches their domain:
 
@@ -189,6 +227,8 @@ Use this decision table after loading the required context:
 | PRD or requirements request | Discuss user stories before writing the PRD/spec | `writing-userstory`, `product-requirements`, `idea-refine` |
 | Specify needs interface or experience design | Run design intake/direction before freezing UI-facing spec requirements | `claude-design-intake`, `claude-design-core`, `claude-design-wireframe`, `claude-design-prototype`, `claude-design-frontend-direction`, `claude-design-dev-handoff` |
 | Existing spec needs technical design | Plan with codebase evidence when useful | `spec-driven-development`, `api-and-interface-design` when contracts are involved, plus `gitnexus-exploring` / `gitnexus-impact-analysis` |
+| Need to refresh current feature status or next step | Update the active feature's artifact/task snapshot before deciding the next phase | `spec-kit-status` |
+| Need Spec-Kit structural health or extension install validation | Diagnose project-level Spec-Kit setup before trusting workflow artifacts | `spec-kit-doctor` |
 | Existing plan needs engineering validation | Review plan before tasks when risk is meaningful | `plan-eng-review`, plus `gitnexus-exploring` or `gitnexus-impact-analysis` when current-code evidence matters |
 | Existing plan needs work items | Tasks, informed by impacted files and dependency boundaries when relevant | `planning-and-task-breakdown`, `gitnexus-impact-analysis` |
 | Consistency risk before build | Analyze against spec, plan, tasks, and current code evidence | `code-review-and-quality`, `context-engineering`, `gitnexus-impact-analysis`, `gitnexus-exploring` |
@@ -248,6 +288,8 @@ Use this decision table after loading the required context:
 
 - Feature directory is under `specs/<feature>/`.
 - `spec.md` follows the repository's spec template.
+- Check the current feature with `spec-kit-status` before or after spec updates
+  when you need to confirm artifact completeness or the next Spec-Kit phase.
 - User stories were discussed with the owner before spec creation, or the spec
   records why technical scenarios were more appropriate.
 - UI-facing requirements have gone through the appropriate Claude Design lens
@@ -268,6 +310,9 @@ genuinely unsuitable.
 ### Plan Gate
 
 - `plan.md` follows the repository's plan template.
+- Prefer `spec-kit-status` on the current feature before planning if there is
+  any doubt about existing artifact state or whether the feature is already past
+  the plan phase.
 - Constitution checks are explicit when relevant.
 - Technical context, risks, dependencies, and verification checkpoints are
   concrete.
@@ -287,6 +332,9 @@ genuinely unsuitable.
 ### Tasks Gate
 
 - `tasks.md` follows the repository's tasks template.
+- Prefer `spec-kit-status` on the current feature before task generation or task
+  backfill so you do not confuse repository-wide progress with the active spec's
+  actual state.
 - Tasks are grouped by independently deliverable scenario when applicable.
 - Each task has acceptance and verification criteria.
 - Dependencies and parallelization boundaries are explicit.
@@ -296,12 +344,16 @@ genuinely unsuitable.
 ### Analyze Gate
 
 - Compare `spec.md`, `plan.md`, `tasks.md`, and current code reality.
+- Use `spec-kit-status` for the current feature when you need a fast artifact /
+  progress snapshot before deeper consistency analysis.
 - Use `gitnexus-exploring` for targeted codebase facts and
   `gitnexus-impact-analysis` when consistency risks cross files or modules.
 
 ### Implementation Gate
 
 - Implement from `tasks.md`, not from memory.
+- Re-check the current feature with `spec-kit-status` after meaningful task or
+  artifact updates when the next phase decision depends on current completion.
 - Keep changes small and verifiable.
 - Run the narrowest relevant verification first, then broader checks when the
   touched surface justifies it.

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `004-open-agents-framework`
 **Created**: 2026-05-14
-**Status**: Draft
+**Status**: Implemented
 **Input**: Mystra PRODUCT.md and constitution declare Open Agents as the framework foundation, but the current codebase has no actual Open Agents dependency, import, or code reuse. The current spec also assumed Open Agents already exposes package-level provider contracts, event schemas, and a runner protocol that Mystra can simply depend on. The upstream project is better treated as the source architecture and codebase to map against, then adapt deliberately where Mystra replaces cloud-managed components with local-first providers. The approved first slice is now narrowed to pinned upstream provenance, module inventory, fork rules, and one real lifecycle/control handoff alignment slice rather than a broad multi-module migration.
 
 ## User Scenarios & Testing *(mandatory)*

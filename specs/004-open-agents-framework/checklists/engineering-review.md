@@ -109,23 +109,10 @@ evidence in `packages/shared/src/events.ts` and
 ### Broader Package Validation Outcome
 
 - PASS: `pnpm --filter @mystra/shared test`
-- BLOCKED IN ENVIRONMENT: `pnpm --filter @mystra/control-plane test`
+- PASS: `pnpm --filter @mystra/control-plane test`
 
-The control-plane package test run is currently blocked by the shared native
-dependency environment rather than by the 004 slice itself:
-
-- `better-sqlite3` was compiled for a different Node ABI
-- current shell Node version: `v26.1.0`
-- package engine expectation in this repository: `>=24 <25`
-
-Representative failure:
-
-```text
-Error: The module .../better_sqlite3.node was compiled against a different
-Node.js version using NODE_MODULE_VERSION 137. This version of Node.js requires
-NODE_MODULE_VERSION 147.
-```
-
-This means the focused 004 proof tests are green, but full control-plane package
-tests need a Node 24-compatible native module rebuild or a matching runtime
-before they can be used as a merge gate.
+Current revalidation on the local repository shows that the broader package
+checks now pass as well. The remaining runtime signal is only an engine warning
+because the active shell is on Node `v26.1.0` while the package engines expect
+`>=24 <25`; that warning does not currently prevent the 004 proof slice from
+typechecking or passing package tests in this environment.

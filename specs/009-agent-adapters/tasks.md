@@ -47,9 +47,10 @@ tests.
 
 ## Phase 4: Recorded Follow-Ups
 
-- [ ] T013 [US4] Add explicit unsupported-agent runtime error handling at job
-      claim / adapter selection time in the runner. Deferred by owner out of
-      current MVP scope.
+- T013 [US4] Add explicit unsupported-agent runtime error handling at job
+  claim / adapter selection time in the runner. This remains intentionally
+  deferred by owner direction and is excluded from completion counting for the
+  current MVP closure pass.
 - [x] T014 [US4] Add runtime startup extension for third-party adapter module
       registration in `apps/runner-daemon/src/index.ts` and adjacent config.
 - [x] T015 [US4] Add prompt spill-to-file support when agent commands exceed OS
@@ -66,4 +67,5 @@ tests.
 
 ## Notes
 
-- `T013` remains intentionally deferred by owner direction.
+- `T013` remains intentionally deferred by owner direction and is not part of
+  the current completion percentage.

@@ -2,9 +2,11 @@
 
 **Feature Branch**: `008-mcp-skills`
 **Created**: 2026-05-14
-**Status**: Draft
+**Status**: Implemented
 **Dependency Note**: Initialize after `specs/004-open-agents-framework/contracts/framework-alignment.md`, `contracts/module-inventory.md`, and `research.md` pin the lifecycle semantics, and after `007-mcp-server` defines the MCP tool shapes those skills wrap.
 **Input**: Mystra remote MCP is the primary submission path for other agents and skills. Companion skills provide ergonomic, domain-specific interfaces on top of the raw MCP tools, enabling agents to submit user journeys, implementation requests, and feature work without understanding the low-level MCP protocol.
+
+**Implementation Note**: The current implementation ships repo-local companion skills under `.agents/skills/` for user-journey submission, implementation-request submission, and job-status lookup, plus a feature quickstart describing discovery and installation in this repository's local skill-pack model.
 
 ## User Scenarios & Testing *(mandatory)*
 
