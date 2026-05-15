@@ -160,6 +160,37 @@ curl -sS -X POST http://localhost:3000/api/mcp \
   }'
 ```
 
+## Full Runner Cycle (local fake runner)
+
+The sequence below exercises the complete protocol path — submit, claim, execute, result — without Docker or GitLab.
+
+```sh
+# 1. Start the control plane
+pnpm dev:control-plane
+
+# 2. In a second terminal, start the fake runner
+MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner
+
+# 3. Submit a job
+JOB_ID=$(curl -sSf -X POST http://localhost:3000/api/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "taskId": "cycle-smoke-1",
+    "source": "api",
+    "repo": "local/fixture",
+    "baseBranch": "main",
+    "branchName": "mystra/cycle-smoke-1",
+    "agent": "codex",
+    "prompt": "Smoke test the full local cycle"
+  }' | jq -r '.id')
+
+# 4. Poll until status is "completed"
+curl -sSf http://localhost:3000/api/jobs/$JOB_ID | jq '.status'
+```
+
+Expected terminal states: `queued` → `claimed` → `running` → `completed`.
+The fake runner returns a successful `RunResult`; no branch, MR, or Docker container is created.
+
 ## Current limits
 
 - State is in-memory inside the Next.js dev process.
