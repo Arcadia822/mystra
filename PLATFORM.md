@@ -28,6 +28,7 @@ supabase              Migrations, seed, generated database types
 - Test runner: Vitest.
 - Agent provider contract: current adapter-backed agent execution.
 - Repository provider contract in MVP: repository review delivery.
+- Architecture posture: first-class single-node deployment first, with a shared-nothing clustered architecture later if scale, isolation, or availability require it.
 
 ## North Star Topology
 
@@ -72,6 +73,7 @@ pnpm --filter @mystra/control-plane dev
 ## Architectural Constraints
 
 - Provider interfaces isolate local-first and cloud implementations.
+- Mystra must remain operable as a headless system; core execution, workflow, and repository delivery must not depend on an interactive local UI being present.
 - SQLite is the first business state source of truth.
 - The local workflow implementation is orchestration only, not business storage.
 - Runner hosts initiate outbound connections only.
@@ -85,6 +87,9 @@ pnpm --filter @mystra/control-plane dev
 - Runner claim responses include a resolved runtime contract; runner daemons execute that contract instead of independently interpreting Project fields.
 - Platform resource pools such as `SandboxProvider` capacity should remain platform-owned and allocatable across many workspaces and projects rather than being modeled as project-private infrastructure.
 - Workflow contracts should support a shared base plus workspace/project-specific variants instead of assuming one global hardcoded lifecycle forever.
+- Local development may use one machine, but the contract should still read like infrastructure that can scale into shared-nothing control-plane/worker topologies later.
+- Project, runtime, and template inputs may be declared centrally, but job submission or assignment should resolve them into immutable workflow/runtime contracts before runner execution starts.
+- Shared-nothing is a scaling direction for hot-path coordination, not a claim that Mystra can operate without durable state for jobs, runs, events, results, and artifacts.
 
 ## Provider Boundary
 
@@ -104,6 +109,12 @@ workflow, runner, and agent surfaces do not hardcode one host as the only valid
 target.
 
 Provider implementations must be replaceable without rewriting product contracts or feature specs.
+
+Headless operation is part of that boundary: the control plane, runner, and workflow surfaces should be invokable remotely and observable through APIs or MCP, so UI shells remain optional rather than architectural dependencies.
+
+The intended scaling direction is shared nothing rather than tightly coupled service state. Single-node should stay a real product shape; clustered deployment should extend the same contracts by adding more independent control-plane and worker capacity, not by introducing an entirely different product model.
+
+This also means Mystra is better described as a headless control-plane-and-runner system, closer to Jenkins / Salt / Nomad than to a pure file-driven local tool. A future cluster should reduce shared mutable hot-path state where possible, while preserving durable execution truth.
 
 ## Tenancy And Resource Direction
 

@@ -6,6 +6,8 @@ Mystra is a self-use coding-agent orchestration platform. It uses the Open Agent
 
 The first useful outcome is simple: an internal caller or remote MCP client can create a job for a repository project, Mystra assigns it to a runner, the runner executes the configured workflow inside the selected sandbox with the selected agent, and the platform returns a reviewable repository artifact.
 
+Mystra should remain a **headless orchestration control plane** with pull-based runners. In architecture terms, it is closer to Jenkins / Salt / Nomad than to a pure file-driven local tool: declarative config can define projects, runtime templates, and workflow defaults, but the system still needs durable execution truth for jobs, runs, events, and artifacts.
+
 ## North Star Operating Model
 
 Mystra's long-term operating model is a hosted **Mystra platform** that accepts
@@ -34,6 +36,11 @@ This does not change the MVP boundary. It clarifies the direction that current
 interfaces should preserve: Mystra should not hardcode a forever-single-project
 or single-workflow operating model.
 
+The deployment path should stay **single-node first** and later expand into a
+**shared-nothing clustered** form where practical. That clustering direction is
+about minimizing shared mutable hot-path state, not about pretending Mystra can
+operate without durable run state at all.
+
 ## Users
 
 - Internal platform operators who provision and observe runners.
@@ -60,6 +67,7 @@ In scope for the MVP:
 - Remote MCP server entrypoint for other agents and skills to submit user journeys and implementation requests.
 - Structured lifecycle events and final run results.
 - Workflow execution through a configurable runtime workflow path.
+- Resolution of project/runtime/template inputs into execution contracts before runner-side execution.
 
 Explicitly out of scope for the MVP:
 
@@ -85,9 +93,11 @@ Explicitly out of scope for the MVP:
 - Job/run state remains explainable from structured database records, without relying on transient container logs.
 - Platform capabilities stay separate from per-job project configuration.
 - Project runtime image configuration is explicit under `Project.runtime.image`; runner execution uses a resolved runtime contract.
+- Project, runtime, and template inputs can grow declarative over time, but runners execute against resolved contracts rather than repeatedly consulting mutable config during the hot path.
 - Other agents and skills can send work through Mystra remote MCP without needing direct runner or sandbox access.
 - Documentation remains good enough for future agents to continue work from repository artifacts alone.
 - The architecture can evolve from one local project path toward many workspace/project lanes without rewriting core product contracts.
+- The system can keep durable execution truth while still moving toward a shared-nothing scaling model that minimizes shared mutable hot-path state.
 
 ## Source Documents
 

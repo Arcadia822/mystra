@@ -15,7 +15,11 @@ This means repoindex is not a blind directory walk. It is a maintained onboardin
 
 Mystra is a self-use coding-agent orchestration platform. Its current MVP lets internal callers or remote MCP clients submit implementation work for repositories, then routes that work through a control plane, runner, sandbox, and agent so the platform can produce a reviewable branch and repository review artifact.
 
+Architecturally, Mystra is a **headless control-plane-and-runner system**. It is closer to Jenkins / Salt / Nomad than to a pure file-driven local tool: the product may use more declarative project/runtime/template inputs over time, but it still needs durable execution truth for jobs, runs, events, and artifacts.
+
 The near-term goal is one self-use, local-first path that works end to end. The north-star direction is a hosted **Mystra platform** serving many **workspaces** and **projects** without rewriting core contracts, with a developer experience similar in spirit to Stripe Minion.
+
+The deployment path should stay **single-node first** and later expand into a **shared-nothing clustered** form where practical. In this repository, shared-nothing refers to minimizing shared mutable hot-path state, not to eliminating durable state entirely.
 
 ### Explicit MVP exclusions
 
@@ -39,7 +43,7 @@ Mystra is a TypeScript pnpm monorepo.
 ```text
 apps/control-plane    Next.js control plane, HTTP APIs, MCP endpoint
 apps/workflows        Workflow provider implementations and orchestration adapters
-apps/runner-daemon    Bare-metal runner service
+apps/runner-daemon    Pull-based runner service
 packages/shared       Shared Zod schemas, state machine, events, results
 packages/agent-adapters
 plugins/supabase
@@ -66,6 +70,8 @@ supabase
 - The first durable state source is SQLite.
 - The local workflow implementation handles orchestration, not business storage.
 - Runner hosts only initiate outbound connections.
+- Project, runtime, and template inputs should resolve into immutable execution contracts before runner-side execution.
+- Shared-nothing is a scaling direction for hot-path coordination; jobs, runs, events, results, and artifacts still need durable truth.
 
 ## Main workflows
 

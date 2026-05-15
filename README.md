@@ -2,7 +2,7 @@
 
 Mystra is an open-source coding-agent orchestration platform.
 
-It provides a control plane for submitting work through HTTP or MCP, a local-first persistence layer, pluggable provider seams for runtime execution, and pull-based runners that execute workflow logic in sandboxes and return structured results plus repository review artifacts.
+It provides a headless control plane for submitting work through HTTP or MCP, a local-first persistence layer, pluggable provider seams for runtime execution, and pull-based runners that execute workflow logic in sandboxes and return structured results plus repository review artifacts.
 
 Mystra uses [Open Agents](https://github.com/vercel-labs/open-agents) as a **source-authoritative baseline and reference architecture**, while keeping Mystra-owned interfaces at provider, workflow, and orchestration seams.
 
@@ -32,6 +32,10 @@ Mystra is designed for teams that want a platform-shaped way to run coding agent
 - workflow logic and persistence
 - sandbox runtime and agent adapters
 - platform capabilities and project-specific configuration
+
+The architecture should remain **headless by default**: Mystra should have a first-class single-node shape, and later grow into a **shared-nothing clustered architecture** without redefining the product model. The same control-plane and runner contracts should survive the move from one local machine to remote hosts and pooled execution.
+
+This makes Mystra closer to a **control-plane-and-runner system** in the Jenkins / Salt / Nomad family than to a pure file-driven local tool. Declarative project or template configuration may grow over time, but Mystra still needs durable execution truth for jobs, runs, and repository artifacts.
 
 The long-term direction is a hosted **Mystra platform** that serves many **workspaces** and **projects**, each with its own workflow variants and runtime contracts, while sharing platform-owned provider pools.
 
@@ -150,6 +154,7 @@ For a full local protocol walk, MCP examples, restart-durability checks, and dev
 ## Documentation map
 
 - [docs/LOCAL-USAGE.md](docs/LOCAL-USAGE.md) — local usage, smoke paths, and operator runbook
+- [docs/DEMO-FLOW.md](docs/DEMO-FLOW.md) — live demo script and capability-tour framing
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system architecture notes
 - [docs/SPEC.md](docs/SPEC.md) — product and engineering boundaries
 - [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) — phased implementation plan

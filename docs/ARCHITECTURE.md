@@ -15,14 +15,14 @@ Excalidraw 文件包含一个分层架构视图：
    - Open Agents 源码基线 / 参考架构层
    - Mystra 自有本地 Workflow interface / implementation
    - 本地 SQLite RDB provider
-   - 私有 runner-daemon
+   - Pull-based runner-daemon
    - Runner 本地 repo / pnpm / uv 预热缓存
    - 单机 Docker Sandbox provider / 任务容器
    - Codex / GitHub Copilot CLI
    - GitLab 分支与 MR 交付
 
 2. **运维 / Runner 主机**
-   - 裸金属 Runner 主机
+   - 当前开发部署使用的单机 Runner 主机
    - Docker 运行时
    - systemd 服务
    - Mihomo 本地代理
@@ -41,18 +41,21 @@ Excalidraw 文件包含一个分层架构视图：
 ## 边界规则
 
 - Mystra 将 Open Agents 作为源码级基线与参考架构，而不是假定其已经提供完整可复用 SDK；provider 和 orchestration seam 由 Mystra 明确拥有。
+- Mystra 是 headless 的 control-plane-and-runner 系统；UI 是观察面，不是产品边界。
 - 本地 SQLite RDB provider 是当前 jobs、runs、runner_sessions、events 和 artifacts 的事实源。
 - Mystra 自有本地 Workflow implementation 只负责编排，不作为业务数据库。
+- 单机路径是一等形态；后续集群方向应尽量走 shared-nothing 的热路径协调，而不是复制 VictoriaMetrics 的三段式服务外形。
 - 单机 Docker 是当前 Sandbox provider；更强隔离或云 sandbox 是后续 provider 实现。
 - Control plane 在 job/run 持久化成功后发起 workflow；发起失败由补偿扫描器重试。
 - Runner 主机只主动向控制平面发起出站连接。
 - Runner daemon 可以使用主机 Docker socket；任务容器不能挂载它。
 - Runner daemon 维护 repo mirror/worktree seed cache、pnpm store cache 和 uv cache。
 - Runner 缓存只提升性能，不保存任务输出；缓存失败必须回退到冷 clone/install。
+- Project / runtime / template 可以越来越声明式，但进入执行热路径前必须被解析成冻结的 runtime / workflow contract。
 - GitLab 分支名、MR 标题和 MR 正文来自任务/仓库上下文，而不是 Mystra 全局策略。
 - Mystra MVP 不做分支名 sanitize、不处理分支冲突、不提供 retry API。
 - 密钥通过运行时环境变量或只读文件注入，绝不写入镜像。
-- MVP 不提供 logs API、日志持久化、callback URL、quality-gate fix loop、Claude CLI adapter 或 control-plane 调用方认证；runner 只执行一次确定性的 `test -> build` gate。
+- MVP 不提供 logs API、日志持久化、callback URL、quality-gate fix loop、Claude CLI adapter 或 control-plane 调用方认证；当前 workflow 只是一个本地示例实现，不代表最终产品只能执行一次固定 gate。
 
 ## 平台能力 vs 项目状态
 
