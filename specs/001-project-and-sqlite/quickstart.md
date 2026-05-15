@@ -48,7 +48,10 @@ curl -sS -X POST http://localhost:3000/api/projects \
     "repo": "git@gitlab.example.com:team/castrel-ai.git",
     "baseBranch": "main",
     "defaultAgent": "codex",
-    "image": "registry.example.com/castrel-ai/mystra-runner:latest",
+    "runtime": {
+      "provider": "docker",
+      "image": "registry.example.com/castrel-ai/mystra-runner:latest"
+    },
     "prewarmConfig": {},
     "metadata": {}
   }'
@@ -86,13 +89,13 @@ curl -sS http://localhost:3000/api/runner/jobs \
 
 Expected:
 
-- Claim response includes `project.image`.
-- Runner daemon uses `project.image`, not `MYSTRA_RUNNER_IMAGE`.
+- Claim response includes `runtime.environment.image`.
+- Runner daemon uses `runtime.environment.image`, not `MYSTRA_RUNNER_IMAGE`.
 
 ## 7. Submit Through Script
 
 ```sh
-pnpm job:submit --project castrel-ai --task-id SMOKE-2 --branch mystra/smoke-2 --title "Smoke" --body "Smoke" --prompt-file /tmp/prompt.md
+pnpm job:submit -- --project castrel-ai --task-id SMOKE-2 --branch mystra/smoke-2 --title "Smoke" --body "Smoke" --prompt-file /tmp/prompt.md
 ```
 
 Expected:

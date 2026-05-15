@@ -1,6 +1,6 @@
 # Local Mystra Usage
 
-This is the fastest local loop for using Mystra before Supabase, Docker, GitLab, and real agent execution are wired in.
+This is the fastest path for exercising Mystra's current MVP surfaces locally and on the development machine.
 
 ## Start the control plane
 
@@ -35,6 +35,116 @@ Logs are written to:
 ```
 
 To use the Docker runner that clones GitLab, runs Codex/Copilot, pushes a branch, and creates a merge request, see [RUNNER-DOCKER-MVP.md](./RUNNER-DOCKER-MVP.md).
+
+## MVP Acceptance Smoke
+
+Use this section as the current acceptance evidence for the MVP happy path. It is intentionally narrow: prove the control plane, runner claim loop, durable state, and review-delivery path all work without pretending every future operator surface is complete.
+
+1. **Local protocol smoke**: start `pnpm dev:control-plane` plus `MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner`, create a Project, submit a job, then fetch `GET /api/jobs/<job-id>`. Evidence: the job is accepted by `projectId`, the fake runner claims it, the run reaches a terminal state, and the returned job JSON includes durable run/result data.
+2. **Local MCP smoke**: call `/api/mcp` with `mystra_create_project` or `mystra_create_job` against the same control plane. Evidence: the MCP boundary can create the same Project/job resources as HTTP without a separate hidden path.
+3. **Restart durability smoke**: repeat the local protocol smoke with a fixed `MYSTRA_DB_PATH`, restart the control plane, then fetch the same Project and job again. Evidence: Projects, jobs, runners, events, and results survive restart with the same SQLite file.
+4. **Development-machine review delivery smoke**: deploy to the configured server, submit a real project-backed job with `pnpm job:submit -- --project ...`, and inspect the final JSON plus preview helpers. Evidence: Mystra resolves `Project.runtime.image`, the Docker runner completes `test -> build`, pushes a branch, opens a GitLab MR or GitHub PR, and leaves a retained preview container inspectable through `pnpm preview -- list|logs|quality`.
+
+When one of the proof points fails, record that gap before calling MVP closure complete. A polite fiction would still be fiction.
+
+## Minimum Operator Runbook
+
+Use this as the shortest operator path for the current MVP. It is not a full
+operations manual; it is the "get the system up, prove it is alive, submit one
+job, inspect what happened, and shut it down without improvising" path.
+
+### 1. Start services
+
+For the persistent local loop on this machine:
+
+```sh
+./scripts/start-local.sh
+pnpm run doctor
+```
+
+For protocol-only local development without the LaunchAgent wrapper:
+
+```sh
+pnpm dev:control-plane
+MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner
+```
+
+For the real development-machine Docker path, deploy first:
+
+```sh
+pnpm run deploy:dev
+```
+
+### 2. Check health before submitting work
+
+Use MCP health because it now reflects runner heartbeat status directly:
+
+```sh
+curl -sS -X POST http://localhost:3000/api/mcp \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":"health","method":"tools/call","params":{"name":"mystra_health","arguments":{}}}'
+```
+
+Healthy output should show:
+
+- `controlPlane.status = "healthy"`
+- at least one runner when you expect execution capacity
+- no unexpected runner entries with `status = "degraded"`
+
+### 3. Submit work
+
+Preferred operator command:
+
+```sh
+pnpm job:submit -- \
+  --project castrel-ai \
+  --task-id TASK-123 \
+  --branch mystra/TASK-123-short-name \
+  --title "TASK-123 Short title" \
+  --body "Source: TASK-123" \
+  --prompt-file /tmp/task-123-prompt.md
+```
+
+If you need the raw control-plane path instead, create a Project and submit via
+HTTP using the examples later in this document.
+
+### 4. Inspect execution and result
+
+Inspect the durable job snapshot:
+
+```sh
+curl -sS http://localhost:3000/api/jobs/<job-id>
+```
+
+Useful things to look for:
+
+- `run.state` tells you whether the run is still queued, active, or terminal
+- `events[]` tells you which lifecycle step was last observed
+- `run.result` carries MR/PR metadata, quality-gate summary, and failure details
+
+For retained preview containers:
+
+```sh
+pnpm preview -- list
+pnpm preview -- logs mystra-<run-id>
+pnpm preview -- quality mystra-<run-id>
+```
+
+### 5. Stop services cleanly
+
+```sh
+./scripts/stop-local.sh
+```
+
+### 6. Fast failure triage
+
+When the system misbehaves, start here:
+
+1. `pnpm run doctor` — quick local preflight
+2. `/tmp/mystra-control-plane.log` and `/tmp/mystra-runner.log` — process-level failures
+3. `mystra_health` — stale or missing runner capacity
+4. `GET /api/jobs/<job-id>` — durable run state, events, and final result
+5. `pnpm preview -- quality mystra-<run-id>` — quality gate log for retained containers
 
 ## Submit And Wait For A Project Job
 

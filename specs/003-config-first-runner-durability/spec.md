@@ -1,8 +1,8 @@
 # Feature Specification: Config-First Headless Runner Durability
 
-**Feature Branch**: `003-config-first-runner-durability`  
-**Created**: 2026-05-10  
-**Status**: Ready for planning  
+**Feature Branch**: `003-config-first-runner-durability`
+**Created**: 2026-05-10
+**Status**: Implemented; closure verified
 **Input**: User-approved direction: "Keep runner durability simple and config-first, closer to headless VictoriaMetrics-style components than a complete scheduler. Runner behavior should come from local configuration; the control plane should store desired and observed state; cancellation and timeout cleanup should be runner-local; stale runners should be explainable from durable state without a central capacity scheduler."
 
 ## User Scenarios & Testing *(mandatory)*

@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
 import {
+  cancellationRequestMetadataSchema,
+  contextBundleSchema,
   contextBundleCreateSchema,
   controlPlaneLifecycleHandoffEventTypes,
   jobSpecSchema,
+  platformCapabilitiesSchema,
   projectCreateSchema,
+  projectRuntimeConfigSchema,
+  projectSchema,
+  resolvedRuntimeContractSchema,
+  runEventSchema,
+  runResultSchema,
+  runStateSchema,
   terminalRunEventTypes,
+  workflowExecutionSnapshotSchema,
 } from "@mystra/shared";
 import { z } from "zod";
 
 import { getDb } from "@/lib/db";
-import { jsonError } from "@/lib/http";
+import type { PublicRunnerSession } from "@/lib/db/rdb-provider";
 
 const jsonRpcRequestSchema = z
   .object({
@@ -35,6 +45,122 @@ function jsonRpc(id: string | number | null | undefined, result: unknown) {
   });
 }
 
+const jsonRpcErrorSchema = z.object({
+  code: z.number(),
+  message: z.string(),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+
+const mcpRunnerHealthSchema = z.object({
+  id: z.string(),
+  runnerName: z.string(),
+  status: z.enum(["healthy", "degraded"]),
+  lastHeartbeatAt: z.string(),
+  staleAfterSeconds: z.number(),
+  activeRunCount: z.number(),
+  maxConcurrency: z.number(),
+  eligibleProjectIds: z.array(z.string()).optional(),
+  eligibleRuntimeProviders: z.array(z.string()).optional(),
+});
+
+const mcpHealthResponseSchema = z.object({
+  checkedAt: z.string(),
+  controlPlane: z.object({
+    status: z.literal("healthy"),
+  }),
+  runnerSummary: z.object({
+    total: z.number(),
+    healthy: z.number(),
+    degraded: z.number(),
+    activeRuns: z.number(),
+  }),
+  runners: z.array(mcpRunnerHealthSchema),
+});
+
+const publicRunnerSessionSchema = z.object({
+  id: z.string().uuid(),
+  runnerName: z.string().min(1),
+  capabilities: platformCapabilitiesSchema,
+  maxConcurrency: z.number().int().positive(),
+  activeRunCount: z.number().int().nonnegative(),
+  staleAfterSeconds: z.number().int().positive(),
+  eligibleProjectIds: z.array(z.string().uuid()).optional(),
+  eligibleRuntimeProviders: z.array(z.string()).optional(),
+  lastHeartbeatAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+}).strict();
+
+const jobRecordSchema = z.object({
+  id: z.string().uuid(),
+  spec: jobSpecSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+}).strict();
+
+const runRecordSchema = z.object({
+  id: z.string().uuid(),
+  jobId: z.string().uuid(),
+  state: runStateSchema,
+  attempt: z.number().int().positive(),
+  assignedRunnerSessionId: z.string().uuid().optional(),
+  resolvedRuntime: resolvedRuntimeContractSchema.optional(),
+  result: runResultSchema.optional(),
+  failureReason: z.string().min(1).optional(),
+  cancellationRequest: cancellationRequestMetadataSchema.optional(),
+  staleReason: z.string().min(1).optional(),
+  staleMarkedAt: z.string().datetime().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  startedAt: z.string().datetime().optional(),
+  finishedAt: z.string().datetime().optional(),
+}).strict();
+
+const projectClaimSchema = z.object({
+  id: z.string().uuid(),
+  slug: projectSchema.shape.slug,
+  runtime: projectRuntimeConfigSchema,
+  prewarmConfig: z.record(z.string(), z.unknown()).default({}),
+}).strict();
+
+const jobSnapshotSchema = z.object({
+  job: jobRecordSchema,
+  run: runRecordSchema,
+  events: z.array(runEventSchema),
+  workflow: workflowExecutionSnapshotSchema.optional(),
+  project: projectClaimSchema.optional(),
+  runtime: resolvedRuntimeContractSchema.optional(),
+}).strict();
+
+const listRunnersPayloadSchema = z.object({
+  runners: z.array(publicRunnerSessionSchema),
+}).strict();
+
+const listContextBundlesPayloadSchema = z.object({
+  contextBundles: z.array(contextBundleSchema),
+}).strict();
+
+const listProjectsPayloadSchema = z.object({
+  projects: z.array(projectSchema),
+}).strict();
+
+function jsonRpcError(
+  id: string | number | null | undefined,
+  code: number,
+  message: string,
+  data?: Record<string, unknown>,
+) {
+  return NextResponse.json({
+    jsonrpc: "2.0",
+    id: id ?? null,
+    error: jsonRpcErrorSchema.parse({
+      code,
+      message,
+      ...(data ? { data } : {}),
+    }),
+  });
+}
+
 function textToolResult(payload: unknown) {
   return {
     content: [
@@ -46,9 +172,78 @@ function textToolResult(payload: unknown) {
   };
 }
 
+function validatedToolResult<T extends z.ZodTypeAny>(schema: T, payload: unknown) {
+  return textToolResult(schema.parse(payload));
+}
+
+function parseToolArguments<T extends z.ZodType>(
+  id: string | number | null | undefined,
+  toolName: string,
+  schema: T,
+  arguments_: unknown,
+): { ok: true; data: z.infer<T> } | { ok: false; response: NextResponse } {
+  const parsed = schema.safeParse(arguments_);
+  if (parsed.success) {
+    return { ok: true, data: parsed.data };
+  }
+
+  return {
+    ok: false,
+    response: jsonRpcError(id, -32602, "Invalid params", {
+      tool: toolName,
+      issues: parsed.error.issues,
+    }),
+  };
+}
+
+function runnerHealth(runner: PublicRunnerSession, checkedAt: string) {
+  const heartbeatAgeMs = new Date(checkedAt).getTime() - new Date(runner.lastHeartbeatAt).getTime();
+  const status = heartbeatAgeMs <= runner.staleAfterSeconds * 1000 ? "healthy" : "degraded";
+
+  return mcpRunnerHealthSchema.parse({
+    id: runner.id,
+    runnerName: runner.runnerName,
+    status,
+    lastHeartbeatAt: runner.lastHeartbeatAt,
+    staleAfterSeconds: runner.staleAfterSeconds,
+    activeRunCount: runner.activeRunCount,
+    maxConcurrency: runner.maxConcurrency,
+    ...(runner.eligibleProjectIds ? { eligibleProjectIds: runner.eligibleProjectIds } : {}),
+    ...(runner.eligibleRuntimeProviders ? { eligibleRuntimeProviders: runner.eligibleRuntimeProviders } : {}),
+  });
+}
+
+function healthPayload(runners: PublicRunnerSession[]) {
+  const checkedAt = new Date().toISOString();
+  const projectedRunners = runners.map((runner) => runnerHealth(runner, checkedAt));
+  const degraded = projectedRunners.filter((runner) => runner.status === "degraded").length;
+  const healthy = projectedRunners.length - degraded;
+  const activeRuns = projectedRunners.reduce((sum, runner) => sum + runner.activeRunCount, 0);
+
+  return mcpHealthResponseSchema.parse({
+    checkedAt,
+    controlPlane: { status: "healthy" },
+    runnerSummary: {
+      total: projectedRunners.length,
+      healthy,
+      degraded,
+      activeRuns,
+    },
+    runners: projectedRunners,
+  });
+}
+
 export async function POST(request: Request) {
   try {
-    const rpc = jsonRpcRequestSchema.parse(await request.json());
+    const body = await request.json();
+    const rpcResult = jsonRpcRequestSchema.safeParse(body);
+    if (!rpcResult.success) {
+      return jsonRpcError(null, -32600, "Invalid Request", {
+        issues: rpcResult.error.issues,
+      });
+    }
+
+    const rpc = rpcResult.data;
 
     if (rpc.method === "initialize") {
       return jsonRpc(rpc.id, {
@@ -261,36 +456,70 @@ export async function POST(request: Request) {
               properties: {},
             },
           },
+          {
+            name: "mystra_health",
+            description: "Report local Mystra MCP health and runner heartbeat status.",
+            inputSchema: {
+              type: "object",
+              properties: {},
+              additionalProperties: false,
+            },
+          },
         ],
       });
     }
 
     if (rpc.method === "tools/call") {
-      const call = toolCallSchema.parse(rpc.params);
+      const callResult = toolCallSchema.safeParse(rpc.params);
+      if (!callResult.success) {
+        return jsonRpcError(rpc.id, -32600, "Invalid Request", {
+          issues: callResult.error.issues,
+        });
+      }
+
+      const call = callResult.data;
       const db = getDb();
 
       if (call.name === "mystra_create_context_bundle") {
-        return jsonRpc(rpc.id, textToolResult({
-          contextBundle: db.createContextBundle(contextBundleCreateSchema.parse(call.arguments)),
+        const parsed = parseToolArguments(rpc.id, call.name, contextBundleCreateSchema, call.arguments);
+        if (!parsed.ok) {
+          return parsed.response;
+        }
+        return jsonRpc(rpc.id, validatedToolResult(z.object({
+          contextBundle: contextBundleSchema,
+        }).strict(), {
+          contextBundle: db.createContextBundle(parsed.data),
         }));
       }
 
       if (call.name === "mystra_list_context_bundles") {
         const includeArchived = call.arguments.includeArchived === true;
-        return jsonRpc(rpc.id, textToolResult({ contextBundles: db.listContextBundles({ includeArchived }) }));
+        return jsonRpc(rpc.id, validatedToolResult(listContextBundlesPayloadSchema, {
+          contextBundles: db.listContextBundles({ includeArchived }),
+        }));
       }
 
       if (call.name === "mystra_create_job") {
-        return jsonRpc(rpc.id, textToolResult(db.createJob(jobSpecSchema.parse(call.arguments))));
+        const parsed = parseToolArguments(rpc.id, call.name, jobSpecSchema, call.arguments);
+        if (!parsed.ok) {
+          return parsed.response;
+        }
+        return jsonRpc(rpc.id, validatedToolResult(jobSnapshotSchema, db.createJob(parsed.data)));
       }
 
       if (call.name === "mystra_create_project") {
-        return jsonRpc(rpc.id, textToolResult(db.createProject(projectCreateSchema.parse(call.arguments))));
+        const parsed = parseToolArguments(rpc.id, call.name, projectCreateSchema, call.arguments);
+        if (!parsed.ok) {
+          return parsed.response;
+        }
+        return jsonRpc(rpc.id, validatedToolResult(projectSchema, db.createProject(parsed.data)));
       }
 
       if (call.name === "mystra_list_projects") {
         const includeArchived = call.arguments.includeArchived === true;
-        return jsonRpc(rpc.id, textToolResult({ projects: db.listProjects({ includeArchived }) }));
+        return jsonRpc(rpc.id, validatedToolResult(listProjectsPayloadSchema, {
+          projects: db.listProjects({ includeArchived }),
+        }));
       }
 
       if (call.name === "mystra_get_project") {
@@ -302,7 +531,7 @@ export async function POST(request: Request) {
       if (call.name === "mystra_get_job") {
         const jobId = z.string().parse(call.arguments.jobId);
         const snapshot = db.getJob(jobId);
-        return jsonRpc(rpc.id, textToolResult(snapshot ?? { error: "job_not_found" }));
+        return jsonRpc(rpc.id, textToolResult(snapshot ? jobSnapshotSchema.parse(snapshot) : { error: "job_not_found" }));
       }
 
       if (call.name === "mystra_cancel_job") {
@@ -312,19 +541,21 @@ export async function POST(request: Request) {
       }
 
       if (call.name === "mystra_list_runners") {
-        return jsonRpc(rpc.id, textToolResult({ runners: db.listRunners() }));
+        return jsonRpc(rpc.id, validatedToolResult(listRunnersPayloadSchema, { runners: db.listRunners() }));
       }
 
-      return jsonRpc(rpc.id, textToolResult({ error: "unknown_tool", tool: call.name }));
+      if (call.name === "mystra_health") {
+        return jsonRpc(rpc.id, textToolResult(healthPayload(db.listRunners())));
+      }
+
+      return jsonRpcError(rpc.id, -32601, `Unknown tool: ${call.name}`, {
+        tool: call.name,
+      });
     }
 
-    return jsonRpc(rpc.id, {
-      error: {
-        code: -32601,
-        message: `Unknown method: ${rpc.method}`,
-      },
-    });
+    return jsonRpcError(rpc.id, -32601, `Unknown method: ${rpc.method}`);
   } catch (error) {
-    return jsonError(error);
+    void error;
+    return jsonRpcError(null, -32000, "An internal error occurred processing the MCP request");
   }
 }

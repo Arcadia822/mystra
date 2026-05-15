@@ -64,6 +64,7 @@ clone_url() {
 const repo = process.env.MYSTRA_REPO;
 const reference = process.env.MYSTRA_REPOSITORY_AUTH_REFERENCE;
 const username = process.env.MYSTRA_REPOSITORY_AUTH_USERNAME || "oauth2";
+const httpBaseUrl = process.env.MYSTRA_REPOSITORY_HTTP_BASE_URL;
 const token = reference ? process.env[reference] : undefined;
 if (!repo) throw new Error("MYSTRA_REPO is required");
 if (!reference) throw new Error("MYSTRA_REPOSITORY_AUTH_REFERENCE is required");
@@ -71,7 +72,7 @@ if (!token) throw new Error(`Repository auth token ${reference} is required`);
 const input = new URL(repo.includes("://") ? repo : "https://" + repo);
 let url;
 if (input.protocol === "ssh:") {
-  url = new URL(`https://${input.host}${input.pathname}`);
+  url = httpBaseUrl ? new URL(input.pathname, new URL(httpBaseUrl)) : new URL(`https://${input.host}${input.pathname}`);
 } else {
   url = input;
 }
@@ -332,14 +333,15 @@ NODE
 write_agent_output() {
   no_changes="$1"
   changed_files_json="$2"
-  process_result_json="$3"
-  node - "$no_changes" "$changed_files_json" "$process_result_json" <<'NODE' | write_step_output
-const [noChangesRaw, changedFilesRaw, processResultRaw] = process.argv.slice(2);
+  process_result_path="$3"
+  node - "$no_changes" "$changed_files_json" "$process_result_path" <<'NODE' | write_step_output
+const fs = require("fs");
+const [noChangesRaw, changedFilesRaw, processResultPath] = process.argv.slice(2);
 console.log(JSON.stringify({
   branchName: process.env.MYSTRA_BRANCH_NAME,
   noChanges: noChangesRaw === "1",
   changedFiles: JSON.parse(changedFilesRaw),
-  processResult: JSON.parse(processResultRaw),
+  processResult: JSON.parse(fs.readFileSync(processResultPath, "utf8")),
 }, null, 2));
 NODE
 }
@@ -387,7 +389,7 @@ clone_step() {
   fi
 
   if [ -d "${MYSTRA_GIT_REFERENCE_PATH:-}" ]; then
-    git clone --reference-if-able "$MYSTRA_GIT_REFERENCE_PATH" --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"
+    git clone --reference-if-able "$MYSTRA_GIT_REFERENCE_PATH" --dissociate --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"
   else
     git clone --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"
   fi
@@ -406,18 +408,17 @@ agent_step() {
     run_agent_status=$?
   fi
 
-  process_result_json="$(cat "$AGENT_PROCESS_RESULT_FILE")"
   changed_files="$(changed_files_json)"
   if [ -z "$(git status --porcelain)" ] && [ "$changed_files" = "[]" ]; then
     if [ -n "${MYSTRA_STEP_OUTPUT_FILE:-}" ]; then
-      write_agent_output 1 "$changed_files" "$process_result_json"
+      write_agent_output 1 "$changed_files" "$AGENT_PROCESS_RESULT_FILE"
       return 0
     fi
     write_result failed "Agent finished without repository changes" "no_changes"
     exit 0
   fi
 
-  write_agent_output 0 "$changed_files" "$process_result_json"
+  write_agent_output 0 "$changed_files" "$AGENT_PROCESS_RESULT_FILE"
   if [ "$run_agent_status" -ne 0 ]; then
     exit "$run_agent_status"
   fi

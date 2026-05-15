@@ -1,5 +1,7 @@
 # API Contract: Project + SQLite Persistence
 
+> Reconciliation note: Core Project/job persistence from this contract is implemented. Runtime field shape was refined by `../../002-runtime-profile-context/contracts/api.md`; use that contract as authoritative for `Project.runtime` and resolved runtime payloads.
+
 All error responses use:
 
 ```json
@@ -21,7 +23,10 @@ type Project = {
   repo: string;
   baseBranch: string;
   defaultAgent: "codex" | "copilot";
-  image: string;
+  runtime: {
+    provider: "docker";
+    image: string;
+  };
   prewarmConfig: Record<string, unknown>;
   metadata: Record<string, unknown>;
   archivedAt: string | null;
@@ -41,7 +46,10 @@ Request:
   "repo": "git@gitlab.example.com:team/castrel-ai.git",
   "baseBranch": "main",
   "defaultAgent": "codex",
-  "image": "registry.example.com/castrel-ai/mystra-runner:latest",
+  "runtime": {
+    "provider": "docker",
+    "image": "registry.example.com/castrel-ai/mystra-runner:latest"
+  },
   "prewarmConfig": {},
   "metadata": {}
 }
@@ -77,7 +85,10 @@ Request: partial editable Project fields:
   "name": "Castrel AI",
   "baseBranch": "main",
   "defaultAgent": "copilot",
-  "image": "registry.example.com/castrel-ai/runtime:v2",
+  "runtime": {
+    "provider": "docker",
+    "image": "registry.example.com/castrel-ai/runtime:v2"
+  },
   "prewarmConfig": {},
   "metadata": {},
   "archivedAt": null

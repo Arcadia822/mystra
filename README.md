@@ -117,7 +117,7 @@ Explicitly out of scope for the MVP:
 - [SPEC.md](docs/SPEC.md) - Product and engineering boundaries
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
 - [IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) - Phased implementation plan
-- [LOCAL-USAGE.md](docs/LOCAL-USAGE.md) - Local development usage guide
+- [LOCAL-USAGE.md](docs/LOCAL-USAGE.md) - Local development usage guide, MVP acceptance smoke path, and minimum operator runbook
 - [RUNNER-DOCKER-MVP.md](docs/RUNNER-DOCKER-MVP.md) - Docker runner setup
 - [ADR-0001](docs/ADR-0001-control-plane-runner.md) through [ADR-0005](docs/ADR-0005-open-agents-source-baseline.md) - Architecture decision records
 

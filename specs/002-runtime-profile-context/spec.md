@@ -1,8 +1,8 @@
 # Feature Specification: Runtime Config Resolution and Context Bundles
 
-**Feature Branch**: `002-runtime-profile-context`  
-**Created**: 2026-05-09  
-**Status**: Ready for planning  
+**Feature Branch**: `002-runtime-profile-context`
+**Created**: 2026-05-09
+**Status**: Implemented; closure verified
 **Input**: User correction: "A Project may own runtime image configuration, but it should live in a typed runtime config object. This first version does not need legacy top-level image compatibility; Mystra should resolve image and context from Project runtime configuration instead of baking source-owned runtime contents or hard-coding runner access paths."
 
 ## User Scenarios & Testing *(mandatory)*

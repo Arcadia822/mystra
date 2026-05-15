@@ -2,7 +2,7 @@
 
 **Feature Branch**: `010-repo-provider-contracts`
 **Created**: 2026-05-14
-**Status**: Draft
+**Status**: Implemented; closure verified
 **Dependency Note**: Initialize from `specs/004-open-agents-framework/contracts/framework-alignment.md`, `contracts/module-inventory.md`, `contracts/provider-seams.md`, and `contracts/fork-rules.md` before defining host-specific repository delivery behavior.
 **Input**: Mystra MVP promises reviewable branch delivery for both GitLab and GitHub projects, but the repository-provider boundary is still only implied across PRODUCT.md, docs/SPEC.md, README.md, runner behavior, and follow-on specs. The MVP needs an explicit `RepoProvider` contract that defines repository access, branch push, and merge-request/pull-request delivery without hardcoding GitLab-only assumptions into workflow, runner, or agent features.
 

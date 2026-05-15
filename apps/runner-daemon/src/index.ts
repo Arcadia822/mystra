@@ -6,7 +6,9 @@ import { createHash } from "node:crypto";
 import { type AgentProcessResult } from "@mystra/agent-adapters";
 import type { BranchDeliveryReceipt, CleanupOutcome, RepoProviderKind, ResolvedRuntimeContract, ReviewResult, SandboxOutcome } from "@mystra/shared";
 import { createRunnerAgentAdapterRegistry, type RunnerAgentAdapterRegistry } from "./agent-adapters.js";
+import { sanitizeGitCommandEnv, withGitProxyBypass } from "./git-command-env.js";
 import { createRunnerRepoProviderRegistry, type RunnerRepoProviderRegistry } from "./repo-providers.js";
+import { detectRepositoryHostKind } from "./repository-host-kind.js";
 import {
   buildMergeRequestEventData,
   buildReviewCreatedEventData,
@@ -480,13 +482,14 @@ function gitMirrorPath(config: RunnerConfig, repo: string): string {
 async function refreshGitMirror(config: RunnerConfig, repo: string): Promise<string> {
   const mirror = gitMirrorPath(config, repo);
   await mkdir(path.dirname(mirror), { recursive: true });
+  const gitEnv = sanitizeGitCommandEnv(process.env);
 
   try {
-    await runCommand("git", ["-C", mirror, "remote", "set-url", "origin", repo]);
-    await runCommand("git", ["-C", mirror, "remote", "update", "--prune"]);
+    await runCommand("git", withGitProxyBypass(["-C", mirror, "remote", "set-url", "origin", repo]), { env: gitEnv });
+    await runCommand("git", withGitProxyBypass(["-C", mirror, "remote", "update", "--prune"]), { env: gitEnv });
   } catch {
     await rm(mirror, { force: true, recursive: true });
-    await runCommand("git", ["clone", "--mirror", repo, mirror]);
+    await runCommand("git", withGitProxyBypass(["clone", "--mirror", repo, mirror]), { env: gitEnv });
   }
 
   return mirror;
@@ -607,7 +610,10 @@ function appendRuntimeSecrets(
   }
 }
 
-function repositoryTargetForJob(claim: ClaimedJobResponse): {
+function repositoryTargetForJob(
+  claim: ClaimedJobResponse,
+  config: Pick<RunnerConfig, "gitlabHttpBaseUrl" | "githubHttpBaseUrl">,
+): {
   projectId: string;
   repoUrl: string;
   hostKind: "gitlab" | "github" | "unknown";
@@ -621,11 +627,10 @@ function repositoryTargetForJob(claim: ClaimedJobResponse): {
   return {
     projectId: claim.project.id,
     repoUrl,
-    hostKind: repoUrl.includes("gitlab")
-      ? "gitlab"
-      : repoUrl.includes("github")
-        ? "github"
-        : "unknown",
+    hostKind: detectRepositoryHostKind(repoUrl, {
+      gitlabHttpBaseUrl: config.gitlabHttpBaseUrl,
+      githubHttpBaseUrl: config.githubHttpBaseUrl,
+    }),
     defaultBaseBranch: claim.job.spec.baseBranch,
   };
 }
@@ -912,7 +917,7 @@ async function executeDockerJob(
   if (runtime.provider !== "docker") {
     throw new Error(`Claimed Docker job ${job.id} uses unsupported runtime provider ${runtime.provider}`);
   }
-  const repositoryTarget = repositoryTargetForJob(claim);
+  const repositoryTarget = repositoryTargetForJob(claim, config);
   if (!repositoryTarget) {
     throw new Error(`Claimed Docker job ${job.id} is missing repository target metadata`);
   }
@@ -927,6 +932,8 @@ async function executeDockerJob(
 
   const image = runtime.environment.image;
   const agentAdapter = agentRegistry.get(job.spec.agent);
+  const reviewTitle = job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`;
+  const commitMessage = `Update #${job.spec.taskId} ${reviewTitle}`;
   const agentPromptFilePath = shouldUseAgentPromptFile(job.spec.prompt)
     ? "/mystra/workspace/agent-prompt.txt"
     : undefined;
@@ -1024,11 +1031,11 @@ async function executeDockerJob(
     "-e",
     `MYSTRA_PROMPT=${job.spec.prompt}`,
     "-e",
-    `MYSTRA_MR_TITLE=${job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`}`,
+    `MYSTRA_MR_TITLE=${reviewTitle}`,
     "-e",
     `MYSTRA_MR_BODY=${job.spec.mergeRequest?.body ?? job.spec.prompt}`,
     "-e",
-    `MYSTRA_COMMIT_MESSAGE=${job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`}`,
+    `MYSTRA_COMMIT_MESSAGE=${commitMessage}`,
     "-e",
     `MYSTRA_GIT_AUTHOR_NAME=${process.env.MYSTRA_GIT_AUTHOR_NAME ?? "Mystra Runner"}`,
     "-e",
@@ -1189,7 +1196,15 @@ async function executeDockerJob(
                 stepCommand: "clone",
                 nodeId: "clone",
                 workspace,
-                env: repositoryRuntimeEnv(repositoryAuth),
+                env: {
+                  ...repositoryRuntimeEnv(repositoryAuth),
+                  ...(repositoryAuth.providerName === "gitlab" && config.gitlabHttpBaseUrl
+                    ? { MYSTRA_REPOSITORY_HTTP_BASE_URL: config.gitlabHttpBaseUrl }
+                    : {}),
+                  ...(repositoryAuth.providerName === "github" && config.githubHttpBaseUrl
+                    ? { MYSTRA_REPOSITORY_HTTP_BASE_URL: config.githubHttpBaseUrl }
+                    : {}),
+                },
                 signal: executionAbort.signal,
                 frontendUrl,
                 backendUrl,
@@ -1318,7 +1333,7 @@ async function executeDockerJob(
                 target: repositoryTarget,
                 branchName: prepared.branchName,
                 baseBranch: job.spec.baseBranch,
-                commitMessage: job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`,
+                commitMessage,
                 auth: repositoryAuth.authBinding,
                 metadata: {
                   localRepoPath: path.join(workspace, "repo"),
@@ -1369,7 +1384,7 @@ async function executeDockerJob(
                   target: repositoryTarget,
                   auth: repositoryAuth.authBinding,
                   branch: branchReceipt,
-                  title: job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`,
+                  title: reviewTitle,
                   body: job.spec.mergeRequest?.body ?? job.spec.prompt,
                   metadata: {
                     frontendPreviewUrl: prepared.frontendPreviewUrl ?? undefined,

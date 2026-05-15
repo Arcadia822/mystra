@@ -1,8 +1,9 @@
 # Feature Specification: Project Abstraction + SQLite Persistence
 
-**Feature Branch**: `001-project-and-sqlite`  
-**Created**: 2026-05-09  
-**Status**: Ready for planning  
+**Feature Branch**: `001-project-and-sqlite`
+**Created**: 2026-05-09
+**Status**: Implemented; closure verified
+**Reconciliation Note**: Core Project/SQLite persistence scope in this feature is implemented. Runtime-image and runner-claim semantics originally drafted here were refined by `002-runtime-profile-context`; treat `002` as authoritative for runtime contract shape.
 **Input**: User description: "Introduce Project as the parent configuration for jobs and replace the in-memory local store with a SQLite-backed RdbProvider while keeping the future PG/Supabase boundary clean."
 **Dependency Note**: Runtime-image and runtime-contract details in this feature are interpreted through `002-runtime-profile-context`. `Project` remains the durable repository/execution unit, but runtime image ownership now lives under `Project.runtime.image`, not a top-level `Project.image` field. A future `workspace` scope may sit above `Project`, but does not replace it as the execution configuration unit in this feature.
 

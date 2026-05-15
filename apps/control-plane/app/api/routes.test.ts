@@ -3,8 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import Database from "better-sqlite3";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as dbModule from "@/lib/db";
 import { getDb, resetDbForTests } from "@/lib/db";
 import { GET as listContextBundles, POST as postContextBundle } from "./context-bundles/route";
 import { POST as cancelJob } from "./jobs/[id]/cancel/route";
@@ -72,6 +73,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   resetDbForTests();
   delete process.env.MYSTRA_DB_PATH;
   await rm(tempDir, { force: true, recursive: true });
@@ -302,6 +304,90 @@ describe("Job and MCP project contracts", () => {
     expect(snapshot.job.spec.repo).toBe("local/fixture");
   });
 
+  it("returns the persisted job snapshot through mystra_get_job", async () => {
+    const created = await createProject("mcp-get-job");
+    const createdJob = await json<{ job: { id: string; spec: { projectId: string } }; run: { state: string } }>(
+      await postJob(jsonRequest("http://localhost/api/jobs", {
+        taskId: "mcp-get-job-task",
+        source: "api",
+        projectId: created.project.id,
+        branchName: "mystra/mcp-get-job",
+        prompt: "Observe this job through MCP",
+      })),
+    );
+
+    const response = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "get-job",
+      method: "tools/call",
+      params: {
+        name: "mystra_get_job",
+        arguments: {
+          jobId: createdJob.job.id,
+        },
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    const rpc = await json<{ result: { content: Array<{ text: string }> } }>(response);
+    const snapshot = JSON.parse(rpc.result.content[0]?.text ?? "{}") as {
+      job: { id: string; spec: { projectId: string } };
+      run: { state: string };
+      events: Array<{ type: string }>;
+    };
+    expect(snapshot.job.id).toBe(createdJob.job.id);
+    expect(snapshot.job.spec.projectId).toBe(created.project.id);
+    expect(snapshot.run.state).toBe("queued");
+    expect(snapshot.events.map((event) => event.type)).toEqual(expect.arrayContaining([
+      "job.created",
+      "run.queued",
+    ]));
+  });
+
+  it("returns validated runner payloads through mystra_list_runners", async () => {
+    await registerRunner(jsonRequest("http://localhost/api/runner/register", {
+      runnerName: "mcp-list-runners",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+      },
+      maxConcurrency: 2,
+      staleAfterSeconds: 75,
+      eligibleRuntimeProviders: ["docker"],
+    }));
+
+    const response = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "list-runners",
+      method: "tools/call",
+      params: {
+        name: "mystra_list_runners",
+        arguments: {},
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    const rpc = await json<{ result: { content: Array<{ text: string }> } }>(response);
+    const payload = JSON.parse(rpc.result.content[0]?.text ?? "{}") as {
+      runners: Array<{
+        runnerName: string;
+        maxConcurrency: number;
+        staleAfterSeconds: number;
+        capabilities: { executor: string };
+        eligibleRuntimeProviders?: string[];
+      }>;
+    };
+    expect(payload.runners).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        runnerName: "mcp-list-runners",
+        maxConcurrency: 2,
+        staleAfterSeconds: 75,
+        capabilities: expect.objectContaining({ executor: "docker" }),
+        eligibleRuntimeProviders: ["docker"],
+      }),
+    ]));
+  });
+
   it("rejects job runtime overrides for MVP-forbidden execution fields", async () => {
     const created = await createProject("forbidden-override");
     const response = await postJob(jsonRequest("http://localhost/api/jobs", {
@@ -355,7 +441,12 @@ describe("Job and MCP project contracts", () => {
       },
     }));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
+    const rpc = await json<{ error: { code: number; message: string; data?: { tool?: string; issues?: unknown[] } } }>(response);
+    expect(rpc.error.code).toBe(-32602);
+    expect(rpc.error.message).toBe("Invalid params");
+    expect(rpc.error.data?.tool).toBe("mystra_create_job");
+    expect(rpc.error.data?.issues).toEqual(expect.any(Array));
   });
 
   it("advertises constrained runtime schemas in MCP tools/list", async () => {
@@ -432,7 +523,132 @@ describe("Job and MCP project contracts", () => {
       },
     }));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
+    const rpc = await json<{ error: { code: number; message: string; data?: { tool?: string; issues?: unknown[] } } }>(response);
+    expect(rpc.error.code).toBe(-32602);
+    expect(rpc.error.message).toBe("Invalid params");
+    expect(rpc.error.data?.tool).toBe("mystra_create_project");
+    expect(rpc.error.data?.issues).toEqual(expect.any(Array));
+  });
+
+  it("returns MCP health with healthy and degraded runner projection", async () => {
+    const healthy = await json<{ runnerSessionId: string }>(await registerRunner(jsonRequest("http://localhost/api/runner/register", {
+      runnerName: "runner-healthy",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+      },
+      maxConcurrency: 1,
+      staleAfterSeconds: 60,
+    })));
+    const degraded = await json<{ runnerSessionId: string }>(await registerRunner(jsonRequest("http://localhost/api/runner/register", {
+      runnerName: "runner-degraded",
+      capabilities: {
+        agents: ["codex"],
+        executor: "docker",
+      },
+      maxConcurrency: 1,
+      staleAfterSeconds: 30,
+    })));
+
+    const dbPath = process.env.MYSTRA_DB_PATH;
+    expect(dbPath).toBeTruthy();
+    const sqlite = new Database(dbPath!);
+    const staleTimestamp = new Date(Date.now() - 120_000).toISOString();
+    sqlite.prepare("UPDATE runner_sessions SET last_heartbeat_at = ?, updated_at = ? WHERE id = ?")
+      .run(staleTimestamp, staleTimestamp, degraded.runnerSessionId);
+    sqlite.close();
+
+    const response = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "health",
+      method: "tools/call",
+      params: {
+        name: "mystra_health",
+        arguments: {},
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    const rpc = await json<{ result: { content: Array<{ text: string }> } }>(response);
+    const health = JSON.parse(rpc.result.content[0]?.text ?? "{}") as {
+      controlPlane: { status: string };
+      runnerSummary: { total: number; healthy: number; degraded: number; activeRuns: number };
+      runners: Array<{ id: string; status: string }>;
+    };
+
+    expect(health.controlPlane.status).toBe("healthy");
+    expect(health.runnerSummary).toEqual({
+      total: 2,
+      healthy: 1,
+      degraded: 1,
+      activeRuns: 0,
+    });
+    expect(health.runners).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: healthy.runnerSessionId, status: "healthy" }),
+      expect.objectContaining({ id: degraded.runnerSessionId, status: "degraded" }),
+    ]));
+  });
+
+  it("returns JSON-RPC errors for unknown MCP tools and methods", async () => {
+    const unknownTool = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "unknown-tool",
+      method: "tools/call",
+      params: {
+        name: "mystra_unknown_tool",
+        arguments: {},
+      },
+    }));
+
+    expect(unknownTool.status).toBe(200);
+    const unknownToolRpc = await json<{ id: string; error: { code: number; message: string; data?: { tool?: string } } }>(unknownTool);
+    expect(unknownToolRpc.id).toBe("unknown-tool");
+    expect(unknownToolRpc.error).toEqual({
+      code: -32601,
+      message: "Unknown tool: mystra_unknown_tool",
+      data: { tool: "mystra_unknown_tool" },
+    });
+
+    const unknownMethod = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "unknown-method",
+      method: "mystra/not-real",
+    }));
+
+    expect(unknownMethod.status).toBe(200);
+    const unknownMethodRpc = await json<{ id: string; error: { code: number; message: string } }>(unknownMethod);
+    expect(unknownMethodRpc.id).toBe("unknown-method");
+    expect(unknownMethodRpc.error).toEqual({
+      code: -32601,
+      message: "Unknown method: mystra/not-real",
+    });
+  });
+
+  it("does not leak internal errors through MCP responses", async () => {
+    vi.spyOn(dbModule, "getDb").mockReturnValue({
+      listRunners() {
+        throw new Error("RUNNER_NOT_FOUND: Runner not found: sensitive-runner-id");
+      },
+    } as unknown as ReturnType<typeof getDb>);
+
+    const response = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "health-internal-error",
+      method: "tools/call",
+      params: {
+        name: "mystra_health",
+        arguments: {},
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    const rpc = await json<{ id: string; error: { code: number; message: string } }>(response);
+    expect(rpc.id).toBeNull();
+    expect(rpc.error).toEqual({
+      code: -32000,
+      message: "An internal error occurred processing the MCP request",
+    });
   });
 
   it("returns resolved runtime in runner claim responses", async () => {

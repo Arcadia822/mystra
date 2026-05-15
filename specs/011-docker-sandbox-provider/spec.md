@@ -2,7 +2,7 @@
 
 **Feature Branch**: `011-docker-sandbox-provider`
 **Created**: 2026-05-14
-**Status**: Draft
+**Status**: Implemented; closure verified
 **Dependency Note**: Initialize from `specs/004-open-agents-framework/contracts/framework-alignment.md`, `contracts/module-inventory.md`, `contracts/provider-seams.md`, and `research.md` divergence records before defining Docker-specific execution semantics.
 **Input**: Mystra MVP already depends on Docker task containers as its first `SandboxProvider`, but there is no dedicated feature spec defining the sandbox contract, mount and secret boundaries, preview-port behavior, cleanup rules, or what future providers must preserve. The MVP needs an explicit sandbox-provider spec so workflow, runner, and runtime features stop relying on implicit container-task behavior.
 

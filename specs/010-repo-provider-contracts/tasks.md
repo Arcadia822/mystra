@@ -16,8 +16,8 @@ implemented and validated independently.
 **Purpose**: Prepare the repository vocabulary and doc touchpoints for the new
 provider boundary.
 
-- [ ] T001 Audit GitLab-specific review vocabulary in `packages/shared/src/result.ts`, `packages/shared/src/events.ts`, `apps/runner-daemon/src/index.ts`, and `apps/runner-daemon/assets/container-task.sh`
-- [ ] T002 [P] Align repository-provider wording in `docs/SPEC.md`, `docs/RUNNER-DOCKER-MVP.md`, and `README.md` with the formal contract once implementation lands
+- [x] T001 Audit GitLab-specific review vocabulary in `packages/shared/src/result.ts`, `packages/shared/src/events.ts`, `apps/runner-daemon/src/index.ts`, and `apps/runner-daemon/assets/container-task.sh`
+- [x] T002 [P] Align repository-provider wording in `docs/SPEC.md`, `docs/RUNNER-DOCKER-MVP.md`, and `README.md` with the formal contract once implementation lands
 
 ---
 
@@ -27,11 +27,11 @@ provider boundary.
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete
 
-- [ ] T003 [P] Add provider-neutral repository contract schemas in `packages/shared/src/repository.ts`
-- [ ] T004 [P] Add schema and serialization tests for `packages/shared/src/repository.ts` in `packages/shared/src/repository.test.ts`
-- [ ] T005 Export repository contract types from `packages/shared/src/index.ts`
-- [ ] T006 Create provider registry scaffolding in `apps/runner-daemon/src/repo-providers.ts`
-- [ ] T007 Add runner registry tests in `apps/runner-daemon/src/repo-providers.test.ts`
+- [x] T003 [P] Add provider-neutral repository contract schemas in `packages/shared/src/repository.ts`
+- [x] T004 [P] Add schema and serialization tests for `packages/shared/src/repository.ts` in `packages/shared/src/repository.test.ts`
+- [x] T005 Export repository contract types from `packages/shared/src/index.ts`
+- [x] T006 Create provider registry scaffolding in `apps/runner-daemon/src/repo-providers.ts`
+- [x] T007 Add runner registry tests in `apps/runner-daemon/src/repo-providers.test.ts`
 
 **Checkpoint**: Shared repository contract vocabulary exists and the runner has a place to register concrete providers
 
@@ -45,15 +45,15 @@ provider boundary.
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add shared contract tests for normalized branch/review outcomes in `packages/shared/src/repository.test.ts`
-- [ ] T009 [P] [US1] Add runner integration tests for provider selection and stub execution in `apps/runner-daemon/src/repo-providers.test.ts`
+- [x] T008 [P] [US1] Add shared contract tests for normalized branch/review outcomes in `packages/shared/src/repository.test.ts`
+- [x] T009 [P] [US1] Add runner integration tests for provider selection and stub execution in `apps/runner-daemon/src/repo-providers.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Introduce normalized branch/review result types and auth binding helpers in `packages/shared/src/repository.ts`
-- [ ] T011 [US1] Wire repository contract exports through `packages/shared/src/index.ts`
-- [ ] T012 [US1] Refactor `apps/runner-daemon/src/index.ts` to call `apps/runner-daemon/src/repo-providers.ts` instead of inlining provider selection assumptions
-- [ ] T013 [US1] Update `apps/control-plane/src/lib/db/sqlite-provider.ts` and `apps/control-plane/app/api/mcp/route.ts` to preserve or expose normalized repository-delivery snapshots where required
+- [x] T010 [US1] Introduce normalized branch/review result types and auth binding helpers in `packages/shared/src/repository.ts`
+- [x] T011 [US1] Wire repository contract exports through `packages/shared/src/index.ts`
+- [x] T012 [US1] Refactor `apps/runner-daemon/src/index.ts` to call `apps/runner-daemon/src/repo-providers.ts` instead of inlining provider selection assumptions
+- [x] T013 [US1] Update `apps/control-plane/src/lib/db/sqlite-provider.ts` and `apps/control-plane/app/api/mcp/route.ts` to preserve or expose normalized repository-delivery snapshots where required
 
 **Checkpoint**: A provider-neutral repository contract exists and the runner/control-plane can consume it without GitLab-specific branching in shared paths
 
@@ -67,14 +67,14 @@ provider boundary.
 
 ### Tests for User Story 2
 
-- [ ] T014 [P] [US2] Add GitLab provider contract tests in `apps/runner-daemon/src/repo-providers/gitlab.test.ts`
-- [ ] T015 [P] [US2] Extend shell/runner tests for push-succeeded and review-failed-after-push paths in `apps/runner-daemon/src/container-task.test.ts`
+- [x] T014 [P] [US2] Add GitLab provider contract tests in `apps/runner-daemon/src/repo-providers/gitlab.test.ts`
+- [x] T015 [P] [US2] Extend shell/runner tests for push-succeeded and review-failed-after-push paths in `apps/runner-daemon/src/container-task.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Implement the GitLab provider in `apps/runner-daemon/src/repo-providers/gitlab.ts`
-- [ ] T017 [US2] Refactor GitLab-specific branch push and MR creation flow in `apps/runner-daemon/assets/container-task.sh` to emit the normalized contract shape
-- [ ] T018 [US2] Update `apps/runner-daemon/src/index.ts` to pass provider-neutral auth bindings and review request data into the GitLab provider
+- [x] T016 [US2] Implement the GitLab provider in `apps/runner-daemon/src/repo-providers/gitlab.ts`
+- [x] T017 [US2] Refactor GitLab-specific branch push and MR creation flow in `apps/runner-daemon/assets/container-task.sh` to emit the normalized contract shape
+- [x] T018 [US2] Update `apps/runner-daemon/src/index.ts` to pass provider-neutral auth bindings and review request data into the GitLab provider
 
 **Checkpoint**: GitLab is still the first verified implementation, but it now lives behind the `RepoProvider` boundary
 
@@ -88,14 +88,14 @@ provider boundary.
 
 ### Tests for User Story 3
 
-- [ ] T019 [P] [US3] Add GitHub provider contract tests in `apps/runner-daemon/src/repo-providers/github.test.ts`
-- [ ] T020 [P] [US3] Add control-plane/shared tests proving GitHub review results serialize through the same normalized contract in `packages/shared/src/repository.test.ts`
+- [x] T019 [P] [US3] Add GitHub provider contract tests in `apps/runner-daemon/src/repo-providers/github.test.ts`
+- [x] T020 [P] [US3] Add control-plane/shared tests proving GitHub review results serialize through the same normalized contract in `packages/shared/src/repository.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Implement the GitHub provider in `apps/runner-daemon/src/repo-providers/github.ts`
-- [ ] T022 [US3] Update `apps/runner-daemon/src/repo-providers.ts` to register and select the GitHub provider from repository target metadata
-- [ ] T023 [US3] Extend `apps/runner-daemon/src/index.ts` and adjacent docs to pass GitHub-specific host metadata without leaking GitHub-only semantics into shared surfaces
+- [x] T021 [US3] Implement the GitHub provider in `apps/runner-daemon/src/repo-providers/github.ts`
+- [x] T022 [US3] Update `apps/runner-daemon/src/repo-providers.ts` to register and select the GitHub provider from repository target metadata
+- [x] T023 [US3] Extend `apps/runner-daemon/src/index.ts` and adjacent docs to pass GitHub-specific host metadata without leaking GitHub-only semantics into shared surfaces
 
 **Checkpoint**: GitHub becomes a real provider implementation under the same contract as GitLab
 
@@ -109,14 +109,14 @@ provider boundary.
 
 ### Tests for User Story 4
 
-- [ ] T024 [P] [US4] Add auth-binding validation tests in `packages/shared/src/repository.test.ts`
-- [ ] T025 [P] [US4] Add runner auth-resolution tests in `apps/runner-daemon/src/repo-providers.test.ts`
+- [x] T024 [P] [US4] Add auth-binding validation tests in `packages/shared/src/repository.test.ts`
+- [x] T025 [P] [US4] Add runner auth-resolution tests in `apps/runner-daemon/src/repo-providers.test.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] Implement provider-owned auth binding translation in `apps/runner-daemon/src/repo-providers/auth.ts`
-- [ ] T027 [US4] Refactor `apps/runner-daemon/src/index.ts` to build `RepositoryAuthBinding` values instead of handing raw env names to downstream repository logic
-- [ ] T028 [US4] Update `docs/RUNNER-DOCKER-MVP.md` and `specs/010-repo-provider-contracts/quickstart.md` to explain the MVP auth-boundary model without implying per-repository secret management
+- [x] T026 [US4] Implement provider-owned auth binding translation in `apps/runner-daemon/src/repo-providers/auth.ts`
+- [x] T027 [US4] Refactor `apps/runner-daemon/src/index.ts` to build `RepositoryAuthBinding` values instead of handing raw env names to downstream repository logic
+- [x] T028 [US4] Update `docs/RUNNER-DOCKER-MVP.md` and `specs/010-repo-provider-contracts/quickstart.md` to explain the MVP auth-boundary model without implying per-repository secret management
 
 **Checkpoint**: Repository auth stays behind the provider seam and future secret-management work can build on a stable boundary
 
@@ -126,10 +126,10 @@ provider boundary.
 
 **Purpose**: Close the loop across docs, tests, and follow-on consumers
 
-- [ ] T029 [P] Reconcile repository-delivery terminology across `PRODUCT.md`, `PLATFORM.md`, `README.md`, and `docs/SPEC.md`
-- [ ] T030 Update `specs/004-open-agents-framework/contracts/provider-seams.md` and `specs/004-open-agents-framework/contracts/module-inventory.md` with the realized `RepoProvider` contract owner once code lands
-- [ ] T031 [P] Run quickstart validation from `specs/010-repo-provider-contracts/quickstart.md`
-- [ ] T032 Run `pnpm --filter @mystra/shared test && pnpm --filter @mystra/control-plane test && pnpm --filter @mystra/runner-daemon test && pnpm typecheck`
+- [x] T029 [P] Reconcile repository-delivery terminology across `PRODUCT.md`, `PLATFORM.md`, `README.md`, and `docs/SPEC.md`
+- [x] T030 Update `specs/004-open-agents-framework/contracts/provider-seams.md` and `specs/004-open-agents-framework/contracts/module-inventory.md` with the realized `RepoProvider` contract owner once code lands
+- [x] T031 [P] Run quickstart validation from `specs/010-repo-provider-contracts/quickstart.md`
+- [x] T032 Run `pnpm --filter @mystra/shared test && pnpm --filter @mystra/control-plane test && pnpm --filter @mystra/runner-daemon test && pnpm typecheck`
 
 ---
 

@@ -2,9 +2,11 @@
 
 **Feature Branch**: `007-mcp-server`
 **Created**: 2026-05-14
-**Status**: Draft
+**Status**: Implemented; closure verified (workflow blueprint association deferred)
 **Dependency Note**: Initialize from `specs/004-open-agents-framework/contracts/framework-alignment.md`, `contracts/module-inventory.md`, and `research.md` divergence records, and treat MCP as a Mystra-owned submission shim over that lifecycle boundary rather than as the framework contract itself.
 **Input**: The current MCP server has 9 tools (mystra_create_job, mystra_create_project, mystra_list_projects, mystra_get_project, mystra_get_job, mystra_cancel_job, mystra_list_runners, mystra_create_context_bundle, mystra_list_context_bundles). It needs expansion for real-world agent/skill integration scenarios: workflow interaction, job observation, result retrieval, and health checking.
+**Reconciliation Note**: Current code now satisfies the basic MCP submission and polling path through the original 9 tools plus `mystra_health`, and `mystra_get_job` returns the persisted job snapshot with MCP-local output validation. Workflow blueprint association remains deferred until `005-workflow-blueprint` defines a durable workflow contract.
+**Closure Note**: Explicit review found one real issue during closure: the MCP catch-all error path leaked internal implementation messages to external callers. The route now returns a generic JSON-RPC internal error instead.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -79,7 +81,7 @@ As an external agent, I want to create and list projects and context bundles thr
 
 ### Functional Requirements
 
-- **FR-001**: The MCP server MUST support `mystra_create_job` with project, prompt, agent, optional context bundles, and optional workflow blueprint name.
+- **FR-001**: The MCP server MUST support `mystra_create_job` with project, prompt, agent, and optional runtime/context inputs already owned by the current job contract. Workflow blueprint selection is reserved and deferred until `005-workflow-blueprint` lands.
 - **FR-002**: The MCP server MUST support `mystra_get_job` returning full job state including run result and latest events.
 - **FR-003**: The MCP server MUST support `mystra_health` returning component health status.
 - **FR-004**: Existing tools (create_project, list_projects, get_project, cancel_job, list_runners, create_context_bundle, list_context_bundles) MUST continue to work.

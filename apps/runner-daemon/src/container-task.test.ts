@@ -188,6 +188,7 @@ describe("container task quality gate", () => {
   it("derives clone auth env from the selected repo provider instead of hardcoding GitLab secrets", () => {
     expect(script).toContain("MYSTRA_REPOSITORY_AUTH_REFERENCE");
     expect(script).toContain("MYSTRA_REPOSITORY_AUTH_USERNAME");
+    expect(script).toContain("MYSTRA_REPOSITORY_HTTP_BASE_URL");
     expect(script).toContain("process.env[reference]");
     expect(script).not.toContain("const token = process.env.MYSTRA_GITLAB_TOKEN;");
     expect(script).not.toContain("MYSTRA_GITLAB_HTTP_BASE_URL is required for ssh GitLab remotes");
@@ -197,6 +198,7 @@ describe("container task quality gate", () => {
     expect(runner).toContain("MYSTRA_REPOSITORY_PROVIDER");
     expect(runner).toContain("MYSTRA_REPOSITORY_AUTH_REFERENCE");
     expect(runner).toContain("MYSTRA_REPOSITORY_AUTH_USERNAME");
+    expect(runner).toContain("MYSTRA_REPOSITORY_HTTP_BASE_URL");
     expect(runner).toContain("for (const [name, value] of Object.entries(env))");
     expect(runner).not.toContain('const gitlabToken = requiredEnv("MYSTRA_GITLAB_TOKEN")');
   });
@@ -216,10 +218,14 @@ describe("container task quality gate", () => {
   it("normalizes SSH clone URLs generically instead of relying on GitLab-only host glue", () => {
     expect(script).toContain('const input = new URL(repo.includes("://") ? repo : "https://" + repo);');
     expect(script).toContain('if (input.protocol === "ssh:") {');
-    expect(script).toContain('url = new URL(`https://${input.host}${input.pathname}`);');
+    expect(script).toContain("url = httpBaseUrl ? new URL(input.pathname, new URL(httpBaseUrl)) : new URL(`https://${input.host}${input.pathname}`);");
     expect(script).toContain('url.username = username;');
     expect(script).toContain('url.password = token;');
     expect(script).not.toContain("MYSTRA_GITLAB_HTTP_BASE_URL");
+  });
+
+  it("dissociates clones that borrow from the mounted git mirror so host-side push can read objects", () => {
+    expect(script).toContain('git clone --reference-if-able "$MYSTRA_GIT_REFERENCE_PATH" --dissociate --branch "$MYSTRA_BASE_BRANCH" "$CLONE_URL" "$REPO_DIR"');
   });
 
   it("merges system mounts with resolved Project/runtime mounts instead of replacing them", () => {
@@ -324,6 +330,16 @@ describe("container task quality gate", () => {
     expect(runner).toContain("processResult:");
     expect(runner).toContain("agentAdapter.parseOutput(output.processResult)");
     expect(runner).toContain('errorCode: "agent_failed"');
+    expect(script).toContain('processResult: JSON.parse(fs.readFileSync(processResultPath, "utf8"))');
+    expect(script).not.toContain("processResult: JSON.parse(processResultRaw)");
+  });
+
+  it("formats default commit messages to satisfy remote push policy without changing MR titles", () => {
+    expect(runner).toContain('const reviewTitle = job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`');
+    expect(runner).toContain('const commitMessage = `Update #${job.spec.taskId} ${reviewTitle}`');
+    expect(runner).toContain('`MYSTRA_COMMIT_MESSAGE=${commitMessage}`');
+    expect(runner).toContain("commitMessage,");
+    expect(runner).toContain("title: reviewTitle,");
   });
 
   it("spills oversized agent prompts to a workspace file instead of argv-only transport", () => {
