@@ -141,13 +141,7 @@ pnpm preview -- quality mystra-<run-id>
 
 ### GitNexus
 
-The repository was re-indexed immediately before this overview:
-
-- repository: `mystra`
-- nodes: `3067`
-- edges: `5035`
-- clusters: `64`
-- execution flows: `185`
+GitNexus was refreshed before this overview, and the current repository graph was used as structural evidence. The exact graph counts are intentionally omitted because they are volatile index metadata rather than durable project facts.
 
 ## Important constraints
 
