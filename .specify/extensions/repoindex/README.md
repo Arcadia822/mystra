@@ -4,6 +4,23 @@ A [spec-kit](https://github.com/github/spec-kit) extension that generates struct
 
 ---
 
+## Mystra local conventions
+
+This vendored copy is adapted for Mystra's repo-local workflow:
+
+1. Refresh the GitNexus index before using repoindex (`npx gitnexus status`, then `npx gitnexus analyze --force` if stale).
+2. Treat GitNexus as the primary structural evidence source and 5xP as the durable product/process context.
+3. Return the repoindex in chat by default; only write files when the user explicitly requests persistence.
+4. If persistence is requested, use `docs/repoindex/` instead of the upstream example path under `.github/`.
+
+Recommended evidence order for Mystra:
+
+1. `gitnexus://repo/mystra/context`
+2. `gitnexus://repo/mystra/clusters`
+3. `gitnexus://repo/mystra/processes`
+4. `AGENTS.md`, `PRODUCT.md`, `PLATFORM.md`, `PROCESS.md`
+5. `docs/ARCHITECTURE.md`, `docs/LOCAL-USAGE.md`, `specs/spec-status.md`
+
 ## Installation
 
 ### 1. Clone the extension
@@ -30,7 +47,7 @@ You should see `repoindex` listed in the output.
 
 ## Commands
 
-### `/speckit.repoindex-overview`
+### `/speckit.repoindex.overview`
 
 **Scenario:** You've just joined a project or picked up an unfamiliar repository and need to get up to speed fast. This command produces a developer-friendly project introduction — what the project does, what technologies it uses, how it's structured at a high level, and how to get it running locally.
 
@@ -60,7 +77,7 @@ You can also pass a path or a scoping instruction as an argument:
 
 ---
 
-### `/speckit.repoindex-architecture`
+### `/speckit.repoindex.architecture`
 
 **Scenario:** You need to deeply understand how a codebase is structured before making significant changes, planning a migration, or reviewing it for a technical design. This command performs a thorough architectural analysis and produces documentation suitable for developers, architects, and technical leads.
 
@@ -92,7 +109,7 @@ You can also scope it to a specific path:
 
 ---
 
-### `/speckit.repoindex-module`
+### `/speckit.repoindex.module`
 
 **Scenario:** You're working on a specific part of a larger codebase and need a focused, detailed breakdown of just that module — its purpose, the business logic it implements, the APIs it exposes, the data it manages, and how its files are organized.
 
@@ -135,9 +152,9 @@ spec-kit-repoindex/
 ├── extension.yml          # Extension manifest
 ├── README.md
 └── commands/
-    ├── overview.md        # /speckit.repoindex-overview command definition
-    ├── architecture.md    # /speckit.repoindex-architecture command definition
-    └── module.md          # /speckit.repoindex-module command definition
+    ├── overview.md        # /speckit.repoindex.overview command definition
+    ├── architecture.md    # /speckit.repoindex.architecture command definition
+    └── module.md          # /speckit.repoindex.module command definition
 ```
 
 ---
