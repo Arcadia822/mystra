@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { type AgentProcessResult } from "@mystra/agent-adapters";
 import type { BranchDeliveryReceipt, CleanupOutcome, RepoProviderKind, ResolvedRuntimeContract, ReviewResult, SandboxOutcome } from "@mystra/shared";
 import { createRunnerAgentAdapterRegistry, type RunnerAgentAdapterRegistry } from "./agent-adapters.js";
-import { sanitizeGitCommandEnv, withGitProxyBypass } from "./git-command-env.js";
+import { sanitizeGitCommandEnv, shouldBypassGitProxy, withGitProxyBypass } from "./git-command-env.js";
 import { createRunnerRepoProviderRegistry, type RunnerRepoProviderRegistry } from "./repo-providers.js";
 import { detectRepositoryHostKind } from "./repository-host-kind.js";
 import {
@@ -482,14 +482,15 @@ function gitMirrorPath(config: RunnerConfig, repo: string): string {
 async function refreshGitMirror(config: RunnerConfig, repo: string): Promise<string> {
   const mirror = gitMirrorPath(config, repo);
   await mkdir(path.dirname(mirror), { recursive: true });
-  const gitEnv = sanitizeGitCommandEnv(process.env);
+  const proxyOptions = { bypassProxy: shouldBypassGitProxy(repo) };
+  const gitEnv = sanitizeGitCommandEnv(process.env, proxyOptions);
 
   try {
-    await runCommand("git", withGitProxyBypass(["-C", mirror, "remote", "set-url", "origin", repo]), { env: gitEnv });
-    await runCommand("git", withGitProxyBypass(["-C", mirror, "remote", "update", "--prune"]), { env: gitEnv });
+    await runCommand("git", withGitProxyBypass(["-C", mirror, "remote", "set-url", "origin", repo], proxyOptions), { env: gitEnv });
+    await runCommand("git", withGitProxyBypass(["-C", mirror, "remote", "update", "--prune"], proxyOptions), { env: gitEnv });
   } catch {
     await rm(mirror, { force: true, recursive: true });
-    await runCommand("git", withGitProxyBypass(["clone", "--mirror", repo, mirror]), { env: gitEnv });
+    await runCommand("git", withGitProxyBypass(["clone", "--mirror", repo, mirror], proxyOptions), { env: gitEnv });
   }
 
   return mirror;
@@ -952,123 +953,7 @@ async function executeDockerJob(
   const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts();
   const repositoryAuth = repositoryRuntimeAuthForProvider(repoProvider.providerName);
   const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets(repoProvider.providerName);
-  const gitMirror = await refreshGitMirror(config, job.spec.repo);
-  await mkdir(config.workspaceRoot, { recursive: true });
-  const workspace = await mkdtemp(path.join(config.workspaceRoot, `${run.id}-`));
-  const scriptPath = path.join(workspace, "task.sh");
-  const promptPath = path.join(workspace, "prompt.txt");
-  const agentPromptPath = path.join(workspace, "agent-prompt.txt");
-
-  await mkdir(workspace, { recursive: true });
-  for (const mount of runtimeMounts) {
-    if (mount.kind === "cache") {
-      await mkdir(cachePath(config, mount), { recursive: true });
-    }
-  }
-  await writeFile(scriptPath, await dockerTaskScript(), { mode: 0o755 });
-  await writeFile(promptPath, [
-    ...renderRuntimeContextPrompt(runtime),
-    "",
-    "User task:",
-    job.spec.prompt,
-    "",
-    "Requirements:",
-    "- Implement the requested change in this repository.",
-    "- Run the relevant local tests or type checks before finishing.",
-    "- Leave the final work committed by Mystra after you finish; do not create the MR yourself.",
-  ].join("\n"));
-  if (agentPromptFilePath) {
-    await writeFile(agentPromptPath, job.spec.prompt);
-  }
-
-  console.log(`[mystra-runner] docker claimed job=${job.id} run=${run.id} task=${job.spec.taskId}`);
-  await emitEvent(config, token, run.id, "container.starting", {
-    executor: "docker",
-    image,
-    projectSlug: project.slug,
-    sandboxProvider: sandboxProvider.providerName,
-    repositoryProvider: repoProvider.providerName,
-  });
-
-  const containerName = `mystra-${run.id}`;
-  const containerEnv: NodeJS.ProcessEnv = {
-    ...process.env,
-    ...repositoryRuntimeEnv(repositoryAuth),
-  };
-  const dockerArgs = [
-    "run",
-    "-d",
-    "--name",
-    containerName,
-    "-e",
-    "MYSTRA_SKILLS_DIR=/mystra/skills",
-    "-e",
-    `MYSTRA_TASK_ID=${job.spec.taskId}`,
-    "-e",
-    `MYSTRA_REPO=${job.spec.repo}`,
-    "-e",
-    `MYSTRA_REPOSITORY_PROVIDER=${repositoryAuth.providerName}`,
-    "-e",
-    `MYSTRA_REPOSITORY_AUTH_REFERENCE=${repositoryAuth.authBinding.reference}`,
-    "-e",
-    `MYSTRA_REPOSITORY_AUTH_USERNAME=${repositoryAuth.cloneUsername}`,
-    "-e",
-    "MYSTRA_GIT_REFERENCE_PATH=/mystra/cache/git/repo.git",
-    "-e",
-    `MYSTRA_BASE_BRANCH=${job.spec.baseBranch}`,
-    "-e",
-    `MYSTRA_BRANCH_NAME=${job.spec.branchName}`,
-    "-e",
-    `MYSTRA_AGENT=${job.spec.agent}`,
-    "-e",
-    `MYSTRA_AGENT_COMMAND_JSON=${JSON.stringify(agentCommand)}`,
-    "-e",
-    `MYSTRA_AGENT_ENV_JSON=${JSON.stringify(agentEnvironment)}`,
-    "-e",
-    `MYSTRA_AGENT_PREPARE_DIRS_JSON=${JSON.stringify(agentPrepareDirs)}`,
-    "-e",
-    `MYSTRA_AGENT_STDIN_FILE=${agentExecutionOptions?.stdinFilePath ?? ""}`,
-    "-e",
-    `MYSTRA_PROMPT=${job.spec.prompt}`,
-    "-e",
-    `MYSTRA_MR_TITLE=${reviewTitle}`,
-    "-e",
-    `MYSTRA_MR_BODY=${job.spec.mergeRequest?.body ?? job.spec.prompt}`,
-    "-e",
-    `MYSTRA_COMMIT_MESSAGE=${commitMessage}`,
-    "-e",
-    `MYSTRA_GIT_AUTHOR_NAME=${process.env.MYSTRA_GIT_AUTHOR_NAME ?? "Mystra Runner"}`,
-    "-e",
-    `MYSTRA_GIT_AUTHOR_EMAIL=${process.env.MYSTRA_GIT_AUTHOR_EMAIL ?? "mystra-runner@example.invalid"}`,
-    "-e",
-    "RESULT_FILE=/mystra/workspace/result.json",
-    "-e",
-    "PNPM_STORE_DIR=/mystra/cache/pnpm-store",
-    "-e",
-    "NPM_CONFIG_STORE_DIR=/mystra/cache/pnpm-store",
-    "-e",
-    "npm_config_store_dir=/mystra/cache/pnpm-store",
-    "-e",
-    "UV_CACHE_DIR=/mystra/cache/uv",
-    "-e",
-    "UV_PYTHON_INSTALL_DIR=/mystra/cache/uv-python",
-    "-e",
-    "UV_LINK_MODE=copy",
-  ];
-  appendRuntimePorts(dockerArgs, runtimePorts);
-  appendRuntimeSecrets(dockerArgs, containerEnv, runtimeSecrets);
-  appendRuntimeMounts(dockerArgs, config, workspace, gitMirror, runtimeMounts);
-
-  if (job.spec.agent === "codex" && config.codexAuthDir) {
-    dockerArgs.push("-v", `${config.codexAuthDir}:/root/.codex`);
-  }
-  if (process.env.COPILOT_GITHUB_TOKEN) {
-    // Copilot auth works from the forwarded token; avoid inheriting host MCP config.
-    dockerArgs.push("-e", "COPILOT_GITHUB_TOKEN");
-  }
-  appendContainerProxyEnv(dockerArgs, config, job.spec.repo);
-
-  dockerArgs.push(image, "sleep", "infinity");
+  let scriptPath: string | undefined;
 
   let terminalOverride: DockerResult | undefined;
   let cancellationRequested = Boolean(run.cancellationRequest);
@@ -1076,6 +961,124 @@ async function executeDockerJob(
   let cleanupRequired = false;
 
   try {
+    const gitMirror = await refreshGitMirror(config, job.spec.repo);
+    await mkdir(config.workspaceRoot, { recursive: true });
+    const workspace = await mkdtemp(path.join(config.workspaceRoot, `${run.id}-`));
+    scriptPath = path.join(workspace, "task.sh");
+    const promptPath = path.join(workspace, "prompt.txt");
+    const agentPromptPath = path.join(workspace, "agent-prompt.txt");
+
+    await mkdir(workspace, { recursive: true });
+    for (const mount of runtimeMounts) {
+      if (mount.kind === "cache") {
+        await mkdir(cachePath(config, mount), { recursive: true });
+      }
+    }
+    await writeFile(scriptPath, await dockerTaskScript(), { mode: 0o755 });
+    await writeFile(promptPath, [
+      ...renderRuntimeContextPrompt(runtime),
+      "",
+      "User task:",
+      job.spec.prompt,
+      "",
+      "Requirements:",
+      "- Implement the requested change in this repository.",
+      "- Run the relevant local tests or type checks before finishing.",
+      "- Leave the final work committed by Mystra after you finish; do not create the MR yourself.",
+    ].join("\n"));
+    if (agentPromptFilePath) {
+      await writeFile(agentPromptPath, job.spec.prompt);
+    }
+
+    console.log(`[mystra-runner] docker claimed job=${job.id} run=${run.id} task=${job.spec.taskId}`);
+    await emitEvent(config, token, run.id, "container.starting", {
+      executor: "docker",
+      image,
+      projectSlug: project.slug,
+      sandboxProvider: sandboxProvider.providerName,
+      repositoryProvider: repoProvider.providerName,
+    });
+
+    const containerName = `mystra-${run.id}`;
+    const containerEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      ...repositoryRuntimeEnv(repositoryAuth),
+    };
+    const dockerArgs = [
+      "run",
+      "-d",
+      "--name",
+      containerName,
+      "-e",
+      "MYSTRA_SKILLS_DIR=/mystra/skills",
+      "-e",
+      `MYSTRA_TASK_ID=${job.spec.taskId}`,
+      "-e",
+      `MYSTRA_REPO=${job.spec.repo}`,
+      "-e",
+      `MYSTRA_REPOSITORY_PROVIDER=${repositoryAuth.providerName}`,
+      "-e",
+      `MYSTRA_REPOSITORY_AUTH_REFERENCE=${repositoryAuth.authBinding.reference}`,
+      "-e",
+      `MYSTRA_REPOSITORY_AUTH_USERNAME=${repositoryAuth.cloneUsername}`,
+      "-e",
+      "MYSTRA_GIT_REFERENCE_PATH=/mystra/cache/git/repo.git",
+      "-e",
+      `MYSTRA_BASE_BRANCH=${job.spec.baseBranch}`,
+      "-e",
+      `MYSTRA_BRANCH_NAME=${job.spec.branchName}`,
+      "-e",
+      `MYSTRA_AGENT=${job.spec.agent}`,
+      "-e",
+      `MYSTRA_AGENT_COMMAND_JSON=${JSON.stringify(agentCommand)}`,
+      "-e",
+      `MYSTRA_AGENT_ENV_JSON=${JSON.stringify(agentEnvironment)}`,
+      "-e",
+      `MYSTRA_AGENT_PREPARE_DIRS_JSON=${JSON.stringify(agentPrepareDirs)}`,
+      "-e",
+      `MYSTRA_AGENT_STDIN_FILE=${agentExecutionOptions?.stdinFilePath ?? ""}`,
+      "-e",
+      `MYSTRA_PROMPT=${job.spec.prompt}`,
+      "-e",
+      `MYSTRA_MR_TITLE=${reviewTitle}`,
+      "-e",
+      `MYSTRA_MR_BODY=${job.spec.mergeRequest?.body ?? job.spec.prompt}`,
+      "-e",
+      `MYSTRA_COMMIT_MESSAGE=${commitMessage}`,
+      "-e",
+      `MYSTRA_GIT_AUTHOR_NAME=${process.env.MYSTRA_GIT_AUTHOR_NAME ?? "Mystra Runner"}`,
+      "-e",
+      `MYSTRA_GIT_AUTHOR_EMAIL=${process.env.MYSTRA_GIT_AUTHOR_EMAIL ?? "mystra-runner@example.invalid"}`,
+      "-e",
+      "RESULT_FILE=/mystra/workspace/result.json",
+      "-e",
+      "PNPM_STORE_DIR=/mystra/cache/pnpm-store",
+      "-e",
+      "NPM_CONFIG_STORE_DIR=/mystra/cache/pnpm-store",
+      "-e",
+      "npm_config_store_dir=/mystra/cache/pnpm-store",
+      "-e",
+      "UV_CACHE_DIR=/mystra/cache/uv",
+      "-e",
+      "UV_PYTHON_INSTALL_DIR=/mystra/cache/uv-python",
+      "-e",
+      "UV_LINK_MODE=copy",
+    ];
+    appendRuntimePorts(dockerArgs, runtimePorts);
+    appendRuntimeSecrets(dockerArgs, containerEnv, runtimeSecrets);
+    appendRuntimeMounts(dockerArgs, config, workspace, gitMirror, runtimeMounts);
+
+    if (job.spec.agent === "codex" && config.codexAuthDir) {
+      dockerArgs.push("-v", `${config.codexAuthDir}:/root/.codex`);
+    }
+    if (process.env.COPILOT_GITHUB_TOKEN) {
+      // Copilot auth works from the forwarded token; avoid inheriting host MCP config.
+      dockerArgs.push("-e", "COPILOT_GITHUB_TOKEN");
+    }
+    appendContainerProxyEnv(dockerArgs, config, job.spec.repo);
+
+    dockerArgs.push(image, "sleep", "infinity");
+
     const sandboxSession = await sandboxProvider.launch({
       runId: run.id,
       runtime,
@@ -1560,7 +1563,9 @@ async function executeDockerJob(
 
     await emitQualityGateEvent(config, token, run.id, result);
     await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
-    await rm(scriptPath, { force: true });
+    if (scriptPath) {
+      await rm(scriptPath, { force: true });
+    }
     console.log(`[mystra-runner] docker completed run=${run.id} status=${result.status}`);
   } catch (error) {
     captureException(error);
@@ -1574,7 +1579,9 @@ async function executeDockerJob(
     };
     await emitQualityGateEvent(config, token, run.id, result);
     await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
-    await rm(scriptPath, { force: true });
+    if (scriptPath) {
+      await rm(scriptPath, { force: true });
+    }
   }
 }
 
