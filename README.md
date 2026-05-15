@@ -1,5 +1,7 @@
 # Mystra
 
+> Orchestration of the coding agents, for the coding agents, by the coding agents.
+
 Mystra is an open-source coding-agent orchestration platform.
 
 It provides a headless control plane for submitting work through HTTP or MCP, a local-first persistence layer, pluggable provider seams for runtime execution, and pull-based runners that execute workflow logic in sandboxes and return structured results plus repository review artifacts.

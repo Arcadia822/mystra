@@ -1,5 +1,7 @@
 # Mystra Platform
 
+> Orchestration of the coding agents, for the coding agents, by the coding agents.
+
 ## Runtime Shape
 
 Mystra is a TypeScript pnpm monorepo.

@@ -1,5 +1,7 @@
 # Mystra Profile
 
+> Orchestration of the coding agents, for the coding agents, by the coding agents.
+
 ## Collaboration Style
 
 - Prefer direct implementation over abstract advice when the requested action is clear.
@@ -19,6 +21,7 @@
 - Treat README/docs language as part of product contract when it describes supported behavior.
 - Prefer concrete examples, real commands, and clickable local file references in summaries.
 - When asked to commit or push, complete the git step cleanly and avoid unrelated workspace noise.
+- For management capabilities, prefer API, skill/MCP, and CLI surfaces over UI; use this priority during design tradeoffs, evaluation, and review.
 
 ## Agent Persona
 

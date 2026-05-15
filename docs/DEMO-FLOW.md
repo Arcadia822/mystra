@@ -11,14 +11,6 @@ It is intentionally scoped to the path that exists today:
 
 The goal is not to imply that every future seam already has multiple implementations. The goal is to show one working path clearly, then show where the platform expands next.
 
-Another important framing rule:
-
-> Mystra should be presented as a **headless execution system** with a first-class single-node path today and a shared-nothing clustered direction later. The local demo is only one deployment shape, not the product boundary.
-
-Also keep one important nuance explicit:
-
-> Shared-nothing does **not** mean no execution state. Mystra still keeps durable truth for jobs, runs, and artifacts; the scaling goal is to minimize shared mutable hot-path state, not to forget what happened.
-
 ## Demo message
 
 **Mystra is the execution and orchestration layer for coding agents.**
@@ -30,11 +22,6 @@ In the demo, an external agent coordinates the request, while Mystra owns:
 - sandboxed runtime configuration
 - structured run state
 - repository delivery artifacts
-- a headless control-plane and runner model that can later scale into a shared-nothing clustered deployment
-
-If you need one architecture sentence for narration:
-
-> Mystra is a headless control plane with pull-based runners, closer to Jenkins, Salt, or Nomad than to a pure file-driven local tool.
 
 Short version:
 
@@ -134,10 +121,6 @@ The audience should leave this step with one clear model:
 
 > Mystra is not a chat toy. It is a control plane with state, workflow, and runtime boundaries.
 
-If useful, add one short sentence here:
-
-> This UI is just an observation surface. The system itself is headless and should keep the same contracts in single-node and clustered forms.
-
 ### 5. Let the external agent post milestone updates
 
 Do not overdo the number of updates. Four milestones are enough:
@@ -175,32 +158,10 @@ The goal is to show the platform surface after the story lands:
 - sandbox providers
 - context bundles
 - workflow provider and orchestration
-- headless shared-nothing architecture direction
 
 This section should be framed as:
 
 > Here is the working local path, and here are the extension seams around it.
-
-### 0. Headless architecture framing
-
-Before walking the provider lists, give one explicit architectural frame:
-
-| Property | Status | Notes |
-| --- | --- | --- |
-| Headless control plane | Available now | HTTP and MCP are the primary product surfaces |
-| Pull-based runner model | Available now | Execution does not depend on an interactive shell |
-| Single-node deployment | Available now | Current proof path |
-| Durable run state | Available now | Jobs, runs, and artifacts remain explainable beyond transient memory |
-| Shared-nothing clustered deployment | Coming soon | Same contracts across independently scalable control-plane and worker capacity |
-| Broader cloud-native realization | Coming soon | Operational packaging on top of the same headless contracts |
-
-Narration:
-
-> Mystra should behave like infrastructure. The local demo proves the contracts, and the long-term direction is a shared-nothing clustered system built from the same headless control-plane and runner boundaries.
-
-Add this if someone asks about state:
-
-> Headless does not mean UI-free and forgetful. Shared-nothing does not mean no database. It means the hot path should avoid unnecessary shared mutable coordination, while run truth stays durable.
 
 ## Suggested UI sequence for the final tour
 
@@ -286,9 +247,6 @@ Narration:
 
 - Mystra is the execution backend, not the chat frontend
 - the local path is real today
-- the local UI is an observation surface, not the product boundary
-- the architecture is intended to stay headless, with single-node first and shared-nothing clustering later
-- shared-nothing is about scaling boundaries, not eliminating durable run truth
 - workflow, runtime, repository, and context are separate surfaces
 - the demo shows a working path first, then extension seams second
 

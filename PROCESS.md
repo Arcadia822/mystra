@@ -1,5 +1,7 @@
 # Mystra Process
 
+> Orchestration of the coding agents, for the coding agents, by the coding agents.
+
 ## Context Loading
 
 Use the smallest context set that can answer the task.
@@ -31,6 +33,7 @@ The current product boundary is Open Agents source-authoritative baseline reuse 
    - A durable rule now in force: treat Open Agents as a source-authoritative framework baseline and reference architecture, not as a packaged SDK with complete extension interfaces for Mystra surfaces.
    - Another durable rule now in force: prefer neutral platform language such as `Mystra platform`, `workspace`, and `project` over company/customer-specific tenancy terms in project-wide docs and specs.
    - Another durable rule now in force: avoid overfitting 5xP to one example deployment shape; prefer platform-contract language over environment-specific examples such as bare-metal host descriptions.
+   - Another durable rule now in force: prioritize management surfaces in the order `API -> skill/MCP -> CLI -> UI`; UI is secondary to agent- and operator-facing programmable interfaces.
 5. Keep feature-specific requirements inside Spec-Kit specs, plans, tasks, and generated design artifacts.
 6. Do not create feature-level PRDs, plans, task lists, or generated design artifacts directly under `docs/`; use `specs/<feature>/`.
 7. If a submodule needs durable operating knowledge, add the smallest useful local documentation near that submodule and link it from the relevant Spec-Kit artifact or 5xP file.
@@ -73,6 +76,11 @@ acceptance and reason in the feature directory.
   why GitNexus was not applicable.
 - Resolve critical `plan-eng-review` findings before task decomposition, or
   record an explicit owner waiver.
+- During design, evaluation, and review, prefer solutions that strengthen API,
+  skill/MCP, and CLI management surfaces before adding UI-first management
+  flows. Treat UI primarily as an observation surface or secondary operator
+  control path unless the requirement explicitly centers on human visual
+  interaction.
 - Run the narrowest relevant test first, then broader checks when the touched surface justifies it.
 - For broad changes, run `pnpm typecheck` and `pnpm test`.
 - Before merge, run the project-local `code-review-and-quality` review gate. Treat review findings as part of delivery, not optional cleanup.

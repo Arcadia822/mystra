@@ -1,5 +1,7 @@
 # Mystra Product
 
+> Orchestration of the coding agents, for the coding agents, by the coding agents.
+
 ## Purpose
 
 Mystra is a self-use coding-agent orchestration platform. It uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces at the seams where upstream does not provide a reusable contract. The initial implementation replaces cloud-first infrastructure providers with local-first providers.
