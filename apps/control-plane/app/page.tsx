@@ -1,6 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  applyThemeToDocument,
+  buildThemeSwatch,
+  CONTROL_PLANE_THEMES,
+  getDefaultTheme,
+  getThemeById,
+} from "./theme-system";
 
 type AgentName = "codex" | "copilot";
 type RunnerExecutor = "docker" | "fake";
@@ -129,6 +136,9 @@ const initialForm: JobFormState = {
   prompt: "",
 };
 
+const THEME_STORAGE_KEY = "mystra-control-plane-theme";
+const DEFAULT_THEME = getDefaultTheme();
+
 function relativeTime(value: string): string {
   const diffMs = Date.now() - new Date(value).getTime();
   const seconds = Math.max(0, Math.floor(diffMs / 1000));
@@ -247,6 +257,7 @@ function runnerNodesFromSessions(sessions: RunnerSession[]): RunnerNode[] {
 }
 
 export default function Page() {
+  const [themeId, setThemeId] = useState<string>(DEFAULT_THEME.id);
   const [jobs, setJobs] = useState<JobSnapshot[]>([]);
   const [runners, setRunners] = useState<RunnerSession[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -264,6 +275,10 @@ export default function Page() {
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === form.projectId) ?? projects[0],
     [form.projectId, projects],
+  );
+  const activeTheme = useMemo(
+    () => getThemeById(themeId) ?? DEFAULT_THEME,
+    [themeId],
   );
   const jobSummary = useMemo(() => {
     return jobs.reduce(
@@ -327,6 +342,18 @@ export default function Page() {
         : { ...current, projectId: firstProject.id });
     }
   }
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (savedTheme && getThemeById(savedTheme)) {
+      setThemeId(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    applyThemeToDocument(activeTheme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, activeTheme.id);
+  }, [activeTheme]);
 
   useEffect(() => {
     void refresh();
@@ -429,9 +456,42 @@ export default function Page() {
           </a>
         </nav>
 
+        <section className="railSection" aria-labelledby="theme-system-heading">
+          <div className="railSectionHeader">
+            <p className="eyebrow">Theme system</p>
+            <h2 id="theme-system-heading">Token moods</h2>
+            <p className="sectionCopy">
+              Keep the same control-plane structure while changing the atmosphere.
+            </p>
+          </div>
+          <div className="themePicker" role="radiogroup" aria-label="Control plane theme">
+            {CONTROL_PLANE_THEMES.map((option) => (
+              <button
+                key={option.id}
+                aria-checked={option.id === activeTheme.id}
+                className={`themeOption ${option.id === activeTheme.id ? "selected" : ""}`}
+                role="radio"
+                type="button"
+                onClick={() => setThemeId(option.id)}
+              >
+                <span
+                  aria-hidden="true"
+                  className="themeSwatch"
+                  style={{ background: buildThemeSwatch(option) }}
+                />
+                <span className="themeMeta">
+                  <strong>{option.label}</strong>
+                  <span>{option.description}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <div className="railStatus">
           <span className="pill active">live</span>
           <span>Refresh every 3s</span>
+          <span className="subtleText">Theme {activeTheme.label}</span>
         </div>
         <div className="statusGrid" aria-label="Rail summaries">
           <div className="statusTile">
@@ -463,6 +523,7 @@ export default function Page() {
             </p>
           </div>
           <div className="toolbar">
+            <span className="pill">{activeTheme.label}</span>
             <span className="pill active">{jobSummary.active} running</span>
             <span className={`pill ${runnerSummary.stale > 0 ? "bad" : "good"}`}>
               {runnerSummary.online} online

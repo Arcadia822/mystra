@@ -4,12 +4,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Mystra Control Plane",
+  description: "Codex-inspired operator workspace for Mystra jobs, runners, and MCP access.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html data-theme-id="notion" data-theme-preset="notion-light" data-theme-variant="light" lang="en" suppressHydrationWarning>
+      <body className="appBody">{children}</body>
     </html>
   );
 }
