@@ -1,47 +1,84 @@
 # Mystra
 
-A bare-metal coding-agent platform for running multiple AI development tasks in
-isolated Docker containers on your own infrastructure.
+Mystra is an open-source coding-agent orchestration platform.
 
-Mystra provides a control plane that receives work through HTTP or MCP, a
-local-first persistence layer, and pull-based runner daemons that execute Codex
-CLI or GitHub Copilot CLI in Docker sandboxes. Successful runs produce
-reviewable GitLab or GitHub branches plus merge requests or pull requests.
+It provides a control plane for submitting work through HTTP or MCP, a local-first persistence layer, pluggable provider seams for runtime execution, and pull-based runners that execute workflow logic in sandboxes and return structured results plus repository review artifacts.
 
-Open Agents is used as a source-authoritative framework baseline and reference
-architecture. Mystra owns the actual interface and SDK definitions at provider,
-workflow, and orchestration seams instead of assuming upstream ships a reusable
-package contract for each surface.
+Mystra uses [Open Agents](https://github.com/vercel-labs/open-agents) as a **source-authoritative baseline and reference architecture**, while keeping Mystra-owned interfaces at provider, workflow, and orchestration seams.
 
-The long-term shape is a hosted **Mystra platform** serving many independent
-**workspaces**. Each workspace can hold multiple projects with their own
-workflow variants, runtime images, product routes, user stories, and acceptance
-criteria, while sharing platform-owned provider pools such as sandbox capacity.
-The MVP still proves a single local path first.
+## Current status
 
-## Architecture
+Mystra is in active MVP development.
 
-```
-apps/control-plane    Next.js route handlers, MCP endpoint, state-facing APIs
+Today the repository is focused on proving a local-first path with:
+
+- a Next.js control plane
+- SQLite behind `RdbProvider`
+- a Mystra-owned local workflow implementation
+- a pull-based runner daemon
+- sandboxed execution
+- repository delivery for GitLab and GitHub
+- agent execution through current provider adapters
+
+Important caveat: the current workflow implementation is an example implementation, not the final product contract. Mystra is about **workflow execution and platform seams**, not one hardcoded delivery sequence.
+
+The MVP is primarily for self-use. The long-term direction is to provide a developer experience similar in spirit to **Stripe Minion**: fast task submission, clear execution ownership, reviewable outputs, and strong platform boundaries between workflow, runtime, and repository delivery.
+
+## Why Mystra exists
+
+Mystra is designed for teams that want a platform-shaped way to run coding agents on infrastructure they control, while preserving clean contracts between:
+
+- control plane and runner
+- workflow logic and persistence
+- sandbox runtime and agent adapters
+- platform capabilities and project-specific configuration
+
+The long-term direction is a hosted **Mystra platform** that serves many **workspaces** and **projects**, each with its own workflow variants and runtime contracts, while sharing platform-owned provider pools.
+
+## Architecture at a glance
+
+```text
+apps/control-plane    Next.js route handlers, state-facing APIs, MCP endpoint
 apps/workflows        Workflow provider implementations and orchestration adapters
-apps/runner-daemon    Bare-metal runner service
+apps/runner-daemon    Pull-based runner service
 packages/shared       Zod schemas, state machine, events, result contracts
 packages/agent-adapters
+plugins/supabase
+supabase
 ```
 
-## Provider Layer
+```mermaid
+flowchart LR
+    Caller[MCP client / API caller] --> CP[control-plane]
+    CP --> DB[(RdbProvider)]
+    CP --> WF[WorkflowProvider]
+    Runner[runner-daemon] --> CP
+    Runner --> Sandbox[SandboxProvider]
+    Sandbox --> Agent[AgentProvider]
+    Agent --> Repo[RepoProvider]
+    Shared[packages/shared] --> CP
+    Shared --> Runner
+    Shared --> WF
+```
 
-Mystra defines provider seams where managed services would be used, and ships local-first implementations first:
+### Provider seams
 
-| Provider | MVP Implementation | Future |
+| Provider | Current implementation | Direction |
 |---|---|---|
-| RdbProvider | SQLite-backed local store | Cloud RDB |
-| WorkflowProvider | Mystra-owned local workflow | External adapters if earned |
-| SandboxProvider | Single-machine Docker | Kubernetes |
-| RepoProvider | GitLab and GitHub review delivery | Additional hosts or provider variants |
-| AgentProvider | Codex CLI, GitHub Copilot CLI | Claude CLI |
+| `RdbProvider` | SQLite | Hosted/cloud RDB later |
+| `WorkflowProvider` | Mystra-owned local workflow | Additional implementations later |
+| `SandboxProvider` | Local sandbox path | Stronger isolation / cloud sandbox later |
+| `RepoProvider` | GitLab and GitHub | Additional hosts or variants later |
+| `AgentProvider` | Current agent adapters | Additional agent providers later |
 
-## Quick Start
+## Quick start
+
+### Prerequisites
+
+- Node.js 24.x
+- pnpm
+
+### Install and verify
 
 ```sh
 pnpm install
@@ -50,86 +87,98 @@ pnpm typecheck
 pnpm test
 ```
 
+### Start the local loop
+
 Start the control plane:
 
 ```sh
 pnpm dev:control-plane
 ```
 
-Start a fake runner for local protocol development:
+Start a local runner in another terminal:
 
 ```sh
 MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner
 ```
 
-Create a Project, then create a job by `projectId`:
+If you want the shortest operator path on this machine, use:
 
 ```sh
-PROJECT_ID="$(curl -sS -X POST http://localhost:3000/api/projects \
-  -H 'content-type: application/json' \
-  -d '{
-    "repo": "local/fixture",
-    "slug": "local-fixture",
-    "name": "Local Fixture",
-    "baseBranch": "main",
-    "defaultAgent": "codex",
-    "runtime": {
-      "provider": "docker",
-      "image": "mystra-castrel-runner:local"
-    }
-  }' | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.id));')"
-
-curl -sS -X POST http://localhost:3000/api/jobs \
-  -H 'content-type: application/json' \
-  -d "{
-    \"taskId\": \"local-1\",
-    \"source\": \"api\",
-    \"projectId\": \"$PROJECT_ID\",
-    \"branchName\": \"mystra/local-1\",
-    \"prompt\": \"Smoke test the local Mystra loop\"
-  }"
+./scripts/start-local.sh
+pnpm run doctor
 ```
 
-## MVP Scope
+For a full local protocol walk, MCP examples, restart-durability checks, and development-machine deployment notes, see [docs/LOCAL-USAGE.md](docs/LOCAL-USAGE.md).
 
-In scope:
+## Core commands
 
-- Next.js control plane with job CRUD, runner registration, and MCP endpoint
-- Pull-based runner daemon over outbound long polling
-- Docker task containers on the runner host
-- Codex CLI and GitHub Copilot CLI agent execution
-- GitLab branch and merge request delivery
-- GitHub branch and pull request delivery
-- Structured lifecycle events and run results
-- Deterministic test-then-build quality gate before branch/MR/PR delivery
+| Command | Description |
+|---|---|
+| `pnpm build` | Build all packages/apps |
+| `pnpm typecheck` | Run TypeScript checks across the repo |
+| `pnpm lint` | Run repo lint/type lint commands |
+| `pnpm test` | Run the test suite |
+| `pnpm doctor` | Run local preflight checks |
+| `pnpm dev:control-plane` | Start the control plane |
+| `pnpm dev:runner` | Start the local runner |
+| `pnpm run deploy:dev` | Deploy to the configured development machine |
+| `pnpm job:submit -- ...` | Submit a project-backed job |
+| `pnpm preview -- list` | Inspect retained preview environments |
 
-Explicitly out of scope for the MVP:
+## MVP scope
 
-- Control-plane caller authentication
-- Logs API or log persistence
-- Retry API, callback URLs, quality-gate fix loops
-- Claude CLI adapter
+### In scope
+
+- control-plane APIs and MCP entrypoint
+- pull-based runner registration and job claim loop
+- structured lifecycle events and final results
+- project-scoped runtime configuration
+- repository review delivery
+- provider seams that keep local-first and future hosted implementations replaceable
+
+### Out of scope
+
+- control-plane caller authentication
+- logs API or log persistence
+- retry API
+- callback URLs
+- quality-gate fix loops
+- per-repository secret management
 - Kubernetes sandbox workloads
-- Cross-runner shared caches
+- hosted cloud RDB implementation
 
-## Documentation
+## Documentation map
 
-- [SPEC.md](docs/SPEC.md) - Product and engineering boundaries
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
-- [IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) - Phased implementation plan
-- [LOCAL-USAGE.md](docs/LOCAL-USAGE.md) - Local development usage guide, MVP acceptance smoke path, and minimum operator runbook
-- [RUNNER-DOCKER-MVP.md](docs/RUNNER-DOCKER-MVP.md) - Docker runner setup
-- [ADR-0001](docs/ADR-0001-control-plane-runner.md) through [ADR-0005](docs/ADR-0005-open-agents-source-baseline.md) - Architecture decision records
+- [docs/LOCAL-USAGE.md](docs/LOCAL-USAGE.md) — local usage, smoke paths, and operator runbook
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system architecture notes
+- [docs/SPEC.md](docs/SPEC.md) — product and engineering boundaries
+- [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) — phased implementation plan
+- [docs/repoindex/overview.md](docs/repoindex/overview.md) — repository overview for brownfield onboarding
+- [docs/ADR-0001-control-plane-runner.md](docs/ADR-0001-control-plane-runner.md) through [docs/ADR-0005-open-agents-source-baseline.md](docs/ADR-0005-open-agents-source-baseline.md) — architecture decision records
 
-## Project Context
+## Project context
 
-Mystra uses 5xP root documents for durable project context:
+Mystra keeps durable repository context in the 5xP files:
 
-- [PRODUCT.md](PRODUCT.md) - What Mystra is, who it serves, scope boundaries
-- [PLATFORM.md](PLATFORM.md) - Stack, architecture constraints, commands
-- [PROCESS.md](PROCESS.md) - Workflow, quality gates, git discipline
-- [PROFILE.md](PROFILE.md) - Collaboration style and owner preferences
-- [AGENTS.md](AGENTS.md) - Agent persona, routing, principles
+- [PRODUCT.md](PRODUCT.md)
+- [PLATFORM.md](PLATFORM.md)
+- [PROCESS.md](PROCESS.md)
+- [PROFILE.md](PROFILE.md)
+- [AGENTS.md](AGENTS.md)
+
+These files describe product boundaries, platform constraints, workflow rules, and agent-facing repository conventions.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+In short:
+
+1. Fork the repository.
+2. Create a branch from `main`.
+3. Make a focused change.
+4. Run `pnpm typecheck && pnpm test`.
+5. Open a pull request that explains the motivation and scope.
 
 ## License
 

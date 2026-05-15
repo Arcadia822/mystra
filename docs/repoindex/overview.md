@@ -13,9 +13,9 @@ This means repoindex is not a blind directory walk. It is a maintained onboardin
 
 ## Purpose
 
-Mystra is an internal coding-agent orchestration platform. Its current MVP lets internal callers or remote MCP clients submit implementation work for repositories, then routes that work through a control plane, runner, sandbox, and agent so the platform can produce a reviewable branch and repository review artifact.
+Mystra is a self-use coding-agent orchestration platform. Its current MVP lets internal callers or remote MCP clients submit implementation work for repositories, then routes that work through a control plane, runner, sandbox, and agent so the platform can produce a reviewable branch and repository review artifact.
 
-The near-term goal is one local-first path that works end to end. The north-star direction is a hosted **Mystra platform** serving many **workspaces** and **projects** without rewriting core contracts.
+The near-term goal is one self-use, local-first path that works end to end. The north-star direction is a hosted **Mystra platform** serving many **workspaces** and **projects** without rewriting core contracts, with a developer experience similar in spirit to Stripe Minion.
 
 ### Explicit MVP exclusions
 

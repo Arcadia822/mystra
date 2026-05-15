@@ -120,9 +120,9 @@ Use `claude-design-intake` to start any design task.
 
 ## Current MVP Boundaries
 
-Mystra MVP uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces where upstream does not provide reusable package contracts. It starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), a Mystra-owned local workflow implementation, and single-machine Docker sandbox.
+Mystra MVP uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces where upstream does not provide reusable package contracts. It starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), a Mystra-owned local workflow implementation, and a single-machine sandbox path.
 
-The near-term MVP goal is to let other agents and skills submit user journeys and implementation requests through Mystra remote MCP, then have Mystra develop GitLab and GitHub projects on a provided high-capacity server that runs the control plane, runner, and sandbox workloads.
+The near-term MVP goal is self-use: let other agents and skills submit user journeys and implementation requests through Mystra remote MCP, then have Mystra execute the configured workflow and return reviewable repository artifacts through the current repository providers.
 
 The north-star model is a hosted **Mystra platform** serving many independent
 **workspaces**. Each workspace may contain multiple projects with their own
@@ -130,6 +130,10 @@ workflow variants, runtime images, product routes, user stories, and acceptance
 criteria, while sharing platform-owned provider pools such as sandbox capacity.
 Use this as the architectural direction when designing extensible interfaces,
 even if the current MVP only proves one local path.
+
+The intended long-term experience is similar in spirit to **Stripe Minion**:
+fast task intake, clear workflow execution ownership, reviewable outputs, and
+strong platform seams between workflow, runtime, agent, and repository layers.
 
 Mystra MVP excludes caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, per-repository secret management, and hosted RDB provider implementation (PG/Supabase implementation is post-MVP; the interface must not leak SQLite dialect).
 

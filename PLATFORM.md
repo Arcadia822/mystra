@@ -7,7 +7,7 @@ Mystra is a TypeScript pnpm monorepo.
 ```text
 apps/control-plane    Next.js route handlers, MCP endpoint, state-facing APIs
 apps/workflows        Workflow provider implementations and orchestration adapters
-apps/runner-daemon    Bare-metal runner service
+apps/runner-daemon    Pull-based runner service
 packages/shared       Zod schemas, state machine, events, result contracts
 packages/agent-adapters
 plugins/supabase      Supabase plugin skills for future/cloud provider work
@@ -22,12 +22,12 @@ supabase              Migrations, seed, generated database types
 - App framework: Next.js route handlers for the control plane.
 - RDB provider, first implementation: local SQLite.
 - Workflow interface, first implementation: Mystra-owned local workflow implementation.
-- Runner daemon: Node.js TypeScript service under systemd on bare metal.
-- Sandbox provider, first implementation: single-machine Docker task containers.
+- Runner daemon: Node.js TypeScript service.
+- Sandbox provider, first implementation: single-machine sandbox task containers.
 - Validation: Zod schemas shared across services.
 - Test runner: Vitest.
-- Agent CLIs: Codex CLI and GitHub Copilot CLI.
-- Repository provider contract in MVP: GitLab and GitHub review delivery.
+- Agent provider contract: current adapter-backed agent execution.
+- Repository provider contract in MVP: repository review delivery.
 
 ## North Star Topology
 
@@ -93,12 +93,12 @@ Mystra uses Open Agents as a source-authoritative baseline and defines provider 
 ```text
 RdbProvider        local SQLite first; cloud RDB later
 WorkflowProvider   Mystra-owned local implementation first; external adapters later if earned
-SandboxProvider    single-machine Docker first; Vercel Sandbox or stronger isolation later
-RepoProvider       GitLab and GitHub contract scope first
-AgentProvider      Codex CLI and GitHub Copilot CLI first
+SandboxProvider    single-machine sandbox first; stronger isolation later
+RepoProvider       review-delivery contract first; provider variants later
+AgentProvider      current adapter-backed execution first; more providers later
 ```
 
-For repository delivery, 004 treats GitLab and GitHub as MVP contract scope.
+For repository delivery, 004 treats review-delivery provider seams as MVP contract scope, with current implementations targeting GitLab and GitHub.
 Provider-specific realization lives in `specs/010-repo-provider-contracts/` so
 workflow, runner, and agent surfaces do not hardcode one host as the only valid
 target.
@@ -114,4 +114,4 @@ Provider implementations must be replaceable without rewriting product contracts
 
 ## Runner Host Facts
 
-The current development runner is `10.106.2.127` on Debian 12 with Docker, Codex CLI, GitHub Copilot CLI, and Mihomo proxy setup. Details live in `docs/RUNNER-ENVIRONMENT.md`.
+The current development runner is one concrete development environment. Details live in `docs/RUNNER-ENVIRONMENT.md`, but 5xP documents should describe platform contracts rather than overfit to one machine profile.

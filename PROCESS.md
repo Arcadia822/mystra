@@ -13,7 +13,7 @@ Use the smallest context set that can answer the task.
 
 The project uses 5xP for durable project context and Spec-Kit for feature-level specification-driven development.
 
-The current product boundary is Open Agents source-authoritative baseline reuse with Mystra-owned interfaces at provider and orchestration seams, plus local-first implementations: SQLite RDB, local workflow, and single-machine Docker sandbox.
+The current product boundary is Open Agents source-authoritative baseline reuse with Mystra-owned interfaces at provider and orchestration seams, plus local-first implementations: SQLite RDB, local workflow, and a single-machine sandbox path.
 
 1. Use `AGENTS.md` to route the work through `spec-kit-workflow` and identify the relevant project-local skill/process.
 2. Use the 5xP root files for stable project context:
@@ -30,6 +30,7 @@ The current product boundary is Open Agents source-authoritative baseline reuse 
 4. Update 5xP files only when a durable project rule changes.
    - A durable rule now in force: treat Open Agents as a source-authoritative framework baseline and reference architecture, not as a packaged SDK with complete extension interfaces for Mystra surfaces.
    - Another durable rule now in force: prefer neutral platform language such as `Mystra platform`, `workspace`, and `project` over company/customer-specific tenancy terms in project-wide docs and specs.
+   - Another durable rule now in force: avoid overfitting 5xP to one example deployment shape; prefer platform-contract language over environment-specific examples such as bare-metal host descriptions.
 5. Keep feature-specific requirements inside Spec-Kit specs, plans, tasks, and generated design artifacts.
 6. Do not create feature-level PRDs, plans, task lists, or generated design artifacts directly under `docs/`; use `specs/<feature>/`.
 7. If a submodule needs durable operating knowledge, add the smallest useful local documentation near that submodule and link it from the relevant Spec-Kit artifact or 5xP file.
