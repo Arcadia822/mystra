@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=acdc97eca5adac14bb617d7dd8a66c088f57c45a updated=2026-05-18T02:28:14Z -->
+<!-- spec-status: project=mystra commit=acdc97eca5adac14bb617d7dd8a66c088f57c45a updated=2026-05-18T09:21:23Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -43,4 +43,4 @@
 <!-- feature: 016-agent-runtime-sdk has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
 <!-- feature: 017-operator-cli-surface has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
 <!-- feature: 018-coordination-run-summaries has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
-<!-- feature: 020-layered-context-harness has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=false has_checklists=true tasks_total=13 tasks_completed=13 checklist_files=requirements.md -->
+<!-- feature: 020-layered-context-harness has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=false has_checklists=true tasks_total=10 tasks_completed=10 checklist_files=requirements.md -->

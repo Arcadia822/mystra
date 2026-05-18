@@ -6,6 +6,8 @@ import {
   cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
   executionSpecArtifactSchema,
+  executionSpecBundleSlug,
+  executionSpecMountPath,
   contextBundleSchema,
   jobInlineContextBundlePayloadSchema,
   jobSpecSchema,
@@ -278,6 +280,27 @@ describe("runtime schemas", () => {
     expect(parsed.executionContract?.bundleSlug).toBe("execution-spec");
   });
 
+  it("rejects unsafe context bundle mount source refs in resolved runtime contracts", () => {
+    expect(() =>
+      resolvedRuntimeContractSchema.parse({
+        provider: "docker",
+        environment: {
+          image: "mystra-runner:local",
+        },
+        contextBundles: [],
+        mounts: [{
+          kind: "contextBundle",
+          target: "/mystra/skills",
+          sourceRef: "agent-skills/v2",
+          readOnly: true,
+        }],
+        exposedPorts: [],
+        cache: { coldStartAllowed: true, entries: [] },
+        secrets: [],
+      }),
+    ).toThrow(/single safe path segment/);
+  });
+
   it("accepts context bundle definitions and create payloads", () => {
     const created = contextBundleCreateSchema.parse({
       slug: "agent-skills",
@@ -365,6 +388,107 @@ describe("runtime schemas", () => {
         files: [{ path: "../execution-spec.json", content: "{}" }],
       }),
     ).toThrow();
+
+    expect(() =>
+      jobInlineContextBundlePayloadSchema.parse({
+        files: [{ path: ".", content: "{}" }],
+      }),
+    ).toThrow(/safe relative paths/);
+  });
+
+  it("validates job-inline bundle payloads at create time", () => {
+    const created = contextBundleCreateSchema.parse({
+      slug: "inline-execution-plan",
+      displayName: "Inline Execution Plan",
+      source: {
+        kind: "job-inline",
+        metadata: {
+          jobInline: {
+            files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
+          },
+        },
+      },
+      accessMode: "job-scoped",
+      mountPath: "/mystra/context/inline-plan",
+      failureMode: "fail-run",
+    });
+
+    expect(created.source.metadata.jobInline).toEqual({
+      files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
+    });
+
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: "bad-inline-plan",
+        displayName: "Bad Inline Execution Plan",
+        source: {
+          kind: "job-inline",
+          metadata: {
+            jobInline: {
+              files: [{ path: ".", content: "{}" }],
+            },
+          },
+        },
+        accessMode: "job-scoped",
+        mountPath: "/mystra/context/bad-inline-plan",
+        failureMode: "fail-run",
+      }),
+    ).toThrow(/safe relative paths/);
+  });
+
+  it("rejects reserved execution-spec bundle identifiers in create payloads", () => {
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: executionSpecBundleSlug,
+        displayName: "Conflicting Execution Spec",
+        source: { kind: "local-template", ref: "conflicting-execution-spec" },
+        accessMode: "read-only",
+        failureMode: "fail-run",
+      }),
+    ).toThrow(/reserved/);
+
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: "project-context",
+        displayName: "Conflicting Execution Mount",
+        source: { kind: "local-template", ref: "project-context" },
+        accessMode: "read-only",
+        mountPath: executionSpecMountPath,
+        failureMode: "fail-run",
+      }),
+    ).toThrow(/reserved/);
+  });
+
+  it("rejects unsafe filesystem source refs and multi-segment slugs", () => {
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: "agent-skills/v2",
+        displayName: "Nested Slug",
+        source: { kind: "local-template", ref: "templates/agent-skills" },
+        accessMode: "read-only",
+        failureMode: "fail-run",
+      }),
+    ).toThrow(/single safe path segment/);
+
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: "agent-skills",
+        displayName: "Absolute Source",
+        source: { kind: "local-template", ref: "/tmp/agent-skills" },
+        accessMode: "read-only",
+        failureMode: "fail-run",
+      }),
+    ).toThrow(/safe relative paths/);
+
+    expect(() =>
+      contextBundleCreateSchema.parse({
+        slug: "artifact-bundle",
+        displayName: "Traversal Source",
+        source: { kind: "external-artifact", ref: "../artifacts/spec.json" },
+        accessMode: "read-only",
+        failureMode: "fail-run",
+      }),
+    ).toThrow(/safe relative paths/);
   });
 });
 

@@ -3,9 +3,9 @@
 **Input**: Design documents from `/specs/020-layered-context-harness/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, quickstart.md
 
-**Tests**: Documentation consistency checks only. No new executable test surface is required for this issue.
+**Tests**: Shared schema tests, control-plane DB/route tests, runner-daemon tests, then broad repo typecheck/test reconciliation.
 
-**Organization**: Tasks are grouped by user story so the contract clarification can be delivered in independently reviewable slices.
+**Organization**: Tasks are grouped by execution slice so the artifact-first Context Bundle loop can land in a minimal, reviewable sequence.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -13,66 +13,47 @@
 - **[Story]**: Which user story this task belongs to (`[US1]`, `[US2]`, `[US3]`)
 - Include exact file paths in descriptions
 
-## Phase 1: Setup (Shared Planning And Terminology)
+## Phase 1: Review And Artifact Sync
 
-**Purpose**: Lock the terminology and target surfaces before editing existing docs.
+**Purpose**: Reconfirm the reduced implementation scope and bring the latest spec artifacts into this worktree.
 
-- [x] T001 Review `/Users/arcadia/data/mystra/specs/020-layered-context-harness/spec.md`, `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/spec.md`, and `/Users/arcadia/data/mystra/docs/ARCHITECTURE.md` for wording drift
-- [x] T002 [P] Confirm the shared terms in `/Users/arcadia/data/mystra/specs/020-layered-context-harness/{research.md,data-model.md,quickstart.md}`
-
----
-
-## Phase 2: Foundational (Primary Contract Surfaces)
-
-**Purpose**: Update the existing runtime/context feature docs that already own the execution contract.
-
-- [x] T003 Update `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/spec.md` so Context Bundle semantics explicitly include submission-time frozen spec injection and artifact-first execution
-- [x] T004 [P] Update `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/research.md` to record the freeze-point and artifact-vs-chat-history decisions
-- [x] T005 [P] Update `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/quickstart.md` to describe the frozen spec artifact and review attribution flow
-
-**Checkpoint**: `002-runtime-profile-context` now describes the layered handoff without requiring readers to open `020/spec.md`.
+- [x] T001 Review `specs/020-layered-context-harness/{spec.md,plan.md}` against `packages/shared/src/schemas.ts`, `apps/control-plane/src/lib/db/sqlite-provider.ts`, and `apps/runner-daemon/src/index.ts` to confirm the smallest artifact-first closure
+- [x] T002 [P] Sync `specs/020-layered-context-harness/` into this worktree so implementation, plan review, and follow-up docs all reference the same feature artifacts
 
 ---
 
-## Phase 3: User Story 1 - Submit Frozen Spec Into Execution Space (Priority: P1) 🎯 MVP
+## Phase 2: Shared Contract And Control-Plane Freeze
 
-**Goal**: Existing docs say clearly that job submission freezes the execution-facing spec.
+**Purpose**: Freeze a first-class execution-spec artifact at job creation and thread it through the resolved runtime contract.
 
-**Independent Test**: Search the updated docs and confirm they identify job submission as the freeze point and reject live post-submission drift.
+- [x] T003 [US1] Extend `packages/shared/src/schemas.ts` with safe inline Context Bundle payloads, execution contract references, and execution-spec artifact schemas
+- [x] T004 [US1] Update `apps/control-plane/src/lib/db/sqlite-provider.ts` so `createJob()` freezes the execution-spec artifact, persists it via the existing artifacts table, and attaches it to `resolved_runtime` as a required job-scoped Context Bundle
+- [x] T005 [P] [US1] Add/refresh focused coverage in `packages/shared/src/schemas.test.ts`, `apps/control-plane/src/lib/db/sqlite-provider.test.ts`, and `apps/control-plane/app/api/routes.test.ts` for freeze-time artifacts and execution-contract metadata
 
-- [x] T006 [US1] Update `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/contracts/api.md` with submission-time freeze and execution-contract wording
-- [x] T007 [US1] Update `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/contracts/mcp.md` with the same submission-time freeze semantics for MCP callers
-
----
-
-## Phase 4: User Story 2 - Sandbox Agents Work From Spec Artifacts, Not Chat History (Priority: P1)
-
-**Goal**: Runner-facing and runtime-facing docs state that sandbox execution consumes injected artifacts rather than live collaboration history.
-
-**Independent Test**: Search the updated runner/runtime docs and confirm they treat chat history as out-of-contract and spec artifacts as primary input.
-
-- [x] T008 [US2] Update `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/contracts/runner-claim.md` to describe artifact-first execution semantics
-- [x] T009 [US2] Reconcile the corresponding bundle/injection wording in `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/spec.md` if contract phrasing changed
+**Checkpoint**: Submitted jobs carry a typed execution-spec artifact and runtime execution contract reference before any runner claims occur.
 
 ---
 
-## Phase 5: User Story 3 - Reviewers Can Explain Which Spec Version Produced The Result (Priority: P2)
+## Phase 3: Runner Materialization And Artifact-First Execution
 
-**Goal**: Architecture and quickstart docs explain how completed runs remain attributable to the frozen spec version they executed.
+**Purpose**: Turn runtime Context Bundle metadata into real mounted files and make the injected artifact the primary execution contract.
 
-**Independent Test**: Read the updated architecture and quickstart docs and confirm they explain why newer collaborative revisions require a new job.
+**Independent Test**: A claimed Docker run materializes the execution-spec bundle before mount and the generated task prompt points the agent at the mounted artifact instead of treating the raw submission prompt as truth.
 
-- [x] T010 [US3] Update `/Users/arcadia/data/mystra/docs/ARCHITECTURE.md` with the collaborative-workspace to execution-workspace handoff explanation
-- [x] T011 [US3] Update `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/quickstart.md` or `/Users/arcadia/data/mystra/specs/020-layered-context-harness/quickstart.md` if review attribution wording still differs
+- [x] T006 [US2] Update `apps/runner-daemon/src/index.ts` so runtime Context Bundles materialize into `cacheRoot/context-bundles/<ref>` for `job-inline`, `local-template`, and `external-artifact` sources before Docker bind mounts are assembled
+- [x] T007 [US2] Update runner prompt construction in `apps/runner-daemon/src/index.ts` so the injected execution-spec artifact is the primary contract and the submission prompt is supporting context only
+- [x] T008 [P] [US2] Expand `apps/runner-daemon/src/container-task.test.ts` to cover materialization helpers and artifact-first prompt wording
 
 ---
 
-## Phase 6: Polish & Cross-Cutting Concerns
+## Phase 4: Traceability And Final Reconciliation
 
-**Purpose**: Verify consistency and close the loop.
+**Purpose**: Make the implementation backlog truthful and close the loop with verification.
 
-- [x] T012 [P] Run targeted text searches across `/Users/arcadia/data/mystra/specs/020-layered-context-harness/`, `/Users/arcadia/data/mystra/specs/002-runtime-profile-context/`, and `/Users/arcadia/data/mystra/docs/ARCHITECTURE.md` for `freeze`, `chat history`, `artifact`, and `Context Bundle`
-- [x] T013 Review `git diff --stat` and the touched markdown files to confirm the change stays documentation-only and scope-limited
+**Independent Test**: Focused package checks pass, broad repo validation passes, and the feature artifacts describe the landed implementation instead of the old documentation-only task list.
+
+- [x] T009 [US3] Keep reviewer traceability on the existing artifact/event path by emitting `artifact.created` and surfacing execution-contract metadata in job snapshots
+- [x] T010 [US3] Reconcile `specs/020-layered-context-harness/{plan.md,tasks.md}` with the landed implementation and finish broad validation (`pnpm typecheck`, `pnpm test`)
 
 ---
 
@@ -80,30 +61,29 @@
 
 ### Phase Dependencies
 
-- **Phase 1 Setup**: No dependencies.
-- **Phase 2 Foundational**: Depends on Phase 1.
-- **US1**: Depends on Phase 2.
-- **US2**: Depends on Phase 2 and should stay aligned with US1 wording.
-- **US3**: Depends on Phase 2 and can finish after US1/US2 wording is stable.
-- **Polish**: Depends on all user-story phases.
+- **Phase 1 Review And Artifact Sync**: No dependencies.
+- **Phase 2 Shared Contract And Control-Plane Freeze**: Depends on Phase 1.
+- **Phase 3 Runner Materialization And Artifact-First Execution**: Depends on Phase 2.
+- **Phase 4 Traceability And Final Reconciliation**: Depends on Phases 2 and 3.
 
 ### Parallel Opportunities
 
-- T001 and T002 can overlap.
-- T004 and T005 can run in parallel after T003 is scoped.
-- T012 and T013 can run in parallel at the end.
+- T001 and T002 can overlap at the start.
+- T005 can run in parallel with the end of T004 once the schema shape is stable.
+- T008 can run in parallel with the end of T007 once prompt/materialization helpers settle.
 
 ## Implementation Strategy
 
 ### MVP First
 
-1. Align `002` spec/research/quickstart.
-2. Tighten API/MCP/runner contract wording.
-3. Update architecture documentation.
-4. Run consistency checks and stop.
+1. Freeze the execution-spec artifact at `createJob()`.
+2. Attach it to the resolved runtime as a required job-scoped Context Bundle.
+3. Materialize bundles before Docker mounts and point the agent prompt at the mounted artifact.
+4. Validate the changed shared, control-plane, and runner surfaces.
 
 ### Incremental Delivery
 
-1. Deliver the freeze-point semantics.
-2. Deliver the artifact-first execution semantics.
-3. Deliver the reviewer attribution semantics.
+1. Land the typed execution artifact and execution-contract reference.
+2. Land control-plane artifact persistence plus runtime attachment.
+3. Land runner materialization and artifact-first prompt semantics.
+4. Reconcile plan/tasks with the implemented closure.

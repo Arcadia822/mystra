@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { readdirSync, rmSync } from "node:fs";
+import path from "node:path";
 
 const argv = process.argv.slice(2).filter((arg) => arg !== "--");
 const command = argv[0] ?? "list";
@@ -117,7 +119,31 @@ function stop(nameOrAll) {
 
   for (const container of selected) {
     runDocker(["rm", "-f", container.id], { stdio: "inherit" });
+    cleanupRunContextBundles(container.name);
     console.error(`stopped ${container.name}`);
+  }
+}
+
+function cleanupRunContextBundles(containerName) {
+  const runId = containerName.startsWith("mystra-") ? containerName.slice("mystra-".length) : null;
+  if (!runId) {
+    return;
+  }
+
+  const cacheRoot = process.env.MYSTRA_CACHE_ROOT ?? path.join(process.env.HOME ?? "/tmp", ".mystra", "cache");
+  const bundleRoot = path.join(cacheRoot, "context-bundles");
+  let entries = [];
+  try {
+    entries = readdirSync(bundleRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.endsWith(`-${runId}`)) {
+      continue;
+    }
+    rmSync(path.join(bundleRoot, entry.name), { recursive: true, force: true });
   }
 }
 

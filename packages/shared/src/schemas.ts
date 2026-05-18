@@ -26,19 +26,86 @@ export type ContextBundleAccessMode = z.infer<typeof contextBundleAccessModeSche
 export const contextBundleFailureModeSchema = z.enum(["fail-run", "warn"]);
 export type ContextBundleFailureMode = z.infer<typeof contextBundleFailureModeSchema>;
 
-export const contextBundleSourceSchema = z
+const safePathSegmentPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+function hasOnlySafeRelativePathSegments(value: string): boolean {
+  return value.split(/[\\/]/).every((segment) => safePathSegmentPattern.test(segment));
+}
+
+function isSafePathSegment(value: string): boolean {
+  return safePathSegmentPattern.test(value);
+}
+
+function requireContextBundleSourceRef(
+  source: { kind: "local-template" | "external-artifact" | "job-inline"; ref?: string | undefined },
+  ctx: z.RefinementCtx,
+): void {
+  if (source.kind === "job-inline") {
+    return;
+  }
+
+  if (!source.ref) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Context bundle source ref is required for ${source.kind}`,
+      path: ["ref"],
+    });
+    return;
+  }
+}
+
+function rejectUnsafeContextBundleSourceRef(
+  source: { kind: "local-template" | "external-artifact" | "job-inline"; ref?: string | undefined },
+  ctx: z.RefinementCtx,
+): void {
+  if (source.kind === "job-inline" || !source.ref) {
+    return;
+  }
+
+  if (
+    source.ref.startsWith("/")
+    || source.ref.startsWith("\\")
+    || source.ref.includes("://")
+    || !hasOnlySafeRelativePathSegments(source.ref)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Filesystem context bundle refs must use safe relative paths",
+      path: ["ref"],
+    });
+  }
+}
+
+const contextBundleSourceBaseSchema = z
   .object({
     kind: z.enum(["local-template", "external-artifact", "job-inline"]),
     ref: z.string().min(1).optional(),
     metadata: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
+
+export const contextBundleSourceSchema = contextBundleSourceBaseSchema.superRefine(requireContextBundleSourceRef);
+export const contextBundleCreateSourceSchema = contextBundleSourceBaseSchema.superRefine((source, ctx) => {
+  requireContextBundleSourceRef(source, ctx);
+  rejectUnsafeContextBundleSourceRef(source, ctx);
+  if (source.kind === "job-inline") {
+    const parsed = jobInlineContextBundlePayloadSchema.safeParse(source.metadata.jobInline);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        ctx.addIssue({
+          ...issue,
+          path: ["metadata", "jobInline", ...issue.path],
+        });
+      }
+    }
+  }
+});
 export type ContextBundleSource = z.infer<typeof contextBundleSourceSchema>;
 
 function rejectUnsafeBundleFilePath(file: { path: string }, ctx: z.RefinementCtx): void {
   if (
     file.path.startsWith("/")
-    || file.path.split(/[\\/]/).some((segment) => segment === ".." || segment.length === 0)
+    || !hasOnlySafeRelativePathSegments(file.path)
   ) {
     ctx.addIssue({
       code: "custom",
@@ -79,6 +146,10 @@ export type RuntimeMountKind = z.infer<typeof runtimeMountKindSchema>;
 export const runtimeMountOwnerSchema = z.enum(["system", "project", "runtime"]);
 export type RuntimeMountOwner = z.infer<typeof runtimeMountOwnerSchema>;
 
+export const executionSpecBundleSlug = "execution-spec";
+export const executionSpecFileName = "execution-spec.json";
+export const executionSpecMountPath = "/mystra/context/execution-spec";
+
 export const runtimeMountSchema = z
   .object({
     kind: runtimeMountKindSchema,
@@ -96,8 +167,26 @@ export const runtimeMountSchema = z
         path: ["target"],
       });
     }
+
+    if (mount.kind === "contextBundle" && mount.sourceRef && !isSafePathSegment(mount.sourceRef)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Context bundle mount sourceRef must use a single safe path segment",
+        path: ["sourceRef"],
+      });
+    }
   });
 export type RuntimeMount = z.infer<typeof runtimeMountSchema>;
+
+export const runtimeMountInputSchema = runtimeMountSchema.superRefine((mount, ctx) => {
+  if (mount.kind === "contextBundle" && !mount.sourceRef) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Context bundle mounts must include sourceRef",
+      path: ["sourceRef"],
+    });
+  }
+});
 
 export const contextBundleRefSchema = z
   .object({
@@ -105,7 +194,11 @@ export const contextBundleRefSchema = z
     required: z.boolean().default(true),
     accessMode: contextBundleAccessModeSchema.default("read-only"),
   })
-  .strict();
+  .strict()
+  .superRefine((bundleRef, ctx) => {
+    rejectUnsafeContextBundleSlug(bundleRef, ctx);
+    rejectReservedContextBundleFields(bundleRef, ctx);
+  });
 export type ContextBundleRef = z.infer<typeof contextBundleRefSchema>;
 
 function rejectForbiddenContextBundleMountPath(
@@ -124,11 +217,45 @@ function rejectForbiddenContextBundleMountPath(
   }
 }
 
+function rejectReservedContextBundleFields(
+  bundle: { slug: string; mountPath?: string | undefined },
+  ctx: z.RefinementCtx,
+): void {
+  if (bundle.slug === executionSpecBundleSlug) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Context bundle slug is reserved for system-managed execution contracts: ${executionSpecBundleSlug}`,
+      path: ["slug"],
+    });
+  }
+
+  if (bundle.mountPath === executionSpecMountPath) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Context bundle mount path is reserved for system-managed execution contracts: ${executionSpecMountPath}`,
+      path: ["mountPath"],
+    });
+  }
+}
+
+function rejectUnsafeContextBundleSlug(
+  bundle: { slug: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (!isSafePathSegment(bundle.slug)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Context bundle slugs must use a single safe path segment",
+      path: ["slug"],
+    });
+  }
+}
+
 export const contextBundleCreateSchema = z
   .object({
     slug: z.string().min(1),
     displayName: z.string().min(1),
-    source: contextBundleSourceSchema,
+    source: contextBundleCreateSourceSchema,
     accessMode: contextBundleAccessModeSchema,
     mountPath: z.string().min(1).optional(),
     freshness: z.record(z.string(), z.unknown()).default({}),
@@ -137,7 +264,11 @@ export const contextBundleCreateSchema = z
     archivedAt: z.string().datetime().nullable().default(null),
   })
   .strict()
-  .superRefine(rejectForbiddenContextBundleMountPath);
+  .superRefine((bundle, ctx) => {
+    rejectForbiddenContextBundleMountPath(bundle, ctx);
+    rejectUnsafeContextBundleSlug(bundle, ctx);
+    rejectReservedContextBundleFields(bundle, ctx);
+  });
 export type ContextBundleCreate = z.input<typeof contextBundleCreateSchema>;
 
 export const contextBundleSchema = z
@@ -191,6 +322,38 @@ export const projectRuntimeConfigSchema = z
   })
   .strict();
 export type ProjectRuntimeConfig = z.infer<typeof projectRuntimeConfigSchema>;
+
+export const projectRuntimeConfigInputSchema = z
+  .object({
+    provider: sandboxProviderSchema.default("docker"),
+    image: z.string().min(1),
+    contextBundleRefs: z.array(contextBundleRefSchema).default([]),
+    mounts: z.array(runtimeMountInputSchema).default([]),
+    exposedPorts: z.array(z.object({
+      containerPort: z.number().int().positive(),
+      hostBinding: z.string().min(1).optional(),
+      name: z.string().min(1).optional(),
+    }).strict()).default([]),
+    cache: z.object({
+      coldStartAllowed: z.boolean().default(true),
+      entries: z.array(z.object({
+        kind: z.string().min(1),
+        target: z.string().min(1),
+      }).strict()).default([]),
+    }).strict().default({ coldStartAllowed: true, entries: [] }),
+    secretRefs: z.array(runtimeSecretRefSchema).default([]),
+    overridePolicy: z.object({
+      allowImageOverride: z.boolean().default(false),
+      allowContextBundleAdditions: z.boolean().default(false),
+      allowedContextBundleSlugs: z.array(z.string().min(1)).default([]),
+    }).strict().default({
+      allowImageOverride: false,
+      allowContextBundleAdditions: false,
+      allowedContextBundleSlugs: [],
+    }),
+    metadata: z.record(z.string(), z.unknown()).default({}),
+  })
+  .strict();
 
 export const jobRuntimeOverrideSchema = z
   .object({
@@ -333,7 +496,7 @@ export const projectCreateSchema = z
     repo: z.string().min(1),
     baseBranch: z.string().min(1).default("main"),
     defaultAgent: agentNameSchema,
-    runtime: projectRuntimeConfigSchema,
+    runtime: projectRuntimeConfigInputSchema,
     prewarmConfig: jsonObjectSchema.default({}),
     metadata: jsonObjectSchema.default({}),
   })
@@ -347,7 +510,7 @@ export const projectUpdateSchema = z
     repo: z.string().min(1).optional(),
     baseBranch: z.string().min(1).optional(),
     defaultAgent: agentNameSchema.optional(),
-    runtime: projectRuntimeConfigSchema.optional(),
+    runtime: projectRuntimeConfigInputSchema.optional(),
     prewarmConfig: jsonObjectSchema.optional(),
     metadata: jsonObjectSchema.optional(),
     archivedAt: z.string().datetime().nullable().optional(),

@@ -72,7 +72,7 @@ Create a context bundle reference for local agent skills through
   "displayName": "Agent Skills",
   "source": {
     "kind": "local-template",
-    "ref": "/tmp/mystra-castrel-runner-image/skills"
+    "ref": "agent-skills"
   },
   "accessMode": "read-only",
   "mountPath": "/mystra/skills",

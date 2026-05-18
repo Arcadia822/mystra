@@ -82,6 +82,10 @@ function executionSpecMaterializationRef(runId: string): string {
   return `${EXECUTION_SPEC_BUNDLE_SLUG}-${runId}`;
 }
 
+function runtimeContextBundleMaterializationRef(slug: string, runId: string): string {
+  return `${slug}-${runId}`;
+}
+
 function buildExecutionContractReference(input: {
   artifactId: string;
   uri: string;
@@ -165,6 +169,46 @@ function attachExecutionSpecBundle(
         readOnly: true,
       },
     ],
+  });
+}
+
+function scopeRuntimeContextBundles(
+  runtime: ResolvedRuntimeContract,
+  runId: string,
+): ResolvedRuntimeContract {
+  const refsBySlug = new Map(
+    runtime.contextBundles.map((bundle) => [bundle.slug, runtimeContextBundleMaterializationRef(bundle.slug, runId)]),
+  );
+
+  return resolvedRuntimeContractSchema.parse({
+    ...runtime,
+    contextBundles: runtime.contextBundles.map((bundle) => ({
+      ...bundle,
+      source: {
+        ...bundle.source,
+        metadata: {
+          ...bundle.source.metadata,
+          materializationRef: refsBySlug.get(bundle.slug),
+        },
+      },
+    })),
+    mounts: runtime.mounts.map((mount) => {
+      if (mount.kind !== "contextBundle") {
+        return mount;
+      }
+
+      const matchingBundle = runtime.contextBundles.find((bundle) => bundle.mountPath === mount.target);
+      if (matchingBundle) {
+        return { ...mount, sourceRef: refsBySlug.get(matchingBundle.slug) };
+      }
+
+      const bySourceRef = mount.sourceRef ? refsBySlug.get(mount.sourceRef) : undefined;
+      if (bySourceRef) {
+        return { ...mount, sourceRef: bySourceRef };
+      }
+
+      return mount;
+    }),
   });
 }
 
@@ -579,11 +623,11 @@ export class SqliteRdbProvider implements RdbProvider {
       executionContract,
     });
     const resolvedRuntime = attachExecutionSpecBundle(
-      resolveRuntimeContract({
+      scopeRuntimeContextBundles(resolveRuntimeContract({
         project,
         ...(parsed.runtime ? { override: parsed.runtime } : {}),
         contextBundles,
-      }),
+      }), runId),
       {
         runId,
         artifactUri,

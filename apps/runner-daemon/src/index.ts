@@ -3,9 +3,18 @@ import { networkInterfaces, tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { type AgentProcessResult } from "@mystra/agent-adapters";
-import { jobInlineContextBundlePayloadSchema, type BranchDeliveryReceipt, type CleanupOutcome, type RepoProviderKind, type ResolvedRuntimeContract, type ReviewResult, type SandboxOutcome } from "@mystra/shared";
+import {
+  jobInlineContextBundlePayloadSchema,
+  type BranchDeliveryReceipt,
+  type CleanupOutcome,
+  type RepoProviderKind,
+  type ResolvedRuntimeContract,
+  type ReviewResult,
+  type SandboxObservation,
+  type SandboxOutcome,
+  type SandboxSession,
+} from "@mystra/shared";
 import { createRunnerAgentAdapterRegistry, type RunnerAgentAdapterRegistry } from "./agent-adapters.js";
 import { sanitizeGitCommandEnv, shouldBypassGitProxy, withGitProxyBypass } from "./git-command-env.js";
 import { createRunnerRepoProviderRegistry, type RunnerRepoProviderRegistry } from "./repo-providers.js";
@@ -16,6 +25,7 @@ import {
   buildWorkflowNodeReviewSuccessData,
   dockerResultFromReviewResult,
 } from "./review-projections.js";
+import { contextBundlePath, contextBundleSourcePath } from "./runtime-paths.js";
 import { createRunnerSandboxProviderRegistry, type RunnerSandboxProviderRegistry } from "./sandbox-providers.js";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 import { createRunnerWorkflowProviderRegistry, type RunnerWorkflowProviderRegistry } from "./workflow-providers.js";
@@ -35,6 +45,7 @@ interface RunnerConfig {
   executor: "fake" | "docker";
   workspaceRoot: string;
   cacheRoot: string;
+  contextBundleSourceRoot: string;
   codexAuthDir: string | undefined;
   gitlabHttpBaseUrl: string | undefined;
   githubHttpBaseUrl: string | undefined;
@@ -159,6 +170,8 @@ function readConfig(): RunnerConfig {
     executor: process.env.MYSTRA_EXECUTOR === "docker" ? "docker" : "fake",
     workspaceRoot: process.env.MYSTRA_WORKSPACE_ROOT ?? path.join(tmpdir(), "mystra-workspaces"),
     cacheRoot: process.env.MYSTRA_CACHE_ROOT ?? path.join(process.env.HOME ?? tmpdir(), ".mystra", "cache"),
+    contextBundleSourceRoot: process.env.MYSTRA_CONTEXT_BUNDLE_SOURCE_ROOT
+      ?? path.join(process.env.MYSTRA_RUNNER_IMAGE_CONTEXT ?? "/tmp/mystra-castrel-runner-image", "skills"),
     codexAuthDir: process.env.MYSTRA_CODEX_AUTH_DIR,
     gitlabHttpBaseUrl: process.env.MYSTRA_GITLAB_HTTP_BASE_URL,
     githubHttpBaseUrl: process.env.MYSTRA_GITHUB_HTTP_BASE_URL,
@@ -565,7 +578,7 @@ function runtimeMountSource(
       if (!mount.sourceRef) {
         throw new Error(`Runtime contextBundle mount for ${mount.target} is missing sourceRef`);
       }
-      return path.join(config.cacheRoot, "context-bundles", mount.sourceRef);
+      return contextBundlePath(config.cacheRoot, mount.sourceRef);
     case "secret":
       if (!mount.sourceRef) {
         throw new Error(`Runtime secret mount for ${mount.target} is missing sourceRef`);
@@ -574,9 +587,12 @@ function runtimeMountSource(
   }
 }
 
-function contextBundleMaterializationRef(bundle: ResolvedRuntimeContract["contextBundles"][number]): string {
+function contextBundleMaterializationRef(
+  bundle: ResolvedRuntimeContract["contextBundles"][number],
+  fallbackRef?: string,
+): string {
   const ref = bundle.source.metadata.materializationRef;
-  return typeof ref === "string" && ref.trim().length > 0 ? ref : bundle.slug;
+  return typeof ref === "string" && ref.trim().length > 0 ? ref : (fallbackRef ?? bundle.slug);
 }
 
 function contextBundleForMount(
@@ -595,14 +611,28 @@ function contextBundleForMount(
   });
 }
 
-function contextBundleSourcePath(ref: string): string {
-  if (ref.startsWith("file://")) {
-    return fileURLToPath(ref);
+function contextBundleMountRef(
+  runtime: ResolvedRuntimeContract,
+  mount: ResolvedRuntimeContract["mounts"][number],
+  runId: string,
+): string {
+  if (mount.kind !== "contextBundle") {
+    throw new Error(`Mount ${mount.target} is not a context bundle`);
   }
-  if (ref.includes("://")) {
-    throw new Error(`Unsupported context bundle source ref: ${ref}`);
+  const bundle = contextBundleForMount(runtime, mount);
+  if (!bundle) {
+    throw new Error(`Runtime contextBundle mount for ${mount.target} has no matching bundle contract`);
   }
-  return path.isAbsolute(ref) ? ref : path.resolve(ref);
+
+  if (mount.sourceRef) {
+    const storedRef = contextBundleMaterializationRef(bundle);
+    if (mount.sourceRef === bundle.slug && storedRef === bundle.slug) {
+      return `${bundle.slug}-${runId}`;
+    }
+    return mount.sourceRef;
+  }
+
+  return contextBundleMaterializationRef(bundle, `${bundle.slug}-${runId}`);
 }
 
 async function materializeJobInlineBundle(
@@ -621,6 +651,7 @@ async function materializeJobInlineBundle(
 }
 
 async function materializeFilesystemBundle(
+  config: RunnerConfig,
   destination: string,
   bundle: ResolvedRuntimeContract["contextBundles"][number],
 ): Promise<void> {
@@ -628,7 +659,7 @@ async function materializeFilesystemBundle(
     throw new Error(`Context bundle ${bundle.slug} is missing source.ref`);
   }
 
-  const sourcePath = contextBundleSourcePath(bundle.source.ref);
+  const sourcePath = contextBundleSourcePath(config.contextBundleSourceRoot, bundle.source.ref);
   const stats = await lstat(sourcePath);
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
@@ -642,6 +673,7 @@ async function materializeFilesystemBundle(
 }
 
 async function materializeContextBundle(
+  config: RunnerConfig,
   destination: string,
   bundle: ResolvedRuntimeContract["contextBundles"][number],
 ): Promise<void> {
@@ -651,7 +683,7 @@ async function materializeContextBundle(
       return;
     case "local-template":
     case "external-artifact":
-      await materializeFilesystemBundle(destination, bundle);
+      await materializeFilesystemBundle(config, destination, bundle);
       return;
   }
 }
@@ -659,7 +691,10 @@ async function materializeContextBundle(
 async function materializeRuntimeContextBundles(
   config: RunnerConfig,
   runtime: ResolvedRuntimeContract,
-): Promise<void> {
+  runId: string,
+  cleanupRefs: Set<string>,
+): Promise<Set<string>> {
+  const materializedRefs = new Set<string>();
   for (const mount of runtime.mounts) {
     if (mount.kind !== "contextBundle") {
       continue;
@@ -670,19 +705,37 @@ async function materializeRuntimeContextBundles(
       throw new Error(`Runtime contextBundle mount for ${mount.target} has no matching bundle contract`);
     }
 
-    const materializationRef = mount.sourceRef ?? contextBundleMaterializationRef(bundle);
-    const destination = path.join(config.cacheRoot, "context-bundles", materializationRef);
+    const materializationRef = contextBundleMountRef(runtime, mount, runId);
+    const destination = contextBundlePath(config.cacheRoot, materializationRef);
+    if (materializedRefs.has(materializationRef)) {
+      continue;
+    }
+    cleanupRefs.add(materializationRef);
 
     try {
-      await materializeContextBundle(destination, bundle);
+      await materializeContextBundle(config, destination, bundle);
+      materializedRefs.add(materializationRef);
     } catch (error) {
       if (bundle.failureMode === "warn") {
+        await rm(destination, { recursive: true, force: true });
+        cleanupRefs.delete(materializationRef);
         const detail = error instanceof Error ? error.message : String(error);
         console.warn(`[mystra-runner] optional context bundle ${bundle.slug} failed to materialize: ${detail}`);
         continue;
       }
       throw error;
     }
+  }
+
+  return materializedRefs;
+}
+
+async function cleanupMaterializedContextBundles(
+  config: RunnerConfig,
+  refs: Iterable<string>,
+): Promise<void> {
+  for (const ref of refs) {
+    await rm(contextBundlePath(config.cacheRoot, ref), { recursive: true, force: true });
   }
 }
 
@@ -1088,7 +1141,6 @@ async function executeDockerJob(
   const agentPrepareDirs = [...new Set(
     Object.values(agentEnvironment).filter((value) => value.startsWith("/")),
   )];
-  const runtimeMounts = effectiveDockerMounts(runtime.mounts);
   const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts();
   const repositoryAuth = repositoryRuntimeAuthForProvider(repoProvider.providerName);
   const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets(repoProvider.providerName);
@@ -1098,6 +1150,13 @@ async function executeDockerJob(
   let cancellationRequested = Boolean(run.cancellationRequest);
   let executionTimedOut = false;
   let cleanupRequired = false;
+  let materializedContextBundleRefs = new Set<string>();
+  const cleanupMaterializedContextBundleRefs = new Set<string>();
+  let retainMaterializedContextBundles = false;
+  let sandboxSession: SandboxSession | undefined;
+  let sandboxObservation: SandboxObservation | undefined;
+  let frontendUrl: string | null = null;
+  let backendUrl: string | null = null;
 
   try {
     const gitMirror = await refreshGitMirror(config, job.spec.repo);
@@ -1108,7 +1167,20 @@ async function executeDockerJob(
     const agentPromptPath = path.join(workspace, "agent-prompt.txt");
 
     await mkdir(workspace, { recursive: true });
-    await materializeRuntimeContextBundles(config, runtime);
+    materializedContextBundleRefs = await materializeRuntimeContextBundles(
+      config,
+      runtime,
+      run.id,
+      cleanupMaterializedContextBundleRefs,
+    );
+    const runtimeMounts = effectiveDockerMounts(runtime.mounts
+      .map((mount) =>
+        mount.kind === "contextBundle"
+          ? { ...mount, sourceRef: contextBundleMountRef(runtime, mount, run.id) }
+          : mount)
+      .filter((mount) =>
+        mount.kind !== "contextBundle" || materializedContextBundleRefs.has(mount.sourceRef ?? "")
+      ));
     for (const mount of runtimeMounts) {
       if (mount.kind === "cache") {
         await mkdir(cachePath(config, mount), { recursive: true });
@@ -1208,39 +1280,49 @@ async function executeDockerJob(
     appendContainerProxyEnv(dockerArgs, config, job.spec.repo);
 
     dockerArgs.push(image, "sleep", "infinity");
+    try {
+      sandboxSession = await sandboxProvider.launch({
+        runId: run.id,
+        runtime,
+        workspacePath: workspace,
+        gitMirrorPath: gitMirror,
+        retentionPolicy: "retain_for_preview",
+      }, {
+        dockerArgs,
+        env: containerEnv,
+        containerName,
+      });
+      retainMaterializedContextBundles = true;
+      const sessionId = sandboxSession.sessionId;
+      sandboxObservation = await sandboxProvider.inspect(sandboxSession, {
+        runtimePorts,
+        previewHost: config.previewHost,
+      });
+      frontendUrl = typeof sandboxObservation.metadata.frontendUrl === "string"
+        ? sandboxObservation.metadata.frontendUrl
+        : null;
+      backendUrl = typeof sandboxObservation.metadata.backendUrl === "string"
+        ? sandboxObservation.metadata.backendUrl
+        : null;
 
-    const sandboxSession = await sandboxProvider.launch({
-      runId: run.id,
-      runtime,
-      workspacePath: workspace,
-      gitMirrorPath: gitMirror,
-      retentionPolicy: "retain_for_preview",
-    }, {
-      dockerArgs,
-      env: containerEnv,
-      containerName,
-    });
-    const sessionId = sandboxSession.sessionId;
-    const sandboxObservation = await sandboxProvider.inspect(sandboxSession, {
-      runtimePorts,
-      previewHost: config.previewHost,
-    });
-    const frontendUrl = typeof sandboxObservation.metadata.frontendUrl === "string"
-      ? sandboxObservation.metadata.frontendUrl
-      : null;
-    const backendUrl = typeof sandboxObservation.metadata.backendUrl === "string"
-      ? sandboxObservation.metadata.backendUrl
-      : null;
-
-    await emitEvent(config, token, run.id, "container.started", {
-      executor: "docker",
-      image,
-      projectSlug: project.slug,
-      containerId: sessionId,
-      containerName,
-      frontendUrl,
-      backendUrl,
-    });
+      await emitEvent(config, token, run.id, "container.started", {
+        executor: "docker",
+        image,
+        projectSlug: project.slug,
+        containerId: sessionId,
+        containerName,
+        frontendUrl,
+        backendUrl,
+      });
+    } catch (error) {
+      if (sandboxSession) {
+        const launchCleanupOutcome = await sandboxProvider.stop(sandboxSession, "shutdown", {
+          cleanupTimeoutSeconds: config.cleanupTimeoutSeconds,
+        });
+        retainMaterializedContextBundles = launchCleanupOutcome.status === "failed";
+      }
+      throw error;
+    }
 
     const executionAbort = new AbortController();
     const pollStop = new AbortController();
@@ -1620,6 +1702,7 @@ async function executeDockerJob(
         cleanupTimeoutSeconds: config.cleanupTimeoutSeconds,
       });
       cleanupOutcome = stopOutcome;
+      retainMaterializedContextBundles = stopOutcome.status === "failed";
       if (stopOutcome.status === "failed") {
         captureException(new Error(stopOutcome.errorMessage ?? "Docker cleanup failed"));
         const cleanupErrorMessage = stopOutcome.errorMessage ?? "Docker cleanup failed";
@@ -1693,9 +1776,6 @@ async function executeDockerJob(
 
     await emitQualityGateEvent(config, token, run.id, result);
     await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
-    if (scriptPath) {
-      await rm(scriptPath, { force: true });
-    }
     console.log(`[mystra-runner] docker completed run=${run.id} status=${result.status}`);
   } catch (error) {
     captureException(error);
@@ -1709,8 +1789,12 @@ async function executeDockerJob(
     };
     await emitQualityGateEvent(config, token, run.id, result);
     await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
+  } finally {
     if (scriptPath) {
       await rm(scriptPath, { force: true });
+    }
+    if (!retainMaterializedContextBundles) {
+      await cleanupMaterializedContextBundles(config, cleanupMaterializedContextBundleRefs);
     }
   }
 }

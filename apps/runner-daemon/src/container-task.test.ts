@@ -172,12 +172,15 @@ describe("container task quality gate", () => {
     expect(runner).toContain("dockerArgs.push(image, \"sleep\", \"infinity\")");
     expect(runner).not.toContain("project.image");
     expect(runner).not.toContain("runnerImage:");
-    expect(runner).not.toContain("MYSTRA_RUNNER" + "_IMAGE");
+    expect(runner).not.toContain("process.env.MYSTRA_RUNNER_IMAGE ??");
     expect(runner).not.toContain("config.runnerImage");
   });
 
   it("translates resolved runtime ports, mounts, caches, and secrets into Docker args", () => {
-    expect(runner).toContain("const runtimeMounts = effectiveDockerMounts(runtime.mounts)");
+    expect(runner).toContain("const runtimeMounts = effectiveDockerMounts(runtime.mounts");
+    expect(runner).toContain("? { ...mount, sourceRef: contextBundleMountRef(runtime, mount, run.id) }");
+    expect(runner).toContain("mount.kind !== \"contextBundle\" || materializedContextBundleRefs.has(mount.sourceRef ?? \"\")");
+    expect(runner).toContain("return `${bundle.slug}-${runId}`;");
     expect(runner).toContain("const runtimePorts = runtime.exposedPorts.length > 0 ? runtime.exposedPorts : defaultDockerPorts()");
     expect(runner).toContain('const runtimeSecrets = runtime.secrets.length > 0 ? runtime.secrets : defaultDockerSecrets(repoProvider.providerName)');
     expect(runner).toContain("appendRuntimePorts(dockerArgs, runtimePorts)");
@@ -330,10 +333,19 @@ describe("container task quality gate", () => {
 
   it("materializes runtime context bundles before mounting them into the sandbox", () => {
     expect(runner).toContain("async function materializeRuntimeContextBundles(");
-    expect(runner).toContain('const destination = path.join(config.cacheRoot, "context-bundles", materializationRef)');
+    expect(runner).toContain("const destination = contextBundlePath(config.cacheRoot, materializationRef)");
+    expect(runner).toContain("const materializedRefs = new Set<string>()");
+    expect(runner).toContain("cleanupRefs.add(materializationRef)");
+    expect(runner).toContain("return contextBundlePath(config.cacheRoot, mount.sourceRef)");
     expect(runner).toContain("jobInlineContextBundlePayloadSchema.parse(bundle.source.metadata.jobInline)");
-    expect(runner).toContain("await materializeRuntimeContextBundles(config, runtime)");
+    expect(runner).toContain("const sourcePath = contextBundleSourcePath(config.contextBundleSourceRoot, bundle.source.ref)");
+    expect(runner).toContain("materializedContextBundleRefs = await materializeRuntimeContextBundles(");
+    expect(runner).toContain("cleanupMaterializedContextBundleRefs");
+    expect(runner).toContain("? { ...mount, sourceRef: contextBundleMountRef(runtime, mount, run.id) }");
+    expect(runner).toContain("mount.kind !== \"contextBundle\" || materializedContextBundleRefs.has(mount.sourceRef ?? \"\")");
     expect(runner).toContain("optional context bundle");
+    expect(runner).toContain("await cleanupMaterializedContextBundles(config, cleanupMaterializedContextBundleRefs)");
+    expect(runner).toContain("sandboxProvider.stop(sandboxSession, \"shutdown\"");
   });
 
   it("threads agent process results back through adapter parsing", () => {

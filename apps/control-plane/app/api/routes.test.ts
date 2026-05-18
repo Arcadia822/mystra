@@ -173,7 +173,7 @@ describe("Context bundle API and MCP contracts", () => {
       displayName: "Agent Skills",
       source: {
         kind: "local-template",
-        ref: "/tmp/mystra-castrel-runner-image/skills",
+        ref: "templates/agent-skills",
         metadata: { prompt: "Load project-provided skills." },
       },
       accessMode: "read-only",

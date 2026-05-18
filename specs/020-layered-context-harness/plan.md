@@ -239,8 +239,18 @@ New or updated tests must cover:
 
 ## Review Status
 
-Formal `plan-eng-review` is still required on this revised plan before any new
-implementation tasks are accepted.
+`plan-eng-review` completed on 2026-05-18 for
+`arcadia822/layered-context-harness`.
+
+- **Scope decision**: accept the reduced, artifact-first closed loop only. No
+  generic artifact registry, no second injection channel, no broader workflow
+  redesign.
+- **Risk**: MEDIUM. The touched symbols sit on the main submission, claim, and
+  Docker execution path, but the blast radius stays limited to shared runtime
+  schemas, `createJob()`, and `executeDockerJob()`.
+- **Findings**: no architecture blockers. The only review-driven adjustment was
+  to keep bundle materialization generic enough for existing source kinds while
+  making the execution-spec bundle first-class and required.
 
 ## What Already Exists
 
@@ -259,4 +269,3 @@ implementation tasks are accepted.
 - A hosted RDB redesign.
 - Rewriting the entire prompt/execution model beyond making the frozen artifact
   the primary contract source.
-- Regenerating `tasks.md` in this planning pass. That happens after review.

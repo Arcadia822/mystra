@@ -246,7 +246,13 @@ describe("SqliteRdbProvider jobs", () => {
       expect.objectContaining({
         slug: "agent-skills",
         mountPath: "/mystra/skills",
-        source: { kind: "local-template", ref: "agent-skills", metadata: {} },
+        source: expect.objectContaining({
+          kind: "local-template",
+          ref: "agent-skills",
+          metadata: expect.objectContaining({
+            materializationRef: `agent-skills-${snapshot.run.id}`,
+          }),
+        }),
       }),
       expect.objectContaining({
         slug: "execution-spec",
@@ -259,7 +265,7 @@ describe("SqliteRdbProvider jobs", () => {
       kind: "contextBundle",
       owner: "project",
       target: "/mystra/skills",
-      sourceRef: "agent-skills",
+      sourceRef: `agent-skills-${snapshot.run.id}`,
       readOnly: true,
     });
     expect(snapshot.runtime?.mounts).toContainEqual({
@@ -273,6 +279,90 @@ describe("SqliteRdbProvider jobs", () => {
       kind: "execution-spec",
       filePath: "/mystra/context/execution-spec/execution-spec.json",
     }));
+  });
+
+  it("scopes filesystem-backed context bundles per run", () => {
+    db.createContextBundle({
+      slug: "agent-skills",
+      displayName: "Agent Skills",
+      source: { kind: "local-template", ref: "agent-skills" },
+      accessMode: "read-only",
+      mountPath: "/mystra/skills",
+      failureMode: "fail-run",
+    });
+    const project = db.createProject({
+      ...projectInput("scoped-context-project"),
+      runtime: {
+        ...projectInput("scoped-context-project").runtime,
+        contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
+      },
+    });
+
+    const first = db.createJob({
+      taskId: "task-context-a",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/context-a",
+      prompt: "Use context A",
+    });
+    const second = db.createJob({
+      taskId: "task-context-b",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/context-b",
+      prompt: "Use context B",
+    });
+
+    const firstRef = first.runtime?.mounts.find((mount) => mount.target === "/mystra/skills")?.sourceRef;
+    const secondRef = second.runtime?.mounts.find((mount) => mount.target === "/mystra/skills")?.sourceRef;
+
+    expect(firstRef).toBe(`agent-skills-${first.run.id}`);
+    expect(secondRef).toBe(`agent-skills-${second.run.id}`);
+    expect(firstRef).not.toBe(secondRef);
+  });
+
+  it("rewrites matching context bundle mount aliases to run-scoped refs", () => {
+    db.createContextBundle({
+      slug: "agent-skills",
+      displayName: "Agent Skills",
+      source: { kind: "local-template", ref: "agent-skills" },
+      accessMode: "read-only",
+      mountPath: "/mystra/skills",
+      failureMode: "fail-run",
+    });
+    const base = projectInput("aliased-context-project");
+    const project = db.createProject({
+      ...base,
+      runtime: {
+        ...base.runtime,
+        mounts: [
+          {
+            kind: "contextBundle",
+            owner: "project",
+            target: "/mystra/skills",
+            sourceRef: "shared-skills",
+            readOnly: true,
+          },
+        ],
+        contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
+      },
+    });
+
+    const snapshot = db.createJob({
+      taskId: "task-context-alias",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/context-alias",
+      prompt: "Use aliased context",
+    });
+
+    expect(snapshot.runtime?.mounts).toContainEqual({
+      kind: "contextBundle",
+      owner: "project",
+      target: "/mystra/skills",
+      sourceRef: `agent-skills-${snapshot.run.id}`,
+      readOnly: true,
+    });
   });
 
   it("freezes execution-spec content at job creation time", () => {
@@ -441,8 +531,8 @@ describe("SqliteRdbProvider runner lifecycle", () => {
         agents: ["codex"],
         executor: "docker",
         providers: ["docker"],
-        contextBundleModes: ["read-only"],
-        mountKinds: ["workspace", "gitMirror", "cache"],
+        contextBundleModes: ["read-only", "job-scoped"],
+        mountKinds: ["workspace", "gitMirror", "cache", "contextBundle"],
         portExposure: { supportsDynamicHostPorts: true },
         secretInjectionModes: ["env"],
       },
@@ -532,8 +622,8 @@ describe("SqliteRdbProvider runner lifecycle", () => {
         agents: ["codex"],
         executor: "docker",
         providers: ["docker"],
-        contextBundleModes: ["read-only"],
-        mountKinds: ["workspace", "gitMirror", "cache"],
+        contextBundleModes: ["read-only", "job-scoped"],
+        mountKinds: ["workspace", "gitMirror", "cache", "contextBundle"],
         portExposure: { supportsDynamicHostPorts: true },
         secretInjectionModes: ["env"],
       },
@@ -549,8 +639,8 @@ describe("SqliteRdbProvider runner lifecycle", () => {
         agents: ["codex"],
         executor: "docker",
         providers: ["docker"],
-        contextBundleModes: ["read-only"],
-        mountKinds: ["workspace", "gitMirror", "cache"],
+        contextBundleModes: ["read-only", "job-scoped"],
+        mountKinds: ["workspace", "gitMirror", "cache", "contextBundle"],
         portExposure: { supportsDynamicHostPorts: true },
         secretInjectionModes: ["env"],
       },
@@ -798,6 +888,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     expect(canceled.run.result?.status).toBe("canceled");
     expect(canceled.events.map((event) => event.type)).toEqual([
       "job.created",
+      "artifact.created",
       "run.queued",
       "run.assigned",
       "container.started",
