@@ -67,10 +67,25 @@ Use `spec-kit-workflow` as the meta-flow. It is the project-local router that bi
 
 Do not use global fallback skills when a project-local copy exists under `.agents/skills/`. Do not create feature-level PRDs, plans, or task lists under `docs/`; use `specs/<feature>/`.
 
+### LSP — Symbol Navigation
+
+Use the repo-local TypeScript LSP entrypoint when the question is local to a
+TypeScript symbol or file:
+
+- Start it with `pnpm lsp:typescript`.
+- Use it for go-to-definition, find-references, rename preparation, and local
+  diagnostics.
+- Treat it as complementary to GitNexus, not a replacement.
+- Escalate to GitNexus as soon as the question becomes about execution flow,
+  ownership boundaries, impacted callers, or blast radius.
+
 ### GitNexus — Code Intelligence
 
 Use `gitnexus-guide` as the entry point. Ensure index is fresh (`npx gitnexus analyze`) before use.
 
+- Start with the repo-local LSP (`pnpm lsp:typescript`) when you need
+  TypeScript symbol-local navigation, then move to GitNexus when the question
+  expands beyond one local symbol or file.
 - During `/speckit.plan` and `plan-eng-review`, use GitNexus when a feature
   touches existing execution flows, APIs, MCP routes, persistence, runner
   behavior, sandbox/provider boundaries, or cross-package contracts. Record what
@@ -161,6 +176,8 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 
 ## Always Do
 
+- Use the repo-local LSP (`pnpm lsp:typescript`) for TypeScript symbol-local
+  work such as definitions, references, diagnostics, and rename preparation.
 - **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
 - **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
@@ -169,6 +186,8 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 
 ## Never Do
 
+- NEVER treat LSP-only navigation as a substitute for required GitNexus impact
+  analysis.
 - NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
 - NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.

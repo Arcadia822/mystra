@@ -12,6 +12,7 @@ apps/workflows        Workflow provider implementations and orchestration adapte
 apps/runner-daemon    Pull-based runner service
 packages/shared       Zod schemas, state machine, events, result contracts
 packages/agent-adapters
+plugins/mystra        Mystra MCP workflow plugin skills
 plugins/supabase      Supabase plugin skills for future/cloud provider work
 supabase              Migrations, seed, generated database types
 ```
@@ -62,6 +63,7 @@ pnpm doctor
 pnpm dev
 pnpm dev:control-plane
 pnpm dev:runner
+pnpm lsp:typescript
 ```
 
 Useful focused commands:
@@ -70,7 +72,17 @@ Useful focused commands:
 pnpm --filter @mystra/shared test
 pnpm --filter @mystra/runner-daemon test
 pnpm --filter @mystra/control-plane dev
+pnpm lsp:typescript
 ```
+
+## Code Navigation Tooling
+
+- `pnpm lsp:typescript` starts the repo-local TypeScript language server for
+  symbol-local navigation, references, rename preparation, and diagnostics.
+- GitNexus remains the graph-aware layer for execution-flow understanding,
+  impact analysis, and review risk.
+- Use both together when a local symbol question turns into a cross-package or
+  blast-radius question.
 
 ## Architectural Constraints
 

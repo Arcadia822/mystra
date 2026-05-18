@@ -49,6 +49,7 @@ apps/workflows        Workflow provider implementations and orchestration adapte
 apps/runner-daemon    Pull-based runner service
 packages/shared       Zod schemas, state machine, events, result contracts
 packages/agent-adapters
+plugins/mystra
 plugins/supabase
 supabase
 ```
@@ -127,9 +128,19 @@ For a full local protocol walk, MCP examples, restart-durability checks, and dev
 | `pnpm doctor` | Run local preflight checks |
 | `pnpm dev:control-plane` | Start the control plane |
 | `pnpm dev:runner` | Start the local runner |
+| `pnpm lsp:typescript` | Start the repo-local TypeScript language server |
 | `pnpm run deploy:dev` | Deploy to the configured development machine |
 | `pnpm job:submit -- ...` | Submit a project-backed job |
 | `pnpm preview -- list` | Inspect retained preview environments |
+
+## Code navigation
+
+- Use `pnpm lsp:typescript` for TypeScript symbol-local questions such as
+  definitions, references, diagnostics, and rename preparation.
+- Use GitNexus for graph-aware questions such as execution flow, impacted
+  callers, and blast radius.
+- Use both together when you start from one symbol and then need to understand
+  wider repository behavior.
 
 ## MVP scope
 

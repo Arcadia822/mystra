@@ -216,6 +216,23 @@ Optional codebase-intelligence skills:
 - `gitnexus-refactoring`
 - `gitnexus-cli`
 
+## Code Navigation Layers
+
+When a repository exposes a repo-local LSP command, treat it as the first layer
+for symbol-local language intelligence rather than as a replacement for
+graph-aware tooling.
+
+- Use repo-local LSP first for go-to-definition, find-references, rename
+  preparation, and diagnostics in the repository's primary language surface.
+- Use GitNexus first for execution-flow discovery, ownership boundaries,
+  impacted callers, and blast-radius questions.
+- Use both when a local symbol question grows into a cross-package or
+  cross-process question: start with LSP to identify the symbol, then switch to
+  GitNexus to understand how that symbol participates in the wider system.
+- If the repo-local LSP is unavailable or the question is outside its language
+  scope, fall back to direct file analysis instead of pretending the LSP can
+  answer everything.
+
 ## Routing
 
 Use this decision table after loading the required context:
@@ -226,17 +243,17 @@ Use this decision table after loading the required context:
 | New feature or contract change | Discuss user stories first, then Specify | `writing-userstory`, `product-requirements`, `spec-driven-development` |
 | PRD or requirements request | Discuss user stories before writing the PRD/spec | `writing-userstory`, `product-requirements`, `idea-refine` |
 | Specify needs interface or experience design | Run design intake/direction before freezing UI-facing spec requirements | `claude-design-intake`, `claude-design-core`, `claude-design-wireframe`, `claude-design-prototype`, `claude-design-frontend-direction`, `claude-design-dev-handoff` |
-| Existing spec needs technical design | Plan with codebase evidence when useful | `spec-driven-development`, `api-and-interface-design` when contracts are involved, plus `gitnexus-exploring` / `gitnexus-impact-analysis` |
+| Existing spec needs technical design | Plan with codebase evidence when useful | `spec-driven-development`, `api-and-interface-design` when contracts are involved, plus repo-local LSP for symbol-local navigation and `gitnexus-exploring` / `gitnexus-impact-analysis` |
 | Need to refresh current feature status or next step | Update the active feature's artifact/task snapshot before deciding the next phase | `spec-kit-status` |
 | Need Spec-Kit structural health or extension install validation | Diagnose project-level Spec-Kit setup before trusting workflow artifacts | `spec-kit-doctor` |
 | Existing plan needs engineering validation | Review plan before tasks when risk is meaningful | `plan-eng-review`, plus `gitnexus-exploring` or `gitnexus-impact-analysis` when current-code evidence matters |
 | Existing plan needs work items | Tasks, informed by impacted files and dependency boundaries when relevant | `planning-and-task-breakdown`, `gitnexus-impact-analysis` |
 | Consistency risk before build | Analyze against spec, plan, tasks, and current code evidence | `code-review-and-quality`, `context-engineering`, `gitnexus-impact-analysis`, `gitnexus-exploring` |
-| Implementation | Implement one task slice at a time with codebase navigation support as needed | `incremental-implementation`, `test-driven-development`, `gitnexus-exploring`, `gitnexus-refactoring` |
+| Implementation | Implement one task slice at a time with codebase navigation support as needed | `incremental-implementation`, `test-driven-development`, repo-local LSP for symbol-local navigation, `gitnexus-exploring`, `gitnexus-refactoring` |
 | UI implementation | Implement plus UI review | `frontend-ui-engineering`, `browser-testing-with-devtools`, `claude-design-frontend-direction`, `claude-design-dev-handoff`, `gitnexus-exploring` |
 | API, runtime, persistence, or package contract | Spec and plan before implementation | `api-and-interface-design`, `spec-driven-development`, `gitnexus-impact-analysis` |
 | Source-doc-sensitive change | Spec and plan with source verification | `source-driven-development`, `gitnexus-exploring` |
-| Bug fix | Reproduce and fix; update spec only if behavior contract changes | `debugging-and-error-recovery`, `test-driven-development`, `gitnexus-debugging`, `gitnexus-exploring` |
+| Bug fix | Reproduce and fix; update spec only if behavior contract changes | `debugging-and-error-recovery`, `test-driven-development`, repo-local LSP for local symbol tracing, `gitnexus-debugging`, `gitnexus-exploring` |
 | Tests | Add or update focused tests tied to acceptance criteria | `test-driven-development` |
 | Review | Review against spec, plan, tasks, constitution, and current-code impact | `code-review-and-quality`, `gitnexus-pr-review`, `gitnexus-impact-analysis` |
 | Security concern | Review or fix with explicit boundaries | `security-and-hardening`, `gitnexus-impact-analysis` |
@@ -316,9 +333,10 @@ genuinely unsuitable.
 - Constitution checks are explicit when relevant.
 - Technical context, risks, dependencies, and verification checkpoints are
   concrete.
-- Use `gitnexus-exploring` or `gitnexus-impact-analysis` when current-code
-  structure, dependency impact, or ownership boundaries materially affect the
-  plan.
+- Use repo-local LSP first for symbol-local code reading when the repo exposes
+  one, then use `gitnexus-exploring` or `gitnexus-impact-analysis` when
+  current-code structure, dependency impact, or ownership boundaries materially
+  affect the plan.
 - Generated artifacts live beside the spec, not in generic docs paths.
 
 ### Plan Review Gate
@@ -357,9 +375,11 @@ genuinely unsuitable.
 - Keep changes small and verifiable.
 - Run the narrowest relevant verification first, then broader checks when the
   touched surface justifies it.
-- Use GitNexus skills as needed: `gitnexus-exploring` for navigation,
-  `gitnexus-debugging` for failures, `gitnexus-refactoring` for scoped
-  refactors, and `gitnexus-impact-analysis` before broad changes.
+- Use repo-local LSP first for symbol-local language navigation when the repo
+  provides one.
+- Use GitNexus skills as needed: `gitnexus-exploring` for graph-aware
+  navigation, `gitnexus-debugging` for failures, `gitnexus-refactoring` for
+  scoped refactors, and `gitnexus-impact-analysis` before broad changes.
 
 ## Verification
 

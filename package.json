@@ -17,12 +17,14 @@
     "preview": "node ./scripts/preview-containers.mjs",
     "lint": "pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lsp:typescript": "pnpm exec typescript-language-server --stdio"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@vitest/coverage-v8": "4.1.5",
     "typescript": "^5.9.3",
+    "typescript-language-server": "^5.2.0",
     "vitest": "^4.0.14"
   }
 }
