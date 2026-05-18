@@ -23,7 +23,7 @@ Mystra platform
       -> product route / user stories / acceptance criteria
       -> workflow variant on shared platform primitives
       -> runtime image / execution contract
-      -> jobs / runs / artifacts
+      -> tasks / runs / artifacts
 ```
 
 This does not expand MVP scope by itself. It defines the architectural direction
@@ -97,9 +97,9 @@ mystra/
   apps/
     control-plane/       # Next.js public API, Streamable HTTP MCP endpoint, state source of truth
     workflows/           # Workflow provider implementations and orchestration adapters
-    runner-daemon/       # Bare-metal daemon that registers and pulls jobs
+    runner-daemon/       # Bare-metal daemon that registers and pulls tasks
   packages/
-    shared/              # JobSpec, RunEvent, RunnerEvent, RunResult, state machine schemas
+    shared/              # TaskSpec, RunEvent, RunnerEvent, RunResult, state machine schemas
     agent-adapters/      # Codex and Copilot CLI adapter contracts and implementations
   docs/
     SPEC.md
@@ -111,7 +111,7 @@ mystra/
 
 ## Core Model
 
-`JobSpec` is the normalized task contract accepted by the control plane.
+`TaskSpec` is the normalized task contract accepted by the control plane.
 
 ```ts
 type AgentName = "codex" | "copilot";
@@ -133,15 +133,17 @@ interface MergeRequestSpec {
   body?: string;
 }
 
-interface JobSpec {
+interface TaskSpec {
   taskId: string;
   source: "mcp" | "api";
+  projectId: string;
   repo: string;
   baseBranch: string;
   branchName: string;
   agent: AgentName;
   prompt: string;
   mergeRequest?: MergeRequestSpec;
+  runtime?: JobRuntimeOverride;
   metadata: Record<string, unknown>;
 }
 
@@ -162,7 +164,7 @@ Mystra does not sanitize `branchName`, generate fallback names, or resolve branc
 The control plane owns persistent state:
 
 - `projects`
-- `jobs`
+- logical task records (currently persisted in the SQLite `jobs` table)
 - `runs`
 - `runner_sessions`
 - `run_events`
@@ -174,10 +176,10 @@ There is no MVP `run_logs` persistence path. Runner output may affect structured
 
 Mystra explicitly separates platform-scoped capabilities from project-scoped state.
 
-- `PlatformCapabilities` are declared by the runner platform and remain stable across jobs. This includes supported agents, executor type, and optional image identity.
+- `PlatformCapabilities` are declared by the runner platform and remain stable across tasks. This includes supported agents, executor type, and optional image identity.
 - `PlatformDefaults` are platform-level runtime defaults such as concurrency, timeout, heartbeat expiry, long-poll timeout, and container resource limits.
 - `Project` is the durable parent configuration for repository work: repo, default branch, default agent, runtime image, prewarm config, and opaque project metadata.
-- `JobSpec` remains the task identity layer (`taskId`, `source`) plus `projectId`, task branch, prompt, optional merge-request metadata, and optional repo/baseBranch/agent overrides.
+- `TaskSpec` remains the task identity layer (`taskId`, `source`) plus `projectId`, task branch, prompt, optional merge-request metadata, optional runtime override, and optional repo/baseBranch/agent overrides.
 
 North-star extension of this model:
 
@@ -197,45 +199,46 @@ Success criteria for this boundary:
 MVP public/control-plane APIs:
 
 ```text
-POST /mcp
-GET  /projects
-POST /projects
-GET  /projects/:slug
-PATCH /projects/:slug
-DELETE /projects/:slug
-POST /jobs
-GET  /jobs/:id
-POST /jobs/:id/cancel
-GET  /runners
+POST /api/mcp
+GET  /api/projects
+POST /api/projects
+GET  /api/projects/:slug
+PATCH /api/projects/:slug
+DELETE /api/projects/:slug
+POST /api/tasks
+GET  /api/tasks/:id
+POST /api/tasks/:id/cancel
+GET  /api/runners
 ```
 
 Runner protocol:
 
 ```text
-POST /runner/register
-GET  /runner/jobs
-POST /runner/jobs/:id/events
-POST /runner/jobs/:id/result
-POST /runner/heartbeat
+POST /api/runner/register
+GET  /api/runner/tasks
+GET  /api/runner/tasks/:id
+POST /api/runner/tasks/:id/events
+POST /api/runner/tasks/:id/result
+POST /api/runner/heartbeat
 ```
 
-`GET /runner/jobs` uses long polling. On Vercel it must use the Node runtime with `maxDuration >= 30s`; the runner long-poll timeout is 25 seconds.
+`GET /api/runner/tasks` uses long polling. On Vercel it must use the Node runtime with `maxDuration >= 30s`; the runner long-poll timeout is 25 seconds.
 
 MVP MCP tools:
 
 ```text
-mystra_create_job
+mystra_create_task
 mystra_create_project
 mystra_list_projects
 mystra_get_project
-mystra_get_job
-mystra_cancel_job
+mystra_get_task
+mystra_cancel_task
 mystra_list_runners
 ```
 
 The MCP endpoint lives in `apps/control-plane` and uses official Streamable HTTP semantics. A separate stdio MCP server is out of scope for MVP.
 
-`POST /jobs` persists the job and initial run first. After the database commit succeeds, the control plane asks the configured `WorkflowProvider` to drive lifecycle. The MVP workflow path is a Mystra-owned local implementation. If workflow start fails, the run remains `queued` for compensation.
+`POST /api/tasks` persists the task and initial run first. After the database commit succeeds, the control plane asks the configured `WorkflowProvider` to drive lifecycle. The MVP workflow path is a Mystra-owned local implementation. If workflow start fails, the run remains `queued` for compensation.
 
 ## Code Style
 
@@ -273,7 +276,7 @@ export const projectSchema = z
     repo: z.string().min(1),
     baseBranch: z.string().min(1).default("main"),
     defaultAgent: agentNameSchema,
-    image: z.string().min(1),
+    runtime: projectRuntimeConfigSchema,
     prewarmConfig: jsonObjectSchema.default({}),
     metadata: jsonObjectSchema.default({}),
     archivedAt: z.string().datetime().nullable().default(null),
@@ -282,7 +285,7 @@ export const projectSchema = z
   })
   .strict();
 
-export const jobSpecSchema = z.object({
+export const taskSpecSchema = z.object({
   taskId: z.string().min(1),
   source: z.enum(["mcp", "api"]),
   projectId: z.string().uuid(),
@@ -292,10 +295,11 @@ export const jobSpecSchema = z.object({
   agent: agentNameSchema.optional(),
   prompt: z.string().min(1),
   mergeRequest: mergeRequestSpecSchema.optional(),
+  runtime: jobRuntimeOverrideSchema.optional(),
   metadata: jsonObjectSchema.default({}),
 });
 
-export type JobSpec = z.infer<typeof jobSpecSchema>;
+export type TaskSpec = z.infer<typeof taskSpecSchema>;
 ```
 
 Conventions:
@@ -312,9 +316,9 @@ Conventions:
 
 MVP test layers:
 
-- Unit tests for schema validation, MCP/API job normalization, state transitions, and agent adapter command generation.
-- SQLite provider integration tests for claim/transition behavior, idempotent job creation, and runner heartbeat expiry.
-- Integration tests with a fake runner that registers, claims a job, emits events, and completes a run.
+- Unit tests for schema validation, MCP/API task normalization, state transitions, and agent adapter command generation.
+- SQLite provider integration tests for claim/transition behavior, idempotent task creation, and runner heartbeat expiry.
+- Integration tests with a fake runner that registers, claims a task, emits events, and completes a run.
 - Integration tests for strong cancel and timeout behavior.
 - Container smoke tests for Codex and Copilot adapter invocation.
 - Runner cache tests for repo cache miss/corruption fallback and dependency cache mount safety.
@@ -394,7 +398,7 @@ Runner cache lives on the runner host, not in the control plane.
 MVP `RunEvent` types:
 
 ```text
-job.created
+task.created
 workflow.start_requested
 workflow.start_failed
 workflow.started
@@ -463,21 +467,21 @@ Never:
 
 MVP is complete when:
 
-- A job can be created through the control-plane API or Mystra MCP server.
-- The control plane starts or retries starting the configured `WorkflowProvider` after job creation.
-- The local SQLite provider can persist and recover job/run state.
+- A task can be created through the control-plane API or Mystra MCP server.
+- The control plane starts or retries starting the configured `WorkflowProvider` after task creation.
+- The local SQLite provider can persist and recover task/run state.
 - The Mystra-owned local workflow implementation can drive the first lifecycle path without cloud services.
-- A private runner daemon can register and pull a job without inbound networking.
+- A private runner daemon can register and pull a task without inbound networking.
 - The runner can start a Docker container with a normalized task file.
 - The container can run Codex or Copilot against a fixture repository.
 - Strong cancel and timeout paths stop the container and mark the run correctly.
 - The result includes GitLab branch/MR metadata, GitHub branch/PR metadata, or a structured failure reason.
 - Runner cache miss/corruption falls back to cold clone/install.
-- Tests cover job idempotency, state transitions, SQL claim concurrency, runner heartbeat expiry, unknown agent rejection, credential injection shape, fake-runner completion, cancellation, and cache mount safety.
+- Tests cover task idempotency, state transitions, SQL claim concurrency, runner heartbeat expiry, unknown agent rejection, credential injection shape, fake-runner completion, cancellation, and cache mount safety.
 
 ## Preflight Checks
 
-Before enabling real runner jobs:
+Before enabling real runner tasks:
 
 - Local SQLite database path is configured and writable.
 - `RUNNER_REGISTRATION_TOKEN` is configured in the control plane and runner daemon.

@@ -3,11 +3,11 @@
 **Branch**: `008-mcp-skills` | **Date**: 2026-05-15 | **Spec**: `/specs/008-mcp-skills/spec.md`
 **Input**: Feature specification from `/specs/008-mcp-skills/spec.md`
 
-**Note**: This plan now reflects the implemented first slice: repo-local companion skills under `.agents/skills/` that wrap `mystra_create_job` and `mystra_get_job`, plus quickstart/discovery documentation for the local skill-pack layout used by this repository.
+**Note**: This plan now reflects the implemented first slice: repo-local companion skills under `.agents/skills/` that wrap `mystra_create_task` and `mystra_get_task`, plus quickstart/discovery documentation for the local skill-pack layout used by this repository.
 
 ## Summary
 
-Provide installable companion skills that wrap Mystra MCP job submission and job status flows so agents can work at the level of user journeys and implementation requests instead of raw MCP payloads. The implemented slice keeps the wrappers repo-local, stores blueprint hints in job metadata rather than inventing a new MCP field, and documents the skill-pack discovery path in `quickstart.md`.
+Provide installable companion skills that wrap Mystra MCP task submission and task status flows so agents can work at the level of user journeys and implementation requests instead of raw MCP payloads. The implemented slice keeps the wrappers repo-local, stores blueprint hints in task metadata rather than inventing a new MCP field, and documents the skill-pack discovery path in `quickstart.md`.
 
 ## Technical Context
 
@@ -44,7 +44,7 @@ specs/008-mcp-skills/
 .agents/skills/
 ├── mystra-submit-user-journey/
 ├── mystra-submit-implementation-request/
-└── mystra-check-job-status/
+└── mystra-check-task-status/
 
 apps/control-plane/app/api/mcp/
 packages/shared/src/

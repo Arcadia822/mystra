@@ -22,7 +22,7 @@ contract is not explicit, every follow-on feature will quietly encode its own
 host-specific assumptions.
 
 **Independent Test**: Replace the real provider with a stub implementation that
-records requested repository operations; submit a job and verify the workflow
+records requested repository operations; submit a task and verify the workflow
 uses the stub contract without changing its own control flow.
 
 **Acceptance Scenarios**:
@@ -33,9 +33,9 @@ uses the stub contract without changing its own control flow.
 2. **Given** a different `RepoProvider` implementation is registered,
    **When** the workflow runs, **Then** repository operations flow through the
    new provider without requiring workflow or runner contract changes.
-3. **Given** a project selects a repository host, **When** a job is resolved for
-   execution, **Then** the provider choice is derived from project/runtime
-   state rather than from hardcoded workflow defaults.
+3. **Given** a project selects a repository host, **When** a task is resolved for
+    execution, **Then** the provider choice is derived from project/runtime
+    state rather than from hardcoded workflow defaults.
 
 ---
 
@@ -49,7 +49,7 @@ branch, and create a merge request with structured metadata returned to Mystra.
 story and existing runner behavior. The contract must preserve that path
 without leaving it trapped in ad hoc shell logic.
 
-**Independent Test**: Run a job against a GitLab-backed project, complete the
+**Independent Test**: Run a task against a GitLab-backed project, complete the
 quality gate, and verify the provider returns branch and merge-request metadata
 through the normalized delivery result.
 
@@ -78,7 +78,7 @@ provider implementation.
 part of the MVP boundary. The contract has to make that real instead of leaving
 GitHub as a hand-waved future parity item.
 
-**Independent Test**: Run a job against a GitHub-backed project, complete the
+**Independent Test**: Run a task against a GitHub-backed project, complete the
 quality gate, and verify the provider returns branch and pull-request metadata
 through the normalized delivery result.
 

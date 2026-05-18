@@ -108,7 +108,7 @@
 ## Decision 6: Use direct source inspection instead of GitNexus for this plan
 
 - **Decision**: Base this plan on direct reads of `apps/workflows`,
-  `apps/runner-daemon`, `apps/control-plane/app/api/runner/jobs/*`, and
+  `apps/runner-daemon`, `apps/control-plane/app/api/runner/tasks/*`, and
   `packages/shared`.
 - **Rationale**: GitNexus CLI bootstrap failed in this shell, so current-code
   evidence had to come from source inspection. The plan records that limitation

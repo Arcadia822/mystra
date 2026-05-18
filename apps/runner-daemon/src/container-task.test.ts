@@ -67,7 +67,7 @@ describe("container task quality gate", () => {
     expect(runner).toContain("await createRunnerSandboxProviderRegistry({");
     expect(runner).toContain("repoRegistryBundle?.registry");
     expect(runner).toContain("sandboxRegistryBundle?.registry");
-    expect(runner).toContain("executeJob(");
+    expect(runner).toContain("executeTask(");
     expect(runner).not.toContain("const workflowRegistry = await createRunnerWorkflowProviderRegistry({");
     expect(workflowProviders).toContain("LocalWorkflowProvider");
     expect(workflowProviders).toContain("createWorkflowProviderRegistry");
@@ -267,17 +267,17 @@ describe("container task quality gate", () => {
     expect(runner).toContain("await sleep(config.pollIntervalSeconds * 1000)");
   });
 
-  it("supervises bounded active jobs from local concurrency", () => {
-    expect(runner).toContain("const activeJobs = new Set<Promise<void>>()");
-    expect(runner).toContain("activeJobs.size < config.concurrency");
-    expect(runner).toContain("activeJobs.add(activeJob)");
-    expect(runner).toContain("activeJobs.delete(activeJob)");
-    expect(runner).toContain("await Promise.race([...activeJobs, sleep(config.pollIntervalSeconds * 1000)])");
+  it("supervises bounded active tasks from local concurrency", () => {
+    expect(runner).toContain("const activeTasks = new Set<Promise<void>>()");
+    expect(runner).toContain("activeTasks.size < config.concurrency");
+    expect(runner).toContain("activeTasks.add(activeTask)");
+    expect(runner).toContain("activeTasks.delete(activeTask)");
+    expect(runner).toContain("await Promise.race([...activeTasks, sleep(config.pollIntervalSeconds * 1000)])");
   });
 
   it("polls active runs for cancellation requests and stops local execution", () => {
     expect(runner).toContain("async function pollCancellationRequest(");
-    expect(runner).toContain("apiUrl(config, `/api/runner/jobs/${runId}`)");
+    expect(runner).toContain("apiUrl(config, `/api/runner/tasks/${runId}`)");
     expect(runner).toContain("snapshot.run?.cancellationRequest");
     expect(runner).toContain("cancellationRequested = true");
     expect(runner).toContain("executionAbort.abort()");
@@ -335,8 +335,8 @@ describe("container task quality gate", () => {
   });
 
   it("formats default commit messages to satisfy remote push policy without changing MR titles", () => {
-    expect(runner).toContain('const reviewTitle = job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`');
-    expect(runner).toContain('const commitMessage = `Update #${job.spec.taskId} ${reviewTitle}`');
+    expect(runner).toContain('const reviewTitle = task.spec.mergeRequest?.title ?? `Mystra task ${task.spec.taskId}`');
+    expect(runner).toContain('const commitMessage = `Update #${task.spec.taskId} ${reviewTitle}`');
     expect(runner).toContain('`MYSTRA_COMMIT_MESSAGE=${commitMessage}`');
     expect(runner).toContain("commitMessage,");
     expect(runner).toContain("title: reviewTitle,");
@@ -346,7 +346,7 @@ describe("container task quality gate", () => {
     expect(runner).toContain("const MAX_INLINE_AGENT_PROMPT_BYTES = 16 * 1024");
     expect(runner).toContain('Buffer.byteLength(prompt, "utf8") > MAX_INLINE_AGENT_PROMPT_BYTES');
     expect(runner).toContain('const agentPromptPath = path.join(workspace, "agent-prompt.txt")');
-    expect(runner).toContain("await writeFile(agentPromptPath, job.spec.prompt)");
+    expect(runner).toContain("await writeFile(agentPromptPath, task.spec.prompt)");
     expect(runner).toContain("promptFilePath: agentPromptFilePath");
     expect(runner).toContain("agentAdapter.buildExecutionOptions?.(agentExecutionRequest)");
     expect(runner).toContain("MYSTRA_AGENT_STDIN_FILE");

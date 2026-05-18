@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build the MVP as a TypeScript monorepo that uses the Open Agents project as a source-authoritative framework baseline and reference architecture, while defining Mystra-owned interfaces and SDK surfaces at provider and orchestration seams. The local-first implementations are SQLite for RDB state, a Mystra-owned local workflow implementation for lifecycle orchestration, a single-machine Docker sandbox provider, Codex/Copilot agent adapters, and runner-local prewarm caches. The first proof is a fake-runner lifecycle; the second is a real runner container on the provided high-capacity server producing GitLab branch/MR or GitHub branch/PR output from jobs submitted through API or remote MCP.
+Build the MVP as a TypeScript monorepo that uses the Open Agents project as a source-authoritative framework baseline and reference architecture, while defining Mystra-owned interfaces and SDK surfaces at provider and orchestration seams. The local-first implementations are SQLite for RDB state, a Mystra-owned local workflow implementation for lifecycle orchestration, a single-machine Docker sandbox provider, Codex/Copilot agent adapters, and runner-local prewarm caches. The first proof is a fake-runner lifecycle; the second is a real runner container on the provided high-capacity server producing GitLab branch/MR or GitHub branch/PR output from tasks submitted through API or remote MCP.
 
 The MVP intentionally excludes control-plane auth, logs, retry, callback URLs, quality-gate fix loops, Claude CLI, and remote shared caches.
 
@@ -12,9 +12,9 @@ The MVP intentionally excludes control-plane auth, logs, retry, callback URLs, q
 - Local SQLite is the first shared state provider for control plane and workflow logic.
 - `apps/control-plane` owns HTTP APIs and the Streamable HTTP MCP endpoint.
 - `apps/workflows` owns workflow provider implementations. The first implementation is Mystra-owned and local-first, not a managed durable cloud workflow.
-- `POST /jobs` persists the job/run, then asks the configured workflow provider to start. Failed workflow starts are retried by compensation.
+- `POST /api/tasks` persists the task/run, then asks the configured workflow provider to start. Failed workflow starts are retried by compensation.
 - Runner daemon is pull-based over outbound long polling.
-- `/api/runner/jobs` uses the Vercel Node runtime with `maxDuration >= 30s`.
+- `/api/runner/tasks` uses the Vercel Node runtime with `maxDuration >= 30s`.
 - Docker is the MVP sandbox; Kubernetes remains future work behind the runner interface.
 - GitLab and GitHub are the MVP repository providers.
 - Branch naming, MR/PR title, and MR/PR body come from task/repository context. Mystra does not sanitize names or handle branch collisions.
@@ -68,13 +68,13 @@ Monorepo scaffold
 
 ### Task 2: Shared Domain Schemas
 
-**Description:** Implement Zod schemas and TypeScript types for `JobSpec`, `RunState`, `RunEvent`, `RunResult`, runner registration, runner polling, and runner cache config.
+**Description:** Implement Zod schemas and TypeScript types for `TaskSpec`, `RunState`, `RunEvent`, `RunResult`, runner registration, runner polling, and runner cache config.
 
 **Acceptance criteria:**
 - [ ] Schemas match `docs/SPEC.md`.
 - [ ] `AgentName` only allows `codex` and `copilot`.
 - [ ] `PlatformCapabilities`, `PlatformDefaults`, and Project create/update schemas are explicit first-class schemas.
-- [ ] `JobSpec` requires task-provided `branchName`.
+- [ ] `TaskSpec` requires task-provided `branchName`.
 - [ ] Runner registration uses typed platform capabilities instead of an unstructured capability bag.
 - [ ] `RunResult` exposes structured status, summary, branch, MR/PR metadata, and error fields.
 - [ ] Unknown agents and invalid run transitions are rejected.
@@ -107,11 +107,11 @@ Monorepo scaffold
 
 ### Task 3: SQLite RDB Provider and Persistence Layer
 
-**Description:** Add the local SQLite schema and typed persistence helpers for jobs, runs, runner sessions, run events, and artifacts behind an `RdbProvider` contract. Do not implement `run_logs` in MVP.
+**Description:** Add the local SQLite schema and typed persistence helpers for logical task records, runs, runner sessions, run events, and artifacts behind an `RdbProvider` contract. Do not implement `run_logs` in MVP.
 
 **Acceptance criteria:**
-- [ ] Tables support idempotent job creation and append-only structured events.
-- [ ] Jobs store branch name and optional MR/PR title/body.
+- [ ] Tables support idempotent task creation and append-only structured events.
+- [ ] Task records store branch name and optional MR/PR title/body.
 - [ ] No MVP `callback_url` or `run_logs` dependency remains.
 - [ ] SQLite transactions atomically claim queued runs for a runner.
 - [ ] Persistence helpers guard valid run state transitions and terminal-state races.
@@ -131,28 +131,28 @@ Monorepo scaffold
 
 **Estimated scope:** M
 
-### Task 4: Control-Plane Job APIs
+### Task 4: Control-Plane Task APIs
 
-**Description:** Implement the public job APIs for create, read, cancel, and runner list. Do not add auth, logs, retry, or callbacks.
+**Description:** Implement the public task APIs for create, read, cancel, and runner list. Do not add auth, logs, retry, or callbacks.
 
 **Acceptance criteria:**
-- [ ] `POST /jobs` creates a validated job and first run.
-- [ ] `POST /jobs` commits DB state before requesting workflow start.
+- [ ] `POST /api/tasks` creates a validated task and first run.
+- [ ] `POST /api/tasks` commits DB state before requesting workflow start.
 - [ ] Workflow provider start failure keeps the run `queued` for compensation.
-- [ ] `GET /jobs/:id` returns job, run status, structured events, and final result when available.
-- [ ] `POST /jobs/:id/cancel` performs strong cancellation state update.
-- [ ] `GET /runners` returns runner session status.
+- [ ] `GET /api/tasks/:id` returns task, run status, structured events, and final result when available.
+- [ ] `POST /api/tasks/:id/cancel` performs strong cancellation state update.
+- [ ] `GET /api/runners` returns runner session status.
 
 **Verification:**
 - [ ] Route tests with mocked persistence/workflow client.
-- [ ] Integration test against local SQLite for create/read/cancel.
+- [ ] Integration test against local SQLite for create/read/cancel of tasks.
 
 **Dependencies:** Task 3
 
 **Files likely touched:**
-- `apps/control-plane/app/api/jobs/route.ts`
-- `apps/control-plane/app/api/jobs/[id]/route.ts`
-- `apps/control-plane/app/api/jobs/[id]/cancel/route.ts`
+- `apps/control-plane/app/api/tasks/route.ts`
+- `apps/control-plane/app/api/tasks/[id]/route.ts`
+- `apps/control-plane/app/api/tasks/[id]/cancel/route.ts`
 - `apps/control-plane/app/api/runners/route.ts`
 - `apps/control-plane/src/lib/workflows/*.ts`
 
@@ -160,13 +160,13 @@ Monorepo scaffold
 
 ### Task 5: Runner Registration and Long-Poll APIs
 
-**Description:** Implement runner registration with shared secret, session token issuance, heartbeat, long-poll job claim, event ingestion, and result submission.
+**Description:** Implement runner registration with shared secret, session token issuance, heartbeat, long-poll task claim, event ingestion, and result submission.
 
 **Acceptance criteria:**
 - [ ] Registration requires `RUNNER_REGISTRATION_TOKEN`.
 - [ ] Runner APIs require issued runner session token.
-- [ ] `GET /runner/jobs` uses Node runtime and `maxDuration >= 30s`.
-- [ ] Long-poll returns assignable jobs or times out cleanly after 25 seconds.
+- [ ] `GET /api/runner/tasks` uses Node runtime and `maxDuration >= 30s`.
+- [ ] Long-poll returns assignable tasks or times out cleanly after 25 seconds.
 - [ ] Structured events are appended.
 - [ ] Result submission moves run to terminal state through the `RdbProvider`.
 
@@ -178,9 +178,9 @@ Monorepo scaffold
 
 **Files likely touched:**
 - `apps/control-plane/app/api/runner/register/route.ts`
-- `apps/control-plane/app/api/runner/jobs/route.ts`
-- `apps/control-plane/app/api/runner/jobs/[id]/events/route.ts`
-- `apps/control-plane/app/api/runner/jobs/[id]/result/route.ts`
+- `apps/control-plane/app/api/runner/tasks/route.ts`
+- `apps/control-plane/app/api/runner/tasks/[id]/events/route.ts`
+- `apps/control-plane/app/api/runner/tasks/[id]/result/route.ts`
 - `apps/control-plane/app/api/runner/heartbeat/route.ts`
 
 **Estimated scope:** M
@@ -190,10 +190,10 @@ Monorepo scaffold
 **Description:** Expose the MVP MCP tools from `apps/control-plane` using official Streamable HTTP semantics and the same schemas as the HTTP APIs.
 
 **Acceptance criteria:**
-- [ ] Tools exist: `mystra_create_job`, `mystra_get_job`, `mystra_cancel_job`, `mystra_list_runners`.
-- [ ] No `mystra_get_job_logs` or `mystra_retry_job` tool exists in MVP.
+- [ ] Tools exist: `mystra_create_task`, `mystra_get_task`, `mystra_cancel_task`, `mystra_list_runners`.
+- [ ] No `mystra_get_task_logs` or `mystra_retry_task` tool exists in MVP.
 - [ ] Tool input/output uses shared schemas.
-- [ ] MCP endpoint can create and inspect a job.
+- [ ] MCP endpoint can create and inspect a task.
 
 **Verification:**
 - [ ] MCP route tests.
@@ -210,9 +210,9 @@ Monorepo scaffold
 
 ### Checkpoint: Control Plane
 
-- [ ] Local SQLite-backed job lifecycle works through HTTP.
+- [ ] Local SQLite-backed task lifecycle works through HTTP.
 - [ ] Fake runner can register, poll, emit events, and complete a run.
-- [ ] MCP tool can create a job and fetch status.
+- [ ] MCP tool can create a task and fetch status.
 - [ ] No real Docker or GitLab writes yet.
 
 ## Phase 3: Workflow and Runner Daemon
@@ -243,12 +243,12 @@ Monorepo scaffold
 
 ### Task 8: Runner Daemon Long-Poll Client
 
-**Description:** Build the runner daemon process that registers, heartbeats, long-polls, launches jobs, handles cancel/timeout signals, submits structured events/results, and performs cleanup.
+**Description:** Build the runner daemon process that registers, heartbeats, long-polls, launches tasks, handles cancel/timeout signals, submits structured events/results, and performs cleanup.
 
 **Acceptance criteria:**
 - [ ] Reads runner config from env/file with startup validation.
 - [ ] Registers and maintains heartbeat.
-- [ ] Polls for jobs and handles empty polls with jitter.
+- [ ] Polls for tasks and handles empty polls with jitter.
 - [ ] Errors use exponential backoff while heartbeat continues where possible.
 - [ ] Can run a fake executor and submit result.
 - [ ] Includes a periodic reaper for stale containers, workspaces, and cache temp dirs.
@@ -323,7 +323,7 @@ Monorepo scaffold
 ### Checkpoint: Runner Control Loop
 
 - [ ] Workflow can dispatch a run.
-- [ ] Runner daemon can claim and complete fake jobs.
+- [ ] Runner daemon can claim and complete fake tasks.
 - [ ] Heartbeat expiry and strong cancellation are covered by tests.
 - [ ] Repo/dependency cache fallback behavior is covered by tests.
 
@@ -459,11 +459,11 @@ Monorepo scaffold
 
 ### Task 16: End-to-End Repository Fixture Flow
 
-**Description:** Run a complete MVP flow from API/MCP job creation to runner container execution and GitLab MR or GitHub PR result on a disposable repository.
+**Description:** Run a complete MVP flow from API/MCP task creation to runner container execution and GitLab MR or GitHub PR result on a disposable repository.
 
 **Acceptance criteria:**
-- [ ] Job created through API or MCP.
-- [ ] Workflow starts and runner claims job.
+- [ ] Task created through API or MCP.
+- [ ] Workflow starts and runner claims task.
 - [ ] Agent modifies fixture repo.
 - [ ] Task-provided branch is pushed.
 - [ ] MR or PR is created.
@@ -504,7 +504,7 @@ Monorepo scaffold
 | Runner long polling races assign the same run twice | High | Use database-level claim transaction and run state transition guard. |
 | Docker cleanup fails after cancel/timeout | Medium | Track container IDs and workspace paths; cleanup in finally blocks and periodic reaper. |
 | Cache corruption breaks runs | Medium | Treat caches as disposable; fall back to cold clone/install. |
-| Codex depends on proxy/auth cache behavior | Medium | Keep Codex adapter optional per job; Copilot is already container-validated. |
+| Codex depends on proxy/auth cache behavior | Medium | Keep Codex adapter optional per task; Copilot is already container-validated. |
 | GitLab/GitHub token leaks from container | High | Accepted MVP risk; inject only at runtime and do not bake into images. |
 
 ## Parallelization Opportunities

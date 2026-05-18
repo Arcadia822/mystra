@@ -85,9 +85,9 @@ Expected result:
 - Mystra stores a bundle reference and access policy.
 - The bundle content is treated as local development template content unless released externally.
 
-## 3. Submit A Job
+## 3. Submit A Task
 
-Submit a job with the normal small caller contract:
+Submit a task with the normal small caller contract:
 
 ```json
 {
@@ -124,7 +124,7 @@ Register a runner with Docker provider capabilities:
 
 Expected result:
 
-- A compatible runner can claim the job.
+- A compatible runner can claim the task.
 - An incompatible runner receives no work.
 
 ## 5. Claim And Inspect Resolved Runtime
@@ -133,7 +133,7 @@ When the runner claims work, the claim response includes a resolved runtime cont
 
 ```json
 {
-  "job": { "id": "...", "spec": { "projectId": "...", "branchName": "..." } },
+  "task": { "id": "...", "spec": { "projectId": "...", "branchName": "..." } },
   "run": { "id": "...", "state": "assigned", "attempt": 1 },
   "project": { "id": "...", "slug": "castrel-ai" },
   "runtime": {

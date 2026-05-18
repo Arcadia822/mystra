@@ -22,7 +22,7 @@
 - **Rationale**: Source inspection shows the provider seam alone is not enough:
   `container-task.sh` still clones only with `MYSTRA_GITLAB_TOKEN`, and
   `apps/runner-daemon/src/index.ts` only injects GitLab token/base-url values
-  into Docker steps. Without a narrow normalization slice, a GitHub-backed job
+  into Docker steps. Without a narrow normalization slice, a GitHub-backed task
   cannot honestly reach the provider-owned delivery path.
 - **Alternatives considered**:
   - Ignore clone/bootstrap and implement only push/review. Rejected because that

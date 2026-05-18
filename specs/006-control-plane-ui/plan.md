@@ -7,7 +7,7 @@
 
 ## Summary
 
-Improve the control plane dashboard so operators can see platform health, inspect job details, submit tasks, and discover MCP/skill integration information from the UI without dropping to raw APIs.
+Improve the control plane dashboard so operators can see platform health, inspect task details, submit tasks, and discover MCP/skill integration information from the UI without dropping to raw APIs.
 
 ## Technical Context
 
@@ -17,7 +17,7 @@ Improve the control plane dashboard so operators can see platform health, inspec
 **Testing**: Vitest 4 plus existing control-plane route and UI validation coverage  
 **Target Platform**: Browser UI served from `apps/control-plane`  
 **Project Type**: Web application  
-**Performance Goals**: Dashboard remains readable and responsive while polling live runner/job state  
+**Performance Goals**: Dashboard remains readable and responsive while polling live runner/task state  
 **Constraints**: Must preserve current MVP boundaries and existing control-plane APIs  
 **Scale/Scope**: Single-page operator dashboard plus supporting panels/forms in `apps/control-plane/app/`
 

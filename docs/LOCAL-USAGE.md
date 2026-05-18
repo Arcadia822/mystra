@@ -40,10 +40,10 @@ To use the Docker runner that clones GitLab, runs Codex/Copilot, pushes a branch
 
 Use this section as the current acceptance evidence for the MVP happy path. It is intentionally narrow: prove the control plane, runner claim loop, durable state, and review-delivery path all work without pretending every future operator surface is complete.
 
-1. **Local protocol smoke**: start `pnpm dev:control-plane` plus `MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner`, create a Project, submit a job, then fetch `GET /api/jobs/<job-id>`. Evidence: the job is accepted by `projectId`, the fake runner claims it, the run reaches a terminal state, and the returned job JSON includes durable run/result data.
-2. **Local MCP smoke**: call `/api/mcp` with `mystra_create_project` or `mystra_create_job` against the same control plane. Evidence: the MCP boundary can create the same Project/job resources as HTTP without a separate hidden path.
-3. **Restart durability smoke**: repeat the local protocol smoke with a fixed `MYSTRA_DB_PATH`, restart the control plane, then fetch the same Project and job again. Evidence: Projects, jobs, runners, events, and results survive restart with the same SQLite file.
-4. **Development-machine review delivery smoke**: deploy to the configured server, submit a real project-backed job with `pnpm job:submit -- --project ...`, and inspect the final JSON plus preview helpers. Evidence: Mystra resolves `Project.runtime.image`, the Docker runner completes `test -> build`, pushes a branch, opens a GitLab MR or GitHub PR, and leaves a retained preview container inspectable through `pnpm preview -- list|logs|quality`.
+1. **Local protocol smoke**: start `pnpm dev:control-plane` plus `MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner`, create a Project, submit a task, then fetch `GET /api/tasks/<task-id>`. Evidence: the task is accepted by `projectId`, the fake runner claims it, the run reaches a terminal state, and the returned task JSON includes durable run/result data.
+2. **Local MCP smoke**: call `/api/mcp` with `mystra_create_project` or `mystra_create_task` against the same control plane. Evidence: the MCP boundary can create the same Project/task resources as HTTP without a separate hidden path.
+3. **Restart durability smoke**: repeat the local protocol smoke with a fixed `MYSTRA_DB_PATH`, restart the control plane, then fetch the same Project and task again. Evidence: Projects, tasks, runners, events, and results survive restart with the same SQLite file.
+4. **Development-machine review delivery smoke**: deploy to the configured server, submit a real project-backed task with `pnpm job:submit -- --project ...`, and inspect the final JSON plus preview helpers. Evidence: Mystra resolves `Project.runtime.image`, the Docker runner completes `test -> build`, pushes a branch, opens a GitLab MR or GitHub PR, and leaves a retained preview container inspectable through `pnpm preview -- list|logs|quality`.
 
 When one of the proof points fails, record that gap before calling MVP closure complete. A polite fiction would still be fiction.
 
@@ -51,7 +51,7 @@ When one of the proof points fails, record that gap before calling MVP closure c
 
 Use this as the shortest operator path for the current MVP. It is not a full
 operations manual; it is the "get the system up, prove it is alive, submit one
-job, inspect what happened, and shut it down without improvising" path.
+task, inspect what happened, and shut it down without improvising" path.
 
 ### 1. Start services
 
@@ -110,10 +110,10 @@ HTTP using the examples later in this document.
 
 ### 4. Inspect execution and result
 
-Inspect the durable job snapshot:
+Inspect the durable task snapshot:
 
 ```sh
-curl -sS http://localhost:3000/api/jobs/<job-id>
+curl -sS http://localhost:3000/api/tasks/<task-id>
 ```
 
 Useful things to look for:
@@ -143,7 +143,7 @@ When the system misbehaves, start here:
 1. `pnpm run doctor` — quick local preflight
 2. `/tmp/mystra-control-plane.log` and `/tmp/mystra-runner.log` — process-level failures
 3. `mystra_health` — stale or missing runner capacity
-4. `GET /api/jobs/<job-id>` — durable run state, events, and final result
+4. `GET /api/tasks/<task-id>` — durable run state, events, and final result
 5. `pnpm preview -- quality mystra-<run-id>` — quality gate log for retained containers
 
 ## Submit And Wait For A Project Job
@@ -178,7 +178,7 @@ MYSTRA_DEV_USER=root
 MYSTRA_REMOTE_DIR=/opt/mystra
 ```
 
-The deploy script syncs source files, writes `/root/.mystra/runner.env`, installs dependencies, and installs `mystra-control-plane` plus `mystra-runner` systemd services. If the target host has a local Castrel image context at `MYSTRA_RUNNER_IMAGE_CONTEXT` or `/tmp/mystra-castrel-runner-image`, deployment can build that local image; the image context is intentionally outside the Mystra git repository. Runtime Docker jobs use `Project.runtime.image`.
+The deploy script syncs source files, writes `/root/.mystra/runner.env`, installs dependencies, and installs `mystra-control-plane` plus `mystra-runner` systemd services. If the target host has a local Castrel image context at `MYSTRA_RUNNER_IMAGE_CONTEXT` or `/tmp/mystra-castrel-runner-image`, deployment can build that local image; the image context is intentionally outside the Mystra git repository. Runtime Docker tasks use `Project.runtime.image`.
 
 ## Development Machine Sentry
 
@@ -223,9 +223,9 @@ For protocol-only local development, start the fake runner in another terminal:
 MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner
 ```
 
-The fake runner registers, long-polls for queued jobs, emits structured events, and returns a successful `RunResult`. It is not the development-machine Docker runner used for real GitLab MRs.
+The fake runner registers, long-polls for queued tasks, emits structured events, and returns a successful `RunResult`. It is not the development-machine Docker runner used for real GitLab MRs.
 
-## Create a job through HTTP
+## Create a task through HTTP
 
 ```sh
 PROJECT_ID="$(curl -sS -X POST http://localhost:3000/api/projects \
@@ -242,7 +242,7 @@ PROJECT_ID="$(curl -sS -X POST http://localhost:3000/api/projects \
     }
   }' | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.id));')"
 
-curl -sS -X POST http://localhost:3000/api/jobs \
+curl -sS -X POST http://localhost:3000/api/tasks \
   -H 'content-type: application/json' \
   -d "{
     \"taskId\": \"local-task-1\",
@@ -253,13 +253,13 @@ curl -sS -X POST http://localhost:3000/api/jobs \
   }"
 ```
 
-Use the returned `job.id`:
+Use the returned `task.id`:
 
 ```sh
-curl -sS http://localhost:3000/api/jobs/<job-id>
+curl -sS http://localhost:3000/api/tasks/<task-id>
 ```
 
-## Create a job through the local MCP-style endpoint
+## Create a task through the local MCP-style endpoint
 
 ```sh
 curl -sS -X POST http://localhost:3000/api/mcp \
@@ -269,7 +269,7 @@ curl -sS -X POST http://localhost:3000/api/mcp \
     "id": 1,
     "method": "tools/call",
     "params": {
-      "name": "mystra_create_job",
+      "name": "mystra_create_task",
       "arguments": {
         "taskId": "local-mcp-1",
         "source": "mcp",
@@ -284,6 +284,6 @@ curl -sS -X POST http://localhost:3000/api/mcp \
 ## Current limits
 
 - Local state is persisted through the SQLite-backed RdbProvider.
-- Restarting the control plane preserves projects, jobs, runners, events, and results when `MYSTRA_DB_PATH` points at the same file.
+- Restarting the control plane preserves projects, tasks, runners, events, and results when `MYSTRA_DB_PATH` points at the same file.
 - The local fake runner does not clone repos, run Codex/Copilot, create branches, or create GitLab MRs.
 - The development-machine Docker runner can create real GitLab MRs. Preview URLs are included only when the retained container starts reachable frontend/backend services.

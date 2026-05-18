@@ -15,7 +15,7 @@ GitHub delivery to be as real as the already-wired GitLab path.
 
 ### Technical Scenario 1 - GitHub-Backed Projects Deliver A Reviewable Branch And Pull Request (Priority: P1)
 
-A repository provider implementer can run a GitHub-backed Mystra job through the
+A repository provider implementer can run a GitHub-backed Mystra task through the
 existing `RepoProvider` seam and produce a pushed branch plus a pull request
 without changing workflow or runner control flow.
 
@@ -30,7 +30,7 @@ contains a branch URL, pull-request URL, and provider-owned review identifier.
 
 **Acceptance Scenarios**:
 
-1. **Given** a job targets a GitHub-backed repository and the quality gate has
+1. **Given** a task targets a GitHub-backed repository and the quality gate has
    passed, **When** the active `RepoProvider` is selected, **Then** Mystra pushes
    the task branch and creates a pull request through the GitHub implementation.
 2. **Given** the workflow and runner only consume provider-neutral repository
@@ -75,7 +75,7 @@ and any reviewer-facing follow-up note or comment defined by the provider.
 ### Technical Scenario 3 - Partial Success And Failure Modes Stay Explainable (Priority: P1)
 
 A platform operator can distinguish "no diff", "auth invalid", "push failed",
-and "pull request creation failed after push" for GitHub-backed jobs without
+and "pull request creation failed after push" for GitHub-backed tasks without
 losing the successful branch outcome when only review creation fails.
 
 **Why this priority**: The new seam is only credible if GitHub uses the same

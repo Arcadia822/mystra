@@ -4,7 +4,6 @@ import {
   contextBundleSchema,
   contextBundleCreateSchema,
   controlPlaneLifecycleHandoffEventTypes,
-  jobSpecSchema,
   platformCapabilitiesSchema,
   projectCreateSchema,
   projectRuntimeConfigSchema,
@@ -14,6 +13,7 @@ import {
   runResultSchema,
   runStateSchema,
   terminalRunEventTypes,
+  taskSpecSchema,
   workflowExecutionSnapshotSchema,
 } from "@mystra/shared";
 import { z } from "zod";
@@ -91,16 +91,16 @@ const publicRunnerSessionSchema = z.object({
   updatedAt: z.string().datetime(),
 }).strict();
 
-const jobRecordSchema = z.object({
+const taskRecordSchema = z.object({
   id: z.string().uuid(),
-  spec: jobSpecSchema,
+  spec: taskSpecSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 }).strict();
 
 const runRecordSchema = z.object({
   id: z.string().uuid(),
-  jobId: z.string().uuid(),
+  taskId: z.string().uuid(),
   state: runStateSchema,
   attempt: z.number().int().positive(),
   assignedRunnerSessionId: z.string().uuid().optional(),
@@ -123,8 +123,8 @@ const projectClaimSchema = z.object({
   prewarmConfig: z.record(z.string(), z.unknown()).default({}),
 }).strict();
 
-const jobSnapshotSchema = z.object({
-  job: jobRecordSchema,
+const taskSnapshotSchema = z.object({
+  task: taskRecordSchema,
   run: runRecordSchema,
   events: z.array(runEventSchema),
   workflow: workflowExecutionSnapshotSchema.optional(),
@@ -138,6 +138,10 @@ const listRunnersPayloadSchema = z.object({
 
 const listContextBundlesPayloadSchema = z.object({
   contextBundles: z.array(contextBundleSchema),
+}).strict();
+
+const taskLookupArgumentsSchema = z.object({
+  id: z.string().uuid(),
 }).strict();
 
 const listProjectsPayloadSchema = z.object({
@@ -280,7 +284,7 @@ export async function POST(request: Request) {
                   },
                   additionalProperties: false,
                 },
-                accessMode: { type: "string", enum: ["read-only", "job-scoped"] },
+                 accessMode: { type: "string", enum: ["read-only", "job-scoped"] },
                 mountPath: { type: "string" },
                 freshness: { type: "object" },
                 failureMode: { type: "string", enum: ["fail-run", "warn"] },
@@ -302,8 +306,8 @@ export async function POST(request: Request) {
             },
           },
           {
-            name: "mystra_create_job",
-            description: "Create a local Mystra job.",
+            name: "mystra_create_task",
+            description: "Create a local Mystra task.",
             lifecycle: {
               handoffEvents: [...controlPlaneLifecycleHandoffEventTypes],
             },
@@ -333,7 +337,7 @@ export async function POST(request: Request) {
                         properties: {
                           slug: { type: "string" },
                           required: { type: "boolean", default: true },
-                          accessMode: { type: "string", enum: ["read-only", "job-scoped"], default: "read-only" },
+                           accessMode: { type: "string", enum: ["read-only", "job-scoped"], default: "read-only" },
                         },
                         additionalProperties: false,
                       },
@@ -373,7 +377,7 @@ export async function POST(request: Request) {
                         properties: {
                           slug: { type: "string" },
                           required: { type: "boolean", default: true },
-                          accessMode: { type: "string", enum: ["read-only", "job-scoped"], default: "read-only" },
+                           accessMode: { type: "string", enum: ["read-only", "job-scoped"], default: "read-only" },
                         },
                         additionalProperties: false,
                       },
@@ -423,28 +427,28 @@ export async function POST(request: Request) {
             },
           },
           {
-            name: "mystra_get_job",
-            description: "Get local Mystra job status.",
+            name: "mystra_get_task",
+            description: "Get local Mystra task status.",
             lifecycle: {
               handoffEvents: [...controlPlaneLifecycleHandoffEventTypes],
               terminalEvents: [...terminalRunEventTypes],
             },
             inputSchema: {
               type: "object",
-              required: ["jobId"],
+              required: ["id"],
               properties: {
-                jobId: { type: "string" },
+                id: { type: "string", format: "uuid" },
               },
             },
           },
           {
-            name: "mystra_cancel_job",
-            description: "Cancel a local Mystra job.",
+            name: "mystra_cancel_task",
+            description: "Cancel a local Mystra task.",
             inputSchema: {
               type: "object",
-              required: ["jobId"],
+              required: ["id"],
               properties: {
-                jobId: { type: "string" },
+                id: { type: "string", format: "uuid" },
               },
             },
           },
@@ -499,12 +503,12 @@ export async function POST(request: Request) {
         }));
       }
 
-      if (call.name === "mystra_create_job") {
-        const parsed = parseToolArguments(rpc.id, call.name, jobSpecSchema, call.arguments);
+      if (call.name === "mystra_create_task") {
+        const parsed = parseToolArguments(rpc.id, call.name, taskSpecSchema, call.arguments);
         if (!parsed.ok) {
           return parsed.response;
         }
-        return jsonRpc(rpc.id, validatedToolResult(jobSnapshotSchema, db.createJob(parsed.data)));
+        return jsonRpc(rpc.id, validatedToolResult(taskSnapshotSchema, db.createTask(parsed.data)));
       }
 
       if (call.name === "mystra_create_project") {
@@ -528,16 +532,16 @@ export async function POST(request: Request) {
         return jsonRpc(rpc.id, textToolResult(project ?? { error: "project_not_found" }));
       }
 
-      if (call.name === "mystra_get_job") {
-        const jobId = z.string().parse(call.arguments.jobId);
-        const snapshot = db.getJob(jobId);
-        return jsonRpc(rpc.id, textToolResult(snapshot ? jobSnapshotSchema.parse(snapshot) : { error: "job_not_found" }));
+      if (call.name === "mystra_get_task") {
+        const { id } = taskLookupArgumentsSchema.parse(call.arguments);
+        const snapshot = db.getTask(id);
+        return jsonRpc(rpc.id, textToolResult(snapshot ? taskSnapshotSchema.parse(snapshot) : { error: "task_not_found" }));
       }
 
-      if (call.name === "mystra_cancel_job") {
-        const jobId = z.string().parse(call.arguments.jobId);
-        const snapshot = db.cancelJob(jobId);
-        return jsonRpc(rpc.id, textToolResult(snapshot ?? { error: "job_not_found" }));
+      if (call.name === "mystra_cancel_task") {
+        const { id } = taskLookupArgumentsSchema.parse(call.arguments);
+        const snapshot = db.cancelTask(id);
+        return jsonRpc(rpc.id, textToolResult(snapshot ?? { error: "task_not_found" }));
       }
 
       if (call.name === "mystra_list_runners") {

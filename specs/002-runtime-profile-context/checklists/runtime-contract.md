@@ -12,8 +12,8 @@
 - [x] Update runner daemon to consume `runtime.environment.image`.
 - [x] Remove remaining plan/spec language that implies legacy image migration.
 - [x] Document that MVP implements one Project default runtime while reserving future named runtime profiles.
-- [x] Validate Project runtime and job runtime override explicitly at HTTP API and MCP boundaries.
-- [x] Keep job runtime override constrained to MVP-allowed fields; mounts, secrets, cache, and ports require a later management model.
+- [x] Validate Project runtime and task runtime override explicitly at HTTP API and MCP boundaries.
+- [x] Keep task runtime override constrained to MVP-allowed fields; mounts, secrets, cache, and ports require a later management model.
 - [x] Resolve effective mounts from system-managed, Project-managed, and runtime/image-declared inputs without treating Castrel-specific mounts as universal system mounts.
 - [x] Replace hard-coded runner prompt/context sections with resolved context bundle rendering.
 - [x] Provide minimal context bundle creation/listing through HTTP API and MCP without expanding into full operator CRUD.

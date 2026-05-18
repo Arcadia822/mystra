@@ -1,4 +1,4 @@
-# MCP Contract: Project + Job Tools
+# MCP Contract: Project + Task Tools
 
 Mystra exposes Streamable HTTP MCP from `apps/control-plane`.
 
@@ -66,7 +66,7 @@ Errors:
 
 - `PROJECT_NOT_FOUND`
 
-## mystra_create_job
+## mystra_create_task
 
 Input changes:
 
@@ -91,7 +91,7 @@ Input changes:
 Output:
 
 ```ts
-JobSnapshot
+TaskSnapshot
 ```
 
 Errors:

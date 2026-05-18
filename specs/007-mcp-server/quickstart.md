@@ -38,19 +38,19 @@ Expected after the health slice lands:
 - runner counts reflect persisted runner sessions
 - stale runners appear as `degraded`
 
-## Job Observation Smoke
+## Task Observation Smoke
 
-After creating a job through HTTP or `mystra_create_job`, poll:
+After creating a task through HTTP or `mystra_create_task`, poll:
 
 ```sh
 curl -sS -X POST http://localhost:3000/api/mcp \
   -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":"job","method":"tools/call","params":{"name":"mystra_get_job","arguments":{"jobId":"<job-id>"}}}'
+  -d '{"jsonrpc":"2.0","id":"task","method":"tools/call","params":{"name":"mystra_get_task","arguments":{"taskId":"<task-id>"}}}'
 ```
 
 Expected:
 
-- payload includes the persisted job/run snapshot
+- payload includes the persisted task/run snapshot
 - events are present when the runner has emitted them
 - `run.result` appears after terminal completion
 

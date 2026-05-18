@@ -1,24 +1,24 @@
 ---
-name: mystra-check-job-status
-description: Retrieve human-readable Mystra job status and result data through the MCP endpoint using a job id.
+name: mystra-check-task-status
+description: Retrieve human-readable Mystra task status and result data through the MCP endpoint using the persisted task record id.
 ---
 
-# Mystra Check Job Status
+# Mystra Check Task Status
 
 Use this skill when an agent needs to inspect the state of a previously
-submitted Mystra job without manually crafting the raw `mystra_get_job`
+submitted Mystra task without manually crafting the raw `mystra_get_task`
 JSON-RPC call.
 
 ## Required Input
 
-- `jobId`
+- `id`
 
 ## Validation Rules
 
-- Do not call MCP if `jobId` is empty.
+- Do not call MCP if `id` is empty.
 - If the endpoint is unreachable, report the connection failure clearly and
   stop.
-- If the job is missing, surface the returned `job_not_found` error directly.
+- If the task is missing, surface the returned `task_not_found` error directly.
 
 ## MCP Call
 
@@ -27,12 +27,12 @@ Use `${MYSTRA_MCP_URL:-http://127.0.0.1:3000/api/mcp}` and submit:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "job-status",
+    "id": "task-status",
   "method": "tools/call",
   "params": {
-    "name": "mystra_get_job",
+    "name": "mystra_get_task",
     "arguments": {
-      "jobId": "<jobId>"
+      "id": "<id>"
     }
   }
 }
@@ -42,7 +42,7 @@ Use `${MYSTRA_MCP_URL:-http://127.0.0.1:3000/api/mcp}` and submit:
 
 Summarize:
 
-- job id / task id
+- task id
 - run state
 - result status and summary when present
 - workflow status when present

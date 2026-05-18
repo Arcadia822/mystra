@@ -53,7 +53,7 @@ Negative:
 
 The decision is validated when:
 
-1. A local SQLite-backed control plane can create, update, and recover job/run state.
+1. A local SQLite-backed control plane can create, update, and recover task/run state.
 2. The dummy workflow provider can drive a queued run through assign, execute, and terminal state transitions.
 3. The Docker sandbox provider can execute a single-machine task without cloud workflow or hosted RDB services.
-4. The provider interfaces make a future cloud RDB or Vercel Workflow adapter possible without changing `JobSpec`.
+4. The provider interfaces make a future cloud RDB or Vercel Workflow adapter possible without changing `TaskSpec`.

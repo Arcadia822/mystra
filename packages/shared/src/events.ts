@@ -4,7 +4,7 @@ export const runEventSeveritySchema = z.enum(["debug", "info", "warn", "error"])
 export type RunEventSeverity = z.infer<typeof runEventSeveritySchema>;
 
 export const runEventTypeSchema = z.enum([
-  "job.created",
+  "task.created",
   "workflow.start_requested",
   "workflow.start_failed",
   "workflow.started",
@@ -39,7 +39,7 @@ export const runEventTypeSchema = z.enum([
 export type RunEventType = z.infer<typeof runEventTypeSchema>;
 
 export const controlPlaneLifecycleHandoffEventTypes = [
-  "job.created",
+  "task.created",
   "run.queued",
   "run.assigned",
 ] as const satisfies readonly RunEventType[];
@@ -55,7 +55,7 @@ export const terminalRunEventTypes = [
 export const runEventSchema = z
   .object({
     runId: z.string().uuid(),
-    jobId: z.string().uuid(),
+    taskId: z.string().uuid(),
     timestamp: z.string().datetime(),
     type: runEventTypeSchema,
     severity: runEventSeveritySchema.default("info"),
