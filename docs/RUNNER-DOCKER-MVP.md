@@ -2,8 +2,8 @@
 
 This is the current "usable by me" path:
 
-1. Mystra receives a `JobSpec`.
-2. The local runner claims the job.
+1. Mystra receives a `TaskSpec`.
+2. The local runner claims the task.
 3. The runner starts one Docker container with the image from the run's resolved runtime contract.
 4. The container clones the GitLab repository, creates the task branch, runs Codex or Copilot, commits changes, pushes the branch, and creates a GitLab merge request.
 5. After the MR is created, the container stays running and exposes preview ports for frontend and backend review.
@@ -63,7 +63,7 @@ For pnpm, Mystra sets `PNPM_STORE_DIR`, `NPM_CONFIG_STORE_DIR`, and `npm_config_
 
 ## Preview Containers
 
-Docker jobs run as retained containers named `mystra-<run-id>`. The runner publishes:
+Docker task runs use retained containers named `mystra-<run-id>`. The runner publishes:
 
 ```text
 0.0.0.0:<dynamic-port> -> container 3000/tcp frontend
@@ -156,7 +156,7 @@ Copilot does not authenticate from `~/.copilot` alone in the container. It works
 
 The LaunchAgent wrapper sources `~/.mystra/runner.env` before starting the runner.
 
-## Create a Real Job
+## Create a Real Task
 
 ```sh
 PROJECT_ID="$(curl -sS -X POST http://localhost:3000/api/projects \
@@ -173,7 +173,7 @@ PROJECT_ID="$(curl -sS -X POST http://localhost:3000/api/projects \
     }
   }' | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.id));')"
 
-curl -sS -X POST http://localhost:3000/api/jobs \
+curl -sS -X POST http://localhost:3000/api/tasks \
   -H 'content-type: application/json' \
   -d "{
     \"taskId\": \"demo-1\",
@@ -188,8 +188,8 @@ curl -sS -X POST http://localhost:3000/api/jobs \
   }"
 ```
 
-Poll the returned job:
+Poll the returned task:
 
 ```sh
-curl -sS http://localhost:3000/api/jobs/<job-id>
+curl -sS http://localhost:3000/api/tasks/<task-id>
 ```

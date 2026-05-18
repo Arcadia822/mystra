@@ -11,7 +11,7 @@ The current companion skill pack lives under:
 .agents/skills/
 ├── mystra-submit-user-journey/
 ├── mystra-submit-implementation-request/
-└── mystra-check-job-status/
+└── mystra-check-task-status/
 ```
 
 ## Discovery
@@ -43,9 +43,9 @@ The skills assume a reachable Mystra MCP endpoint.
 
 | Skill | Purpose | MCP tool(s) |
 |---|---|---|
-| `mystra-submit-user-journey` | Create a job from actor/goal/acceptance-criteria input | `mystra_create_job` |
-| `mystra-submit-implementation-request` | Create a job from spec/task implementation context | `mystra_create_job` |
-| `mystra-check-job-status` | Retrieve structured run/result status for a job | `mystra_get_job` |
+| `mystra-submit-user-journey` | Create a task from actor/goal/acceptance-criteria input | `mystra_create_task` |
+| `mystra-submit-implementation-request` | Create a task from spec/task implementation context | `mystra_create_task` |
+| `mystra-check-task-status` | Retrieve structured run/result status for a task | `mystra_get_task` |
 
 ## Manual Fallback
 

@@ -21,11 +21,11 @@
 
 **Purpose**: Shared schema and provider contracts that every user story depends on.
 
-- [x] T004 Update `packages/shared/src/schemas.ts` to add `projectSchema`, `projectCreateSchema`, `projectUpdateSchema`, Project types, and `projectId` on `jobSpecSchema`.
+- [x] T004 Update `packages/shared/src/schemas.ts` to add `projectSchema`, `projectCreateSchema`, `projectUpdateSchema`, Project types, and `projectId` on `taskSpecSchema`.
 - [x] T005 Update `packages/shared/src/schemas.ts` to remove `projectConfigSchema` and make `repo`, `baseBranch`, and `agent` optional job-level overrides.
-- [x] T006 Update `packages/shared/src/schemas.test.ts` for Project create/update validation, job creation with `projectId`, job overrides, and rejection when `projectId` is missing.
-- [x] T007 Create `apps/control-plane/src/lib/db/rdb-provider.ts` with domain types and provider methods for Projects, Jobs, Runs, RunnerSessions, RunEvents, and Artifacts.
-- [x] T008 Create `apps/control-plane/src/lib/db/migrations.ts` with SQLite DDL for `projects`, `jobs`, `runs`, `runner_sessions`, `run_events`, and `artifacts`.
+- [x] T006 Update `packages/shared/src/schemas.test.ts` for Project create/update validation, task creation with `projectId`, task overrides, and rejection when `projectId` is missing.
+- [x] T007 Create `apps/control-plane/src/lib/db/rdb-provider.ts` with domain types and provider methods for Projects, Tasks, Runs, RunnerSessions, RunEvents, and Artifacts.
+- [x] T008 Create `apps/control-plane/src/lib/db/migrations.ts` with SQLite DDL for `projects`, logical task records in `jobs`, `runs`, `runner_sessions`, `run_events`, and `artifacts`.
 - [x] T009 Create `apps/control-plane/src/lib/db/sqlite-provider.ts` with WAL setup, migrations, row/domain mapping, JSON serialization helpers, and provider method skeletons.
 - [x] T010 Create `apps/control-plane/src/lib/db/index.ts` with `getDb()` singleton using `MYSTRA_DB_PATH`.
 - [x] T011 [P] Add local module documentation in `apps/control-plane/src/lib/db/README.md` covering provider purpose, dialect boundary, JSON handling, and test commands.
@@ -56,35 +56,35 @@
 
 ---
 
-## Phase 4: User Story 2 - Submit Job by Project (Priority: P1)
+## Phase 4: User Story 2 - Submit Task by Project (Priority: P1)
 
-**Goal**: API and MCP callers submit jobs using `projectId`; jobs store resolved snapshots.
+**Goal**: API and MCP callers submit tasks using `projectId`; tasks store resolved snapshots.
 
-**Independent Test**: Create Project, create Job with projectId, inspect snapshot and run.
+**Independent Test**: Create Project, create Task with projectId, inspect snapshot and run.
 
 ### Tests
 
-- [x] T018 [P] [US2] Add provider tests for `createJob` resolving Project defaults and allowing explicit overrides in `apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
+- [x] T018 [P] [US2] Add provider tests for `createTask` resolving Project defaults and allowing explicit overrides in `apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
 - [x] T019 [P] [US2] Add provider tests for missing Project and archived Project rejection in `apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
-- [x] T020 [P] [US2] Update API/MCP route tests for missing `projectId` rejection and valid project-based job creation.
+- [x] T020 [P] [US2] Update API/MCP route tests for missing `projectId` rejection and valid project-based task creation.
 
 ### Implementation
 
-- [x] T021 [US2] Implement `createJob`, `getJob`, `listJobs`, and `cancelJob` in `apps/control-plane/src/lib/db/sqlite-provider.ts`.
-- [x] T022 [US2] Update `apps/control-plane/app/api/jobs/route.ts` to use `getDb().createJob()` and `getDb().listJobs()`.
-- [x] T023 [US2] Update `apps/control-plane/app/api/jobs/[id]/route.ts` to use `getDb().getJob()`.
-- [x] T024 [US2] Update `apps/control-plane/app/api/jobs/[id]/cancel/route.ts` to use `getDb().cancelJob()`.
-- [x] T025 [US2] Update `apps/control-plane/app/api/mcp/route.ts` so `mystra_create_job` requires `projectId`.
+- [x] T021 [US2] Implement `createTask`, `getTask`, `listTasks`, and `cancelTask` in `apps/control-plane/src/lib/db/sqlite-provider.ts`.
+- [x] T022 [US2] Update `apps/control-plane/app/api/tasks/route.ts` to use `getDb().createTask()` and `getDb().listTasks()`.
+- [x] T023 [US2] Update `apps/control-plane/app/api/tasks/[id]/route.ts` to use `getDb().getTask()`.
+- [x] T024 [US2] Update `apps/control-plane/app/api/tasks/[id]/cancel/route.ts` to use `getDb().cancelTask()`.
+- [x] T025 [US2] Update `apps/control-plane/app/api/mcp/route.ts` so `mystra_create_task` requires `projectId`.
 - [x] T026 [US2] Add MCP tools `mystra_create_project`, `mystra_list_projects`, and `mystra_get_project` in `apps/control-plane/app/api/mcp/route.ts`.
 - [x] T027 [US2] Update `apps/control-plane/app/page.tsx` to use a Project dropdown and remove primary repo/baseBranch/agent inputs.
 
-**Checkpoint**: Project-based job creation works through API and MCP.
+**Checkpoint**: Project-based task creation works through API and MCP.
 
 ---
 
 ## Phase 5: User Story 4 - Persist Runtime State Across Restart (Priority: P1)
 
-**Goal**: Jobs, runs, runner sessions, events, results, and artifacts survive control-plane restart.
+**Goal**: Tasks, runs, runner sessions, events, results, and artifacts survive control-plane restart.
 
 **Independent Test**: Create records, close/reopen provider, query same snapshots.
 
@@ -99,8 +99,8 @@
 - [x] T031 [US4] Implement claim, event append, completion, and cancellation state updates in `apps/control-plane/src/lib/db/sqlite-provider.ts`.
 - [x] T032 [US4] Update `apps/control-plane/app/api/runner/register/route.ts` to use `getDb().registerRunner()`.
 - [x] T033 [US4] Update `apps/control-plane/app/api/runner/heartbeat/route.ts` to use `getDb().authenticateRunner()` and `getDb().heartbeatRunner()`.
-- [x] T034 [US4] Update `apps/control-plane/app/api/runner/jobs/[id]/events/route.ts` to use `getDb().appendRunEvent()`.
-- [x] T035 [US4] Update `apps/control-plane/app/api/runner/jobs/[id]/result/route.ts` to use `getDb().completeRun()`.
+- [x] T034 [US4] Update `apps/control-plane/app/api/runner/tasks/[id]/events/route.ts` to use `getDb().appendRunEvent()`.
+- [x] T035 [US4] Update `apps/control-plane/app/api/runner/tasks/[id]/result/route.ts` to use `getDb().completeRun()`.
 - [x] T036 [US4] Update `apps/control-plane/app/api/runners/route.ts` to use `getDb().listRunners()`.
 
 **Checkpoint**: local-store is no longer needed for runtime state.
@@ -111,7 +111,7 @@
 
 **Goal**: Runner claims include Project image and daemon uses it for Docker execution.
 
-**Independent Test**: Create Project with image, create job, claim run, verify claim project payload and runner Docker image selection.
+**Independent Test**: Create Project with image, create task, claim run, verify claim project payload and runner Docker image selection.
 
 ### Tests
 
@@ -120,33 +120,33 @@
 
 ### Implementation
 
-- [x] T039 [US5] Update `apps/control-plane/app/api/runner/jobs/route.ts` to return Project data from `getDb().claimNextRun()`.
-- [x] T040 [US5] Update `apps/runner-daemon/src/index.ts` `ClaimedJobResponse` type to include Project data.
+- [x] T039 [US5] Update `apps/control-plane/app/api/runner/tasks/route.ts` to return Project data from `getDb().claimNextRun()`.
+- [x] T040 [US5] Update `apps/runner-daemon/src/index.ts` `ClaimedTaskResponse` type to include Project data.
 - [x] T041 [US5] Remove normal `MYSTRA_RUNNER_IMAGE` runtime image selection from `apps/runner-daemon/src/index.ts`.
-- [x] T042 [US5] Update Docker execution path in `apps/runner-daemon/src/index.ts` to use `claimedJob.project.image`.
+- [x] T042 [US5] Update Docker execution path in `apps/runner-daemon/src/index.ts` to use `claim.runtime.environment.image`.
 - [x] T043 [US5] Update `scripts/deploy-dev-machine.sh` to stop writing `MYSTRA_RUNNER_IMAGE`.
 - [x] T044 [US5] Update `scripts/doctor-local.sh` to make runner image checks project-aware or remove global image check.
 
-**Checkpoint**: runner uses Project image; global runner image is no longer the job runtime contract.
+**Checkpoint**: runner uses the resolved runtime image; global runner image is no longer the task runtime contract.
 
 ---
 
 ## Phase 7: User Story 3 - Archive Project (Priority: P2)
 
-**Goal**: Operators can archive and restore Projects without losing historical jobs.
+**Goal**: Operators can archive and restore Projects without losing historical tasks.
 
-**Independent Test**: Archive Project, reject new jobs, query old jobs, restore Project.
+**Independent Test**: Archive Project, reject new tasks, query old tasks, restore Project.
 
 ### Tests
 
-- [x] T045 [P] [US3] Add provider tests for archive, unarchive, and archived-project job rejection.
+- [x] T045 [P] [US3] Add provider tests for archive, unarchive, and archived-project task rejection.
 - [x] T046 [P] [US3] Add API tests for `DELETE /api/projects/{slug}` and `PATCH /api/projects/{slug}`.
 
 ### Implementation
 
 - [x] T047 [US3] Implement Project update/archive methods in `apps/control-plane/src/lib/db/sqlite-provider.ts`.
 - [x] T048 [US3] Add `PATCH` and `DELETE` handlers in `apps/control-plane/app/api/projects/[slug]/route.ts`.
-- [x] T049 [US3] Ensure `createJob` rejects archived Project with `400 PROJECT_ARCHIVED`.
+- [x] T049 [US3] Ensure `createTask` rejects archived Project with `400 PROJECT_ARCHIVED`.
 
 **Checkpoint**: Project lifecycle works without physical delete.
 
@@ -216,7 +216,7 @@
 ### User Story Dependencies
 
 - **US1 Create Project Configuration**: First independently valuable slice.
-- **US2 Submit Job by Project**: Depends on US1 and foundational provider methods.
+- **US2 Submit Task by Project**: Depends on US1 and foundational provider methods.
 - **US4 Persist Runtime State**: Uses provider foundation and completes local-store replacement.
 - **US5 Runner Uses Project Image**: Depends on claim path from US4.
 - **US3 Archive Project**: Can follow US1/US2; must be done before release.
@@ -234,7 +234,7 @@
 ## Implementation Strategy
 
 1. Complete Phase 1 and Phase 2.
-2. Ship US1 + US2 as the first working slice: Project CRUD and project-based job creation.
+2. Ship US1 + US2 as the first working slice: Project CRUD and project-based task creation.
 3. Replace runtime state with SQLite provider and remove local-store.
 4. Update runner claim/image path.
 5. Add archive, prewarm config, scripts, and docs.

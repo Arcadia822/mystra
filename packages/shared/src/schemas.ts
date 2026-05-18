@@ -3,8 +3,8 @@ import { z } from "zod";
 export const agentNameSchema = z.enum(["codex", "copilot"]);
 export type AgentName = z.infer<typeof agentNameSchema>;
 
-export const jobSourceSchema = z.enum(["mcp", "api"]);
-export type JobSource = z.infer<typeof jobSourceSchema>;
+export const taskSourceSchema = z.enum(["mcp", "api"]);
+export type TaskSource = z.infer<typeof taskSourceSchema>;
 
 export const mergeRequestSpecSchema = z
   .object({
@@ -163,7 +163,7 @@ export const projectRuntimeConfigSchema = z
   .strict();
 export type ProjectRuntimeConfig = z.infer<typeof projectRuntimeConfigSchema>;
 
-export const jobRuntimeOverrideSchema = z
+export const taskRuntimeOverrideSchema = z
   .object({
     runtimeProfile: z.string().min(1).optional(),
     provider: sandboxProviderSchema.optional(),
@@ -172,7 +172,7 @@ export const jobRuntimeOverrideSchema = z
     metadata: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
-export type JobRuntimeOverride = z.infer<typeof jobRuntimeOverrideSchema>;
+export type TaskRuntimeOverride = z.infer<typeof taskRuntimeOverrideSchema>;
 
 export const resolvedRuntimeContractSchema = z
   .object({
@@ -290,10 +290,10 @@ export const projectUpdateSchema = z
   .strict();
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
-export const jobSpecSchema = z
+export const taskSpecSchema = z
   .object({
     taskId: z.string().min(1),
-    source: jobSourceSchema,
+    source: taskSourceSchema,
     projectId: z.string().uuid(),
     repo: z.string().min(1).optional(),
     baseBranch: z.string().min(1).optional(),
@@ -301,11 +301,11 @@ export const jobSpecSchema = z
     agent: agentNameSchema.optional(),
     prompt: z.string().min(1),
     mergeRequest: mergeRequestSpecSchema.optional(),
-    runtime: jobRuntimeOverrideSchema.optional(),
+    runtime: taskRuntimeOverrideSchema.optional(),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
-export type JobSpec = z.infer<typeof jobSpecSchema>;
+export type TaskSpec = z.infer<typeof taskSpecSchema>;
 
 export const runnerRegistrationSchema = z
   .object({
@@ -322,7 +322,7 @@ export type RunnerRegistration = z.infer<typeof runnerRegistrationSchema>;
 export const runnerPollRequestSchema = z
   .object({
     runnerSessionId: z.string().uuid(),
-    maxJobs: z.number().int().positive().default(1),
+    maxTasks: z.number().int().positive().default(1),
   })
   .strict();
 export type RunnerPollRequest = z.infer<typeof runnerPollRequestSchema>;
@@ -346,11 +346,11 @@ export type RunnerLocalConfig = z.infer<typeof runnerLocalConfigSchema>;
 
 // --- 003-config-first-runner-durability: Cancellation Outcome ---
 
-export const cancelJobOutcomeSchema = z.discriminatedUnion("kind", [
+export const cancelTaskOutcomeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("canceled") }).strict(),
   z.object({ kind: z.literal("cancellation_requested") }).strict(),
 ]);
-export type CancelJobOutcome = z.infer<typeof cancelJobOutcomeSchema>;
+export type CancelTaskOutcome = z.infer<typeof cancelTaskOutcomeSchema>;
 
 // --- 003-config-first-runner-durability: Runner Observation ---
 

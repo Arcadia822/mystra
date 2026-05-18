@@ -110,12 +110,12 @@ Archives a context bundle. The first implementation slice only needs create/list
 
 Success: `200 { "contextBundle": ContextBundle }`
 
-## Job Submission Runtime Override
+## Task Submission Runtime Override
 
-Job create accepts an optional runtime override:
+Task create accepts an optional runtime override:
 
 ```ts
-type JobRuntimeOverride = {
+type TaskRuntimeOverride = {
   runtimeProfile?: string;
   provider?: "docker";
   image?: string;
@@ -133,10 +133,10 @@ Validation:
 - MVP accepts only constrained provider/image/context-bundle/metadata overrides.
   Runtime profile selection is a reserved future field and must not be accepted
   as executable behavior until profile management exists.
-- Job payloads must not override mounts, secrets, cache, or exposed ports in the
+- Task payloads must not override mounts, secrets, cache, or exposed ports in the
   MVP.
 - Override provider must be supported by the Project and runner pool.
-- Job-scoped context bundles must resolve before runner claim.
+- Task-scoped context bundles must resolve before runner claim.
 - Invalid runtime overrides return `400` and create no run.
 
 ## Project Response

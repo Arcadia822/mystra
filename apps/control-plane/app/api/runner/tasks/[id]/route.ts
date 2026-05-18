@@ -11,7 +11,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 
   const { id } = await context.params;
-  const snapshot = db.getJobByRunId(id);
+  const snapshot = db.getTaskByRunId(id);
   if (!snapshot) {
     return NextResponse.json({ error: "run_not_found" }, { status: 404 });
   }
@@ -20,7 +20,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 
   return NextResponse.json({
-    job: snapshot.job,
+    task: snapshot.task,
     run: snapshot.run,
     project: snapshot.project,
     runtime: snapshot.runtime,

@@ -45,15 +45,15 @@ no new persistence layer
 ## Code Evidence
 
 - `apps/control-plane/app/api/mcp/route.ts` currently implements 9 tools:
-  create/list context bundles, create/list/get projects, create/get/cancel jobs,
+  create/list context bundles, create/list/get projects, create/get/cancel tasks,
   and list runners.
 - `apps/control-plane/src/lib/db/rdb-provider.ts` already exposes the data needed
-  for MCP health and job observation: `getJob()`, `listRunners()`,
+  for MCP health and task observation: `getTask()`, `listRunners()`,
   `markStaleRunners()`, `lastHeartbeatAt`, and `staleAfterSeconds`.
 - `apps/control-plane/app/api/routes.test.ts` already proves MCP creation,
-  runtime validation, lifecycle metadata exposure, and route-level runner/job
+  runtime validation, lifecycle metadata exposure, and route-level runner/task
   observation paths.
-- `mystra_get_job` already returns the full `JobSnapshot` shape from persistence,
+- `mystra_get_task` already returns the full `TaskSnapshot` shape from persistence,
   so the remaining observation gap is contract clarity, not missing DB data.
 
 ## Impact Analysis Note

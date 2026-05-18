@@ -1,6 +1,6 @@
 # Runner Claim Contract: Resolved Runtime
 
-## GET /api/runner/jobs
+## GET /api/runner/tasks
 
 The runner authenticates with its runner session token and claims compatible queued work. Compatibility is evaluated against the resolved runtime contract before assignment.
 
@@ -10,18 +10,18 @@ When no compatible work is available:
 
 ```ts
 {
-  job: null;
+  task: null;
   run: null;
   project: null;
   runtime: null;
 }
 ```
 
-## Claimed Job Response
+## Claimed Task Response
 
 ```ts
-type ClaimedJobResponse = {
-  job: {
+type ClaimedTaskResponse = {
+  task: {
     id: string;
     spec: {
       taskId: string;
@@ -103,8 +103,8 @@ type ClaimedJobResponse = {
 ## Runner Requirements
 
 - Runner MUST use `response.runtime.environment.image` as the Docker image when `runtime.provider` is `docker`.
-- Runner MUST NOT independently interpret a top-level `response.project.image` field as the normal job runtime image.
-- Runner MUST reject or fail clearly when `runtime` is missing for a claimed job.
+- Runner MUST NOT independently interpret a top-level `response.project.image` field as the normal task runtime image.
+- Runner MUST reject or fail clearly when `runtime` is missing for a claimed task.
 - Runner MUST NOT mount host home or the host Docker socket into task containers.
 - Runner MUST inject secret values only from its runtime environment or approved secret source, never from claim payload values.
 - Runner SHOULD treat the `mounts` list as the already resolved effective mount

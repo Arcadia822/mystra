@@ -10,7 +10,7 @@
 ## Phase 1: Refresh and Audit
 
 - [x] T001 Audit the current Mystra MCP surface in `apps/control-plane/app/api/mcp/route.ts` and related shared schemas.
-- [x] T002 Inventory existing repo-local skills and note that current wrappers are Spec Kit / operational helpers, not the user-journey / implementation / job-status companion skills described by this feature.
+- [x] T002 Inventory existing repo-local skills and note that current wrappers are Spec Kit / operational helpers, not the user-journey / implementation / task-status companion skills described by this feature.
 - [x] T003 Refresh the retroactive plan/tasks notes with the current installation/discovery mechanism before future implementation resumes.
 
 ## Phase 2: Submission Skills
@@ -21,7 +21,7 @@
 
 ## Phase 3: Status and Discovery
 
-- [x] T007 [US3] Define and implement the job-status skill wrapper for result/progress retrieval in `.agents/skills/mystra-check-job-status/SKILL.md`.
+- [x] T007 [US3] Define and implement the status skill wrapper for result/progress retrieval in `.agents/skills/mystra-check-task-status/SKILL.md`.
 - [x] T008 [US4] Document installation metadata for the repo-local companion skills in `specs/008-mcp-skills/quickstart.md`.
 - [x] T009 [US4] Add discovery guidance so developers can find the companion skills in `specs/008-mcp-skills/quickstart.md`.
 
@@ -32,5 +32,5 @@
 
 ## Notes
 
-- The implementation intentionally uses the existing `mystra_create_job` and `mystra_get_job` MCP tools without adding a new workflow-name field to the MCP contract.
+- The implementation intentionally uses the existing `mystra_create_task` and `mystra_get_task` MCP tools without adding a new workflow-name field to the MCP contract.
 - Workflow blueprint hints for implementation requests are carried in `metadata.workflow` and echoed in the generated prompt so the wrapper stays inside the current contract.

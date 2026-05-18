@@ -91,9 +91,9 @@ apps/runner-daemon/
 └── assets/container-task.sh
 
 apps/control-plane/
-├── app/api/runner/jobs/route.ts
-├── app/api/runner/jobs/[id]/events/route.ts
-└── app/api/runner/jobs/[id]/result/route.ts
+├── app/api/runner/tasks/route.ts
+├── app/api/runner/tasks/[id]/events/route.ts
+└── app/api/runner/tasks/[id]/result/route.ts
 
 packages/shared/src/
 ├── events.ts
@@ -180,7 +180,7 @@ The first build slice for 005 should be:
 - `apps/runner-daemon/src/index.ts` already provides the runner claim loop,
   Docker launch, event emission, and result publication endpoints that 005 must
   orchestrate rather than replace.
-- `apps/control-plane/app/api/runner/jobs/route.ts`,
+- `apps/control-plane/app/api/runner/tasks/route.ts`,
   `.../[id]/events/route.ts`, and `.../[id]/result/route.ts` already define the
   runner/control-plane handoff that the workflow adapter should consume.
 - `packages/shared/src/state.ts`, `events.ts`, `schemas.ts`, and `result.ts`

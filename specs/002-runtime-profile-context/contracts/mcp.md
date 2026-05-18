@@ -1,6 +1,6 @@
 # MCP Contract: Runtime Config Resolution and Context Bundles
 
-Mystra remote MCP remains the primary submission path for other agents and skills. Runtime config keeps the job submission contract small while letting Project configuration own the default image and context policy.
+Mystra remote MCP remains the primary submission path for other agents and skills. Runtime config keeps the task submission contract small while letting Project configuration own the default image and context policy.
 
 MVP boundary: MCP creates one Project default runtime. Future named runtime
 profiles are allowed by the product model but not exposed as a first-version
@@ -73,9 +73,9 @@ Contract note:
 
 - MCP callers must use `runtime.image`; top-level `image` is not accepted.
 
-## Tool: mystra__submit_job
+## Tool: mystra_create_task
 
-Existing job submission gains optional runtime override fields:
+Existing task submission gains optional runtime override fields:
 
 ```ts
 {
@@ -102,21 +102,21 @@ Rules:
 
 - If `runtime` is omitted, Mystra uses `Project.runtime`.
 - If provided, runtime overrides must be allowed by `Project.runtime.overridePolicy`.
-- MVP job overrides are constrained to provider/image/context bundle references
+- MVP task overrides are constrained to provider/image/context bundle references
   and metadata. MCP callers cannot override mounts, secrets, cache, or ports in
   the first version.
 - Future MCP callers may select a Project-managed runtime profile, but profile
   selection must fail closed until profile management exists.
 - MCP callers do not need to know runner-local paths for image or context mounting.
-- Missing required context bundles reject the job or fail the run before agent execution, depending on when the bundle is resolved.
+- Missing required context bundles reject the task or fail the run before agent execution, depending on when the bundle is resolved.
 
-## Tool: mystra__get_job
+## Tool: mystra_get_task
 
-Job snapshots include runtime resolution summary when available:
+Task snapshots include runtime resolution summary when available:
 
 ```ts
 {
-  job: JobRecord;
+  task: TaskRecord;
   run: RunRecord;
   project: {
     id: string;

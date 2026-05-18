@@ -8,16 +8,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as dbModule from "@/lib/db";
 import { getDb, resetDbForTests } from "@/lib/db";
 import { GET as listContextBundles, POST as postContextBundle } from "./context-bundles/route";
-import { POST as cancelJob } from "./jobs/[id]/cancel/route";
-import { GET as getJob } from "./jobs/[id]/route";
-import { POST as postJob } from "./jobs/route";
+import { POST as cancelTask } from "./tasks/[id]/cancel/route";
+import { GET as getTask } from "./tasks/[id]/route";
+import { POST as postTask } from "./tasks/route";
 import { POST as postMcp } from "./mcp/route";
 import { GET as getProject, PATCH as patchProject, DELETE as deleteProject } from "./projects/[slug]/route";
 import { GET as listProjects, POST as postProject } from "./projects/route";
-import { POST as appendRunnerJobEvent } from "./runner/jobs/[id]/events/route";
-import { POST as completeRunnerJob } from "./runner/jobs/[id]/result/route";
-import { GET as getRunnerJob } from "./runner/jobs/[id]/route";
-import { GET as claimRunnerJob } from "./runner/jobs/route";
+import { POST as appendRunnerTaskEvent } from "./runner/tasks/[id]/events/route";
+import { POST as completeRunnerTask } from "./runner/tasks/[id]/result/route";
+import { GET as getRunnerTask } from "./runner/tasks/[id]/route";
+import { GET as claimRunnerTask } from "./runner/tasks/route";
 import { POST as registerRunner } from "./runner/register/route";
 
 let tempDir: string;
@@ -243,9 +243,9 @@ describe("Context bundle API and MCP contracts", () => {
   });
 });
 
-describe("Job and MCP project contracts", () => {
-  it("rejects missing projectId and creates a project-based job", async () => {
-    const missingProject = await postJob(jsonRequest("http://localhost/api/jobs", {
+describe("Task and MCP project contracts", () => {
+  it("rejects missing projectId and creates a project-based task", async () => {
+    const missingProject = await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-missing-project",
       source: "api",
       branchName: "mystra/missing-project",
@@ -254,7 +254,7 @@ describe("Job and MCP project contracts", () => {
     expect(missingProject.status).toBe(400);
 
     const created = await createProject();
-    const response = await postJob(jsonRequest("http://localhost/api/jobs", {
+    const response = await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-1",
       source: "api",
       projectId: created.project.id,
@@ -263,12 +263,12 @@ describe("Job and MCP project contracts", () => {
     }));
 
     expect(response.status).toBe(201);
-    const snapshot = await json<{ job: { spec: { repo: string; projectId: string } } }>(response);
-    expect(snapshot.job.spec.projectId).toBe(created.project.id);
-    expect(snapshot.job.spec.repo).toBe("local/fixture");
+    const snapshot = await json<{ task: { spec: { repo: string; projectId: string } } }>(response);
+    expect(snapshot.task.spec.projectId).toBe(created.project.id);
+    expect(snapshot.task.spec.repo).toBe("local/fixture");
   });
 
-  it("creates Projects and jobs through MCP tools", async () => {
+  it("creates Projects and tasks through MCP tools", async () => {
     const projectResponse = await postMcp(jsonRequest("http://localhost/api/mcp", {
       jsonrpc: "2.0",
       id: "create-project",
@@ -288,7 +288,7 @@ describe("Job and MCP project contracts", () => {
       id: "create-job",
       method: "tools/call",
       params: {
-        name: "mystra_create_job",
+        name: "mystra_create_task",
         arguments: {
           taskId: "mcp-task",
           source: "mcp",
@@ -300,19 +300,19 @@ describe("Job and MCP project contracts", () => {
     }));
     expect(jobResponse.status).toBe(200);
     const jobRpc = await json<{ result: { content: Array<{ text: string }> } }>(jobResponse);
-    const snapshot = JSON.parse(jobRpc.result.content[0]?.text ?? "{}") as { job: { spec: { repo: string } } };
-    expect(snapshot.job.spec.repo).toBe("local/fixture");
+    const snapshot = JSON.parse(jobRpc.result.content[0]?.text ?? "{}") as { task: { spec: { repo: string } } };
+    expect(snapshot.task.spec.repo).toBe("local/fixture");
   });
 
-  it("returns the persisted job snapshot through mystra_get_job", async () => {
+  it("returns the persisted task snapshot through mystra_get_task", async () => {
     const created = await createProject("mcp-get-job");
-    const createdJob = await json<{ job: { id: string; spec: { projectId: string } }; run: { state: string } }>(
-      await postJob(jsonRequest("http://localhost/api/jobs", {
+    const createdTask = await json<{ task: { id: string; spec: { projectId: string } }; run: { state: string } }>(
+      await postTask(jsonRequest("http://localhost/api/tasks", {
         taskId: "mcp-get-job-task",
         source: "api",
         projectId: created.project.id,
         branchName: "mystra/mcp-get-job",
-        prompt: "Observe this job through MCP",
+        prompt: "Observe this task through MCP",
       })),
     );
 
@@ -321,9 +321,9 @@ describe("Job and MCP project contracts", () => {
       id: "get-job",
       method: "tools/call",
       params: {
-        name: "mystra_get_job",
+        name: "mystra_get_task",
         arguments: {
-          jobId: createdJob.job.id,
+          id: createdTask.task.id,
         },
       },
     }));
@@ -331,15 +331,15 @@ describe("Job and MCP project contracts", () => {
     expect(response.status).toBe(200);
     const rpc = await json<{ result: { content: Array<{ text: string }> } }>(response);
     const snapshot = JSON.parse(rpc.result.content[0]?.text ?? "{}") as {
-      job: { id: string; spec: { projectId: string } };
+      task: { id: string; spec: { projectId: string } };
       run: { state: string };
       events: Array<{ type: string }>;
     };
-    expect(snapshot.job.id).toBe(createdJob.job.id);
-    expect(snapshot.job.spec.projectId).toBe(created.project.id);
+    expect(snapshot.task.id).toBe(createdTask.task.id);
+    expect(snapshot.task.spec.projectId).toBe(created.project.id);
     expect(snapshot.run.state).toBe("queued");
     expect(snapshot.events.map((event) => event.type)).toEqual(expect.arrayContaining([
-      "job.created",
+      "task.created",
       "run.queued",
     ]));
   });
@@ -390,7 +390,7 @@ describe("Job and MCP project contracts", () => {
 
   it("rejects job runtime overrides for MVP-forbidden execution fields", async () => {
     const created = await createProject("forbidden-override");
-    const response = await postJob(jsonRequest("http://localhost/api/jobs", {
+    const response = await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-forbidden-runtime",
       source: "api",
       projectId: created.project.id,
@@ -406,7 +406,7 @@ describe("Job and MCP project contracts", () => {
 
   it("rejects reserved runtime profile selection until profiles are managed", async () => {
     const created = await createProject("profile-reserved");
-    const response = await postJob(jsonRequest("http://localhost/api/jobs", {
+    const response = await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-profile-runtime",
       source: "api",
       projectId: created.project.id,
@@ -427,7 +427,7 @@ describe("Job and MCP project contracts", () => {
       id: "create-job-invalid-runtime",
       method: "tools/call",
       params: {
-        name: "mystra_create_job",
+        name: "mystra_create_task",
         arguments: {
           taskId: "mcp-forbidden-runtime",
           source: "mcp",
@@ -445,7 +445,7 @@ describe("Job and MCP project contracts", () => {
     const rpc = await json<{ error: { code: number; message: string; data?: { tool?: string; issues?: unknown[] } } }>(response);
     expect(rpc.error.code).toBe(-32602);
     expect(rpc.error.message).toBe("Invalid params");
-    expect(rpc.error.data?.tool).toBe("mystra_create_job");
+    expect(rpc.error.data?.tool).toBe("mystra_create_task");
     expect(rpc.error.data?.issues).toEqual(expect.any(Array));
   });
 
@@ -458,10 +458,10 @@ describe("Job and MCP project contracts", () => {
 
     expect(response.status).toBe(200);
     const rpc = await json<{ result: { tools: Array<{ name: string; inputSchema: { properties: Record<string, unknown> } }> } }>(response);
-    const createJobTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_job");
+    const createTaskTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_task");
     const createProjectTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_project");
 
-    expect(createJobTool?.inputSchema.properties.runtime).toEqual(expect.objectContaining({
+    expect(createTaskTool?.inputSchema.properties.runtime).toEqual(expect.objectContaining({
       additionalProperties: false,
     }));
     expect(createProjectTool?.inputSchema.properties.runtime).toEqual(expect.objectContaining({
@@ -489,15 +489,15 @@ describe("Job and MCP project contracts", () => {
       };
     }>(response);
 
-    const createJobTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_job");
-    const getJobTool = rpc.result.tools.find((tool) => tool.name === "mystra_get_job");
+    const createTaskTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_task");
+    const getTaskTool = rpc.result.tools.find((tool) => tool.name === "mystra_get_task");
 
-    expect(createJobTool?.lifecycle?.handoffEvents).toEqual([
-      "job.created",
+    expect(createTaskTool?.lifecycle?.handoffEvents).toEqual([
+      "task.created",
       "run.queued",
       "run.assigned",
     ]);
-    expect(getJobTool?.lifecycle?.terminalEvents).toEqual([
+    expect(getTaskTool?.lifecycle?.terminalEvents).toEqual([
       "run.succeeded",
       "run.failed",
       "run.canceled",
@@ -653,7 +653,7 @@ describe("Job and MCP project contracts", () => {
 
   it("returns resolved runtime in runner claim responses", async () => {
     const created = await createProject("claim-runtime");
-    await postJob(jsonRequest("http://localhost/api/jobs", {
+    await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-runtime-claim",
       source: "api",
       projectId: created.project.id,
@@ -671,7 +671,7 @@ describe("Job and MCP project contracts", () => {
     })));
 
     const claim = await json<{ runtime: { environment: { image: string } } }>(
-      await claimRunnerJob(new Request("http://localhost/api/runner/jobs", {
+      await claimRunnerTask(new Request("http://localhost/api/runner/tasks", {
         headers: { authorization: `Bearer ${registered.runnerToken}` },
       })),
     );
@@ -703,7 +703,7 @@ describe("Job and MCP project contracts", () => {
 
   it("exposes cancellation requests and runner observations through existing routes", async () => {
     const created = await createProject("runner-observation-routes");
-    const createdJob = await json<{ job: { id: string } }>(await postJob(jsonRequest("http://localhost/api/jobs", {
+    const createdTask = await json<{ task: { id: string } }>(await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-runner-observation-routes",
       source: "api",
       projectId: created.project.id,
@@ -728,22 +728,22 @@ describe("Job and MCP project contracts", () => {
         body: JSON.stringify(body),
       });
     const claimed = await json<{ run: { id: string; state: string } }>(
-      await claimRunnerJob(new Request("http://localhost/api/runner/jobs", {
+      await claimRunnerTask(new Request("http://localhost/api/runner/tasks", {
         headers: { authorization: `Bearer ${registered.runnerToken}` },
       })),
     );
     expect(claimed.run.state).toBe("assigned");
 
     const cancellation = await json<{ kind: string; snapshot: { run: { cancellationRequest?: { requestedAt: string } } } }>(
-      await cancelJob(jsonRequest(`http://localhost/api/jobs/${createdJob.job.id}/cancel`, {}), {
-        params: Promise.resolve({ id: createdJob.job.id }),
+      await cancelTask(jsonRequest(`http://localhost/api/tasks/${createdTask.task.id}/cancel`, {}), {
+        params: Promise.resolve({ id: createdTask.task.id }),
       }),
     );
     expect(cancellation.kind).toBe("cancellation_requested");
     expect(cancellation.snapshot.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
 
     const inspectedRun = await json<{ run: { cancellationRequest?: { requestedAt: string } } }>(
-      await getRunnerJob(new Request(`http://localhost/api/runner/jobs/${claimed.run.id}`, {
+      await getRunnerTask(new Request(`http://localhost/api/runner/tasks/${claimed.run.id}`, {
         headers: { authorization: `Bearer ${registered.runnerToken}` },
       }), {
         params: Promise.resolve({ id: claimed.run.id }),
@@ -751,8 +751,8 @@ describe("Job and MCP project contracts", () => {
     );
     expect(inspectedRun.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
 
-    const cleanup = await json<{ event: { type: string } }>(await appendRunnerJobEvent(
-      authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
+    const cleanup = await json<{ event: { type: string } }>(await appendRunnerTaskEvent(
+      authRequest(`http://localhost/api/runner/tasks/${claimed.run.id}/events`, {
         type: "cleanup.started",
         severity: "warn",
         data: { reason: "cancel" },
@@ -762,8 +762,8 @@ describe("Job and MCP project contracts", () => {
     expect(cleanup.event.type).toBe("cleanup.started");
 
     const result = await json<{ run: { state: string; result?: { status: string } }; events: Array<{ type: string }> }>(
-      await completeRunnerJob(
-        authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/result`, {
+      await completeRunnerTask(
+        authRequest(`http://localhost/api/runner/tasks/${claimed.run.id}/result`, {
           status: "canceled",
           summary: "Runner observed cancellation and cleaned up.",
         }),
@@ -776,9 +776,9 @@ describe("Job and MCP project contracts", () => {
     expect(result.events.map((event) => event.type)).toContain("run.canceled");
   });
 
-  it("exposes stale-marked runs through the existing job inspection route", async () => {
+  it("exposes stale-marked runs through the existing task inspection route", async () => {
     const created = await createProject("runner-stale-route");
-    const createdJob = await json<{ job: { id: string }; run: { id: string } }>(await postJob(jsonRequest("http://localhost/api/jobs", {
+    const createdTask = await json<{ task: { id: string }; run: { id: string } }>(await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-runner-stale-route",
       source: "api",
       projectId: created.project.id,
@@ -794,7 +794,7 @@ describe("Job and MCP project contracts", () => {
       maxConcurrency: 1,
       staleAfterSeconds: 1,
     })));
-    await claimRunnerJob(new Request("http://localhost/api/runner/jobs", {
+    await claimRunnerTask(new Request("http://localhost/api/runner/tasks", {
       headers: { authorization: `Bearer ${registered.runnerToken}` },
     }));
     getDb().close();
@@ -809,11 +809,11 @@ describe("Job and MCP project contracts", () => {
     resetDbForTests();
 
     expect(getDb().markStaleRunners()).toEqual([
-      { runnerSessionId: registered.runnerSessionId, staleRunIds: [createdJob.run.id] },
+      { runnerSessionId: registered.runnerSessionId, staleRunIds: [createdTask.run.id] },
     ]);
     const inspected = await json<{ run: { state: string; staleReason?: string }; events: Array<{ type: string }> }>(
-      await getJob(new Request(`http://localhost/api/jobs/${createdJob.job.id}`), {
-        params: Promise.resolve({ id: createdJob.job.id }),
+      await getTask(new Request(`http://localhost/api/tasks/${createdTask.task.id}`), {
+        params: Promise.resolve({ id: createdTask.task.id }),
       }),
     );
 
@@ -824,7 +824,7 @@ describe("Job and MCP project contracts", () => {
 
   it("accepts and persists workflow node lifecycle events from the runner", async () => {
     const created = await createProject("workflow-node-events");
-    const createdJob = await json<{ job: { id: string }; run: { id: string } }>(await postJob(jsonRequest("http://localhost/api/jobs", {
+    const createdTask = await json<{ task: { id: string }; run: { id: string } }>(await postTask(jsonRequest("http://localhost/api/tasks", {
       taskId: "task-workflow-node-events",
       source: "api",
       projectId: created.project.id,
@@ -849,13 +849,13 @@ describe("Job and MCP project contracts", () => {
         body: JSON.stringify(body),
       });
     const claimed = await json<{ run: { id: string } }>(
-      await claimRunnerJob(new Request("http://localhost/api/runner/jobs", {
+      await claimRunnerTask(new Request("http://localhost/api/runner/tasks", {
         headers: { authorization: `Bearer ${registered.runnerToken}` },
       })),
     );
 
-    const event = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerJobEvent(
-      authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
+    const event = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerTaskEvent(
+      authRequest(`http://localhost/api/runner/tasks/${claimed.run.id}/events`, {
         type: "workflow.started",
         severity: "info",
         data: {
@@ -873,8 +873,8 @@ describe("Job and MCP project contracts", () => {
       blueprintVersion: "1.0.0",
     }));
 
-    const nodeEvent = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerJobEvent(
-      authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
+    const nodeEvent = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerTaskEvent(
+      authRequest(`http://localhost/api/runner/tasks/${claimed.run.id}/events`, {
         type: "workflow.node.started",
         severity: "info",
         data: {
@@ -908,8 +908,8 @@ describe("Job and MCP project contracts", () => {
         }>;
       };
     }>(
-      await getJob(new Request(`http://localhost/api/jobs/${createdJob.job.id}`), {
-        params: Promise.resolve({ id: createdJob.job.id }),
+      await getTask(new Request(`http://localhost/api/tasks/${createdTask.task.id}`), {
+        params: Promise.resolve({ id: createdTask.task.id }),
       }),
     );
     expect(inspected.events).toEqual(expect.arrayContaining([

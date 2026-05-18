@@ -6,7 +6,7 @@ Define the minimal state boundary between control plane and headless runner.
 
 ## Control Plane Responsibilities
 
-- Persist queued jobs and runs.
+- Persist queued tasks and runs.
 - Persist cancellation desired state.
 - Persist runner sessions and last heartbeat timestamps.
 - Accept runner observations for running, cleanup, terminal, and failure states.
@@ -35,9 +35,9 @@ Define the minimal state boundary between control plane and headless runner.
 ## Implemented API/Provider Shape
 
 ```ts
-type CancelJobOutcome =
-  | { kind: "canceled"; snapshot: JobSnapshot }
-  | { kind: "cancellation_requested"; snapshot: JobSnapshot };
+type CancelTaskOutcome =
+  | { kind: "canceled"; snapshot: TaskSnapshot }
+  | { kind: "cancellation_requested"; snapshot: TaskSnapshot };
 
 type RunnerObservation =
   | { type: "cleanup.started"; reason: "cancel" | "timeout" }
@@ -53,13 +53,13 @@ type StaleMarkingResult = {
 
 Control-plane route behavior:
 
-- `POST /api/jobs/:jobId/cancel` returns `kind: "canceled"` for queued work and
+- `POST /api/tasks/:taskId/cancel` returns `kind: "canceled"` for queued work and
   `kind: "cancellation_requested"` for runner-owned work.
-- `GET /api/runner/jobs/:runId` is runner-authenticated and returns the current
+- `GET /api/runner/tasks/:runId` is runner-authenticated and returns the current
   snapshot for the assigned runner, including cancellation request metadata.
-- `POST /api/runner/jobs/:runId/events` records observations such as
+- `POST /api/runner/tasks/:runId/events` records observations such as
   `cleanup.started` and `run.cleanup_failed`.
-- `POST /api/runner/jobs/:runId/result` records terminal runner observations
+- `POST /api/runner/tasks/:runId/result` records terminal runner observations
   using existing terminal states: `succeeded`, `failed`, `canceled`, or
   `timed_out`.
 - `markStaleRunners()` marks active work `failed` with `staleReason:

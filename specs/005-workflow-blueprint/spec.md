@@ -17,11 +17,11 @@ A runner operator can define a task lifecycle as a workflow blueprint: a DAG of 
 
 **Why this priority**: This is the core architectural change. Without it, every lifecycle variation requires editing `container-task.sh`. With it, new blueprints are data, not code.
 
-**Independent Test**: Define a blueprint with 3 nodes (git clone → agent execute → git push), submit a job, and verify the workflow provider executes nodes in order and passes data between them.
+**Independent Test**: Define a blueprint with 3 nodes (git clone → agent execute → git push), submit a task, and verify the workflow provider executes nodes in order and passes data between them.
 
 **Acceptance Scenarios**:
 
-1. **Given** a blueprint defines a DAG with deterministic and agentic nodes, **When** the workflow provider receives a job, **Then** it executes nodes in topological order respecting dependency edges.
+1. **Given** a blueprint defines a DAG with deterministic and agentic nodes, **When** the workflow provider receives a task, **Then** it executes nodes in topological order respecting dependency edges.
 2. **Given** a node produces output data, **When** a downstream node starts, **Then** the upstream output is available as input to the downstream node.
 3. **Given** a deterministic node fails, **When** the workflow provider handles the failure, **Then** it marks the run as failed with the failing node identity and error, and does not execute downstream nodes.
 
@@ -33,11 +33,11 @@ The local workflow adapter implements the same lifecycle that `container-task.sh
 
 **Why this priority**: This proves the blueprint architecture works for the existing MVP lifecycle. It is the migration path, not a parallel system.
 
-**Independent Test**: Submit a job through the control plane, have a runner claim it, and verify the local workflow adapter produces the same observable result (branch pushed, MR created) as `container-task.sh` would have.
+**Independent Test**: Submit a task through the control plane, have a runner claim it, and verify the local workflow adapter produces the same observable result (branch pushed, MR created) as `container-task.sh` would have.
 
 **Acceptance Scenarios**:
 
-1. **Given** a job is claimed by a runner using the local workflow adapter, **When** the blueprint completes successfully, **Then** a branch is pushed and a GitLab MR is created, matching the current `container-task.sh` behavior.
+1. **Given** a task is claimed by a runner using the local workflow adapter, **When** the blueprint completes successfully, **Then** a branch is pushed and a GitLab MR is created, matching the current `container-task.sh` behavior.
 2. **Given** the quality gate node fails, **When** the workflow handles the failure, **Then** the run is marked failed with quality gate metadata, and no MR is created.
 3. **Given** the agent execution node produces no changes, **When** the workflow detects no diff, **Then** the run is marked failed with a "no changes" error, and no push or MR occurs.
 
@@ -49,7 +49,7 @@ The workflow provider interface allows different adapters: LocalWorkflowProvider
 
 **Why this priority**: Constitution principle III requires providers to be replaceable boundaries. The workflow provider is no exception.
 
-**Independent Test**: Register a stub workflow provider that records which nodes it would execute; submit a job; verify the stub is called and the real provider is not.
+**Independent Test**: Register a stub workflow provider that records which nodes it would execute; submit a task; verify the stub is called and the real provider is not.
 
 **Acceptance Scenarios**:
 
@@ -64,7 +64,7 @@ The `container-task.sh` fix loop (`MYSTRA_QUALITY_FIX_ATTEMPTS`) is removed. If 
 
 **Why this priority**: The current fix loop violates the spec boundary and constitution principle I. Removing it is a spec compliance fix. Future retry is a blueprint concern, not a script concern.
 
-**Independent Test**: Run a job where the quality gate fails; verify the run is marked failed immediately without retry attempts.
+**Independent Test**: Run a task where the quality gate fails; verify the run is marked failed immediately without retry attempts.
 
 **Acceptance Scenarios**:
 

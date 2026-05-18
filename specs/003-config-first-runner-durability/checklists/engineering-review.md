@@ -21,12 +21,12 @@ surface during implementation.
   with `Cannot destructure property 'package' of 'node.target' as it is null`.
   Direct source inspection was used for this review.
 - `apps/runner-daemon/src/index.ts` already has the desired headless shape:
-  `readConfig -> register -> heartbeat -> claim -> executeJob`.
+  `readConfig -> register -> heartbeat -> claim -> executeTask`.
 - `apps/runner-daemon/src/index.ts` currently registers `maxConcurrency: 1`
   and processes one claimed job at a time inside the main loop, so local
   concurrency needs an explicit runner-side active-work model.
 - `apps/control-plane/src/lib/db/sqlite-provider.ts` currently makes
-  `cancelJob` transition assigned/running work directly to `canceled` and
+  `cancelTask` transition assigned/running work directly to `canceled` and
   decrements runner capacity. That bypasses runner-owned cleanup and must
   change for assigned/running work.
 - `apps/control-plane/src/lib/db/sqlite-provider.ts` currently uses
@@ -72,7 +72,7 @@ surface during implementation.
 - Put SQLite migration/provider changes before route behavior changes.
 - Put runner-local config parsing before registration and claim-loop changes.
 - Require tests for cancellation-request behavior before changing
-  `cancelJob`.
+  `cancelTask`.
 - Require runner-daemon tests for config parsing, concurrency limiting,
   timeout cleanup, and cancellation cleanup.
 - Require control-plane tests for claim eligibility, stale marking, stale

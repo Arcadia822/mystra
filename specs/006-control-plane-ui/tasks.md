@@ -13,10 +13,10 @@
 - [x] T002 Reconcile this feature with later control-plane design-system work under `specs/011-control-plane-design-system/`, treating 011 as the visual-system follow-on rather than a replacement for operator workflow surfaces.
 - [x] T003 Refresh the retroactive Spec Kit notes so this feature records the shipped dashboard scope instead of a placeholder-only plan.
 
-## Phase 2: Operator Health and Job Visibility
+## Phase 2: Operator Health and Task Visibility
 
 - [x] T004 [US1] Add/refresh component health panels using existing control-plane status data, including live summary tiles plus runner heartbeat/capacity panels in `apps/control-plane/app/page.tsx`.
-- [x] T005 [US2] Add job-detail presentation for lifecycle events, workflow execution, run result, MR link, and cancellation controls in `apps/control-plane/app/page.tsx`.
+- [x] T005 [US2] Add task-detail presentation for lifecycle events, workflow execution, run result, MR link, and cancellation controls in `apps/control-plane/app/page.tsx`.
 
 ## Phase 3: Submission and Integration Panels
 

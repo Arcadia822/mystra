@@ -6,12 +6,12 @@ Accepted
 
 ## Context
 
-Mystra previously treated several important concepts as loosely related fields spread across `JobSpec`, runner registration payloads, and informal documentation. Platform-scoped concerns such as executor type or runner image identity were easy to blur with project-scoped concerns such as repository branch selection or task prompt.
+Mystra previously treated several important concepts as loosely related fields spread across `TaskSpec`, runner registration payloads, and informal documentation. Platform-scoped concerns such as executor type or runner image identity were easy to blur with project-scoped concerns such as repository branch selection or task prompt.
 
 This made the boundary hard to reason about:
 
 - Runner registration accepted an untyped `Record<string, unknown>` capability bag.
-- `JobSpec.metadata` could become a dumping ground for first-class platform concerns.
+- `TaskSpec.metadata` could become a dumping ground for first-class platform concerns.
 - MVP default runtime limits existed in prose, but not as a typed contract.
 
 Mystra needs an explicit, additive model that the current MVP can actually use without overbuilding a registry or multi-tenant configuration system.
@@ -30,9 +30,9 @@ Introduce explicit shared schemas:
 
 3. `Project`
    - Durable project-scoped parent configuration.
-   - Current fields: `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`, `image`, `prewarmConfig`, and `metadata`.
+   - Current fields: `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`, `runtime`, `prewarmConfig`, and `metadata`.
 
-`JobSpec` remains the current task identity layer plus `projectId`, task branch, prompt, optional merge-request metadata, and optional repo/baseBranch/agent overrides. Platform concerns do not move into `JobSpec`.
+`TaskSpec` remains the current task identity layer plus `projectId`, task branch, prompt, optional merge-request metadata, optional runtime override, and optional repo/baseBranch/agent overrides. Platform concerns do not move into `TaskSpec`.
 
 Runner registration must use typed `PlatformCapabilities` instead of an arbitrary capability record.
 

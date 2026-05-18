@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   agentNameSchema,
-  cancelJobOutcomeSchema,
+  cancelTaskOutcomeSchema,
   cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
   contextBundleSchema,
-  jobSpecSchema,
-  jobRuntimeOverrideSchema,
+  taskRuntimeOverrideSchema,
   platformCapabilitiesSchema,
   platformDefaultsSchema,
   projectCreateSchema,
@@ -20,11 +19,12 @@ import {
   runnerObservationSchema,
   runnerRegistrationSchema,
   staleMarkingResultSchema,
+  taskSpecSchema,
 } from "./schemas.js";
 
-describe("jobSpecSchema", () => {
-  it("accepts a minimal API job with projectId and a task-provided branch name", () => {
-    const parsed = jobSpecSchema.parse({
+describe("taskSpecSchema", () => {
+  it("accepts a minimal API task submission with projectId and a task-provided branch name", () => {
+    const parsed = taskSpecSchema.parse({
       taskId: "task-1",
       source: "api",
       projectId: "00000000-0000-4000-8000-000000000001",
@@ -40,7 +40,7 @@ describe("jobSpecSchema", () => {
   });
 
   it("does not sanitize task-provided branch names", () => {
-    const parsed = jobSpecSchema.parse({
+    const parsed = taskSpecSchema.parse({
       taskId: "task-2",
       source: "mcp",
       projectId: "00000000-0000-4000-8000-000000000002",
@@ -56,9 +56,9 @@ describe("jobSpecSchema", () => {
     expect(parsed.agent).toBe("copilot");
   });
 
-  it("rejects jobs without a branch name", () => {
+  it("rejects task submissions without a branch name", () => {
     expect(() =>
-      jobSpecSchema.parse({
+      taskSpecSchema.parse({
         taskId: "task-3",
         source: "api",
         projectId: "00000000-0000-4000-8000-000000000003",
@@ -67,9 +67,9 @@ describe("jobSpecSchema", () => {
     ).toThrow();
   });
 
-  it("rejects jobs without a projectId", () => {
+  it("rejects task submissions without a projectId", () => {
     expect(() =>
-      jobSpecSchema.parse({
+      taskSpecSchema.parse({
         taskId: "task-missing-project",
         source: "api",
         branchName: "feature/missing-project",
@@ -83,9 +83,9 @@ describe("jobSpecSchema", () => {
     expect(() => agentNameSchema.parse("opencode")).toThrow();
   });
 
-  it("rejects callback URLs because callbacks are not in the MVP contract", () => {
+  it("rejects callback URLs because callbacks are not in the MVP task contract", () => {
     expect(() =>
-      jobSpecSchema.parse({
+      taskSpecSchema.parse({
         taskId: "task-4",
         source: "api",
         projectId: "00000000-0000-4000-8000-000000000004",
@@ -206,8 +206,8 @@ describe("runtime schemas", () => {
     expect(parsed.mounts[0]?.owner).toBe("project");
   });
 
-  it("accepts only constrained job runtime overrides", () => {
-    const parsed = jobRuntimeOverrideSchema.parse({
+  it("accepts only constrained task runtime overrides", () => {
+    const parsed = taskRuntimeOverrideSchema.parse({
       runtimeProfile: "frontend-dev",
       provider: "docker",
       image: "registry.example.com/castrel/frontend:latest",
@@ -219,16 +219,16 @@ describe("runtime schemas", () => {
     expect(parsed.contextBundleRefs?.[0]?.required).toBe(true);
   });
 
-  it("rejects job runtime overrides for mount, secret, cache, or port mutation", () => {
+  it("rejects task runtime overrides for mount, secret, cache, or port mutation", () => {
     const base = {
       provider: "docker",
       image: "registry.example.com/castrel/runtime:latest",
     };
 
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, mounts: [] })).toThrow();
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, secretRefs: [] })).toThrow();
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, cache: { entries: [] } })).toThrow();
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, exposedPorts: [] })).toThrow();
+    expect(() => taskRuntimeOverrideSchema.parse({ ...base, mounts: [] })).toThrow();
+    expect(() => taskRuntimeOverrideSchema.parse({ ...base, secretRefs: [] })).toThrow();
+    expect(() => taskRuntimeOverrideSchema.parse({ ...base, cache: { entries: [] } })).toThrow();
+    expect(() => taskRuntimeOverrideSchema.parse({ ...base, exposedPorts: [] })).toThrow();
   });
 
   it("rejects forbidden runtime mounts", () => {
@@ -535,19 +535,19 @@ describe("runnerLocalConfigSchema", () => {
   });
 });
 
-describe("cancelJobOutcomeSchema", () => {
+describe("cancelTaskOutcomeSchema", () => {
   it("accepts immediate canceled outcome for queued work", () => {
-    const parsed = cancelJobOutcomeSchema.parse({ kind: "canceled" });
+    const parsed = cancelTaskOutcomeSchema.parse({ kind: "canceled" });
     expect(parsed.kind).toBe("canceled");
   });
 
   it("accepts cancellation_requested outcome for runner-owned work", () => {
-    const parsed = cancelJobOutcomeSchema.parse({ kind: "cancellation_requested" });
+    const parsed = cancelTaskOutcomeSchema.parse({ kind: "cancellation_requested" });
     expect(parsed.kind).toBe("cancellation_requested");
   });
 
   it("rejects unknown outcome kinds", () => {
-    expect(() => cancelJobOutcomeSchema.parse({ kind: "retried" })).toThrow();
+    expect(() => cancelTaskOutcomeSchema.parse({ kind: "retried" })).toThrow();
   });
 });
 

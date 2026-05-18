@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=003f61d4805c7d97b68afa8be8c4f1be19015d8d updated=2026-05-15T06:16:39Z -->
+<!-- spec-status: project=mystra commit=acdc97eca5adac14bb617d7dd8a66c088f57c45a updated=2026-05-18T17:23:09Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -16,6 +16,13 @@
 | 011-control-plane-design-system    | ✓     | ✓  | ✓   | ✓ Complete |
 | 011-docker-sandbox-provider        | ✓     | ✓  | ✓   | ✓ Complete |
 | 012-github-repo-provider-parity    | ✓     | ✓  | ✓   | ✓ Complete |
+| 013-agent-first-control-plane      | ✓     | -    | -     | -         |
+| 014-management-api-truth           | ✓     | -    | -     | -         |
+| 015-multi-project-lanes            | ✓     | -    | -     | -         |
+| 016-agent-runtime-sdk              | ✓     | -    | -     | -         |
+| 017-operator-cli-surface           | ✓     | -    | -     | -         |
+| 018-coordination-run-summaries     | ✓     | -    | -     | -         |
+| 021-product-surface-positioning    | ✓     | ✓  | ✓   | ● 19/22 (86%) |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -30,3 +37,10 @@
 <!-- feature: 011-control-plane-design-system has_spec=true has_plan=true has_tasks=true has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=12 tasks_completed=12 checklist_files= -->
 <!-- feature: 011-docker-sandbox-provider has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=35 tasks_completed=35 checklist_files=requirements.md -->
 <!-- feature: 012-github-repo-provider-parity has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=23 tasks_completed=23 checklist_files=requirements.md -->
+<!-- feature: 013-agent-first-control-plane has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
+<!-- feature: 014-management-api-truth has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
+<!-- feature: 015-multi-project-lanes has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
+<!-- feature: 016-agent-runtime-sdk has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
+<!-- feature: 017-operator-cli-surface has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
+<!-- feature: 018-coordination-run-summaries has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
+<!-- feature: 021-product-surface-positioning has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=22 tasks_completed=19 checklist_files=requirements.md -->

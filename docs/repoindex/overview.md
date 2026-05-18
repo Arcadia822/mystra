@@ -15,7 +15,7 @@ This means repoindex is not a blind directory walk. It is a maintained onboardin
 
 Mystra is a self-use coding-agent orchestration platform. Its current MVP lets internal callers or remote MCP clients submit implementation work for repositories, then routes that work through a control plane, runner, sandbox, and agent so the platform can produce a reviewable branch and repository review artifact.
 
-Architecturally, Mystra is a **headless control-plane-and-runner system**. It is closer to Jenkins / Salt / Nomad than to a pure file-driven local tool: the product may use more declarative project/runtime/template inputs over time, but it still needs durable execution truth for jobs, runs, events, and artifacts.
+Architecturally, Mystra is a **headless control-plane-and-runner system**. It is closer to Jenkins / Salt / Nomad than to a pure file-driven local tool: the product may use more declarative project/runtime/template inputs over time, but it still needs durable execution truth for tasks, runs, events, and artifacts.
 
 The near-term goal is one self-use, local-first path that works end to end. The north-star direction is a hosted **Mystra platform** serving many **workspaces** and **projects** without rewriting core contracts, with a developer experience similar in spirit to Stripe Minion.
 
@@ -71,17 +71,17 @@ supabase
 - The local workflow implementation handles orchestration, not business storage.
 - Runner hosts only initiate outbound connections.
 - Project, runtime, and template inputs should resolve into immutable execution contracts before runner-side execution.
-- Shared-nothing is a scaling direction for hot-path coordination; jobs, runs, events, results, and artifacts still need durable truth.
+- Shared-nothing is a scaling direction for hot-path coordination; tasks, runs, events, results, and artifacts still need durable truth.
 
 ## Main workflows
 
 ### 1. Submit work through HTTP or remote MCP
 
-An internal caller or agent creates a Project and submits a job through the control plane HTTP APIs or `/api/mcp`. The control plane validates schemas, persists Project/job/run state, and starts the configured workflow path.
+An internal caller or agent creates a Project and submits a task through the control plane HTTP APIs or `/api/mcp`. The control plane validates schemas, persists Project/task/run state, and starts the configured workflow path.
 
 ### 2. Runner claim and execution
 
-The `runner-daemon` long-polls the control plane for assignable jobs, receives a resolved runtime contract, prepares the execution environment, then runs the task in the configured sandbox with the selected agent provider.
+The `runner-daemon` long-polls the control plane for assignable tasks, receives a resolved runtime contract, prepares the execution environment, then runs the task in the configured sandbox with the selected agent provider.
 
 ### 3. Workflow execution and delivery
 
@@ -89,7 +89,7 @@ Mystra provides workflow execution rather than one fixed delivery sequence. The 
 
 ### 4. Health, inspection, and preview
 
-Operators inspect health through `mystra_health`, job APIs, and preview helpers. Mystra keeps enough structured state in the database that job/run lifecycle can be explained without depending on transient container logs alone.
+Operators inspect health through `mystra_health`, task APIs, and preview helpers. Mystra keeps enough structured state in the database that task/run lifecycle can be explained without depending on transient container logs alone.
 
 ## Top-level topology
 
@@ -152,7 +152,7 @@ GitNexus was refreshed before this overview, and the current repository graph wa
 ## Important constraints
 
 - `Project.runtime.image` is the runtime image contract; there is no top-level compatibility `Project.image` field.
-- `JobSpec` carries task identity and limited runtime overrides, not platform capability declarations.
+- `TaskSpec` carries task identity and limited runtime overrides, not platform capability declarations.
 - Runner claim responses return a resolved runtime contract, and the runner executes that contract rather than independently interpreting Project state.
 - Sandbox task environments must not receive platform-breaking host access.
 - Secrets must be injected at runtime through env vars or read-only files.

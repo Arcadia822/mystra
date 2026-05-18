@@ -222,6 +222,8 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite via `SqliteRdbProvider`, behind `RdbProvider` so future PG/Supabase compatibility is preserved (003-config-first-runner-durability)
 - TypeScript 5.9 with Node.js 24 runtime assumptions; Open Agents upstream currently serves as the source-authoritative architecture/code baseline rather than a direct Mystra runtime dependency or packaged SDK + Next.js 16 route handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, existing Mystra monorepo packages, and the upstream `vercel-labs/open-agents` repository as the architecture/code reference (004-open-agents-framework, 005-open-agents-source-baseline)
 - Mystra persists state through `RdbProvider` with SQLite first; Open Agents upstream assumes hosted Postgres/KV-style managed services that Mystra must classify as reused concept, replaced seam, or excluded (004-open-agents-framework)
+- TypeScript 5.9, Markdown feature artifacts, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, pnpm workspace tooling (021-product-surface-positioning)
+- Markdown Spec-Kit artifacts plus SQLite-backed runtime/provider contracts already modeled behind `RdbProvider` (021-product-surface-positioning)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

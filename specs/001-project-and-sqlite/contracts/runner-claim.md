@@ -1,16 +1,16 @@
 # Runner Claim Contract
 
-> Reconciliation note: Project/job claim flow from this feature is implemented, but runtime delivery was refined by `../../002-runtime-profile-context/contracts/runner-claim.md`. Use `002` as authoritative for executable runtime fields.
+> Reconciliation note: Project/task claim flow from this feature is implemented, but runtime delivery was refined by `../../002-runtime-profile-context/contracts/runner-claim.md`. Use `002` as authoritative for executable runtime fields.
 
-## GET /api/runner/jobs
+## GET /api/runner/tasks
 
 The runner authenticates with its runner session token and claims a queued run.
 
-## Claimed Job Response
+## Claimed Task Response
 
 ```ts
-type ClaimedJobResponse = {
-  job: {
+type ClaimedTaskResponse = {
+  task: {
     id: string;
     spec: {
       taskId: string;
@@ -50,6 +50,6 @@ type ClaimedJobResponse = {
 ## Runner Requirements
 
 - Runner MUST use `response.runtime.environment.image` as the Docker image.
-- Runner MUST NOT read `MYSTRA_RUNNER_IMAGE` as the normal job runtime image after this feature.
+- Runner MUST NOT read `MYSTRA_RUNNER_IMAGE` as the normal task runtime image after this feature.
 - Runner SHOULD include image pull/start failures in run failure reason.
 - Runner MUST treat missing `runtime` or empty `runtime.environment.image` as a control-plane contract violation and fail the run clearly.

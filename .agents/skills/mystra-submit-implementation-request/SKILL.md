@@ -1,6 +1,6 @@
 ---
 name: mystra-submit-implementation-request
-description: Submit an implementation request to Mystra MCP using spec/task context instead of a hand-written raw create-job payload.
+description: Submit an implementation request to Mystra MCP using spec/task context instead of a hand-written raw create-task payload.
 ---
 
 # Mystra Submit Implementation Request
@@ -11,7 +11,7 @@ task scope and wants Mystra to execute the implementation.
 ## Required Inputs
 
 - `projectId`
-- `taskId`
+- `logicalTaskId`
 - `branchName`
 - `specReference`
 - `taskScope`
@@ -33,12 +33,12 @@ task scope and wants Mystra to execute the implementation.
   dedicated top-level `workflowName` field.
 - If the endpoint is unreachable, report the connection failure clearly and
   stop.
-- Stay inside the current MCP contract. Use `mystra_create_job`; do not invent
+- Stay inside the current MCP contract. Use `mystra_create_task`; do not invent
   extra top-level fields.
 
 ## Prompt Shape
 
-Build the Mystra job prompt in this form:
+Build the Mystra task prompt in this form:
 
 ```text
 Implement the requested scope in the target project.
@@ -63,9 +63,9 @@ request like:
   "id": "implementation-submit",
   "method": "tools/call",
   "params": {
-    "name": "mystra_create_job",
+    "name": "mystra_create_task",
     "arguments": {
-      "taskId": "<taskId>",
+      "taskId": "<logicalTaskId>",
       "source": "mcp",
       "projectId": "<projectId>",
       "branchName": "<branchName>",
@@ -87,5 +87,7 @@ request like:
 
 ## Expected Result
 
-Return the created job identifier, current run state, and any immediately
-available branch or review URL from the MCP response.
+Return the created task identifier (`task.id`), the submitted logical task key
+(`task.spec.taskId`), current run state, and any immediately available branch
+or review URL from the MCP response. Use `task.id` for later `mystra_get_task`
+or `mystra_cancel_task` calls.

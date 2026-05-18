@@ -3,8 +3,8 @@
 **Feature Branch**: `006-control-plane-ui`
 **Created**: 2026-05-14
 **Status**: Implemented (prototype scope)
-**Dependency Note**: Can proceed mostly in parallel with `004-open-agents-framework`, but should adopt the lifecycle vocabulary and status semantics that 004 pins for jobs, runs, and events.
-**Input**: The current control plane UI is a single-page React client component with runner, job, and project display. It needs optimization for layout and design, plus new panels: component health, job detail view, task submission form, MCP connection info, and companion skill discovery.
+**Dependency Note**: Can proceed mostly in parallel with `004-open-agents-framework`, but should adopt the lifecycle vocabulary and status semantics that 004 pins for tasks, runs, and events.
+**Input**: The current control plane UI is a single-page React client component with runner, task, and project display. It needs optimization for layout and design, plus new panels: component health, task detail view, task submission form, MCP connection info, and companion skill discovery.
 
 **Implementation Note**: This feature is now treated as a shipped prototype/operator-workflow slice. Queue filtering and companion-skill discovery UI are intentionally left to follow-on work rather than counted as remaining 006 scope.
 
@@ -26,35 +26,35 @@ As a platform operator, I want to see the health status of all platform componen
 
 ---
 
-### User Story 2 - Operator Views and Filters Jobs (Priority: P1)
+### User Story 2 - Operator Views and Filters Tasks (Priority: P1)
 
-As a platform operator, I want to view a list of jobs with their status, and drill into a job detail view showing the full lifecycle events, run result, and quality gate outcome, so that I can understand what happened without querying the API directly.
+As a platform operator, I want to view a list of tasks with their status, and drill into a task detail view showing the full lifecycle events, run result, and quality gate outcome, so that I can understand what happened without querying the API directly.
 
-**Why this priority**: Job observability is the primary value of the control plane UI. The current job list exists but needs detail view and filtering.
+**Why this priority**: Task observability is the primary value of the control plane UI. The current task list exists but needs detail view and filtering.
 
-**Independent Test**: Submit a job, wait for completion, open the job detail view, and verify all lifecycle events and the final result are displayed.
+**Independent Test**: Submit a task, wait for completion, open the task detail view, and verify all lifecycle events and the final result are displayed.
 
 **Acceptance Scenarios**:
 
-1. **Given** jobs exist in various states, **When** the operator views the job list, **Then** jobs are displayed with id, task, status, agent, and timestamps.
-2. **Given** the operator wants to find specific jobs, **When** they apply a status filter (e.g., "failed"), **Then** only jobs matching that status are shown.
-3. **Given** the operator clicks on a job, **When** the job detail view opens, **Then** it shows the full spec, run state, lifecycle events timeline, quality gate result, and MR/PR link if created.
+1. **Given** tasks exist in various states, **When** the operator views the task list, **Then** tasks are displayed with id, task, status, agent, and timestamps.
+2. **Given** the operator wants to find specific tasks, **When** they apply a status filter (e.g., "failed"), **Then** only tasks matching that status are shown.
+3. **Given** the operator clicks on a task, **When** the task detail view opens, **Then** it shows the full spec, run state, lifecycle events timeline, quality gate result, and MR/PR link if created.
 
 ---
 
 ### User Story 3 - Operator Submits a Task from the UI (Priority: P1)
 
-As a platform operator, I want to submit a new task (job) from the control plane UI by selecting a project, entering a prompt, and choosing an agent, so that I can initiate work without using the API or MCP directly.
+As a platform operator, I want to submit a new task from the control plane UI by selecting a project, entering a prompt, and choosing an agent, so that I can initiate work without using the API or MCP directly.
 
 **Why this priority**: Task submission is the primary action. The current UI has a form but it needs to be prominent and well-designed.
 
-**Independent Test**: Fill in the task submission form with a project, prompt, and agent; submit; verify the job appears in the job list.
+**Independent Test**: Fill in the task submission form with a project, prompt, and agent; submit; verify the task appears in the task list.
 
 **Acceptance Scenarios**:
 
 1. **Given** projects exist in the system, **When** the operator opens the task submission form, **Then** they can select a project from a dropdown, enter a prompt, and choose an agent (codex/copilot).
-2. **Given** the form is filled in, **When** the operator submits, **Then** a job is created and appears in the job list with "queued" status.
-3. **Given** the form has invalid input (empty prompt, no project), **When** the operator submits, **Then** validation errors are shown and no job is created.
+2. **Given** the form is filled in, **When** the operator submits, **Then** a task is created and appears in the task list with "queued" status.
+3. **Given** the form has invalid input (empty prompt, no project), **When** the operator submits, **Then** validation errors are shown and no task is created.
 
 ---
 
@@ -92,7 +92,7 @@ As a developer, I want to see available companion skills that work with Mystra M
 
 - What if the control plane API is unreachable? The UI should show a connection error, not a blank page.
 - What if no runners are connected? The health panel should show "No runners" rather than implying the system is healthy.
-- What if a job has no events yet? The detail view should show "Pending" or "Queued" rather than an empty timeline.
+- What if a task has no events yet? The detail view should show "Pending" or "Queued" rather than an empty timeline.
 
 ## Requirements *(mandatory)*
 
@@ -100,9 +100,9 @@ As a developer, I want to see available companion skills that work with Mystra M
 
 - **FR-001**: The dashboard MUST display health status for: control plane API, each connected runner, workflow provider, RDB, and MCP server.
 - **FR-002**: Health indicators MUST use real status data (heartbeat age, API reachability, DB connectivity).
-- **FR-003**: The job list MUST display job id, task id, status, agent, project, and timestamps.
-- **FR-004**: The job list MUST support filtering by status (queued, running, succeeded, failed, canceled, timed_out).
-- **FR-005**: Clicking a job MUST open a detail view showing spec, run state, lifecycle events, quality gate result, and MR/PR link.
+- **FR-003**: The task list MUST display task id, status, agent, project, and timestamps.
+- **FR-004**: The task list MUST support filtering by status (queued, running, succeeded, failed, canceled, timed_out).
+- **FR-005**: Clicking a task MUST open a detail view showing spec, run state, lifecycle events, quality gate result, and MR/PR link.
 - **FR-006**: The task submission form MUST allow selecting a project, entering a prompt, choosing an agent, and submitting.
 - **FR-007**: The form MUST validate required fields before submission.
 - **FR-008**: The MCP info panel MUST display server URL, transport type, and available tools.
@@ -113,7 +113,7 @@ As a developer, I want to see available companion skills that work with Mystra M
 ### Key Entities
 
 - **ComponentHealth**: A health status record for a platform component (name, status, lastCheck, details).
-- **JobDetail**: Extended job view with full spec, run, events, and result data.
+- **TaskDetail**: Extended task view with full spec, run, events, and result data.
 - **MCPConnectionInfo**: Server URL, transport type, tool list, and configuration snippets.
 - **CompanionSkill**: A skill entry with name, description, and installation command.
 
@@ -122,7 +122,7 @@ As a developer, I want to see available companion skills that work with Mystra M
 ### Measurable Outcomes
 
 - **SC-001**: An operator can assess platform health within 5 seconds of opening the dashboard.
-- **SC-002**: An operator can find and inspect any job's full lifecycle from the UI without using the API.
-- **SC-003**: An operator can submit a task from the UI and see it appear in the job list.
+- **SC-002**: An operator can find and inspect any task's full lifecycle from the UI without using the API.
+- **SC-003**: An operator can submit a task from the UI and see it appear in the task list.
 - **SC-004**: A developer can copy MCP connection configuration from the UI in one click.
 - **SC-005**: The UI layout is clean, responsive, and consistent with the existing design language.
