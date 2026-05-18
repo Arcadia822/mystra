@@ -84,7 +84,7 @@ apps/runner-daemon/
 └── assets/container-task.sh
 
 apps/control-plane/
-├── app/api/tasks/route.ts
+├── app/api/jobs/route.ts
 ├── app/api/mcp/route.ts
 └── src/lib/db/sqlite-provider.ts
 
@@ -155,7 +155,7 @@ The first implementation slice for 010 should be:
 ### Boundary Diagram
 
 ```text
-Task / workflow intent
+Job / workflow intent
   -> RepositoryTarget + RepositoryAuthBinding
     -> RepoProvider selector
       -> pushBranch()
@@ -208,7 +208,7 @@ Non-goals for this seam:
 | Shared result vocabulary | `packages/shared` tests prove normalized result shapes once introduced |
 | GitLab first implementation | `apps/runner-daemon` tests keep GitLab branch push / review creation mapped to the new contract |
 | GitHub parity path | Task slices define the implementation and verification work without changing the contract |
-| Control-plane/runtime alignment | `apps/control-plane` tests prove task snapshots and MCP surfaces can expose normalized repository delivery outcomes |
+| Control-plane/runtime alignment | `apps/control-plane` tests prove job snapshots and MCP surfaces can expose normalized repository delivery outcomes |
 | Broad type safety | `pnpm typecheck` after cross-package contract changes |
 
 ## Risks And Mitigations

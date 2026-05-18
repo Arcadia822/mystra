@@ -34,7 +34,7 @@ The delivered proof should show:
 ```text
 runner claim
   -> create built-in adapter registry
-  -> select adapter by task.spec.agent
+  -> select adapter by job.spec.agent
   -> build command/env/prepareDir payloads
   -> shell executes payload generically
   -> shell writes processResult + changedFiles

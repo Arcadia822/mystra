@@ -4,6 +4,10 @@ import {
   assertRunStateTransition,
   contextBundleCreateSchema,
   contextBundleSchema,
+  executionContractReferenceSchema,
+  executionSpecArtifactSchema,
+  jobSpecSchema,
+  jobInlineContextBundlePayloadSchema,
   platformCapabilitiesSchema,
   projectCreateSchema,
   projectRuntimeConfigSchema,
@@ -12,11 +16,12 @@ import {
   resolvedRuntimeContractSchema,
   runEventSchema,
   runResultSchema,
-  type CancelTaskOutcome,
+  type CancelJobOutcome,
   type CancellationRequestMetadata,
   type ContextBundle,
   type ContextBundleCreate,
   type AgentName,
+  type JobSpec,
   type PlatformCapabilities,
   type Project,
   type ProjectCreate,
@@ -28,8 +33,6 @@ import {
   type RunResult,
   type RunState,
   type StaleMarkingResult,
-  type TaskSpec,
-  taskSpecSchema,
   type WorkflowExecutionSnapshot,
   type WorkflowNodeExecutionSnapshot,
   workflowExecutionSnapshotSchema,
@@ -39,8 +42,8 @@ import {
 import { sqliteMigrations } from "./migrations";
 import { resolveRuntimeContract } from "../runtime/resolve-runtime";
 import type {
-  TaskRecord,
-  TaskSnapshot,
+  JobRecord,
+  JobSnapshot,
   ProjectClaim,
   PublicRunnerSession,
   RdbProvider,
@@ -66,6 +69,104 @@ const terminalStates = new Set<RunState>([
   "timed_out",
   "needs_human_review",
 ]);
+
+const EXECUTION_SPEC_BUNDLE_SLUG = "execution-spec";
+const EXECUTION_SPEC_FILE_NAME = "execution-spec.json";
+const EXECUTION_SPEC_MOUNT_PATH = "/mystra/context/execution-spec";
+
+function executionSpecArtifactUri(runId: string): string {
+  return `mystra://runs/${runId}/artifacts/${EXECUTION_SPEC_FILE_NAME}`;
+}
+
+function executionSpecMaterializationRef(runId: string): string {
+  return `${EXECUTION_SPEC_BUNDLE_SLUG}-${runId}`;
+}
+
+function buildExecutionContractReference(input: {
+  artifactId: string;
+  uri: string;
+  frozenAt: string;
+}) {
+  return executionContractReferenceSchema.parse({
+    kind: "execution-spec",
+    artifactId: input.artifactId,
+    uri: input.uri,
+    bundleSlug: EXECUTION_SPEC_BUNDLE_SLUG,
+    mountPath: EXECUTION_SPEC_MOUNT_PATH,
+    filePath: `${EXECUTION_SPEC_MOUNT_PATH}/${EXECUTION_SPEC_FILE_NAME}`,
+    frozenAt: input.frozenAt,
+  });
+}
+
+function attachExecutionSpecBundle(
+  runtime: ResolvedRuntimeContract,
+  input: {
+    runId: string;
+    artifactUri: string;
+    frozenAt: string;
+    executionContract: ReturnType<typeof buildExecutionContractReference>;
+    payload: ReturnType<typeof executionSpecArtifactSchema.parse>;
+  },
+): ResolvedRuntimeContract {
+  const materializationRef = executionSpecMaterializationRef(input.runId);
+  const bundle = contextBundleSchema.parse({
+    id: id(),
+    slug: EXECUTION_SPEC_BUNDLE_SLUG,
+    displayName: "Frozen Execution Spec",
+    source: {
+      kind: "job-inline",
+      ref: input.artifactUri,
+      metadata: {
+        prompt: `Primary execution contract. Read ${input.executionContract.filePath} before making changes.`,
+        materializationRef,
+        jobInline: jobInlineContextBundlePayloadSchema.parse({
+          files: [{ path: EXECUTION_SPEC_FILE_NAME, content: JSON.stringify(input.payload, null, 2) }],
+        }),
+        executionContract: input.executionContract,
+      },
+    },
+    accessMode: "job-scoped",
+    mountPath: EXECUTION_SPEC_MOUNT_PATH,
+    freshness: {
+      frozenAt: input.frozenAt,
+    },
+    failureMode: "fail-run",
+    metadata: {
+      artifactId: input.executionContract.artifactId,
+      artifactUri: input.artifactUri,
+      contractKind: input.executionContract.kind,
+    },
+    archivedAt: null,
+    createdAt: input.frozenAt,
+    updatedAt: input.frozenAt,
+  });
+
+  return resolvedRuntimeContractSchema.parse({
+    ...runtime,
+    contextBundles: [
+      ...runtime.contextBundles.filter((candidate) => candidate.slug !== EXECUTION_SPEC_BUNDLE_SLUG),
+      {
+        slug: bundle.slug,
+        required: true,
+        accessMode: bundle.accessMode,
+        mountPath: bundle.mountPath,
+        source: bundle.source,
+        failureMode: bundle.failureMode,
+      },
+    ],
+    executionContract: input.executionContract,
+    mounts: [
+      ...runtime.mounts.filter((mount) => !(mount.kind === "contextBundle" && mount.target === EXECUTION_SPEC_MOUNT_PATH)),
+      {
+        kind: "contextBundle",
+        owner: "runtime",
+        target: EXECUTION_SPEC_MOUNT_PATH,
+        sourceRef: materializationRef,
+        readOnly: true,
+      },
+    ],
+  });
+}
 
 function now(): string {
   return new Date().toISOString();
@@ -419,8 +520,8 @@ export class SqliteRdbProvider implements RdbProvider {
     return rows.map((row) => this.contextBundleFromRow(row));
   }
 
-  createTask(input: unknown): TaskSnapshot {
-    const parsed = taskSpecSchema.parse(input);
+  createJob(input: unknown): JobSnapshot {
+    const parsed = jobSpecSchema.parse(input);
     const project = this.getProjectById(parsed.projectId);
     if (!project) {
       throw new Error(`PROJECT_NOT_FOUND: Project not found: ${parsed.projectId}`);
@@ -429,7 +530,7 @@ export class SqliteRdbProvider implements RdbProvider {
       throw new Error(`PROJECT_ARCHIVED: Project is archived: ${project.slug}`);
     }
 
-    const resolved: TaskSpec = {
+    const resolved: JobSpec = {
       taskId: parsed.taskId,
       source: parsed.source,
       projectId: parsed.projectId,
@@ -449,16 +550,50 @@ export class SqliteRdbProvider implements RdbProvider {
     const contextBundles = [...contextBundleSlugs]
       .map((slug) => this.getContextBundleBySlug(slug))
       .filter((bundle): bundle is ContextBundle => Boolean(bundle));
-    const resolvedRuntime = resolveRuntimeContract({
-      project,
-      ...(parsed.runtime ? { override: parsed.runtime } : {}),
-      contextBundles,
+    const timestamp = now();
+    const jobId = id();
+    const runId = id();
+    const artifactId = id();
+    const artifactUri = executionSpecArtifactUri(runId);
+    const executionContract = buildExecutionContractReference({
+      artifactId,
+      uri: artifactUri,
+      frozenAt: timestamp,
     });
+    const executionSpecArtifact = executionSpecArtifactSchema.parse({
+      version: 1,
+      kind: "execution-spec",
+      jobId,
+      runId,
+      taskId: resolved.taskId,
+      source: resolved.source,
+      projectId: resolved.projectId,
+      repo: resolved.repo,
+      baseBranch: resolved.baseBranch,
+      branchName: resolved.branchName,
+      agent: resolved.agent,
+      prompt: resolved.prompt,
+      ...(resolved.mergeRequest ? { mergeRequest: resolved.mergeRequest } : {}),
+      metadata: resolved.metadata,
+      frozenAt: timestamp,
+      executionContract,
+    });
+    const resolvedRuntime = attachExecutionSpecBundle(
+      resolveRuntimeContract({
+        project,
+        ...(parsed.runtime ? { override: parsed.runtime } : {}),
+        contextBundles,
+      }),
+      {
+        runId,
+        artifactUri,
+        frozenAt: timestamp,
+        executionContract,
+        payload: executionSpecArtifact,
+      },
+    );
 
     const create = this.db.transaction(() => {
-      const timestamp = now();
-      const taskId = id();
-      const runId = id();
       this.db.prepare(`
         INSERT INTO jobs (
           id, project_id, task_id, source, repo, base_branch, branch_name,
@@ -469,7 +604,7 @@ export class SqliteRdbProvider implements RdbProvider {
           @agent, @prompt, @mrTitle, @mrBody, @runtimeOverride, @metadata, @createdAt, @updatedAt
         )
       `).run({
-        id: taskId,
+        id: jobId,
         projectId: resolved.projectId,
         taskId: resolved.taskId,
         source: resolved.source,
@@ -488,41 +623,67 @@ export class SqliteRdbProvider implements RdbProvider {
       this.db.prepare(`
         INSERT INTO runs (id, job_id, state, attempt, resolved_runtime, created_at, updated_at)
         VALUES (?, ?, 'queued', 1, ?, ?, ?)
-      `).run(runId, taskId, jsonStringify(resolvedRuntime), timestamp, timestamp);
-      this.insertEvent(runId, taskId, "task.created", "info", { taskId: resolved.taskId }, timestamp);
-      this.insertEvent(runId, taskId, "run.queued", "info", {}, timestamp);
-      return taskId;
+      `).run(runId, jobId, jsonStringify(resolvedRuntime), timestamp, timestamp);
+      this.db.prepare(`
+        INSERT INTO artifacts (id, run_id, job_id, kind, name, uri, metadata, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        artifactId,
+        runId,
+        jobId,
+        executionSpecArtifact.kind,
+        EXECUTION_SPEC_FILE_NAME,
+        artifactUri,
+        jsonStringify({
+          payload: executionSpecArtifact,
+          executionContract,
+          bundle: {
+            slug: EXECUTION_SPEC_BUNDLE_SLUG,
+            mountPath: EXECUTION_SPEC_MOUNT_PATH,
+            materializationRef: executionSpecMaterializationRef(runId),
+          },
+        }),
+        timestamp,
+      );
+      this.insertEvent(runId, jobId, "job.created", "info", { taskId: resolved.taskId }, timestamp);
+      this.insertEvent(runId, jobId, "artifact.created", "info", {
+        artifactId,
+        kind: executionSpecArtifact.kind,
+        uri: artifactUri,
+      }, timestamp);
+      this.insertEvent(runId, jobId, "run.queued", "info", {}, timestamp);
+      return jobId;
     });
 
-    const snapshot = this.getTask(create());
+    const snapshot = this.getJob(create());
     if (!snapshot) {
-      throw new Error("Created task has no snapshot");
+      throw new Error("Created job has no snapshot");
     }
     return snapshot;
   }
 
-  getTask(taskId: string): TaskSnapshot | undefined {
-    const row = this.db.prepare("SELECT * FROM jobs WHERE id = ?").get(taskId) as Row | undefined;
+  getJob(jobId: string): JobSnapshot | undefined {
+    const row = this.db.prepare("SELECT * FROM jobs WHERE id = ?").get(jobId) as Row | undefined;
     if (!row) {
       return undefined;
     }
-    return this.snapshotFromTaskRow(row);
+    return this.snapshotFromJobRow(row);
   }
 
-  getTaskByRunId(runId: string): TaskSnapshot | undefined {
+  getJobByRunId(runId: string): JobSnapshot | undefined {
     const run = this.runById(runId);
-    return run ? this.getTask(run.taskId) : undefined;
+    return run ? this.getJob(run.jobId) : undefined;
   }
 
-  listTasks(): TaskSnapshot[] {
+  listJobs(): JobSnapshot[] {
     const rows = this.db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all() as Row[];
-    return rows.map((row) => this.snapshotFromTaskRow(row));
+    return rows.map((row) => this.snapshotFromJobRow(row));
   }
 
-  cancelTask(taskId: string): CancelTaskOutcome & { snapshot: TaskSnapshot } {
-    const snapshot = this.getTask(taskId);
+  cancelJob(jobId: string): CancelJobOutcome & { snapshot: JobSnapshot } {
+    const snapshot = this.getJob(jobId);
     if (!snapshot) {
-      throw new Error(`TASK_NOT_FOUND: Task not found: ${taskId}`);
+      throw new Error(`JOB_NOT_FOUND: Job not found: ${jobId}`);
     }
     const timestamp = now();
 
@@ -537,10 +698,10 @@ export class SqliteRdbProvider implements RdbProvider {
             updated_at = ?
         WHERE id = ?
       `).run(jsonStringify(cancellationRequest), timestamp, snapshot.run.id);
-      this.insertEvent(snapshot.run.id, taskId, "cancellation.requested", "warn", { requestedAt: timestamp }, timestamp);
-      const updated = this.getTask(taskId);
+      this.insertEvent(snapshot.run.id, jobId, "cancellation.requested", "warn", { requestedAt: timestamp }, timestamp);
+      const updated = this.getJob(jobId);
       if (!updated) {
-        throw new Error("Task snapshot lost after cancellation request");
+        throw new Error("Job snapshot lost after cancellation request");
       }
       return { kind: "cancellation_requested", snapshot: updated };
     }
@@ -550,10 +711,10 @@ export class SqliteRdbProvider implements RdbProvider {
     if (snapshot.run.assignedRunnerSessionId) {
       this.decrementRunner(snapshot.run.assignedRunnerSessionId);
     }
-    this.insertEvent(snapshot.run.id, taskId, "run.canceled", "warn", {}, timestamp);
-    const updated = this.getTask(taskId);
+    this.insertEvent(snapshot.run.id, jobId, "run.canceled", "warn", {}, timestamp);
+    const updated = this.getJob(jobId);
     if (!updated) {
-      throw new Error("Task snapshot lost after cancellation");
+      throw new Error("Job snapshot lost after cancellation");
     }
     return { kind: "canceled", snapshot: updated };
   }
@@ -623,7 +784,7 @@ export class SqliteRdbProvider implements RdbProvider {
     return rows.map((row) => publicRunner(this.runnerFromRow(row)));
   }
 
-  claimNextRun(runnerId: string): TaskSnapshot | undefined {
+  claimNextRun(runnerId: string): JobSnapshot | undefined {
     const claim = this.db.transaction(() => {
       const runner = this.runnerById(runnerId);
       if (!runner) {
@@ -677,7 +838,7 @@ export class SqliteRdbProvider implements RdbProvider {
         return undefined;
       }
       const runId = stringField(row, "id");
-      const taskId = stringField(row, "job_id");
+      const jobId = stringField(row, "job_id");
       const timestamp = now();
       this.db.prepare(`
         UPDATE runs
@@ -692,12 +853,12 @@ export class SqliteRdbProvider implements RdbProvider {
             updated_at = ?
         WHERE id = ?
       `).run(timestamp, runnerId);
-      this.insertEvent(runId, taskId, "run.assigned", "info", { runnerSessionId: runnerId }, timestamp);
-      return taskId;
+      this.insertEvent(runId, jobId, "run.assigned", "info", { runnerSessionId: runnerId }, timestamp);
+      return jobId;
     });
 
-    const taskId = claim();
-    return taskId ? this.getTask(taskId) : undefined;
+    const jobId = claim();
+    return jobId ? this.getJob(jobId) : undefined;
   }
 
   appendRunEvent(runnerId: string, runId: string, input: unknown): RunEvent {
@@ -710,10 +871,10 @@ export class SqliteRdbProvider implements RdbProvider {
     const event = runEventSchema.parse({
       ...(input as Record<string, unknown>),
       runId,
-      taskId: run.taskId,
+      jobId: run.jobId,
       timestamp,
     });
-    this.insertEvent(runId, run.taskId, event.type, event.severity, event.data, timestamp);
+    this.insertEvent(runId, run.jobId, event.type, event.severity, event.data, timestamp);
 
     if (event.type === "container.started" && run.state === "assigned") {
       this.transitionRun(run.id, "starting", timestamp);
@@ -725,7 +886,7 @@ export class SqliteRdbProvider implements RdbProvider {
     return event;
   }
 
-  completeRun(runnerId: string, runId: string, input: unknown): TaskSnapshot {
+  completeRun(runnerId: string, runId: string, input: unknown): JobSnapshot {
     const run = this.runById(runId);
     if (!run || run.assignedRunnerSessionId !== runnerId) {
       throw new Error("Run is not assigned to this runner");
@@ -735,13 +896,13 @@ export class SqliteRdbProvider implements RdbProvider {
     const timestamp = now();
     this.transitionRun(runId, result.status, timestamp, result);
     this.decrementRunner(runnerId);
-    this.insertEvent(runId, run.taskId, `run.${result.status}` as RunEventType, result.status === "succeeded" ? "info" : "error", {
+    this.insertEvent(runId, run.jobId, `run.${result.status}` as RunEventType, result.status === "succeeded" ? "info" : "error", {
       summary: result.summary,
     }, timestamp);
 
-    const snapshot = this.getTask(run.taskId);
+    const snapshot = this.getJob(run.jobId);
     if (!snapshot) {
-      throw new Error("Completed run has no task snapshot");
+      throw new Error("Completed run has no job snapshot");
     }
     return snapshot;
   }
@@ -781,7 +942,7 @@ export class SqliteRdbProvider implements RdbProvider {
               updated_at = ?
           WHERE id = ?
         `).run(timestamp, timestamp, timestamp, runId);
-        this.insertEvent(runId, this.runById(runId)?.taskId ?? "", "run.stale_marked", "error", {
+        this.insertEvent(runId, this.runById(runId)?.jobId ?? "", "run.stale_marked", "error", {
           reason: "runner_stale",
           runnerSessionId: runnerId,
         }, timestamp);
@@ -832,15 +993,15 @@ export class SqliteRdbProvider implements RdbProvider {
     });
   }
 
-  private taskFromRow(row: Row): TaskRecord {
+  private jobFromRow(row: Row): JobRecord {
     const projectId = nullableStringField(row, "project_id");
     if (!projectId) {
-      throw new Error(`Task ${stringField(row, "id")} has no project_id`);
+      throw new Error(`Job ${stringField(row, "id")} has no project_id`);
     }
     const mergeTitle = nullableStringField(row, "mr_title");
     const mergeBody = nullableStringField(row, "mr_body");
     const runtimeOverride = nullableStringField(row, "runtime_override");
-    const spec: TaskSpec = taskSpecSchema.parse({
+    const spec: JobSpec = jobSpecSchema.parse({
       taskId: stringField(row, "task_id"),
       source: stringField(row, "source"),
       projectId,
@@ -882,7 +1043,7 @@ export class SqliteRdbProvider implements RdbProvider {
     }
     return {
       id: runId,
-      taskId: stringField(row, "job_id"),
+      jobId: stringField(row, "job_id"),
       state: stringField(row, "state") as RunState,
       attempt: numberField(row, "attempt"),
       ...(assignedRunnerSessionId ? { assignedRunnerSessionId } : {}),
@@ -938,7 +1099,7 @@ export class SqliteRdbProvider implements RdbProvider {
   private eventFromRow(row: Row): RunEvent {
     return runEventSchema.parse({
       runId: stringField(row, "run_id"),
-      taskId: stringField(row, "job_id"),
+      jobId: stringField(row, "job_id"),
       timestamp: stringField(row, "created_at"),
       type: stringField(row, "type"),
       severity: stringField(row, "severity"),
@@ -1056,22 +1217,22 @@ export class SqliteRdbProvider implements RdbProvider {
     });
   }
 
-  private snapshotFromTaskRow(row: Row): TaskSnapshot {
-    const task = this.taskFromRow(row);
-    const runRow = this.db.prepare("SELECT * FROM runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1").get(task.id) as Row | undefined;
+  private snapshotFromJobRow(row: Row): JobSnapshot {
+    const job = this.jobFromRow(row);
+    const runRow = this.db.prepare("SELECT * FROM runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1").get(job.id) as Row | undefined;
     if (!runRow) {
-      throw new Error(`Task ${task.id} has no run`);
+      throw new Error(`Job ${job.id} has no run`);
     }
     const run = this.runFromRow(runRow);
-    const eventRows = this.db.prepare("SELECT * FROM run_events WHERE job_id = ? ORDER BY created_at ASC").all(task.id) as Row[];
+    const eventRows = this.db.prepare("SELECT * FROM run_events WHERE job_id = ? ORDER BY created_at ASC").all(job.id) as Row[];
     const events = eventRows.map((eventRow) => this.eventFromRow(eventRow));
     const workflow = this.workflowSnapshotFromEvents(run, events);
     return {
-      task,
+      job,
       run,
       events,
       ...(workflow ? { workflow } : {}),
-      project: this.projectClaim(task.spec.projectId),
+      project: this.projectClaim(job.spec.projectId),
       ...(run.resolvedRuntime ? { runtime: run.resolvedRuntime } : {}),
     };
   }
@@ -1095,7 +1256,7 @@ export class SqliteRdbProvider implements RdbProvider {
 
   private insertEvent(
     runId: string,
-    taskId: string,
+    jobId: string,
     type: RunEventType,
     severity: RunEventSeverity,
     data: Record<string, unknown>,
@@ -1104,7 +1265,7 @@ export class SqliteRdbProvider implements RdbProvider {
     this.db.prepare(`
       INSERT INTO run_events (id, run_id, job_id, type, severity, data, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id(), runId, taskId, type, severity, jsonStringify(data), timestamp);
+    `).run(id(), runId, jobId, type, severity, jsonStringify(data), timestamp);
   }
 
   private transitionRun(runId: string, nextState: RunState, timestamp: string, result?: RunResult): void {

@@ -67,6 +67,11 @@ Validation:
 
 ## Context Bundles
 
+Contract notes:
+
+- Context bundles may include run-scoped frozen execution artifacts, such as the approved spec snapshot created at job submission time.
+- Accepted runs consume injected artifacts rather than a live pointer to the collaborative workspace that produced them.
+
 ### POST /api/context-bundles
 
 Creates a context bundle reference.
@@ -110,12 +115,12 @@ Archives a context bundle. The first implementation slice only needs create/list
 
 Success: `200 { "contextBundle": ContextBundle }`
 
-## Task Submission Runtime Override
+## Job Submission Runtime Override
 
-Task create accepts an optional runtime override:
+Job create accepts an optional runtime override:
 
 ```ts
-type TaskRuntimeOverride = {
+type JobRuntimeOverride = {
   runtimeProfile?: string;
   provider?: "docker";
   image?: string;
@@ -133,10 +138,12 @@ Validation:
 - MVP accepts only constrained provider/image/context-bundle/metadata overrides.
   Runtime profile selection is a reserved future field and must not be accepted
   as executable behavior until profile management exists.
-- Task payloads must not override mounts, secrets, cache, or exposed ports in the
+- Job payloads must not override mounts, secrets, cache, or exposed ports in the
   MVP.
+- Job submission freezes execution-facing spec context into a run-scoped artifact before execution starts.
+- Collaborative edits after submission require a new job instead of mutating an accepted run.
 - Override provider must be supported by the Project and runner pool.
-- Task-scoped context bundles must resolve before runner claim.
+- Job-scoped context bundles must resolve before runner claim.
 - Invalid runtime overrides return `400` and create no run.
 
 ## Project Response

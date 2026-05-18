@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   agentNameSchema,
-  cancelTaskOutcomeSchema,
+  cancelJobOutcomeSchema,
   cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
+  executionSpecArtifactSchema,
   contextBundleSchema,
-  taskRuntimeOverrideSchema,
+  jobInlineContextBundlePayloadSchema,
+  jobSpecSchema,
+  jobRuntimeOverrideSchema,
   platformCapabilitiesSchema,
   platformDefaultsSchema,
   projectCreateSchema,
@@ -19,12 +22,11 @@ import {
   runnerObservationSchema,
   runnerRegistrationSchema,
   staleMarkingResultSchema,
-  taskSpecSchema,
 } from "./schemas.js";
 
-describe("taskSpecSchema", () => {
-  it("accepts a minimal API task submission with projectId and a task-provided branch name", () => {
-    const parsed = taskSpecSchema.parse({
+describe("jobSpecSchema", () => {
+  it("accepts a minimal API job with projectId and a task-provided branch name", () => {
+    const parsed = jobSpecSchema.parse({
       taskId: "task-1",
       source: "api",
       projectId: "00000000-0000-4000-8000-000000000001",
@@ -40,7 +42,7 @@ describe("taskSpecSchema", () => {
   });
 
   it("does not sanitize task-provided branch names", () => {
-    const parsed = taskSpecSchema.parse({
+    const parsed = jobSpecSchema.parse({
       taskId: "task-2",
       source: "mcp",
       projectId: "00000000-0000-4000-8000-000000000002",
@@ -56,9 +58,9 @@ describe("taskSpecSchema", () => {
     expect(parsed.agent).toBe("copilot");
   });
 
-  it("rejects task submissions without a branch name", () => {
+  it("rejects jobs without a branch name", () => {
     expect(() =>
-      taskSpecSchema.parse({
+      jobSpecSchema.parse({
         taskId: "task-3",
         source: "api",
         projectId: "00000000-0000-4000-8000-000000000003",
@@ -67,9 +69,9 @@ describe("taskSpecSchema", () => {
     ).toThrow();
   });
 
-  it("rejects task submissions without a projectId", () => {
+  it("rejects jobs without a projectId", () => {
     expect(() =>
-      taskSpecSchema.parse({
+      jobSpecSchema.parse({
         taskId: "task-missing-project",
         source: "api",
         branchName: "feature/missing-project",
@@ -83,9 +85,9 @@ describe("taskSpecSchema", () => {
     expect(() => agentNameSchema.parse("opencode")).toThrow();
   });
 
-  it("rejects callback URLs because callbacks are not in the MVP task contract", () => {
+  it("rejects callback URLs because callbacks are not in the MVP contract", () => {
     expect(() =>
-      taskSpecSchema.parse({
+      jobSpecSchema.parse({
         taskId: "task-4",
         source: "api",
         projectId: "00000000-0000-4000-8000-000000000004",
@@ -206,8 +208,8 @@ describe("runtime schemas", () => {
     expect(parsed.mounts[0]?.owner).toBe("project");
   });
 
-  it("accepts only constrained task runtime overrides", () => {
-    const parsed = taskRuntimeOverrideSchema.parse({
+  it("accepts only constrained job runtime overrides", () => {
+    const parsed = jobRuntimeOverrideSchema.parse({
       runtimeProfile: "frontend-dev",
       provider: "docker",
       image: "registry.example.com/castrel/frontend:latest",
@@ -219,16 +221,16 @@ describe("runtime schemas", () => {
     expect(parsed.contextBundleRefs?.[0]?.required).toBe(true);
   });
 
-  it("rejects task runtime overrides for mount, secret, cache, or port mutation", () => {
+  it("rejects job runtime overrides for mount, secret, cache, or port mutation", () => {
     const base = {
       provider: "docker",
       image: "registry.example.com/castrel/runtime:latest",
     };
 
-    expect(() => taskRuntimeOverrideSchema.parse({ ...base, mounts: [] })).toThrow();
-    expect(() => taskRuntimeOverrideSchema.parse({ ...base, secretRefs: [] })).toThrow();
-    expect(() => taskRuntimeOverrideSchema.parse({ ...base, cache: { entries: [] } })).toThrow();
-    expect(() => taskRuntimeOverrideSchema.parse({ ...base, exposedPorts: [] })).toThrow();
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, mounts: [] })).toThrow();
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, secretRefs: [] })).toThrow();
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, cache: { entries: [] } })).toThrow();
+    expect(() => jobRuntimeOverrideSchema.parse({ ...base, exposedPorts: [] })).toThrow();
   });
 
   it("rejects forbidden runtime mounts", () => {
@@ -256,6 +258,15 @@ describe("runtime schemas", () => {
         image: "mystra-runner:local",
       },
       contextBundles: [],
+      executionContract: {
+        kind: "execution-spec",
+        artifactId: "00000000-0000-4000-8000-000000000080",
+        uri: "mystra://runs/run-1/artifacts/execution-spec.json",
+        bundleSlug: "execution-spec",
+        mountPath: "/mystra/context/execution-spec",
+        filePath: "/mystra/context/execution-spec/execution-spec.json",
+        frozenAt: "2026-05-18T00:00:00.000Z",
+      },
       mounts: [],
       exposedPorts: [{ containerPort: 3000, hostBinding: "0.0.0.0::3000" }],
       cache: { coldStartAllowed: true, entries: [] },
@@ -264,6 +275,7 @@ describe("runtime schemas", () => {
 
     expect(parsed.environment.image).toBe("mystra-runner:local");
     expect(parsed.environment.metadata).toEqual({});
+    expect(parsed.executionContract?.bundleSlug).toBe("execution-spec");
   });
 
   it("accepts context bundle definitions and create payloads", () => {
@@ -309,6 +321,48 @@ describe("runtime schemas", () => {
         accessMode: "read-only",
         mountPath: "/var/run/docker.sock",
         failureMode: "fail-run",
+      }),
+    ).toThrow();
+  });
+
+  it("accepts execution-spec artifacts and safe inline bundle payloads", () => {
+    const payload = jobInlineContextBundlePayloadSchema.parse({
+      files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
+    });
+    expect(payload.files[0]?.path).toBe("execution-spec.json");
+
+    const artifact = executionSpecArtifactSchema.parse({
+      version: 1,
+      kind: "execution-spec",
+      jobId: "00000000-0000-4000-8000-000000000091",
+      runId: "00000000-0000-4000-8000-000000000092",
+      taskId: "task-1",
+      source: "api",
+      projectId: "00000000-0000-4000-8000-000000000093",
+      repo: "local/fixture",
+      baseBranch: "main",
+      branchName: "feature/execution-spec",
+      agent: "codex",
+      prompt: "Implement the approved spec",
+      metadata: { sourceRevision: "spec-v1" },
+      frozenAt: "2026-05-18T00:00:00.000Z",
+      executionContract: {
+        kind: "execution-spec",
+        artifactId: "00000000-0000-4000-8000-000000000094",
+        uri: "mystra://runs/00000000-0000-4000-8000-000000000092/artifacts/execution-spec.json",
+        bundleSlug: "execution-spec",
+        mountPath: "/mystra/context/execution-spec",
+        filePath: "/mystra/context/execution-spec/execution-spec.json",
+        frozenAt: "2026-05-18T00:00:00.000Z",
+      },
+    });
+    expect(artifact.executionContract.filePath).toContain("execution-spec.json");
+  });
+
+  it("rejects unsafe inline bundle file paths", () => {
+    expect(() =>
+      jobInlineContextBundlePayloadSchema.parse({
+        files: [{ path: "../execution-spec.json", content: "{}" }],
       }),
     ).toThrow();
   });
@@ -535,19 +589,19 @@ describe("runnerLocalConfigSchema", () => {
   });
 });
 
-describe("cancelTaskOutcomeSchema", () => {
+describe("cancelJobOutcomeSchema", () => {
   it("accepts immediate canceled outcome for queued work", () => {
-    const parsed = cancelTaskOutcomeSchema.parse({ kind: "canceled" });
+    const parsed = cancelJobOutcomeSchema.parse({ kind: "canceled" });
     expect(parsed.kind).toBe("canceled");
   });
 
   it("accepts cancellation_requested outcome for runner-owned work", () => {
-    const parsed = cancelTaskOutcomeSchema.parse({ kind: "cancellation_requested" });
+    const parsed = cancelJobOutcomeSchema.parse({ kind: "cancellation_requested" });
     expect(parsed.kind).toBe("cancellation_requested");
   });
 
   it("rejects unknown outcome kinds", () => {
-    expect(() => cancelTaskOutcomeSchema.parse({ kind: "retried" })).toThrow();
+    expect(() => cancelJobOutcomeSchema.parse({ kind: "retried" })).toThrow();
   });
 });
 

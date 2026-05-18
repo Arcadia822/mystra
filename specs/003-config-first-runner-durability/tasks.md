@@ -78,15 +78,15 @@ This phase must preserve the plan's state-representation rule: do not add
 ### Tests for Technical Scenario 2
 
 - [x] T021 [P] [US2] Add provider tests for queued cancellation terminalizing immediately while assigned/running cancellation records desired request metadata in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
-- [x] T022 [P] [US2] Add route tests for `/api/tasks/[id]/cancel`, `/api/runner/tasks/[id]/events`, and `/api/runner/tasks/[id]/result` desired request/observed response fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.
+- [x] T022 [P] [US2] Add route tests for `/api/jobs/[id]/cancel`, `/api/runner/jobs/[id]/events`, and `/api/runner/jobs/[id]/result` desired request/observed response fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.
 - [x] T023 [P] [US2] Add restart-style provider tests that reopen the SQLite database and verify queued, assigned, running, cancellation request metadata, terminal outcomes, and event records in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.
 
 ### Implementation for Technical Scenario 2
 
-- [x] T024 [US2] Change `cancelTask` to return a typed cancellation outcome and record desired cancellation metadata plus a visible event for assigned/running work in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`; do not transition assigned/running work to a new cancellation-requested run state.
-- [x] T025 [US2] Update `/api/tasks/[id]/cancel` to expose cancellation-requested vs canceled outcomes without adding a public retry/log/callback surface in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/tasks/[id]/cancel/route.ts`.
+- [x] T024 [US2] Change `cancelJob` to return a typed cancellation outcome and record desired cancellation metadata plus a visible event for assigned/running work in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`; do not transition assigned/running work to a new cancellation-requested run state.
+- [x] T025 [US2] Update `/api/jobs/[id]/cancel` to expose cancellation-requested vs canceled outcomes without adding a public retry/log/callback surface in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/[id]/cancel/route.ts`.
 - [x] T026 [US2] Add runner observation validation and idempotency checks for cleanup, canceled, timed-out, failed, and completed observations in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.
-- [x] T027 [US2] Update `/api/runner/tasks/[id]/events` and `/api/runner/tasks/[id]/result` to use the new observation contracts in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/tasks/[id]/events/route.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/tasks/[id]/result/route.ts`.
+- [x] T027 [US2] Update `/api/runner/jobs/[id]/events` and `/api/runner/jobs/[id]/result` to use the new observation contracts in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/events/route.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/result/route.ts`.
 
 **Checkpoint**: Control-plane tests should show cancellation request metadata and runner observations surviving provider restart without any scheduler or retry behavior.
 
@@ -106,7 +106,7 @@ This phase must preserve the plan's state-representation rule: do not add
 
 ### Implementation for Technical Scenario 3
 
-- [x] T031 [US3] Add a runner-facing way, using the existing runner route trust boundary, to inspect cancellation request metadata for active runs in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/tasks/[id]/route.ts` or the existing claim/result route files under `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/tasks/`; do not introduce caller auth in this MVP slice.
+- [x] T031 [US3] Add a runner-facing way, using the existing runner route trust boundary, to inspect cancellation request metadata for active runs in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/route.ts` or the existing claim/result route files under `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/`; do not introduce caller auth in this MVP slice.
 - [x] T032 [US3] Track active child process/container handles and deadline metadata per active run in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
 - [x] T033 [US3] Implement cancellation polling and execution-timeout watchdog logic using `cancelCheckIntervalSeconds` and `defaultExecutionTimeoutSeconds` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.
 - [x] T034 [US3] Implement bounded cleanup using `cleanupTimeoutSeconds`, stop Docker containers or fake executions, emit cleanup-started events/observations, and report canceled/timed-out/cleanup-failed results in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`; do not add a `cleanup_in_progress` run state.

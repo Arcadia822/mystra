@@ -30,7 +30,7 @@ Each workflow provider implementation MUST expose:
 
 The execution context MUST include:
 
-- claimed task snapshot
+- claimed job snapshot
 - run snapshot
 - resolved runtime contract
 - project claim

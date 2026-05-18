@@ -5,6 +5,18 @@
   },
   "plugins": [
     {
+      "name": "mystra",
+      "source": {
+        "source": "local",
+        "path": "./plugins/mystra"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer"
+    },
+    {
       "name": "supabase",
       "source": {
         "source": "local",

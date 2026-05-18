@@ -1,8 +1,9 @@
 import type {
-  CancelTaskOutcome,
+  CancelJobOutcome,
   CancellationRequestMetadata,
   ContextBundle,
   ContextBundleCreate,
+  JobSpec,
   PlatformCapabilities,
   Project,
   ProjectCreate,
@@ -12,20 +13,19 @@ import type {
   RunResult,
   RunState,
   StaleMarkingResult,
-  TaskSpec,
   WorkflowExecutionSnapshot,
 } from "@mystra/shared";
 
-export type TaskRecord = {
+export type JobRecord = {
   id: string;
-  spec: TaskSpec;
+  spec: JobSpec;
   createdAt: string;
   updatedAt: string;
 };
 
 export type RunRecord = {
   id: string;
-  taskId: string;
+  jobId: string;
   state: RunState;
   attempt: number;
   assignedRunnerSessionId?: string;
@@ -60,8 +60,8 @@ export type PublicRunnerSession = Omit<RunnerSession, "token">;
 
 export type ProjectClaim = Pick<Project, "id" | "slug" | "runtime" | "prewarmConfig">;
 
-export type TaskSnapshot = {
-  task: TaskRecord;
+export type JobSnapshot = {
+  job: JobRecord;
   run: RunRecord;
   events: RunEvent[];
   workflow?: WorkflowExecutionSnapshot;
@@ -92,19 +92,19 @@ export interface RdbProvider {
   getContextBundleBySlug(slug: string): ContextBundle | undefined;
   listContextBundles(options?: { includeArchived?: boolean }): ContextBundle[];
 
-  createTask(input: unknown): TaskSnapshot;
-  getTask(id: string): TaskSnapshot | undefined;
-  getTaskByRunId(runId: string): TaskSnapshot | undefined;
-  listTasks(): TaskSnapshot[];
-  cancelTask(id: string): CancelTaskOutcome & { snapshot: TaskSnapshot };
+  createJob(input: unknown): JobSnapshot;
+  getJob(id: string): JobSnapshot | undefined;
+  getJobByRunId(runId: string): JobSnapshot | undefined;
+  listJobs(): JobSnapshot[];
+  cancelJob(id: string): CancelJobOutcome & { snapshot: JobSnapshot };
 
   registerRunner(input: RegisterRunnerInput): RunnerSession;
   authenticateRunner(token: string | null): RunnerSession | undefined;
   heartbeatRunner(runnerId: string): RunnerSession;
   listRunners(): PublicRunnerSession[];
-  claimNextRun(runnerId: string): TaskSnapshot | undefined;
+  claimNextRun(runnerId: string): JobSnapshot | undefined;
   appendRunEvent(runnerId: string, runId: string, input: unknown): RunEvent;
-  completeRun(runnerId: string, runId: string, input: unknown): TaskSnapshot;
+  completeRun(runnerId: string, runId: string, input: unknown): JobSnapshot;
 
   markStaleRunners(): StaleMarkingResult[];
 }

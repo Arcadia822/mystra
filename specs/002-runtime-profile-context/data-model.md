@@ -16,7 +16,7 @@ development, documentation-only work, and testing.
 | `exposedPorts` | array | yes | Preview ports or named port intents |
 | `cache` | object | yes | Cache intents; caches remain performance aids |
 | `secretRefs` | array | yes | Secret reference names and injection modes, never values |
-| `overridePolicy` | object | yes | Which task-level runtime fields may be overridden |
+| `overridePolicy` | object | yes | Which job-level runtime fields may be overridden |
 | `metadata` | object | yes | JSON object, defaults to `{}` |
 
 Validation:
@@ -41,12 +41,12 @@ Future Project-managed named runtime configuration.
 MVP note:
 
 - Runtime profile management is not implemented in the first slice.
-- The contract should preserve a future path where tasks select a profile before
-  applying allowed task overrides.
+- The contract should preserve a future path where jobs select a profile before
+  applying allowed job overrides.
 
-## TaskRuntimeOverride
+## JobRuntimeOverride
 
-Optional task-level runtime override accepted only when allowed by Project runtime policy.
+Optional job-level runtime override accepted only when allowed by Project runtime policy.
 
 | Field | Type | Required | Notes |
 |---|---|---:|---|
@@ -133,7 +133,7 @@ Runner-declared execution abilities used for claim matching.
 ```text
 Project 1 ── 1 default ProjectRuntimeConfig
 Project 1 ── * future RuntimeProfile
-ProjectRuntimeConfig or RuntimeProfile + TaskRuntimeOverride ── resolved into ── ResolvedRuntimeContract
+ProjectRuntimeConfig or RuntimeProfile + JobRuntimeOverride ── resolved into ── ResolvedRuntimeContract
 ProjectRuntimeConfig * ── * ContextBundle
 Job 1 ── * Run 1 ── 1 ResolvedRuntimeContract snapshot
 RunnerSession capabilities ── matched against ── ResolvedRuntimeContract requirements

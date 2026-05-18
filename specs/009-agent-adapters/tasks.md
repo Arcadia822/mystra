@@ -47,7 +47,7 @@ tests.
 
 ## Phase 4: Recorded Follow-Ups
 
-- T013 [US4] Add explicit unsupported-agent runtime error handling at task
+- T013 [US4] Add explicit unsupported-agent runtime error handling at job
   claim / adapter selection time in the runner. This remains intentionally
   deferred by owner direction and is excluded from completion counting for the
   current MVP closure pass.

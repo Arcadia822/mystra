@@ -25,9 +25,9 @@ sed -n '1,220p' apps/workflows/src/mvp-coding-blueprint.json
 sed -n '1,220p' apps/workflows/src/index.ts
 sed -n '1,260p' apps/runner-daemon/src/index.ts
 sed -n '1,260p' apps/runner-daemon/assets/container-task.sh
-sed -n '1,220p' apps/control-plane/app/api/runner/tasks/route.ts
-sed -n '1,220p' apps/control-plane/app/api/runner/tasks/[id]/events/route.ts
-sed -n '1,220p' apps/control-plane/app/api/runner/tasks/[id]/result/route.ts
+sed -n '1,220p' apps/control-plane/app/api/runner/jobs/route.ts
+sed -n '1,220p' apps/control-plane/app/api/runner/jobs/[id]/events/route.ts
+sed -n '1,220p' apps/control-plane/app/api/runner/jobs/[id]/result/route.ts
 ```
 
 ## 3. Validate The Planned Blueprint Boundary
@@ -69,7 +69,7 @@ rg -n 'case "\$\{1:-\}" in|Deprecated container workflow entrypoint|Missing cont
 The first implementation slice should prove this path:
 
 ```text
-task claimed
+job claimed
   -> blueprint loaded
   -> clone node
   -> agent node
@@ -102,11 +102,11 @@ workflow authority.
 
 ## 6. Inspection Snapshot Proof
 
-After `workflow.node.*` events are appended, task inspection routes should expose
+After `workflow.node.*` events are appended, job inspection routes should expose
 an additive `workflow` snapshot derived from those events:
 
 ```text
-task snapshot
+job snapshot
   -> workflow.provider
   -> workflow.blueprintName
   -> workflow.status

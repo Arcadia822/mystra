@@ -1,17 +1,17 @@
 ---
 name: mystra-submit-user-journey
-description: Submit a structured user journey to Mystra MCP by packaging actor, goal, acceptance criteria, and context into a local Mystra task.
+description: Submit a structured user journey to Mystra MCP by packaging actor, goal, acceptance criteria, and context into a local Mystra job.
 ---
 
 # Mystra Submit User Journey
 
 Use this skill when an agent has a user journey and wants Mystra to execute it
-without hand-writing the raw `mystra_create_task` JSON-RPC payload.
+without hand-writing the raw `mystra_create_job` JSON-RPC payload.
 
 ## Required Inputs
 
 - `projectId`
-- `logicalTaskId`
+- `taskId`
 - `branchName`
 - `actor`
 - `goal`
@@ -30,12 +30,12 @@ without hand-writing the raw `mystra_create_task` JSON-RPC payload.
 - Do not call MCP if `acceptanceCriteria` is missing or empty.
 - If the endpoint is unreachable, report the connection failure clearly and
   stop; do not silently retry.
-- Stay inside the current MCP contract. Use `mystra_create_task`; do not invent
+- Stay inside the current MCP contract. Use `mystra_create_job`; do not invent
   extra top-level fields.
 
 ## Prompt Shape
 
-Build the Mystra task prompt in this form:
+Build the Mystra job prompt in this form:
 
 ```text
 Implement the following user journey.
@@ -62,9 +62,9 @@ request like:
   "id": "journey-submit",
   "method": "tools/call",
   "params": {
-    "name": "mystra_create_task",
+    "name": "mystra_create_job",
     "arguments": {
-      "taskId": "<logicalTaskId>",
+      "taskId": "<taskId>",
       "source": "mcp",
       "projectId": "<projectId>",
       "branchName": "<branchName>",
@@ -83,7 +83,5 @@ request like:
 
 ## Expected Result
 
-Return the created task identifier (`task.id`), the submitted logical task key
-(`task.spec.taskId`), current run state, and any immediately available branch
-or review URL from the MCP response. Use `task.id` for later `mystra_get_task`
-or `mystra_cancel_task` calls.
+Return the created job identifier, current run state, and any immediately
+available branch or review URL from the MCP response.

@@ -1,6 +1,6 @@
 # API Contract: Project + SQLite Persistence
 
-> Reconciliation note: Core Project/task persistence from this contract is implemented. Runtime field shape was refined by `../../002-runtime-profile-context/contracts/api.md`; use that contract as authoritative for `Project.runtime` and resolved runtime payloads.
+> Reconciliation note: Core Project/job persistence from this contract is implemented. Runtime field shape was refined by `../../002-runtime-profile-context/contracts/api.md`; use that contract as authoritative for `Project.runtime` and resolved runtime payloads.
 
 All error responses use:
 
@@ -111,7 +111,7 @@ Responses:
 - `200 { project: Project }` with `archivedAt` set
 - `404 PROJECT_NOT_FOUND`
 
-## POST /api/tasks
+## POST /api/jobs
 
 Request:
 
@@ -135,22 +135,22 @@ Request:
 
 Responses:
 
-- `201 TaskSnapshot`
+- `201 JobSnapshot`
 - `400 PROJECT_ID_REQUIRED`
 - `400 PROJECT_NOT_FOUND`
 - `400 PROJECT_ARCHIVED`
-- `400 INVALID_TASK_SPEC`
+- `400 INVALID_JOB_SPEC`
 
-## GET /api/tasks/{id}
-
-Response:
-
-- `200 TaskSnapshot`
-- `404 TASK_NOT_FOUND`
-
-## POST /api/tasks/{id}/cancel`
+## GET /api/jobs/{id}
 
 Response:
 
-- `200 CancelTaskOutcome`
-- `404 TASK_NOT_FOUND`
+- `200 JobSnapshot`
+- `404 JOB_NOT_FOUND`
+
+## POST /api/jobs/{id}/cancel`
+
+Response:
+
+- `200 JobSnapshot`
+- `404 JOB_NOT_FOUND`

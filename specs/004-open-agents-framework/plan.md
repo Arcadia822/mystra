@@ -62,7 +62,7 @@ specs/004-open-agents-framework/
 ```text
 apps/control-plane/
 ├── app/api/mcp/route.ts
-├── app/api/tasks/**/*
+├── app/api/jobs/**/*
 └── src/lib/db/
     ├── rdb-provider.ts
     └── sqlite-provider.ts
@@ -157,7 +157,7 @@ The first build slice should be:
   `agentAdaptersPackageName`, so the agent boundary is declared but not yet
   implemented.
 - `apps/control-plane/app/api/mcp/route.ts` already exposes a Mystra-owned MCP
-  control surface with task/project/context-bundle tools and shared schema use.
+  control surface with job/project/context-bundle tools and shared schema use.
 - `apps/runner-daemon/src/index.ts` shows the current execution boundary:
   register -> heartbeat -> claim -> execute, with Docker execution and runtime
   translation handled locally on the runner.
@@ -272,7 +272,7 @@ boundary:
 | Spec | Role after 004 scope reduction | Initialization dependency from 004 |
 |---|---|---|
 | `005-workflow-blueprint` | Build workflow provider and DAG execution | Consume pinned upstream workflow/lifecycle sources, module inventory, and fork rules before replacing `container-task.sh` |
-| `006-control-plane-ui` | Improve operator UI and task visibility | Can proceed mostly in parallel; should treat 004 lifecycle vocabulary as source of truth for statuses/events |
+| `006-control-plane-ui` | Improve operator UI and job visibility | Can proceed mostly in parallel; should treat 004 lifecycle vocabulary as source of truth for statuses/events |
 | `007-mcp-server` | Expand remote MCP capabilities | Must treat MCP as a Mystra-owned submission shim over the 004 lifecycle boundary, not as the framework contract itself |
 | `008-mcp-skills` | Add ergonomic submission/status skills | Depends on 007 tool shapes and 004 terminology for job/run/result semantics |
 | `009-agent-adapters` | Define typed agent adapter contracts | Must classify each adapter surface as adopt / extend / fork using 004's inventory and fork rules before replacing hardcoded runner logic |
@@ -294,7 +294,7 @@ The first approved proof slice now has concrete repository evidence:
    control-plane boundary can use shared lifecycle vocabulary rather than
    route-local strings.
 2. `apps/control-plane/app/api/mcp/route.ts` advertises that shared lifecycle
-   metadata on `mystra_create_task` and `mystra_get_task` in `tools/list`.
+   metadata on `mystra_create_job` and `mystra_get_job` in `tools/list`.
 3. Focused proof commands for this slice are:
    - `pnpm --filter @mystra/shared exec vitest run src/events.test.ts -t "exports control-plane handoff and terminal event vocabularies from the shared lifecycle schema"`
    - `pnpm --filter @mystra/control-plane exec vitest run app/api/routes.test.ts -t "advertises shared lifecycle handoff metadata in MCP tools/list"`

@@ -42,20 +42,40 @@ Excalidraw 文件包含一个分层架构视图：
 
 - Mystra 将 Open Agents 作为源码级基线与参考架构，而不是假定其已经提供完整可复用 SDK；provider 和 orchestration seam 由 Mystra 明确拥有。
 - Mystra 是 headless 的 control-plane-and-runner 系统；UI 是观察面，不是产品边界。
-- 本地 SQLite RDB provider 是当前 task/run 生命周期的事实源；当前 SQLite 实现内部仍使用 `jobs`、`runs`、`runner_sessions`、`events` 和 `artifacts` 表。
+- 本地 SQLite RDB provider 是当前 jobs、runs、runner_sessions、events 和 artifacts 的事实源。
 - Mystra 自有本地 Workflow implementation 只负责编排，不作为业务数据库。
 - 单机路径是一等形态；后续集群方向应尽量走 shared-nothing 的热路径协调，而不是复制 VictoriaMetrics 的三段式服务外形。
 - 单机 Docker 是当前 Sandbox provider；更强隔离或云 sandbox 是后续 provider 实现。
-- Control plane 在 task/run 持久化成功后发起 workflow；发起失败由补偿扫描器重试。
+- Control plane 在 job/run 持久化成功后发起 workflow；发起失败由补偿扫描器重试。
 - Runner 主机只主动向控制平面发起出站连接。
 - Runner daemon 可以使用主机 Docker socket；任务容器不能挂载它。
 - Runner daemon 维护 repo mirror/worktree seed cache、pnpm store cache 和 uv cache。
 - Runner 缓存只提升性能，不保存任务输出；缓存失败必须回退到冷 clone/install。
 - Project / runtime / template 可以越来越声明式，但进入执行热路径前必须被解析成冻结的 runtime / workflow contract。
+- Context Bundle 是从协作空间进入执行空间的传送带，提交 job 时会冻结执行侧 spec，任务容器消费的是注入工件，而不是外部聊天历史。
 - GitLab 分支名、MR 标题和 MR 正文来自任务/仓库上下文，而不是 Mystra 全局策略。
 - Mystra MVP 不做分支名 sanitize、不处理分支冲突、不提供 retry API。
 - 密钥通过运行时环境变量或只读文件注入，绝不写入镜像。
 - MVP 不提供 logs API、日志持久化、callback URL、quality-gate fix loop、Claude CLI adapter 或 control-plane 调用方认证；当前 workflow 只是一个本地示例实现，不代表最终产品只能执行一次固定 gate。
+
+## 协作空间 与 执行空间
+
+```text
+协作空间（Mystra 外）                   执行空间（Mystra 内）
+┌──────────────────────────────┐       ┌──────────────────────────────┐
+│ 澄清 / 审阅 / 批准 spec       │       │ plan / implement / verify    │
+│ 聊天、评论、草稿可以继续变化   │       │ 单个 run 只消费冻结后的输入   │
+└──────────────┬───────────────┘       └──────────────┬───────────────┘
+               │ job submission                         │
+               ▼                                        ▼
+        冻结执行侧 spec ----------------------> 通过 Context Bundle 注入工件
+               │                                        │
+               └──────── reviewer 可追溯到该 frozen spec ┘
+```
+
+- 协作空间可以继续迭代，但一旦提交 job，执行侧使用的 spec 就被冻结为该 run 的执行契约。
+- Sandbox 内 agent 应面向注入的 spec 工件工作，而不是把协作聊天历史当成隐式上下文源。
+- 如果协作空间随后批准了新版本 spec，应该重新提交新 job，而不是回写到已接受或已完成的 run。
 
 ## 平台能力 vs 项目状态
 
@@ -64,7 +84,7 @@ Mystra 明确区分平台能力与项目状态：
 - `PlatformCapabilities`：runner 注册时声明的平台运行时能力，包括支持的 agent 和 executor 类型。
 - `PlatformDefaults`：平台级默认限制，包括并发、超时、心跳过期、长轮询超时、CPU 和内存配额。
 - `Project`：项目作用域配置，包括 repo、默认分支、默认 agent、运行镜像、预热配置和元数据。
-- `TaskSpec`：身份层（`taskId`、`source`）加 `projectId`、任务分支、prompt、可选运行时覆盖项和可选 repo/baseBranch/agent 覆盖项，不承载平台级执行能力。
+- `JobSpec`：身份层（`taskId`、`source`）加 `projectId`、任务分支、prompt 和可选覆盖项，不承载平台级执行能力。
 
 当前实现中，runner 注册已经从无类型 capability bag 收紧为类型化 `PlatformCapabilities`；Docker 运行镜像来自 Project，而不是 runner 全局配置。
 

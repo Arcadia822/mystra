@@ -11,7 +11,7 @@
   - Both fields are required non-empty strings.
   - `promptFilePath` is optional and is used when the runner spills oversized
     prompts out of argv transport.
-  - The runner owns constructing this request from the claimed task context.
+  - The runner owns constructing this request from the claimed job context.
 
 ## AgentExecutionOptions
 

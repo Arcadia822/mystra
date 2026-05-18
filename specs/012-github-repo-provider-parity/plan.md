@@ -56,7 +56,7 @@ transitional compatibility surfaces; keep task sizing small enough that each
 implementation slice can be verified with focused runner/shared checks before
 broader `pnpm typecheck` coverage  
 **Scale/Scope**: One built-in GitHub `RepoProvider`, one narrow runner/auth
-normalization slice that lets GitHub-backed tasks reach clone and delivery
+normalization slice that lets GitHub-backed jobs reach clone and delivery
 without widening product contracts, one GitHub reviewer-context mapping, and no
 unrelated sandbox or workflow redesign
 
@@ -169,7 +169,7 @@ The first implementation slice for 012 should be:
 1. Add provider-owned GitHub host/auth helpers and a built-in `github`
    `RepoProvider` next to the existing GitLab provider.
 2. Normalize runner clone/delivery auth inputs just enough that GitHub-backed
-   tasks can clone, push, and create PRs without adding a new workflow path.
+   jobs can clone, push, and create PRs without adding a new workflow path.
 3. Map GitHub push, no-diff, auth-invalid, push-failed, and
    review-failed-after-push outcomes onto the existing shared `ReviewResult`
    vocabulary.
@@ -182,7 +182,7 @@ The first implementation slice for 012 should be:
 ### Boundary Diagram
 
 ```text
-task.spec.repo + RepositoryTarget + RepositoryAuthBinding
+job.spec.repo + RepositoryTarget + RepositoryAuthBinding
   -> runner provider selection
     -> GitHubRepoContext resolver
       -> pushBranch()
@@ -234,7 +234,7 @@ Non-goals for this seam:
    reviewer-context, and partial-success expectations before refactoring runner
    code.
 2. Introduce provider-aware clone/delivery auth selection in the runner and
-   container task harness so GitHub-backed tasks can authenticate without new
+   container task harness so GitHub-backed jobs can authenticate without new
    workflow branching.
 3. Implement and register the built-in GitHub repo provider with focused tests
    for host resolution, branch push, PR creation, preview metadata formatting,

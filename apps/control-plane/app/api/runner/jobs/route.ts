@@ -21,11 +21,11 @@ export async function GET(request: Request) {
   while (Date.now() < deadline) {
     const snapshot = db.claimNextRun(runner.id);
     if (snapshot) {
-      return NextResponse.json({ task: snapshot.task, run: snapshot.run, project: snapshot.project, runtime: snapshot.runtime });
+      return NextResponse.json({ job: snapshot.job, run: snapshot.run, project: snapshot.project, runtime: snapshot.runtime });
     }
 
     await sleep(500);
   }
 
-  return NextResponse.json({ task: null, run: null, project: null, runtime: null });
+  return NextResponse.json({ job: null, run: null, project: null, runtime: null });
 }

@@ -5,7 +5,7 @@
 
 ## Summary
 
-Introduce Project as the stable parent configuration for tasks and replace the in-memory `local-store.ts` with a SQLite-backed `RdbProvider`. Task creation moves to `projectId` as the primary contract, runner claims receive Project runtime image data, and scripts/API/MCP/UI surfaces are updated so remote agents can submit work without repeating repo/baseBranch/agent/image configuration.
+Introduce Project as the stable parent configuration for jobs and replace the in-memory `local-store.ts` with a SQLite-backed `RdbProvider`. Job creation moves to `projectId` as the primary contract, runner claims receive Project runtime image data, and scripts/API/MCP/UI surfaces are updated so remote agents can submit work without repeating repo/baseBranch/agent/image configuration.
 
 ## Technical Context
 
@@ -15,16 +15,16 @@ Introduce Project as the stable parent configuration for tasks and replace the i
 **Testing**: Vitest package tests plus TypeScript typecheck  
 **Target Platform**: Private high-capacity Linux server running control plane, runner daemon, and Docker sandbox workloads  
 **Project Type**: TypeScript monorepo with Next.js control plane, Node runner daemon, shared packages, scripts  
-**Performance Goals**: Single task creation under 10ms for project lookup + snapshot insert on local SQLite; no N+1 listTasks pattern  
+**Performance Goals**: Single job creation under 10ms for project lookup + snapshot insert on local SQLite; no N+1 listJobs pattern  
 **Constraints**: `RdbProvider` must not leak SQLite dialect; no caller auth/logs/retry/callback/quality-gate fix loops; prewarm remains provider capability  
-**Scale/Scope**: Single-machine MVP, multiple Projects, multiple queued tasks, runner long polling, local SQLite durability
+**Scale/Scope**: Single-machine MVP, multiple Projects, multiple queued jobs, runner long polling, local SQLite durability
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - **Specification Owns Product Boundaries**: PASS. The feature is in MVP scope after the current product goal update. It does not add caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes, shared caches, or per-repository secret management.
-- **Typed Contracts at Service Boundaries**: PASS. Project, TaskSpec, claim response, MCP tools, and persistence records are Zod/TypeScript contract changes.
+- **Typed Contracts at Service Boundaries**: PASS. Project, JobSpec, claim response, MCP tools, and persistence records are Zod/TypeScript contract changes.
 - **Providers Are Replaceable Boundaries**: PASS. SQLite is behind `RdbProvider`; future Supabase/Postgres is a new implementation.
 - **Runner Isolation and Secret Hygiene**: PASS. Project.image changes container selection only; no new secret storage is introduced.
 - **Verification And Documentation Before Delivery**: PASS. The plan requires shared/control-plane/runner tests, smoke tests, and local module docs where behavior changes.
@@ -62,9 +62,9 @@ apps/control-plane/
 │   └── api/
 │       ├── projects/route.ts
 │       ├── projects/[slug]/route.ts
-│       ├── tasks/route.ts
-│       ├── tasks/[id]/route.ts
-│       ├── tasks/[id]/cancel/route.ts
+│       ├── jobs/route.ts
+│       ├── jobs/[id]/route.ts
+│       ├── jobs/[id]/cancel/route.ts
 │       ├── mcp/route.ts
 │       ├── runners/route.ts
 │       └── runner/**/route.ts
@@ -138,8 +138,8 @@ Design artifacts:
 | `projectId` breaks existing callers | Immediate switch; update API, MCP, UI, scripts, and tests in same feature |
 | SQLite assumptions leak into future PG | `RdbProvider` returns domain types only; no raw SQL/rowid APIs |
 | JSON corruption hides bad data | Provider throws with field name and record id |
-| `listTasks` becomes slow | Use JOIN-based snapshot query instead of per-task lookups |
-| Runner starts wrong image | Claim response carries resolved runtime; runner uses only `claim.runtime.environment.image` |
+| `listJobs` becomes slow | Use JOIN-based snapshot query instead of per-job lookups |
+| Runner starts wrong image | Claim response carries Project image; runner uses only `claimedJob.project.image` |
 | Prewarm gets coupled to generic runner | Store config only; automatic prewarm waits for a sandbox provider that supports it |
 | Existing Castrel scripts/docs drift | Rename scripts and update docs/package command in this feature |
 

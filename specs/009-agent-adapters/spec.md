@@ -77,7 +77,7 @@ The adapter interface includes `parseOutput` and `isSuccess` methods that interp
 
 ### Edge Cases
 
-- What if a new agent type is requested that has no adapter? The long-term requirement remains a clear "unsupported agent" error at task claim time, but this is explicitly deferred out of the current MVP slices.
+- What if a new agent type is requested that has no adapter? The long-term requirement remains a clear "unsupported agent" error at job claim time, but this is explicitly deferred out of the current MVP slices.
 - What if the adapter generates a command that exceeds OS argument limits? The runner should spill large prompts to a workspace file and let the adapter choose file/stdin-backed transport.
 - What if the agent produces unexpected output format? `parseOutput` should be defensive and return a best-effort result rather than crashing.
 
@@ -91,7 +91,7 @@ The adapter interface includes `parseOutput` and `isSuccess` methods that interp
 - **FR-004**: The runner daemon MUST select adapters by agent name and use the interface methods instead of hardcoded commands.
 - **FR-005**: The `container-task.sh` agent invocation section MUST delegate to the adapter (or be retired by 005-workflow-blueprint).
 - **FR-006**: Adapter inputs and outputs MUST use Zod-validated schemas.
-- **FR-007**: Unsupported agent names MUST produce a clear error at task claim time. This behavior is explicitly deferred out of the current MVP execution slices and remains a follow-up requirement.
+- **FR-007**: Unsupported agent names MUST produce a clear error at job claim time. This behavior is explicitly deferred out of the current MVP execution slices and remains a follow-up requirement.
 - **FR-008**: The runner MUST support startup-loaded adapter modules so new adapters can be registered without modifying built-in runner source.
 - **FR-009**: The runner and adapters MUST support file-backed prompt transport when task prompts exceed safe argv limits.
 

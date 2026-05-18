@@ -85,9 +85,9 @@ Expected result:
 - Mystra stores a bundle reference and access policy.
 - The bundle content is treated as local development template content unless released externally.
 
-## 3. Submit A Task
+## 3. Submit A Job
 
-Submit a task with the normal small caller contract:
+Submit a job with the normal small caller contract:
 
 ```json
 {
@@ -101,7 +101,9 @@ Expected result:
 
 - Mystra resolves runtime from `Project.runtime`.
 - The created run stores or can reconstruct the resolved runtime snapshot.
+- Job submission freezes the approved execution-facing spec into a run-scoped artifact.
 - Invalid runtime overrides are rejected before agent execution.
+- Later edits in the collaborative workspace do not mutate the accepted run.
 
 ## 4. Register A Compatible Runner
 
@@ -124,7 +126,7 @@ Register a runner with Docker provider capabilities:
 
 Expected result:
 
-- A compatible runner can claim the task.
+- A compatible runner can claim the job.
 - An incompatible runner receives no work.
 
 ## 5. Claim And Inspect Resolved Runtime
@@ -133,7 +135,7 @@ When the runner claims work, the claim response includes a resolved runtime cont
 
 ```json
 {
-  "task": { "id": "...", "spec": { "projectId": "...", "branchName": "..." } },
+  "job": { "id": "...", "spec": { "projectId": "...", "branchName": "..." } },
   "run": { "id": "...", "state": "assigned", "attempt": 1 },
   "project": { "id": "...", "slug": "castrel-ai" },
   "runtime": {
@@ -142,7 +144,8 @@ When the runner claims work, the claim response includes a resolved runtime cont
       "image": "mystra-castrel-runner:local"
     },
     "contextBundles": [
-      { "slug": "agent-skills", "accessMode": "read-only", "required": true }
+      { "slug": "agent-skills", "accessMode": "read-only", "required": true },
+      { "slug": "execution-spec", "accessMode": "read-only", "required": true }
     ],
     "mounts": [],
     "exposedPorts": [
@@ -159,6 +162,8 @@ Expected result:
 - Docker runner uses `runtime.environment.image`.
 - Normal execution does not independently interpret top-level `project.image`.
 - Missing required bundles or unsupported capabilities fail before agent execution.
+- The sandbox reads the injected `execution-spec` artifact as the execution contract instead of relying on collaborative chat history.
+- Reviewers can trace the completed run back to the frozen execution-facing spec created at submission time.
 
 ## Verification Commands
 

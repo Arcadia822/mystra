@@ -5,7 +5,7 @@
 
 **Tests**: Contract and focused unit tests are required because this feature changes shared schemas, persistence, runner protocol, and Docker execution behavior.
 
-**Organization**: Tasks are grouped by technical scenario. `[TS#]` maps to the numbered Technical Scenarios in [spec.md](./spec.md). Some API/MCP boundary tasks sit beside the Project/task route files they change, but are labeled `[TS3]` because boundary design is now the highest-priority scenario.
+**Organization**: Tasks are grouped by technical scenario. `[TS#]` maps to the numbered Technical Scenarios in [spec.md](./spec.md). Some API/MCP boundary tasks sit beside the Project/job route files they change, but are labeled `[TS3]` because boundary design is now the highest-priority scenario.
 
 ## Format: `[ID] [P?] [Scenario] Description`
 
@@ -31,11 +31,11 @@
 
 **Critical**: No scenario implementation should begin until this phase is complete.
 
-- [x] T005 Run GitNexus impact analysis for `projectSchema`, `projectCreateSchema`, `projectUpdateSchema`, `taskSpecSchema`, `platformCapabilitiesSchema`, and `TaskSpec` before editing `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`
-- [x] T006 Add Project runtime config, task runtime override, context bundle, resolved runtime, and expanded runner capability schemas in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`
-- [x] T007 Update shared schema tests for Project runtime config, task runtime override, context bundles, runner capabilities, resolved runtime, and top-level image rejection in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`
-- [x] T008 Run GitNexus impact analysis for `RdbProvider`, `ProjectClaim`, `TaskSnapshot`, and `RegisterRunnerInput` before editing `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`
-- [x] T009 Extend `RdbProvider` types and methods for Project runtime config, context bundle lookup, task runtime overrides, and resolved runtime snapshots in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`
+- [x] T005 Run GitNexus impact analysis for `projectSchema`, `projectCreateSchema`, `projectUpdateSchema`, `jobSpecSchema`, `platformCapabilitiesSchema`, and `JobSpec` before editing `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`
+- [x] T006 Add Project runtime config, job runtime override, context bundle, resolved runtime, and expanded runner capability schemas in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`
+- [x] T007 Update shared schema tests for Project runtime config, job runtime override, context bundles, runner capabilities, resolved runtime, and top-level image rejection in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`
+- [x] T008 Run GitNexus impact analysis for `RdbProvider`, `ProjectClaim`, `JobSnapshot`, and `RegisterRunnerInput` before editing `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`
+- [x] T009 Extend `RdbProvider` types and methods for Project runtime config, context bundle lookup, job runtime overrides, and resolved runtime snapshots in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`
 - [x] T010 Update SQLite migrations for Project runtime JSON, context bundles, and resolved runtime snapshot fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/migrations.ts`
 - [x] T011 Add DB row parsing helpers for runtime config, context bundle JSON, and resolved runtime fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
 - [x] T012 [P] Add runtime resolver module skeleton and focused tests in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`
@@ -71,31 +71,31 @@
 
 ## Phase 4: Technical Scenario 2 - Resolve Runtime From Project Default And Overrides (Priority: P1)
 
-**Goal**: Task submission resolves an effective runtime from Project runtime config and permitted overrides.
+**Goal**: Job submission resolves an effective runtime from Project runtime config and permitted overrides.
 
-**Independent Test**: Submit tasks with Project default runtime and allowed overrides; verify unknown/disallowed overrides create no run or fail before execution.
+**Independent Test**: Submit jobs with Project default runtime and allowed overrides; verify unknown/disallowed overrides create no run or fail before execution.
 
 ### Tests for TS2
 
-- [x] T022 [P] [TS2] Add shared task runtime override tests for allowed image/context overrides and rejected forbidden overrides in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`
+- [x] T022 [P] [TS2] Add shared job runtime override tests for allowed image/context overrides and rejected forbidden overrides in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`
 - [x] T023 [P] [TS2] Add runtime resolver tests for Project defaults, override acceptance, override rejection, forbidden mounts, secret hygiene, and snapshot stability in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`
-- [x] T024 [P] [TS3] Add API/MCP route tests for Project runtime config, constrained task runtime override fields, top-level image rejection, and MVP-forbidden override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
+- [x] T024 [P] [TS3] Add API/MCP route tests for Project runtime config, constrained job runtime override fields, top-level image rejection, and MVP-forbidden override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
 
 ### Implementation for TS2
 
 - [x] T025 [TS2] Implement runtime resolver logic in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`
-- [x] T026 [TS2] Update task creation to call the runtime resolver and persist the resolved runtime snapshot in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
-- [x] T027 [TS3] Update task API boundary validation for constrained runtime override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/tasks/route.ts`
-- [x] T028 [TS3] Update MCP project/task tool schemas for Project runtime, future profile reservation, and constrained task override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/mcp/route.ts`
+- [x] T026 [TS2] Update job creation to call the runtime resolver and persist the resolved runtime snapshot in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
+- [x] T027 [TS3] Update job API boundary validation for constrained runtime override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/route.ts`
+- [x] T028 [TS3] Update MCP project/job tool schemas for Project runtime, future profile reservation, and constrained job override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/mcp/route.ts`
 - [x] T029 [TS2] Run `pnpm --filter @mystra/shared test` and `pnpm --filter @mystra/control-plane test`
 
-**Checkpoint**: TS2 works independently: tasks resolve runtime contracts from Project runtime config.
+**Checkpoint**: TS2 works independently: jobs resolve runtime contracts from Project runtime config.
 
 ---
 
 ## Phase 4.5: Technical Scenario 3 - Design API/MCP Runtime Boundaries (Priority: P0)
 
-**Goal**: HTTP API and MCP submissions validate Project runtime config, future profile reservation, and constrained task overrides at the service boundary before persistence or run creation.
+**Goal**: HTTP API and MCP submissions validate Project runtime config, future profile reservation, and constrained job overrides at the service boundary before persistence or run creation.
 
 **Task Mapping**: TS3 work is attached to the route files it changes: T018, T019, T024, T027, T028, T068, and T069.
 
@@ -107,7 +107,7 @@
 
 **Goal**: Context bundles are explicit runtime inputs with resolution and failure policy, not hard-coded runner prompt or source-owned content.
 
-**Independent Test**: Configure `agent-skills` in Project runtime, submit a task with job-scoped context, and verify missing required bundles fail before agent start.
+**Independent Test**: Configure `agent-skills` in Project runtime, submit a job with job-scoped context, and verify missing required bundles fail before agent start.
 
 ### Tests for TS4
 
@@ -130,9 +130,9 @@
 
 ## Phase 6: Technical Scenario 5 - Keep Sandbox Providers Replaceable (Priority: P2)
 
-**Goal**: Runner registration and claim matching use provider and runtime capabilities so future providers do not require Project or task contract changes.
+**Goal**: Runner registration and claim matching use provider and runtime capabilities so future providers do not require Project or job contract changes.
 
-**Independent Test**: Register compatible and incompatible runners, submit a Project-runtime-backed task, and verify only compatible runners can claim it.
+**Independent Test**: Register compatible and incompatible runners, submit a Project-runtime-backed job, and verify only compatible runners can claim it.
 
 ### Tests for TS5
 
@@ -145,8 +145,8 @@
 - [x] T042 [TS5] Update runner registration capability parsing in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
 - [x] T043 [TS5] Update claim selection to check provider and required runtime features before assignment in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`
 - [x] T044 [TS5] Update runner registration route handling for expanded capabilities in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/register/route.ts`
-- [x] T045 [TS5] Update runner claim route to return `{ task, run, project, runtime }` including empty runtime nulls in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/tasks/route.ts`
-- [x] T046 [TS5] Update runner-daemon `ClaimedTaskResponse` type and compatibility checks in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
+- [x] T045 [TS5] Update runner claim route to return `{ job, run, project, runtime }` including empty runtime nulls in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/route.ts`
+- [x] T046 [TS5] Update runner-daemon `ClaimedJobResponse` type and compatibility checks in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`
 - [x] T047 [TS5] Run `pnpm --filter @mystra/control-plane test` and `pnpm --filter @mystra/runner-daemon test`
 
 **Checkpoint**: TS5 works independently: provider compatibility is enforced before assignment.
@@ -182,9 +182,9 @@
 **Purpose**: Incorporate owner clarification before continuing implementation: MVP has one Project default runtime, future runtime profiles are reserved, API/MCP boundary design is P0, mount ownership has three levels, and secrets are managed Project/runtime inputs but not a full first-slice manager.
 
 - [x] T066 [P] [TS2] Add schema/resolver tests that document the MVP default-runtime path and reserved future `runtimeProfile` behavior in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`
-- [x] T067 [TS2] Ensure task runtime override remains constrained to MVP-allowed fields and cannot override mounts, secrets, cache, or ports in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`
+- [x] T067 [TS2] Ensure job runtime override remains constrained to MVP-allowed fields and cannot override mounts, secrets, cache, or ports in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`
 - [x] T068 [P] [TS3] Add API/MCP tests that reject MVP-forbidden runtime override fields and top-level Project image before persistence in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`
-- [x] T069 [TS3] Tighten API and MCP route schemas to validate Project runtime and task runtime override at the boundary in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/route.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/[slug]/route.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/tasks/route.ts`, and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/mcp/route.ts`
+- [x] T069 [TS3] Tighten API and MCP route schemas to validate Project runtime and job runtime override at the boundary in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/route.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/[slug]/route.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/route.ts`, and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/mcp/route.ts`
 - [x] T070 [P] [TS5] Add focused tests for effective mount ownership and merge semantics across system, Project, and runtime/image mounts in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts` or `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`
 - [x] T071 [TS5] Refactor resolved mount translation so system-managed runner mounts are not confused with Castrel Project/runtime mounts in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts` and, if needed, `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`
 - [x] T072 [P] [TS1] Update the minimal operator surface to show Project runtime provider, image, and runtime summary in `/Users/arcadia/Documents/mystra/apps/control-plane/app/page.tsx`
@@ -241,13 +241,13 @@
 
 1. Complete Phase 1 and Phase 2.
 2. Complete TS1 and TS2.
-3. Validate that Projects can own runtime image config and tasks resolve runtime contracts.
+3. Validate that Projects can own runtime image config and jobs resolve runtime contracts.
 4. Stop and review before changing runner execution.
 
 ### Incremental Delivery
 
 1. Project runtime config contract and persistence.
-2. Task runtime override and runtime resolver.
+2. Job runtime override and runtime resolver.
 3. Context bundle resolution.
 4. Runner compatibility and claim contract.
 5. Docker runner translation and local Castrel image cleanup.

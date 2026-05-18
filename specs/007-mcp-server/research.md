@@ -6,12 +6,12 @@ The current MCP route already supports the nine tools named in `spec.md`:
 
 1. `mystra_create_context_bundle`
 2. `mystra_list_context_bundles`
-3. `mystra_create_task`
+3. `mystra_create_job`
 4. `mystra_create_project`
 5. `mystra_list_projects`
 6. `mystra_get_project`
-7. `mystra_get_task`
-8. `mystra_cancel_task`
+7. `mystra_get_job`
+8. `mystra_cancel_job`
 9. `mystra_list_runners`
 
 This means the feature gap is not "build an MCP server from scratch". The gap is
@@ -22,10 +22,10 @@ missing backfilled Spec-Kit artifacts.
 
 ### Observation is mostly present already
 
-- `mystra_get_task` already returns the persisted `TaskSnapshot`, including task
+- `mystra_get_job` already returns the persisted `JobSnapshot`, including job
   spec, run state, events, project/runtime context, and result when available.
 - Existing route tests already cover cancellation requests, runner observation,
-  lifecycle metadata, and MCP task creation.
+  lifecycle metadata, and MCP job creation.
 
 ### Health is the clearest missing tool
 
@@ -50,5 +50,5 @@ handling in the MCP route instead of refactoring the shared HTTP helper.
 - **Workflow blueprint association**: mentioned in `spec.md`, but not honest to
   implement before `specs/005-workflow-blueprint/` lands concrete ownership.
 - **Streaming observation**: the current spec mentions poll or stream. Polling is
-  already supported by repeated `mystra_get_task`; streaming can remain future
+  already supported by repeated `mystra_get_job`; streaming can remain future
   work unless the repository grows a real MCP streaming transport.

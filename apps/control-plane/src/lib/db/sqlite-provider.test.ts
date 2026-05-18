@@ -166,10 +166,10 @@ describe("SqliteRdbProvider context bundles", () => {
   });
 });
 
-describe("SqliteRdbProvider tasks", () => {
-  it("creates tasks with project defaults and durable snapshots", () => {
+describe("SqliteRdbProvider jobs", () => {
+  it("creates jobs with project defaults and durable snapshots", () => {
     const project = db.createProject(projectInput());
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-1",
       source: "api",
       projectId: project.id,
@@ -177,21 +177,31 @@ describe("SqliteRdbProvider tasks", () => {
       prompt: "Update README",
     });
 
-    expect(snapshot.task.spec.repo).toBe(project.repo);
-    expect(snapshot.task.spec.baseBranch).toBe("main");
-    expect(snapshot.task.spec.agent).toBe("codex");
+    expect(snapshot.job.spec.repo).toBe(project.repo);
+    expect(snapshot.job.spec.baseBranch).toBe("main");
+    expect(snapshot.job.spec.agent).toBe("codex");
     expect(snapshot.run.state).toBe("queued");
     expect(snapshot.runtime?.environment.image).toBe(project.runtime.image);
-    expect(snapshot.events.map((event) => event.type)).toEqual(["task.created", "run.queued"]);
+    expect(snapshot.runtime?.executionContract?.bundleSlug).toBe("execution-spec");
+    expect(snapshot.runtime?.contextBundles).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        slug: "execution-spec",
+        accessMode: "job-scoped",
+        source: expect.objectContaining({ kind: "job-inline" }),
+      }),
+    ]));
+    expect(snapshot.events.map((event) => event.type)).toEqual(["job.created", "artifact.created", "run.queued"]);
 
     db.updateProject("castrel-ai", { repo: "git@gitlab.example.com:team/changed.git" });
-    expect(db.getTask(snapshot.task.id)?.task.spec.repo).toBe(project.repo);
-    expect(db.getTask(snapshot.task.id)?.runtime?.environment.image).toBe(project.runtime.image);
+    expect(db.getJob(snapshot.job.id)?.job.spec.repo).toBe(project.repo);
+    expect(db.getJob(snapshot.job.id)?.runtime?.environment.image).toBe(project.runtime.image);
+    expect(db.getJob(snapshot.job.id)?.runtime?.executionContract?.filePath)
+      .toBe("/mystra/context/execution-spec/execution-spec.json");
   });
 
-  it("allows explicit task overrides", () => {
+  it("allows explicit job overrides", () => {
     const project = db.createProject(projectInput());
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-2",
       source: "mcp",
       projectId: project.id,
@@ -202,9 +212,9 @@ describe("SqliteRdbProvider tasks", () => {
       prompt: "Use overrides",
     });
 
-    expect(snapshot.task.spec.repo).toBe("git@github.com:team/override.git");
-    expect(snapshot.task.spec.baseBranch).toBe("develop");
-    expect(snapshot.task.spec.agent).toBe("copilot");
+    expect(snapshot.job.spec.repo).toBe("git@github.com:team/override.git");
+    expect(snapshot.job.spec.baseBranch).toBe("develop");
+    expect(snapshot.job.spec.agent).toBe("copilot");
   });
 
   it("resolves required context bundles into run snapshots", () => {
@@ -224,7 +234,7 @@ describe("SqliteRdbProvider tasks", () => {
       },
     });
 
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-context",
       source: "api",
       projectId: project.id,
@@ -232,11 +242,19 @@ describe("SqliteRdbProvider tasks", () => {
       prompt: "Use context",
     });
 
-    expect(snapshot.runtime?.contextBundles[0]).toEqual(expect.objectContaining({
-      slug: "agent-skills",
-      mountPath: "/mystra/skills",
-      source: { kind: "local-template", ref: "agent-skills", metadata: {} },
-    }));
+    expect(snapshot.runtime?.contextBundles).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        slug: "agent-skills",
+        mountPath: "/mystra/skills",
+        source: { kind: "local-template", ref: "agent-skills", metadata: {} },
+      }),
+      expect.objectContaining({
+        slug: "execution-spec",
+        accessMode: "job-scoped",
+        mountPath: "/mystra/context/execution-spec",
+        source: expect.objectContaining({ kind: "job-inline" }),
+      }),
+    ]));
     expect(snapshot.runtime?.mounts).toContainEqual({
       kind: "contextBundle",
       owner: "project",
@@ -244,6 +262,51 @@ describe("SqliteRdbProvider tasks", () => {
       sourceRef: "agent-skills",
       readOnly: true,
     });
+    expect(snapshot.runtime?.mounts).toContainEqual({
+      kind: "contextBundle",
+      owner: "runtime",
+      target: "/mystra/context/execution-spec",
+      sourceRef: `${"execution-spec"}-${snapshot.run.id}`,
+      readOnly: true,
+    });
+    expect(snapshot.runtime?.executionContract).toEqual(expect.objectContaining({
+      kind: "execution-spec",
+      filePath: "/mystra/context/execution-spec/execution-spec.json",
+    }));
+  });
+
+  it("freezes execution-spec content at job creation time", () => {
+    const project = db.createProject(projectInput("freeze-spec"));
+    const snapshot = db.createJob({
+      taskId: "task-freeze",
+      source: "api",
+      projectId: project.id,
+      branchName: "mystra/freeze-spec",
+      prompt: "Freeze this prompt",
+      mergeRequest: {
+        title: "Frozen MR title",
+        body: "Frozen MR body",
+      },
+      metadata: {
+        approvedSpecRevision: "spec-v1",
+      },
+    });
+
+    const executionSpec = snapshot.runtime?.contextBundles.find((bundle) => bundle.slug === "execution-spec");
+    expect(executionSpec?.source.metadata.jobInline).toEqual({
+      files: [
+        {
+          path: "execution-spec.json",
+          content: expect.any(String),
+        },
+      ],
+    });
+
+    const content = String((executionSpec?.source.metadata.jobInline as { files: Array<{ content: string }> }).files[0]?.content ?? "");
+    expect(content).toContain("\"taskId\": \"task-freeze\"");
+    expect(content).toContain("\"prompt\": \"Freeze this prompt\"");
+    expect(content).toContain("\"approvedSpecRevision\": \"spec-v1\"");
+    expect(content).toContain("\"kind\": \"execution-spec\"");
   });
 
   it("fails before run creation when a required context bundle is missing", () => {
@@ -256,7 +319,7 @@ describe("SqliteRdbProvider tasks", () => {
     });
 
     expect(() =>
-      db.createTask({
+      db.createJob({
         taskId: "task-missing-context",
         source: "api",
         projectId: project.id,
@@ -265,12 +328,12 @@ describe("SqliteRdbProvider tasks", () => {
       }),
     ).toThrow(/RUNTIME_CONTEXT_BUNDLE_NOT_FOUND/);
 
-    expect(db.listTasks()).toHaveLength(0);
+    expect(db.listJobs()).toHaveLength(0);
   });
 
   it("rejects missing and archived projects", () => {
     expect(() =>
-      db.createTask({
+      db.createJob({
         taskId: "task-missing",
         source: "api",
         projectId: "00000000-0000-4000-8000-000000000099",
@@ -283,7 +346,7 @@ describe("SqliteRdbProvider tasks", () => {
     db.archiveProject("castrel-ai");
 
     expect(() =>
-      db.createTask({
+      db.createJob({
         taskId: "task-archived",
         source: "api",
         projectId: project.id,
@@ -297,7 +360,7 @@ describe("SqliteRdbProvider tasks", () => {
 describe("SqliteRdbProvider runner lifecycle", () => {
   it("registers, heartbeats, claims, appends events, completes, cancels, and reopens state", () => {
     const project = db.createProject(projectInput());
-    const first = db.createTask({
+    const first = db.createJob({
       taskId: "task-runner",
       source: "api",
       projectId: project.id,
@@ -338,26 +401,26 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     expect(completed.run.result?.summary).toBe("Done");
     expect(db.listRunners()[0]?.activeRunCount).toBe(0);
 
-    const second = db.createTask({
+    const second = db.createJob({
       taskId: "task-cancel",
       source: "api",
       projectId: project.id,
       branchName: "mystra/cancel",
       prompt: "Cancel it",
     });
-    expect(db.cancelTask(second.task.id).snapshot.run.state).toBe("canceled");
+    expect(db.cancelJob(second.job.id).snapshot.run.state).toBe("canceled");
 
     db.close();
     db = new SqliteRdbProvider(dbPath);
 
-    expect(db.getTask(first.task.id)?.run.state).toBe("succeeded");
-    expect(db.getTask(second.task.id)?.run.state).toBe("canceled");
+    expect(db.getJob(first.job.id)?.run.state).toBe("succeeded");
+    expect(db.getJob(second.job.id)?.run.state).toBe("canceled");
     expect(db.listRunners()[0]?.runnerName).toBe("runner-1");
   });
 
   it("only assigns queued runs to runners with compatible runtime capabilities", () => {
     const project = db.createProject(projectInput("runtime-compat"));
-    db.createTask({
+    db.createJob({
       taskId: "task-runtime-compat",
       source: "api",
       projectId: project.id,
@@ -420,14 +483,14 @@ describe("SqliteRdbProvider runner lifecycle", () => {
 
   it("calculates runner capacity from durable active runs instead of activeRunCount", () => {
     const project = db.createProject(projectInput("durable-capacity"));
-    db.createTask({
+    db.createJob({
       taskId: "task-durable-capacity-1",
       source: "api",
       projectId: project.id,
       branchName: "mystra/durable-capacity-1",
       prompt: "First",
     });
-    db.createTask({
+    db.createJob({
       taskId: "task-durable-capacity-2",
       source: "api",
       projectId: project.id,
@@ -449,14 +512,14 @@ describe("SqliteRdbProvider runner lifecycle", () => {
   it("respects project and runtime provider eligibility while claiming", () => {
     const ineligibleProject = db.createProject(projectInput("claim-ineligible"));
     const eligibleProject = db.createProject(projectInput("claim-eligible"));
-    db.createTask({
+    db.createJob({
       taskId: "task-ineligible-project",
       source: "api",
       projectId: ineligibleProject.id,
       branchName: "mystra/ineligible-project",
       prompt: "Should not be claimed",
     });
-    db.createTask({
+    db.createJob({
       taskId: "task-eligible-project",
       source: "api",
       projectId: eligibleProject.id,
@@ -497,13 +560,13 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     });
     const claimed = db.claimNextRun(eligibleRunner.id);
 
-    expect(claimed?.task.spec.taskId).toBe("task-eligible-project");
+    expect(claimed?.job.spec.taskId).toBe("task-eligible-project");
     expect(claimed?.project?.id).toBe(eligibleProject.id);
   });
 
   it("records cancellation request metadata for runner-owned work", () => {
     const project = db.createProject(projectInput("cancel-owned"));
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-cancel-owned",
       source: "api",
       projectId: project.id,
@@ -516,9 +579,9 @@ describe("SqliteRdbProvider runner lifecycle", () => {
       maxConcurrency: 1,
     });
     const claimed = db.claimNextRun(runner.id);
-    expect(claimed?.task.id).toBe(snapshot.task.id);
+    expect(claimed?.job.id).toBe(snapshot.job.id);
 
-    const outcome = db.cancelTask(snapshot.task.id);
+    const outcome = db.cancelJob(snapshot.job.id);
 
     expect(outcome.kind).toBe("cancellation_requested");
     expect(outcome.snapshot.run.state).toBe("assigned");
@@ -528,12 +591,12 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     db.close();
     db = new SqliteRdbProvider(dbPath);
 
-    expect(db.getTask(snapshot.task.id)?.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
+    expect(db.getJob(snapshot.job.id)?.run.cancellationRequest?.requestedAt).toEqual(expect.any(String));
   });
 
   it("marks stale runner-owned runs as failed without requeueing or reassigning", () => {
     const project = db.createProject(projectInput("stale-runner"));
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-stale-runner",
       source: "api",
       projectId: project.id,
@@ -554,7 +617,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     );
 
     const stale = db.markStaleRunners();
-    const marked = db.getTask(snapshot.task.id);
+    const marked = db.getJob(snapshot.job.id);
     const replacementRunner = db.registerRunner({
       runnerName: "runner-replacement",
       capabilities: { agents: ["codex"], executor: "docker" },
@@ -570,7 +633,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
 
   it("derives additive workflow execution snapshots from node lifecycle events", () => {
     const project = db.createProject(projectInput("workflow-snapshot"));
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-workflow-snapshot",
       source: "api",
       projectId: project.id,
@@ -632,7 +695,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
       },
     });
 
-    const inspected = db.getTask(snapshot.task.id);
+    const inspected = db.getJob(snapshot.job.id);
 
     expect(inspected?.workflow).toEqual(expect.objectContaining({
       provider: "local",
@@ -658,7 +721,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
 
   it("derives workflow metadata even before the first node execution starts", () => {
     const project = db.createProject(projectInput("workflow-start-metadata"));
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-workflow-start-metadata",
       source: "api",
       projectId: project.id,
@@ -682,7 +745,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
       },
     });
 
-    const inspected = db.getTask(snapshot.task.id);
+    const inspected = db.getJob(snapshot.job.id);
 
     expect(inspected?.workflow).toEqual(expect.objectContaining({
       provider: "local",
@@ -695,7 +758,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
 
   it("records cleanup observations before accepting a canceled terminal result", () => {
     const project = db.createProject(projectInput("cleanup-cancel"));
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-cleanup-cancel",
       source: "api",
       projectId: project.id,
@@ -734,7 +797,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     expect(canceled.run.state).toBe("canceled");
     expect(canceled.run.result?.status).toBe("canceled");
     expect(canceled.events.map((event) => event.type)).toEqual([
-      "task.created",
+      "job.created",
       "run.queued",
       "run.assigned",
       "container.started",
@@ -753,7 +816,7 @@ describe("SqliteRdbProvider runner lifecycle", () => {
 
   it("records cleanup failures and rejects stale terminal observations after timeout", () => {
     const project = db.createProject(projectInput("cleanup-timeout"));
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-cleanup-timeout",
       source: "api",
       projectId: project.id,
@@ -822,7 +885,7 @@ describe("SqliteRdbProvider corrupt JSON handling", () => {
 
   it("throws with field and record id for corrupt run, runner, and event JSON", () => {
     const project = db.createProject(projectInput());
-    const snapshot = db.createTask({
+    const snapshot = db.createJob({
       taskId: "task-corrupt",
       source: "api",
       projectId: project.id,
@@ -851,7 +914,7 @@ describe("SqliteRdbProvider corrupt JSON handling", () => {
     });
 
     corrupt("UPDATE runs SET result = ? WHERE id = ?", "not-json", snapshot.run.id);
-    expect(() => db.getTask(snapshot.task.id)).toThrow(
+    expect(() => db.getJob(snapshot.job.id)).toThrow(
       new RegExp(`Invalid JSON in result for record ${snapshot.run.id}`),
     );
 
@@ -863,10 +926,10 @@ describe("SqliteRdbProvider corrupt JSON handling", () => {
 
     corrupt("UPDATE runner_sessions SET capabilities = ? WHERE id = ?", "{\"agents\":[\"codex\"],\"executor\":\"docker\"}", runner.id);
     const raw = new Database(dbPath);
-    const eventId = (raw.prepare("SELECT id FROM run_events WHERE job_id = ? LIMIT 1").get(snapshot.task.id) as { id: string }).id;
+    const eventId = (raw.prepare("SELECT id FROM run_events WHERE job_id = ? LIMIT 1").get(snapshot.job.id) as { id: string }).id;
     raw.close();
     corrupt("UPDATE run_events SET data = ? WHERE id = ?", "not-json", eventId);
-    expect(() => db.getTask(snapshot.task.id)).toThrow(
+    expect(() => db.getJob(snapshot.job.id)).toThrow(
       new RegExp(`Invalid JSON in data for record ${eventId}`),
     );
   });

@@ -15,8 +15,8 @@ pnpm --filter @mystra/shared test
 Expected:
 
 - Project schemas validate valid create/update payloads.
-- TaskSpec accepts `projectId` and rejects missing `projectId`.
-- Explicit task overrides are typed.
+- JobSpec accepts `projectId` and rejects missing `projectId`.
+- Explicit job overrides are typed.
 
 ## 2. Verify SQLite Provider
 
@@ -27,7 +27,7 @@ pnpm --filter @mystra/control-plane test
 Expected:
 
 - Provider creates and queries Projects.
-- Provider creates tasks from active Projects.
+- Provider creates jobs from active Projects.
 - Provider persists data across close/reopen.
 - Corrupt JSON test throws with field name and record id.
 
@@ -59,10 +59,10 @@ curl -sS -X POST http://localhost:3000/api/projects \
 
 Expected: `201` with `{ "project": ... }`.
 
-## 5. Submit A Task By Project
+## 5. Submit A Job By Project
 
 ```sh
-curl -sS -X POST http://localhost:3000/api/tasks \
+curl -sS -X POST http://localhost:3000/api/jobs \
   -H 'content-type: application/json' \
   -d '{
     "taskId": "SMOKE-1",
@@ -75,7 +75,7 @@ curl -sS -X POST http://localhost:3000/api/tasks \
 
 Expected:
 
-- `201` with task snapshot.
+- `201` with job snapshot.
 - Snapshot includes resolved `repo`, `baseBranch`, and `agent`.
 
 ## 6. Claim A Run
@@ -83,7 +83,7 @@ Expected:
 Register a runner and poll:
 
 ```sh
-curl -sS http://localhost:3000/api/runner/tasks \
+curl -sS http://localhost:3000/api/runner/jobs \
   -H "authorization: Bearer <runner-session-token>"
 ```
 
@@ -107,7 +107,7 @@ Expected:
 
 1. Stop control plane.
 2. Start with the same `MYSTRA_DB_PATH`.
-3. Query the created task and project.
+3. Query the created job and project.
 
 Expected: records survive restart.
 

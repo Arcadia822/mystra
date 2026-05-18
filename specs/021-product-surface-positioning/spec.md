@@ -2,104 +2,133 @@
 
 **Feature Branch**: `021-product-surface-positioning`  
 **Created**: 2026-05-18  
-**Status**: Implemented; final verification follow-up remains for baseline-constrained checks  
-**Dependency Note**: This feature narrows 021 into a terminology-migration specification. It aligns durable wording across 5xP, historical specs, core object names, public contracts, and core function names, while explicitly removing page information architecture, current-page changes, and object-structure definition from this round. The current review decision is a direct hard cut for `Job* -> Task*` naming on current repository surfaces, with no compatibility window because the project is not yet launched.  
-**Input**: User description: "将 specs/021-product-surface-positioning 收敛为全量术语迁移的 spec：移除页面能力内容；不做对象结构定义；覆盖 5xP、历史 specs、历史代码/public contracts/核心函数命名/核心对象命名中的术语迁移；当前 MVP intake 仍以纯文本 job submission 为准；区分需要统一替换的对外/核心命名与可机械迁移的内部命名，并评估迁移风险与批次。后续决定：项目未上线，`Job* -> Task*` 对当前仓库表面直接硬切，不做兼容层。"
+**Status**: Draft  
+**Dependency Note**: This feature amends product terminology and information architecture expectations that currently conflict with the durable 5xP wording around `workspace`. It does not add new MVP runtime capabilities; it clarifies the product contract future specs and docs must follow.  
+**Input**: User description: "整理 issue 9 的产品对象、对象从属、术语边界与页面功能，用程序化语言写清 Team / Project / Task / Run / Workflow / Workspace / Sandbox / Agent / Context Bundle / Artifact / Review / Runner Node 的职责、关系与约束"
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Maintainers Can Read One Canonical Migration Scope (Priority: P1)
+### User Story 1 - Operators Can Read One Stable Object Model (Priority: P1)
 
-As a documentation or contract maintainer, I want one authoritative specification for terminology migration scope, so that future updates stop drifting between 5xP, historical specs, core object names, and code-facing names.
+As a platform operator or future contributor, I want one authoritative object model for Mystra's product surface, so that I can tell which object owns which responsibility without inferring it from scattered docs.
 
-**Why this priority**: The current repository already has contradictory wording across durable docs, the draft 021 spec, and exported code surfaces. Without a canonical migration scope, later edits will keep reintroducing the same conflict under different names.
+**Why this priority**: If the ownership model is ambiguous, every later spec, API contract, control-plane screen, and review artifact inherits the ambiguity.
 
-**Independent Test**: Read this specification alone and verify that a reviewer can identify the included migration surfaces, the explicitly excluded surfaces, and the current terminology conflicts that justify the work.
+**Independent Test**: Read the spec alone and verify that a reviewer can explain the role, parent object, child objects, and boundary of Team, Project, Task, Run, Workflow, Workspace, Sandbox, Agent, Context Bundle, Artifact, Review, and Runner Node without consulting chat history.
 
 **Acceptance Scenarios**:
 
-1. **Given** a reviewer inspects the feature scope, **When** they read this spec, **Then** they can identify that 5xP, historical specs, core object names, public contracts, and core function names are in scope.
-2. **Given** the reviewer inspects the exclusions, **When** they read this spec, **Then** they can identify that page IA, page capability inventory, current-page changes, and object-structure definition are explicitly out of scope for this round.
+1. **Given** a reviewer opens the product-surface specification, **When** they inspect the object definitions, **Then** each object has a stated purpose, owner or parent, and relationship to adjacent objects.
+2. **Given** the reviewer compares lifecycle objects with runtime objects, **When** they inspect the definitions, **Then** Task and Run remain lifecycle objects while Workspace and Sandbox remain runtime-delivery objects.
 
 ---
 
-### User Story 2 - Contract Owners Can Separate Deliberate Renames From Mechanical Renames (Priority: P1)
+### User Story 2 - Team And Workspace Mean Different Things Everywhere (Priority: P1)
 
-As a maintainer of APIs, MCP tools, shared schemas, or cross-package core functions, I want terminology migration to distinguish outward or core names from internal implementation names, so that risky contract changes are planned deliberately while safe internal cleanup can be batched mechanically.
+As a documentation author, API designer, or UI designer, I want `Team` and `workspace` to have non-overlapping meanings, so that tenancy and runtime working-directory concepts do not collapse into the same word.
 
-**Why this priority**: The repository currently exposes job-centric naming through shared schemas, API routes, MCP tools, CLI commands, and database/provider methods. Those surfaces cannot be renamed with the same strategy as local helper variables or file-internal symbols.
+**Why this priority**: The current collision between tenancy and runtime terminology makes page naming, requirements writing, and future contract design unreliable.
 
-**Independent Test**: Review the naming classification rules and verify that a reviewer can place a sample name into either the outward/core bucket or the internal/mechanical bucket without guessing.
+**Independent Test**: Review the terminology rules and confirm that `Team` is the tenancy and ownership object while `workspace` is reserved for the run-scoped working directory and mounted execution context.
 
 **Acceptance Scenarios**:
 
-1. **Given** a reviewer sees exported names such as shared schema types, HTTP routes, MCP tool names, or provider interface methods, **When** they apply the classification rules, **Then** those names are treated as outward/core naming that needs explicit unified replacement planning.
-2. **Given** a reviewer sees file-local helpers, private implementation variables, or test-only fixture names, **When** they apply the classification rules, **Then** those names are treated as internal/mechanical migration candidates unless they leak into a public or cross-package contract.
+1. **Given** a product artifact describes who owns projects and policies, **When** it names that object, **Then** it uses `Team` rather than `workspace`.
+2. **Given** a product artifact describes the files, mounts, prompts, and injected context visible during execution, **When** it names that object, **Then** it uses `workspace` rather than `Team`.
 
 ---
 
-### User Story 3 - MVP Intake Semantics Stay Text-First During Terminology Migration (Priority: P1)
+### User Story 3 - External Agent Can Submit Text-Backed Work Without Ambiguity (Priority: P1)
 
-As a future agent or operator, I want terminology migration to preserve the current MVP intake assumption, so that naming cleanup does not accidentally introduce new intake requirements such as issue-id hydration.
+As an external coordinating agent, I want to submit a plain-text work request, so that Mystra can create a durable Task and Run without requiring issue-system integration in the MVP intake path.
 
-**Why this priority**: Current naming conflicts are already broad. Expanding the feature into a different intake model would couple terminology cleanup to a product-boundary change and make the migration harder to reason about.
+**Why this priority**: This is the smallest useful agent-first MVP intake path. If the object model cannot represent submitted text as first-class Task input, the platform can queue work but still cannot explain exactly what request a given run executed.
 
-**Independent Test**: Read the migration requirements and confirm that the MVP intake path still assumes pure-text submission through the current job-submission flow, with issue-id-based intake deferred.
+**Independent Test**: Submit a work request through the management API or MCP with project selection and plain-text requirement content; then inspect the resulting Task and Run and verify the submitted text remains attributable and is available as execution input.
 
 **Acceptance Scenarios**:
 
-1. **Given** the reviewer inspects the MVP intake assumptions, **When** they read this spec, **Then** they see that current submission remains plain-text and attributable to the submitted request content.
-2. **Given** the reviewer inspects future intake options, **When** they read this spec, **Then** they see that issue-id-based hydration is optional future work rather than a requirement for this feature.
+1. **Given** an external agent submits work with plain-text requirement content, **When** Mystra accepts intake, **Then** the Task stores that text separately from the submission surface used to call Mystra.
+2. **Given** the Task later produces a Run and execution workspace, **When** execution begins, **Then** the submitted text can be materialized as workflow or agent input without needing any upstream issue lookup.
+3. **Given** the caller later submits revised text as a new request, **When** the operator inspects the old and new Tasks or Runs, **Then** each one remains attributable to the exact text that was submitted for that request.
+
+---
+
+### User Story 4 - Control-Plane Pages Map Cleanly To Product Objects (Priority: P2)
+
+As a control-plane designer or operator, I want each management page to map to a primary product object and capability, so that the UI can observe and control the system without inventing a second incompatible model.
+
+**Why this priority**: The UI should reflect the product contract rather than improvising new nouns when the underlying model is already unclear.
+
+**Independent Test**: Inspect the page inventory and confirm each page has a defined purpose, primary object, and supported operator question or action.
+
+**Acceptance Scenarios**:
+
+1. **Given** the page list for the management surface, **When** a reviewer inspects it, **Then** each page can be traced back to one or more defined product objects.
+2. **Given** a run-detail or review page, **When** a reviewer reads the description, **Then** the page distinguishes Task, Run, Workflow, Workspace, and Sandbox instead of flattening them into one execution blob.
 
 ---
 
 ### Edge Cases
 
-- What happens when durable docs and exported code disagree in opposite directions, such as `workspace` meaning tenancy in 5xP while runtime surfaces also use `workspace` for execution context? The spec must classify the conflict and require one canonical replacement direction instead of treating both as acceptable.
-- What happens when a public contract already mixes terms, such as `JobSpec` carrying `taskId`? The spec must treat mixed terminology as migration evidence and assign it to a risk-reviewed batch rather than normalizing it ad hoc.
-- What happens when an internal name appears private at first but is consumed across package boundaries, tests, or tooling scripts? The classification rules must promote it into the outward/core bucket if callers depend on it.
-- What happens when a future intake path wants issue-id hydration? The spec must allow that as later work without making it a prerequisite for the current text-first MVP submission path.
-- What happens when a direct hard cut renames agent-facing or operator-facing names in one step? The spec must require a complete repository-wide rename and regression verification so the repo does not end up in mixed `Job*` / `Task*` semantics.
-- What happens when draft wording, helper names, or tests lag behind the hard cut? The spec must treat leftover `Job*` naming on current repository surfaces as migration defects rather than deferred cleanup.
+- What happens when older docs still use `workspace` as a tenancy synonym? The spec must classify those usages as legacy wording to be corrected rather than a valid parallel term.
+- What happens when a Task exists before any execution environment is prepared? The object model must allow Task and Run lifecycle state to exist before a Workspace or Sandbox is materialized.
+- What happens when a Run finishes without producing a review artifact or requiring human review? Artifact and Review must remain optional downstream objects rather than mandatory parents of Run.
+- What happens when a Team has no active Projects or a Project has no active Tasks? Parent-child ownership must still remain valid without implying that empty parents disappear.
+- What happens when the caller submits ambiguous or incomplete plain text? The platform should still preserve the exact submitted text rather than silently rewriting the request.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The specification MUST define the migration scope as terminology and naming alignment across durable project docs, specifically the 5xP files and other top-level public documentation that currently carry product terminology.
-- **FR-002**: The specification MUST define the migration scope to include historical Spec-Kit artifacts whose wording still shapes product, contract, or workflow language for future work.
-- **FR-003**: The specification MUST define the migration scope to include historical code surfaces that expose or centralize terminology, including core object names, shared public contracts, exported schema/type names, route names, MCP tool names, CLI command names, and core cross-module function names.
-- **FR-003A**: The active migration scope MUST cover all current repository surfaces that still expose job-centric naming in docs, code, or contracts, and it MUST treat those surfaces as direct rename candidates in this feature.
-- **FR-004**: The specification MUST explicitly classify page capability definitions, page inventory, page IA, current-page implementation changes, and object-structure or ownership-model definition as out of scope for this round.
-- **FR-005**: The specification MUST explicitly state that this round does not freeze or redefine product object structure, parent-child ownership, or entity cardinality.
-- **FR-005A**: The direct hard cut MUST rename current repository surfaces in one coordinated pass and MUST NOT rely on compatibility aliases, dual naming, or staged transport windows.
-- **FR-006**: The specification MUST identify the current cross-surface conflict that durable docs still use `workspace` as a tenancy term, while runtime-facing wording and the prior 021 draft expect a separate runtime `workspace` meaning.
-- **FR-007**: The specification MUST identify the current cross-surface conflict that durable docs and code are still job-centric, while the prior 021 draft introduced broader terminology changes such as `Task` without yet reconciling exported contracts and core function names.
-- **FR-008**: The specification MUST distinguish outward/core naming from internal/mechanical naming using repository-applicable rules rather than ad hoc examples.
-- **FR-009**: Outward/core naming MUST include at least core object names, exported shared schemas and types, public API and MCP names, CLI-facing names, persisted or operator-visible contract labels, and cross-module core function names such as provider methods that other packages or processes call directly.
-- **FR-010**: Internal/mechanical naming MUST include only implementation-local names whose replacement can be performed mechanically once outward/core naming is settled, such as file-local helpers, private variables, and test-only fixtures that do not define a public or cross-package contract.
-- **FR-011**: The specification MUST define migration batches and risk levels for the named surfaces, with a higher-risk batch for outward/core naming and a separate lower-risk mechanical batch for internal naming that does not leak contracts, while making the current decision explicit that outward/core names are hard-cut rather than compatibility-migrated.
-- **FR-012**: The specification MUST record representative current evidence for the outward/core migration surface, including job-centric core object names, shared types or schemas, job-named API or MCP surfaces, and core provider methods that still use `Job` naming.
-- **FR-013**: The specification MUST record representative current evidence for durable-document conflicts, including workspace-as-tenancy wording in 5xP and the broader object/page expansion in the prior 021 draft.
-- **FR-014**: The specification MUST preserve the current MVP intake assumption that submission is text-first, while allowing the public/core naming of that path to move from `Job*` to `Task*` in one direct rename.
-- **FR-015**: The specification MUST state that issue-id-based hydration or other non-text intake sources MAY be added later but MUST NOT be required for this terminology-migration feature.
-- **FR-016**: The specification MUST require direct code, contract, and route renames on current repository surfaces as a later implementation task, and it MUST explicitly reject compatibility-shim design for this migration.
-- **FR-017**: The resulting requirements MUST be specific enough that a later planning phase can derive migration order, blast-radius review targets, and verification commands without relying on issue comments or chat history.
+- **FR-001**: The system specification MUST define `Team` as the product-layer tenancy and ownership object for projects, defaults, collaboration scope, and shared policy.
+- **FR-002**: The system specification MUST define `Project` as the repository and execution-configuration object owned by one Team.
+- **FR-003**: The system specification MUST define `Task` as the business request object that targets one Project and expresses requested work and delivery intent.
+- **FR-004**: The system specification MUST define `Run` as one execution attempt for one Task and as the primary lifecycle and observability object.
+- **FR-005**: The system specification MUST define `Workflow` as the orchestration path a Run follows from intake to terminal outcome, without treating Workflow as the execution environment itself.
+- **FR-006**: The system specification MUST define `workspace` as the run-scoped working directory and execution-context delivery surface that may contain repository content, prompts, context artifacts, and step outputs.
+- **FR-007**: The system specification MUST define `Sandbox` as the isolated compute environment used during execution and MUST keep it separate from Task and Run lifecycle ownership.
+- **FR-008**: The system specification MUST define `Agent` as the execution adapter used inside a Run, separate from the Sandbox and separate from the business request object.
+- **FR-009**: The system specification MUST define `Context Bundle` as a reusable context asset that can be attached to execution and materialized through the Workspace.
+- **FR-010**: The system specification MUST define `Artifact` as a reviewable or inspectable output attributable to a Run.
+- **FR-011**: The system specification MUST define `Review` as the human decision object that may be attached to a Run and its artifacts, rather than as a synonym for Run completion.
+- **FR-012**: The system specification MUST define `Runner Node` as the execution-capacity provider that claims eligible Runs, prepares Workspaces, and launches Sandboxes.
+- **FR-013**: The specification MUST express object ownership using an unambiguous parent-child model equivalent to: Team owns Projects; Project owns Tasks; Task owns Runs; Run may reference Workflow, Workspace, Sandbox, Agent, Context Bundles, Artifacts, and Reviews; Runner Node serves Runs but does not own them.
+- **FR-014**: The specification MUST distinguish management-boundary objects (`Team`, `Project`, `Task`, `Run`) from runtime-boundary objects (`Workflow`, `Workspace`, `Sandbox`, `Agent`, `Context Bundle`) and result-boundary objects (`Artifact`, `Review`).
+- **FR-015**: The specification MUST state that Mystra management surfaces are prioritized in the order `API -> skill/MCP -> CLI -> UI`, and page descriptions must be consistent with that priority.
+- **FR-016**: The specification MUST enumerate the minimum management pages needed for the MVP and map each page to the product objects and operator questions it serves.
+- **FR-017**: The MVP page inventory MUST include Overview or Workbench, Teams, Team Detail, Projects, Project Detail or Configuration, Task Submit, Task Queue, Run Detail, Review Queue or Review Detail, Runner Nodes, and MCP or API Explorer.
+- **FR-018**: The extended page inventory SHOULD include Context Bundles, Artifacts, Workflow Templates or Blueprints, Sandbox Runtime View, Execution Trace or Timeline, and Audit or History for later phases.
+- **FR-019**: The specification MUST explicitly mark caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Kubernetes sandboxes, and other current MVP exclusions as out of scope for this feature.
+- **FR-020**: The requirements artifact MUST be detailed enough that future agents can derive naming, documentation, page IA, and contract terminology from the spec without relying on issue comments.
+- **FR-021**: The specification MUST define Task intake provenance strongly enough to distinguish the submission surface (`api`, `mcp`, or future surfaces) from the submitted plain-text request content.
+- **FR-022**: The MVP object model MUST allow an external agent to create a Task using at minimum a selected Project and a plain-text requirement payload.
+- **FR-023**: The specification MUST treat submitted plain-text request content as Task-owned intake data or a Task-linked value object, rather than as Team, Project, or Sandbox state.
+- **FR-024**: The object model MUST allow workflow or agent execution to receive the submitted plain-text request as execution input through the Run and Workspace path.
+- **FR-025**: Upstream issue-id-based hydration MAY be added later, but it MUST NOT be required for the MVP text-based intake path.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Terminology Surface**: A repository surface whose wording shapes future behavior or understanding, such as a 5xP file, historical spec, core object name, shared contract, API/MCP name, CLI command, or core exported function name.
-- **Outward/Core Naming**: A terminology surface that is public, persisted, operator-visible, cross-package, or otherwise depended on by callers and therefore requires deliberate migration planning.
-- **Internal/Mechanical Naming**: A terminology surface that stays implementation-local and can be migrated mechanically only after outward/core names are settled.
-- **Migration Batch**: A grouped set of terminology changes ordered by dependency and risk, used to separate contract-sensitive renames from lower-risk internal cleanup.
+- **Team**: The tenancy and ownership root. Cardinality: one Team owns zero or more Projects. Team carries shared policy, shared defaults, and collaboration scope. Team never means a runtime working directory.
+- **Project**: The repository-facing execution configuration object. Cardinality: one Project belongs to one Team and owns zero or more Tasks. Project is the configuration root for repository identity, default agent choice, runtime defaults, workflow defaults, and attached context references.
+- **Task**: The requested-work object. Cardinality: one Task belongs to one Project and owns one or more Runs over time. Task describes intent, target branch or delivery direction, the request content being executed, and the intake provenance needed to tie the request back to its submitted plain-text input.
+- **Run**: The attempt object and lifecycle truth. Cardinality: one Run belongs to one Task and may reference zero or one Workflow, zero or one Workspace, zero or one Sandbox, zero or one Agent adapter, zero or more Context Bundles, zero or more Artifacts, and zero or more Reviews. Run remains valid before all downstream references exist.
+- **Workflow**: The orchestration definition or execution path used by a Run. Workflow controls sequencing, gates, and transitions. It is referenced by Run but does not own the Run.
+- **Workspace**: The run-scoped working directory and mount surface exposed to execution. Workspace may contain repository checkout content, prompts, injected context, frozen requirement artifacts, gate outputs, and intermediate files. Workspace belongs to execution for one Run rather than to Team tenancy.
+- **Sandbox**: The isolated compute environment used for a Run phase. Sandbox provides execution isolation and resources. Sandbox serves the Run but is not the Run's lifecycle owner.
+- **Agent**: The code-execution adapter chosen for a Run, such as a CLI-backed agent integration. Agent is the worker identity inside execution, not the policy owner.
+- **Context Bundle**: A reusable context asset that may be attached at Team or Project policy level and materialized into the Workspace for a specific Run.
+- **Artifact**: A result object produced by a Run, such as a branch, pull request, frozen requirements packet, summary, or other reviewable output. Artifact never owns the Run that produced it.
+- **Review**: A human decision object associated with a Run or its Artifacts. Review records approve, reject, or feedback decisions and may be absent for fully automated terminal paths.
+- **Runner Node**: The execution-capacity object that polls for eligible Runs, claims work, prepares runtime prerequisites, and reports capacity and health. Runner Node serves many Runs over time but does not become their ownership parent.
+- **TaskRequestText**: A Task-linked value object, or an explicit Task-owned field, containing the plain-text requirement payload submitted at intake time. It is the authoritative MVP request input.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: A reviewer can read the spec and identify the included migration surfaces and explicit exclusions without consulting issue comments or prior chat history.
-- **SC-002**: A reviewer can classify representative names such as `Job`, `JobSpec`, `/api/jobs`, `mystra_create_job`, `createJob`, and file-local helper names into the correct migration bucket using the rules in the spec.
-- **SC-003**: The spec contains no remaining requirements for page capability inventory, page IA, or product object-structure definition.
-- **SC-003A**: The spec requires a single direct-cut naming model on current repository surfaces, with no mixed `Job*` / `Task*` public naming left behind after implementation.
-- **SC-004**: The spec records at least one high-risk outward/core migration batch and one lower-risk internal/mechanical batch, with the reason for the separation stated plainly.
-- **SC-005**: The MVP intake assumptions in the spec remain text-first and do not require issue-id-based intake as a condition of this feature.
+- **SC-001**: A reviewer can read the resulting specification and correctly identify the parent object, child objects, and boundary of all twelve named product objects without consulting issue comments or chat history.
+- **SC-002**: The resulting requirements contain zero ambiguous cases where `workspace` refers to both tenancy and runtime working-directory concepts.
+- **SC-003**: The MVP page inventory maps every required page to at least one explicitly defined product object and operator question.
+- **SC-004**: Future documentation updates can use the specification as a single terminology source without adding new contradictory tenancy or runtime nouns for the same concept.
+- **SC-005**: An external agent can submit a plain-text request, and Mystra's object model can explain where submitted request text, run lifecycle state, and final artifacts each belong.

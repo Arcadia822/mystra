@@ -67,7 +67,7 @@ describe("container task quality gate", () => {
     expect(runner).toContain("await createRunnerSandboxProviderRegistry({");
     expect(runner).toContain("repoRegistryBundle?.registry");
     expect(runner).toContain("sandboxRegistryBundle?.registry");
-    expect(runner).toContain("executeTask(");
+    expect(runner).toContain("executeJob(");
     expect(runner).not.toContain("const workflowRegistry = await createRunnerWorkflowProviderRegistry({");
     expect(workflowProviders).toContain("LocalWorkflowProvider");
     expect(workflowProviders).toContain("createWorkflowProviderRegistry");
@@ -145,7 +145,10 @@ describe("container task quality gate", () => {
 
   it("renders prompt context from resolved runtime bundles", () => {
     expect(runner).toContain("function renderRuntimeContextPrompt(runtime: ResolvedRuntimeContract): string[]");
+    expect(runner).toContain("function buildAgentPrompt(runtime: ResolvedRuntimeContract, submissionPrompt: string): string");
     expect(runner).toContain("Mystra context bundles:");
+    expect(runner).toContain("Primary execution contract:");
+    expect(runner).toContain("Treat the injected execution artifact as the source of truth for requirements.");
     expect(runner).toContain("bundle.source.metadata.prompt");
     expect(runner).toContain("...renderRuntimeContextPrompt(runtime)");
     expect(runner).toContain("MYSTRA_SKILLS_DIR=/mystra/skills");
@@ -267,17 +270,17 @@ describe("container task quality gate", () => {
     expect(runner).toContain("await sleep(config.pollIntervalSeconds * 1000)");
   });
 
-  it("supervises bounded active tasks from local concurrency", () => {
-    expect(runner).toContain("const activeTasks = new Set<Promise<void>>()");
-    expect(runner).toContain("activeTasks.size < config.concurrency");
-    expect(runner).toContain("activeTasks.add(activeTask)");
-    expect(runner).toContain("activeTasks.delete(activeTask)");
-    expect(runner).toContain("await Promise.race([...activeTasks, sleep(config.pollIntervalSeconds * 1000)])");
+  it("supervises bounded active jobs from local concurrency", () => {
+    expect(runner).toContain("const activeJobs = new Set<Promise<void>>()");
+    expect(runner).toContain("activeJobs.size < config.concurrency");
+    expect(runner).toContain("activeJobs.add(activeJob)");
+    expect(runner).toContain("activeJobs.delete(activeJob)");
+    expect(runner).toContain("await Promise.race([...activeJobs, sleep(config.pollIntervalSeconds * 1000)])");
   });
 
   it("polls active runs for cancellation requests and stops local execution", () => {
     expect(runner).toContain("async function pollCancellationRequest(");
-    expect(runner).toContain("apiUrl(config, `/api/runner/tasks/${runId}`)");
+    expect(runner).toContain("apiUrl(config, `/api/runner/jobs/${runId}`)");
     expect(runner).toContain("snapshot.run?.cancellationRequest");
     expect(runner).toContain("cancellationRequested = true");
     expect(runner).toContain("executionAbort.abort()");
@@ -325,6 +328,14 @@ describe("container task quality gate", () => {
     expect(runner).toContain("MYSTRA_AGENT_PREPARE_DIRS_JSON");
   });
 
+  it("materializes runtime context bundles before mounting them into the sandbox", () => {
+    expect(runner).toContain("async function materializeRuntimeContextBundles(");
+    expect(runner).toContain('const destination = path.join(config.cacheRoot, "context-bundles", materializationRef)');
+    expect(runner).toContain("jobInlineContextBundlePayloadSchema.parse(bundle.source.metadata.jobInline)");
+    expect(runner).toContain("await materializeRuntimeContextBundles(config, runtime)");
+    expect(runner).toContain("optional context bundle");
+  });
+
   it("threads agent process results back through adapter parsing", () => {
     expect(script).toContain("processResult");
     expect(runner).toContain("processResult:");
@@ -335,8 +346,8 @@ describe("container task quality gate", () => {
   });
 
   it("formats default commit messages to satisfy remote push policy without changing MR titles", () => {
-    expect(runner).toContain('const reviewTitle = task.spec.mergeRequest?.title ?? `Mystra task ${task.spec.taskId}`');
-    expect(runner).toContain('const commitMessage = `Update #${task.spec.taskId} ${reviewTitle}`');
+    expect(runner).toContain('const reviewTitle = job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`');
+    expect(runner).toContain('const commitMessage = `Update #${job.spec.taskId} ${reviewTitle}`');
     expect(runner).toContain('`MYSTRA_COMMIT_MESSAGE=${commitMessage}`');
     expect(runner).toContain("commitMessage,");
     expect(runner).toContain("title: reviewTitle,");
@@ -346,7 +357,7 @@ describe("container task quality gate", () => {
     expect(runner).toContain("const MAX_INLINE_AGENT_PROMPT_BYTES = 16 * 1024");
     expect(runner).toContain('Buffer.byteLength(prompt, "utf8") > MAX_INLINE_AGENT_PROMPT_BYTES');
     expect(runner).toContain('const agentPromptPath = path.join(workspace, "agent-prompt.txt")');
-    expect(runner).toContain("await writeFile(agentPromptPath, task.spec.prompt)");
+    expect(runner).toContain("await writeFile(agentPromptPath, agentPromptText)");
     expect(runner).toContain("promptFilePath: agentPromptFilePath");
     expect(runner).toContain("agentAdapter.buildExecutionOptions?.(agentExecutionRequest)");
     expect(runner).toContain("MYSTRA_AGENT_STDIN_FILE");

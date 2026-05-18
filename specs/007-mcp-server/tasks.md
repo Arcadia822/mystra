@@ -21,7 +21,7 @@
 
 ## Phase 3: Output Validation And Observation Polish
 
-- [x] T007 [P] Add route tests proving `mystra_get_task` and `mystra_list_runners` keep their current useful payloads after output validation is introduced.
+- [x] T007 [P] Add route tests proving `mystra_get_job` and `mystra_list_runners` keep their current useful payloads after output validation is introduced.
 - [x] T008 Validate existing MCP tool outputs in `apps/control-plane/app/api/mcp/route.ts` with route-local Zod schemas while preserving `content[].text` transport.
 - [x] T009 Reconcile `spec.md` wording so workflow-blueprint association is explicitly deferred to `005-workflow-blueprint` rather than implied as silently implemented.
 
@@ -41,5 +41,5 @@ helpers used by other routes.
 
 ## Notes
 
-- `mystra_get_task` is already materially useful because it returns the persisted `TaskSnapshot`; this feature does not need to invent a second observation store.
+- `mystra_get_job` is already materially useful because it returns the persisted `JobSnapshot`; this feature does not need to invent a second observation store.
 - `workflowBlueprintName` is intentionally deferred until `005-workflow-blueprint` defines the durable workflow contract.

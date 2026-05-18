@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Mystra plugin icon">
+  <rect width="128" height="128" rx="24" fill="#0F172A"/>
+  <path d="M24 96V32h15.2L64 68.4 88.8 32H104v64H88V58.6L64 93.6 40 58.6V96Z" fill="#4F46E5"/>
+  <circle cx="64" cy="64" r="10" fill="#F8FAFC" opacity=".22"/>
+</svg>

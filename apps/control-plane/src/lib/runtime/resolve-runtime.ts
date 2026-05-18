@@ -1,5 +1,5 @@
 import {
-  taskRuntimeOverrideSchema,
+  jobRuntimeOverrideSchema,
   resolvedRuntimeContractSchema,
   type ContextBundle,
   type Project,
@@ -12,7 +12,7 @@ export function resolveRuntimeContract(input: {
   contextBundles?: ContextBundle[];
 }): ResolvedRuntimeContract {
   const projectRuntime = input.project.runtime;
-  const override = input.override ? taskRuntimeOverrideSchema.parse(input.override) : undefined;
+  const override = input.override ? jobRuntimeOverrideSchema.parse(input.override) : undefined;
 
   if (override?.runtimeProfile) {
     throw new Error(`RUNTIME_PROFILE_NOT_SUPPORTED: ${override.runtimeProfile}`);

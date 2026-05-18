@@ -1,10 +1,11 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, lstat, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { networkInterfaces, tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { type AgentProcessResult } from "@mystra/agent-adapters";
-import type { BranchDeliveryReceipt, CleanupOutcome, RepoProviderKind, ResolvedRuntimeContract, ReviewResult, SandboxOutcome } from "@mystra/shared";
+import { jobInlineContextBundlePayloadSchema, type BranchDeliveryReceipt, type CleanupOutcome, type RepoProviderKind, type ResolvedRuntimeContract, type ReviewResult, type SandboxOutcome } from "@mystra/shared";
 import { createRunnerAgentAdapterRegistry, type RunnerAgentAdapterRegistry } from "./agent-adapters.js";
 import { sanitizeGitCommandEnv, shouldBypassGitProxy, withGitProxyBypass } from "./git-command-env.js";
 import { createRunnerRepoProviderRegistry, type RunnerRepoProviderRegistry } from "./repo-providers.js";
@@ -53,8 +54,8 @@ interface RegisterResponse {
   runnerToken: string;
 }
 
-interface ClaimedTaskResponse {
-  task: {
+interface ClaimedJobResponse {
+  job: {
     id: string;
     spec: {
       taskId: string;
@@ -326,7 +327,7 @@ async function emitEvent(
   data: Record<string, unknown> = {},
   severity: "debug" | "info" | "warn" | "error" = "info",
 ): Promise<void> {
-  await postJson(apiUrl(config, `/api/runner/tasks/${runId}/events`), {
+  await postJson(apiUrl(config, `/api/runner/jobs/${runId}/events`), {
     type,
     severity,
     data,
@@ -416,8 +417,8 @@ async function pollCancellationRequest(
     }
 
     try {
-      const snapshot = await getJson<ClaimedTaskResponse>(
-        apiUrl(config, `/api/runner/tasks/${runId}`),
+      const snapshot = await getJson<ClaimedJobResponse>(
+        apiUrl(config, `/api/runner/jobs/${runId}`),
         token,
       );
       if (snapshot.run?.cancellationRequest) {
@@ -573,6 +574,118 @@ function runtimeMountSource(
   }
 }
 
+function contextBundleMaterializationRef(bundle: ResolvedRuntimeContract["contextBundles"][number]): string {
+  const ref = bundle.source.metadata.materializationRef;
+  return typeof ref === "string" && ref.trim().length > 0 ? ref : bundle.slug;
+}
+
+function contextBundleForMount(
+  runtime: ResolvedRuntimeContract,
+  mount: ResolvedRuntimeContract["mounts"][number],
+): ResolvedRuntimeContract["contextBundles"][number] | undefined {
+  if (mount.kind !== "contextBundle") {
+    return undefined;
+  }
+
+  return runtime.contextBundles.find((bundle) => {
+    if (mount.sourceRef && contextBundleMaterializationRef(bundle) === mount.sourceRef) {
+      return true;
+    }
+    return bundle.mountPath === mount.target;
+  });
+}
+
+function contextBundleSourcePath(ref: string): string {
+  if (ref.startsWith("file://")) {
+    return fileURLToPath(ref);
+  }
+  if (ref.includes("://")) {
+    throw new Error(`Unsupported context bundle source ref: ${ref}`);
+  }
+  return path.isAbsolute(ref) ? ref : path.resolve(ref);
+}
+
+async function materializeJobInlineBundle(
+  destination: string,
+  bundle: ResolvedRuntimeContract["contextBundles"][number],
+): Promise<void> {
+  const payload = jobInlineContextBundlePayloadSchema.parse(bundle.source.metadata.jobInline);
+  await rm(destination, { recursive: true, force: true });
+  await mkdir(destination, { recursive: true });
+
+  for (const file of payload.files) {
+    const targetPath = path.join(destination, file.path);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, file.content);
+  }
+}
+
+async function materializeFilesystemBundle(
+  destination: string,
+  bundle: ResolvedRuntimeContract["contextBundles"][number],
+): Promise<void> {
+  if (!bundle.source.ref) {
+    throw new Error(`Context bundle ${bundle.slug} is missing source.ref`);
+  }
+
+  const sourcePath = contextBundleSourcePath(bundle.source.ref);
+  const stats = await lstat(sourcePath);
+  await rm(destination, { recursive: true, force: true });
+  await mkdir(destination, { recursive: true });
+
+  if (stats.isDirectory()) {
+    await cp(sourcePath, destination, { recursive: true, force: true });
+    return;
+  }
+
+  await cp(sourcePath, path.join(destination, path.basename(sourcePath)), { force: true });
+}
+
+async function materializeContextBundle(
+  destination: string,
+  bundle: ResolvedRuntimeContract["contextBundles"][number],
+): Promise<void> {
+  switch (bundle.source.kind) {
+    case "job-inline":
+      await materializeJobInlineBundle(destination, bundle);
+      return;
+    case "local-template":
+    case "external-artifact":
+      await materializeFilesystemBundle(destination, bundle);
+      return;
+  }
+}
+
+async function materializeRuntimeContextBundles(
+  config: RunnerConfig,
+  runtime: ResolvedRuntimeContract,
+): Promise<void> {
+  for (const mount of runtime.mounts) {
+    if (mount.kind !== "contextBundle") {
+      continue;
+    }
+
+    const bundle = contextBundleForMount(runtime, mount);
+    if (!bundle) {
+      throw new Error(`Runtime contextBundle mount for ${mount.target} has no matching bundle contract`);
+    }
+
+    const materializationRef = mount.sourceRef ?? contextBundleMaterializationRef(bundle);
+    const destination = path.join(config.cacheRoot, "context-bundles", materializationRef);
+
+    try {
+      await materializeContextBundle(destination, bundle);
+    } catch (error) {
+      if (bundle.failureMode === "warn") {
+        const detail = error instanceof Error ? error.message : String(error);
+        console.warn(`[mystra-runner] optional context bundle ${bundle.slug} failed to materialize: ${detail}`);
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 function appendRuntimeMounts(
   dockerArgs: string[],
   config: RunnerConfig,
@@ -611,8 +724,8 @@ function appendRuntimeSecrets(
   }
 }
 
-function repositoryTargetForTask(
-  claim: ClaimedTaskResponse,
+function repositoryTargetForJob(
+  claim: ClaimedJobResponse,
   config: Pick<RunnerConfig, "gitlabHttpBaseUrl" | "githubHttpBaseUrl">,
 ): {
   projectId: string;
@@ -620,11 +733,11 @@ function repositoryTargetForTask(
   hostKind: "gitlab" | "github" | "unknown";
   defaultBaseBranch: string;
 } | undefined {
-  if (!claim.task || !claim.project) {
+  if (!claim.job || !claim.project) {
     return undefined;
   }
 
-  const repoUrl = claim.task.spec.repo;
+  const repoUrl = claim.job.spec.repo;
   return {
     projectId: claim.project.id,
     repoUrl,
@@ -632,7 +745,7 @@ function repositoryTargetForTask(
       gitlabHttpBaseUrl: config.gitlabHttpBaseUrl,
       githubHttpBaseUrl: config.githubHttpBaseUrl,
     }),
-    defaultBaseBranch: claim.task.spec.baseBranch,
+    defaultBaseBranch: claim.job.spec.baseBranch,
   };
 }
 
@@ -727,6 +840,31 @@ function renderRuntimeContextPrompt(runtime: ResolvedRuntimeContract): string[] 
   }
 
   return lines;
+}
+
+function buildAgentPrompt(runtime: ResolvedRuntimeContract, submissionPrompt: string): string {
+  const executionContractLines = runtime.executionContract
+    ? [
+        "Primary execution contract:",
+        `- Read ${runtime.executionContract.filePath} before planning or editing.`,
+        "- Treat the injected execution artifact as the source of truth for requirements.",
+        "- Use the submission summary below as supporting context only.",
+        "",
+      ]
+    : [];
+
+  return [
+    ...executionContractLines,
+    ...renderRuntimeContextPrompt(runtime),
+    "",
+    "Submission summary:",
+    submissionPrompt,
+    "",
+    "Requirements:",
+    "- Implement the requested change in this repository.",
+    "- Run the relevant local tests or type checks before finishing.",
+    "- Leave the final work committed by Mystra after you finish; do not create the MR yourself.",
+  ].join("\n");
 }
 
 function workflowStepOutputHostPath(workspace: string, nodeId: string): string {
@@ -865,81 +1003,82 @@ async function resultFromWorkflowExecution(
   }
 }
 
-async function executeFakeTask(
+async function executeFakeJob(
   config: RunnerConfig,
   token: string,
-  claim: ClaimedTaskResponse,
+  claim: ClaimedJobResponse,
 ): Promise<void> {
-  if (!claim.task || !claim.run) {
+  if (!claim.job || !claim.run) {
     return;
   }
 
-  const { task, run } = claim;
-  console.log(`[mystra-runner] claimed task=${task.id} run=${run.id} taskId=${task.spec.taskId}`);
+  const { job, run } = claim;
+  console.log(`[mystra-runner] claimed job=${job.id} run=${run.id} task=${job.spec.taskId}`);
 
   await emitEvent(config, token, run.id, "container.started", {
     executor: "fake",
   });
   await emitEvent(config, token, run.id, "agent.started", {
-    agent: task.spec.agent,
+    agent: job.spec.agent,
   });
 
-  await postJson(apiUrl(config, `/api/runner/tasks/${run.id}/result`), {
+  await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), {
     status: "succeeded",
-    summary: `Fake runner completed task ${task.spec.taskId}`,
-    branch: task.spec.branchName,
+    summary: `Fake runner completed task ${job.spec.taskId}`,
+    branch: job.spec.branchName,
     metadata: {
-      repo: task.spec.repo,
-      baseBranch: task.spec.baseBranch,
-      promptPreview: task.spec.prompt.slice(0, 120),
+      repo: job.spec.repo,
+      baseBranch: job.spec.baseBranch,
+      promptPreview: job.spec.prompt.slice(0, 120),
     },
   }, token);
 
   console.log(`[mystra-runner] completed run=${run.id}`);
 }
 
-async function executeDockerTask(
+async function executeDockerJob(
   config: RunnerConfig,
   token: string,
-  claim: ClaimedTaskResponse,
+  claim: ClaimedJobResponse,
   workflowRegistry: RunnerWorkflowProviderRegistry,
   agentRegistry: RunnerAgentAdapterRegistry,
   repoRegistry: RunnerRepoProviderRegistry,
   sandboxRegistry: RunnerSandboxProviderRegistry,
 ): Promise<void> {
-  if (!claim.task || !claim.run || !claim.project) {
+  if (!claim.job || !claim.run || !claim.project) {
     return;
   }
 
-  const { task, run, project, runtime } = claim;
+  const { job, run, project, runtime } = claim;
   if (!runtime) {
-    throw new Error(`Claimed Docker task ${task.id} is missing resolved runtime`);
+    throw new Error(`Claimed Docker job ${job.id} is missing resolved runtime`);
   }
   if (runtime.provider !== "docker") {
-    throw new Error(`Claimed Docker task ${task.id} uses unsupported runtime provider ${runtime.provider}`);
+    throw new Error(`Claimed Docker job ${job.id} uses unsupported runtime provider ${runtime.provider}`);
   }
-  const repositoryTarget = repositoryTargetForTask(claim, config);
+  const repositoryTarget = repositoryTargetForJob(claim, config);
   if (!repositoryTarget) {
-    throw new Error(`Claimed Docker task ${task.id} is missing repository target metadata`);
+    throw new Error(`Claimed Docker job ${job.id} is missing repository target metadata`);
   }
   const repoProvider = repoRegistry.select(repositoryTarget);
   if (!repoProvider) {
-    throw new Error(`Claimed Docker task ${task.id} uses unsupported repository provider for ${repositoryTarget.repoUrl}`);
+    throw new Error(`Claimed Docker job ${job.id} uses unsupported repository provider for ${repositoryTarget.repoUrl}`);
   }
   const sandboxProvider = sandboxRegistry.get(runtime.provider);
   if (!sandboxProvider) {
-    throw new Error(`Claimed Docker task ${task.id} uses unregistered sandbox provider ${runtime.provider}`);
+    throw new Error(`Claimed Docker job ${job.id} uses unregistered sandbox provider ${runtime.provider}`);
   }
 
   const image = runtime.environment.image;
-  const agentAdapter = agentRegistry.get(task.spec.agent);
-  const reviewTitle = task.spec.mergeRequest?.title ?? `Mystra task ${task.spec.taskId}`;
-  const commitMessage = `Update #${task.spec.taskId} ${reviewTitle}`;
-  const agentPromptFilePath = shouldUseAgentPromptFile(task.spec.prompt)
+  const agentAdapter = agentRegistry.get(job.spec.agent);
+  const reviewTitle = job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`;
+  const commitMessage = `Update #${job.spec.taskId} ${reviewTitle}`;
+  const agentPromptText = buildAgentPrompt(runtime, job.spec.prompt);
+  const agentPromptFilePath = shouldUseAgentPromptFile(agentPromptText)
     ? "/mystra/workspace/agent-prompt.txt"
     : undefined;
   const agentExecutionRequest = {
-    prompt: task.spec.prompt,
+    prompt: agentPromptText,
     ...(agentPromptFilePath ? { promptFilePath: agentPromptFilePath } : {}),
     workingDirectory: "/mystra/workspace/repo",
   } as const;
@@ -961,7 +1100,7 @@ async function executeDockerTask(
   let cleanupRequired = false;
 
   try {
-    const gitMirror = await refreshGitMirror(config, task.spec.repo);
+    const gitMirror = await refreshGitMirror(config, job.spec.repo);
     await mkdir(config.workspaceRoot, { recursive: true });
     const workspace = await mkdtemp(path.join(config.workspaceRoot, `${run.id}-`));
     scriptPath = path.join(workspace, "task.sh");
@@ -969,28 +1108,19 @@ async function executeDockerTask(
     const agentPromptPath = path.join(workspace, "agent-prompt.txt");
 
     await mkdir(workspace, { recursive: true });
+    await materializeRuntimeContextBundles(config, runtime);
     for (const mount of runtimeMounts) {
       if (mount.kind === "cache") {
         await mkdir(cachePath(config, mount), { recursive: true });
       }
     }
     await writeFile(scriptPath, await dockerTaskScript(), { mode: 0o755 });
-    await writeFile(promptPath, [
-      ...renderRuntimeContextPrompt(runtime),
-      "",
-      "User task:",
-      task.spec.prompt,
-      "",
-      "Requirements:",
-      "- Implement the requested change in this repository.",
-      "- Run the relevant local tests or type checks before finishing.",
-      "- Leave the final work committed by Mystra after you finish; do not create the MR yourself.",
-    ].join("\n"));
+    await writeFile(promptPath, agentPromptText);
     if (agentPromptFilePath) {
-      await writeFile(agentPromptPath, task.spec.prompt);
+      await writeFile(agentPromptPath, agentPromptText);
     }
 
-    console.log(`[mystra-runner] docker claimed task=${task.id} run=${run.id} taskId=${task.spec.taskId}`);
+    console.log(`[mystra-runner] docker claimed job=${job.id} run=${run.id} task=${job.spec.taskId}`);
     await emitEvent(config, token, run.id, "container.starting", {
       executor: "docker",
       image,
@@ -1012,9 +1142,9 @@ async function executeDockerTask(
       "-e",
       "MYSTRA_SKILLS_DIR=/mystra/skills",
       "-e",
-      `MYSTRA_TASK_ID=${task.spec.taskId}`,
+      `MYSTRA_TASK_ID=${job.spec.taskId}`,
       "-e",
-      `MYSTRA_REPO=${task.spec.repo}`,
+      `MYSTRA_REPO=${job.spec.repo}`,
       "-e",
       `MYSTRA_REPOSITORY_PROVIDER=${repositoryAuth.providerName}`,
       "-e",
@@ -1024,11 +1154,11 @@ async function executeDockerTask(
       "-e",
       "MYSTRA_GIT_REFERENCE_PATH=/mystra/cache/git/repo.git",
       "-e",
-      `MYSTRA_BASE_BRANCH=${task.spec.baseBranch}`,
+      `MYSTRA_BASE_BRANCH=${job.spec.baseBranch}`,
       "-e",
-      `MYSTRA_BRANCH_NAME=${task.spec.branchName}`,
+      `MYSTRA_BRANCH_NAME=${job.spec.branchName}`,
       "-e",
-      `MYSTRA_AGENT=${task.spec.agent}`,
+      `MYSTRA_AGENT=${job.spec.agent}`,
       "-e",
       `MYSTRA_AGENT_COMMAND_JSON=${JSON.stringify(agentCommand)}`,
       "-e",
@@ -1038,11 +1168,11 @@ async function executeDockerTask(
       "-e",
       `MYSTRA_AGENT_STDIN_FILE=${agentExecutionOptions?.stdinFilePath ?? ""}`,
       "-e",
-      `MYSTRA_PROMPT=${task.spec.prompt}`,
+      `MYSTRA_PROMPT=${agentPromptText}`,
       "-e",
       `MYSTRA_MR_TITLE=${reviewTitle}`,
       "-e",
-      `MYSTRA_MR_BODY=${task.spec.mergeRequest?.body ?? task.spec.prompt}`,
+      `MYSTRA_MR_BODY=${job.spec.mergeRequest?.body ?? job.spec.prompt}`,
       "-e",
       `MYSTRA_COMMIT_MESSAGE=${commitMessage}`,
       "-e",
@@ -1068,14 +1198,14 @@ async function executeDockerTask(
     appendRuntimeSecrets(dockerArgs, containerEnv, runtimeSecrets);
     appendRuntimeMounts(dockerArgs, config, workspace, gitMirror, runtimeMounts);
 
-    if (task.spec.agent === "codex" && config.codexAuthDir) {
+    if (job.spec.agent === "codex" && config.codexAuthDir) {
       dockerArgs.push("-v", `${config.codexAuthDir}:/root/.codex`);
     }
     if (process.env.COPILOT_GITHUB_TOKEN) {
       // Copilot auth works from the forwarded token; avoid inheriting host MCP config.
       dockerArgs.push("-e", "COPILOT_GITHUB_TOKEN");
     }
-    appendContainerProxyEnv(dockerArgs, config, task.spec.repo);
+    appendContainerProxyEnv(dockerArgs, config, job.spec.repo);
 
     dockerArgs.push(image, "sleep", "infinity");
 
@@ -1185,9 +1315,9 @@ async function executeDockerTask(
 
       const workflowResult = await workflowProvider.executeBlueprint(workflowBlueprint, {
         workflowInput: {
-          repo: task.spec.repo,
-          prompt: task.spec.prompt,
-          branchName: task.spec.branchName,
+          repo: job.spec.repo,
+          prompt: agentPromptText,
+          branchName: job.spec.branchName,
         },
         signal: executionAbort.signal,
         handlers: {
@@ -1225,10 +1355,10 @@ async function executeDockerTask(
           },
           "agent.execute": async (_inputs, context) => {
             await emitWorkflowNodeEvent(config, token, run.id, "started", context.node, {
-              agent: task.spec.agent,
+              agent: job.spec.agent,
             });
             await emitEvent(config, token, run.id, "agent.started", {
-              agent: task.spec.agent,
+              agent: job.spec.agent,
             });
             try {
               const output = await executeContainerWorkflowStep<AgentStepOutput>({
@@ -1244,7 +1374,7 @@ async function executeDockerTask(
               const parsedAgentResult = agentAdapter.parseOutput(output.processResult);
               if (!parsedAgentResult.success) {
                 const summary = parsedAgentResult.errorMessage
-                  ?? `Agent ${task.spec.agent} exited with ${output.processResult.exitCode}`;
+                  ?? `Agent ${job.spec.agent} exited with ${output.processResult.exitCode}`;
                 await emitWorkflowNodeEvent(config, token, run.id, "failed", context.node, {
                   summary,
                   ...(Object.keys(parsedAgentResult.metadata).length > 0
@@ -1335,7 +1465,7 @@ async function executeDockerTask(
               const receipt = await repoProvider.pushBranch({
                 target: repositoryTarget,
                 branchName: prepared.branchName,
-                baseBranch: task.spec.baseBranch,
+                baseBranch: job.spec.baseBranch,
                 commitMessage,
                 auth: repositoryAuth.authBinding,
                 metadata: {
@@ -1388,7 +1518,7 @@ async function executeDockerTask(
                   auth: repositoryAuth.authBinding,
                   branch: branchReceipt,
                   title: reviewTitle,
-                  body: task.spec.mergeRequest?.body ?? task.spec.prompt,
+                  body: job.spec.mergeRequest?.body ?? job.spec.prompt,
                   metadata: {
                     frontendPreviewUrl: prepared.frontendPreviewUrl ?? undefined,
                     backendPreviewUrl: prepared.backendPreviewUrl ?? undefined,
@@ -1453,7 +1583,7 @@ async function executeDockerTask(
         ? await readWorkflowStepOutput<DockerResult>(workflowStepOutputHostPath(workspace, "review_create"))
         : await resultFromWorkflowExecution(
           workspace,
-          task.spec.branchName,
+          job.spec.branchName,
           workflowResult.failedNodeId,
           workflowResult.errorMessage,
         );
@@ -1507,7 +1637,7 @@ async function executeDockerTask(
         terminalOverride = {
         status: "failed",
         summary: `Docker cleanup failed after ${reason}.`,
-        branch: task.spec.branchName,
+        branch: job.spec.branchName,
         errorCode: "cleanup_failed",
         errorMessage: cleanupErrorMessage,
         sandboxOutcome,
@@ -1527,7 +1657,7 @@ async function executeDockerTask(
         summary: executionTimedOut
           ? `Docker task exceeded ${config.defaultExecutionTimeoutSeconds}s execution timeout.`
           : "Docker task was canceled and cleaned up.",
-        branch: task.spec.branchName,
+        branch: job.spec.branchName,
         sandboxOutcome,
         };
       }
@@ -1536,7 +1666,7 @@ async function executeDockerTask(
     const finalResult = terminalOverride ?? workflowDockerResult ?? {
         status: "failed",
         summary: "Docker task failed before writing a result",
-        branch: task.spec.branchName,
+        branch: job.spec.branchName,
         errorCode: "missing_result",
         errorMessage: "Workflow execution did not produce a terminal result",
       };
@@ -1562,7 +1692,7 @@ async function executeDockerTask(
     };
 
     await emitQualityGateEvent(config, token, run.id, result);
-    await postJson(apiUrl(config, `/api/runner/tasks/${run.id}/result`), result, token);
+    await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
     if (scriptPath) {
       await rm(scriptPath, { force: true });
     }
@@ -1573,22 +1703,22 @@ async function executeDockerTask(
     const result: DockerResult = {
       status: "failed",
       summary: "Docker workflow execution failed before writing a result",
-      branch: task.spec.branchName,
+      branch: job.spec.branchName,
       errorCode: "workflow_failed",
       errorMessage: error instanceof Error ? error.message : String(error),
     };
     await emitQualityGateEvent(config, token, run.id, result);
-    await postJson(apiUrl(config, `/api/runner/tasks/${run.id}/result`), result, token);
+    await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
     if (scriptPath) {
       await rm(scriptPath, { force: true });
     }
   }
 }
 
-async function executeTask(
+async function executeJob(
   config: RunnerConfig,
   token: string,
-  claim: ClaimedTaskResponse,
+  claim: ClaimedJobResponse,
   workflowRegistry?: RunnerWorkflowProviderRegistry,
   agentRegistry?: RunnerAgentAdapterRegistry,
   repoRegistry?: RunnerRepoProviderRegistry,
@@ -1596,12 +1726,12 @@ async function executeTask(
 ): Promise<void> {
   if (config.executor === "docker") {
     if (!workflowRegistry || !agentRegistry || !repoRegistry || !sandboxRegistry) {
-      throw new Error("Workflow, agent, repo, and sandbox registries must be initialized before executing Docker tasks");
+      throw new Error("Workflow, agent, repo, and sandbox registries must be initialized before executing Docker jobs");
     }
-    await executeDockerTask(config, token, claim, workflowRegistry, agentRegistry, repoRegistry, sandboxRegistry);
+    await executeDockerJob(config, token, claim, workflowRegistry, agentRegistry, repoRegistry, sandboxRegistry);
     return;
   }
-  await executeFakeTask(config, token, claim);
+  await executeFakeJob(config, token, claim);
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -1646,8 +1776,8 @@ async function main(): Promise<void> {
     })
     : undefined;
   const registration = await register(config, agentRegistryBundle?.agentNames);
-  const activeTasks = new Set<Promise<void>>();
-  let stopAfterActiveTasks = false;
+  const activeJobs = new Set<Promise<void>>();
+  let stopAfterActiveJobs = false;
 
   console.log(
     `[mystra-runner] registered ${config.runnerName} session=${registration.runnerSessionId} executor=${config.executor} repoProviders=${repoRegistryBundle?.providerNames.length ?? 0} sandboxProviders=${sandboxRegistryBundle?.providerNames.length ?? 0}`,
@@ -1657,17 +1787,17 @@ async function main(): Promise<void> {
     await postJson(apiUrl(config, "/api/runner/heartbeat"), {}, registration.runnerToken);
     let claimedAny = false;
 
-    while (!stopAfterActiveTasks && activeTasks.size < config.concurrency) {
-      const claim = await getJson<ClaimedTaskResponse>(
-        apiUrl(config, "/api/runner/tasks"),
+    while (!stopAfterActiveJobs && activeJobs.size < config.concurrency) {
+      const claim = await getJson<ClaimedJobResponse>(
+        apiUrl(config, "/api/runner/jobs"),
         registration.runnerToken,
       );
-      if (!claim.task || !claim.run) {
+      if (!claim.job || !claim.run) {
         break;
       }
 
       claimedAny = true;
-      const activeTask = executeTask(
+      const activeJob = executeJob(
         config,
         registration.runnerToken,
         claim,
@@ -1681,26 +1811,26 @@ async function main(): Promise<void> {
           console.error(error);
         })
         .finally(() => {
-          activeTasks.delete(activeTask);
+          activeJobs.delete(activeJob);
         });
-      activeTasks.add(activeTask);
+      activeJobs.add(activeJob);
 
       if (config.once) {
-        stopAfterActiveTasks = true;
+        stopAfterActiveJobs = true;
       }
     }
 
-    if (config.once && !claimedAny && activeTasks.size === 0) {
-      console.log("[mystra-runner] no queued task found");
+    if (config.once && !claimedAny && activeJobs.size === 0) {
+      console.log("[mystra-runner] no queued job found");
       return;
     }
 
-    if (stopAfterActiveTasks && activeTasks.size === 0) {
+    if (stopAfterActiveJobs && activeJobs.size === 0) {
       return;
     }
 
-    if (activeTasks.size > 0) {
-      await Promise.race([...activeTasks, sleep(config.pollIntervalSeconds * 1000)]);
+    if (activeJobs.size > 0) {
+      await Promise.race([...activeJobs, sleep(config.pollIntervalSeconds * 1000)]);
       continue;
     }
 

@@ -18,8 +18,8 @@ interface PlatformCapabilitiesView {
   image?: string;
 }
 
-interface TaskSnapshot {
-  task: {
+interface JobSnapshot {
+  job: {
     id: string;
     spec: {
       taskId: string;
@@ -199,14 +199,14 @@ function eventSummary(data: Record<string, unknown>): string {
   return keys.length > 0 ? `Fields: ${keys.join(", ")}` : "No additional data";
 }
 
-function workflowNodeTiming(execution: NonNullable<TaskSnapshot["workflow"]>["nodeExecutions"][number]): string {
+function workflowNodeTiming(execution: NonNullable<JobSnapshot["workflow"]>["nodeExecutions"][number]): string {
   if (execution.finishedAt) {
     return `${relativeTime(execution.finishedAt)} · started ${relativeTime(execution.startedAt)}`;
   }
   return `Started ${relativeTime(execution.startedAt)}`;
 }
 
-function queueSummary(snapshot: TaskSnapshot): string {
+function queueSummary(snapshot: JobSnapshot): string {
   if (snapshot.run.result?.summary) {
     return snapshot.run.result.summary;
   }
@@ -258,7 +258,7 @@ function runnerNodesFromSessions(sessions: RunnerSession[]): RunnerNode[] {
 
 export default function Page() {
   const [themeId, setThemeId] = useState<string>(DEFAULT_THEME.id);
-  const [jobs, setJobs] = useState<TaskSnapshot[]>([]);
+  const [jobs, setJobs] = useState<JobSnapshot[]>([]);
   const [runners, setRunners] = useState<RunnerSession[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -268,7 +268,7 @@ export default function Page() {
   const [mcpResult, setMcpResult] = useState<string>("");
 
   const selectedJob = useMemo(
-    () => jobs.find((snapshot) => snapshot.task.id === selectedJobId) ?? jobs[0],
+    () => jobs.find((snapshot) => snapshot.job.id === selectedJobId) ?? jobs[0],
     [jobs, selectedJobId],
   );
   const runnerNodes = useMemo(() => runnerNodesFromSessions(runners), [runners]);
@@ -318,14 +318,14 @@ export default function Page() {
 
   async function refresh() {
     const [jobsResponse, runnersResponse, projectsResponse] = await Promise.all([
-      fetch("/api/tasks", { cache: "no-store" }),
+      fetch("/api/jobs", { cache: "no-store" }),
       fetch("/api/runners", { cache: "no-store" }),
       fetch("/api/projects", { cache: "no-store" }),
     ]);
 
     if (jobsResponse.ok) {
-      const payload = await jobsResponse.json() as { tasks: TaskSnapshot[] };
-      setJobs(payload.tasks);
+      const payload = await jobsResponse.json() as { jobs: JobSnapshot[] };
+      setJobs(payload.jobs);
     }
 
     if (runnersResponse.ok) {
@@ -361,7 +361,7 @@ export default function Page() {
     return () => window.clearInterval(timer);
   }, []);
 
-  async function createTask(event: FormEvent<HTMLFormElement>) {
+  async function createJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setNotice("");
@@ -369,9 +369,9 @@ export default function Page() {
     try {
       const projectId = form.projectId || selectedProject?.id;
       if (!projectId) {
-        throw new Error("Create a Project before submitting a task");
+        throw new Error("Create a Project before submitting a job");
       }
-      const response = await fetch("/api/tasks", {
+      const response = await fetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -386,15 +386,15 @@ export default function Page() {
           },
         }),
       });
-      const payload = await response.json() as TaskSnapshot | { error: string };
+      const payload = await response.json() as JobSnapshot | { error: string };
       if (!response.ok) {
         throw new Error("error" in payload ? payload.error : `HTTP ${response.status}`);
       }
-      if (!("task" in payload)) {
-        throw new Error("Create task returned an invalid response");
+      if (!("job" in payload)) {
+        throw new Error("Create job returned an invalid response");
       }
-      setSelectedJobId(payload.task.id);
-      setNotice(`Created task ${payload.task.spec.taskId}`);
+      setSelectedJobId(payload.job.id);
+      setNotice(`Created job ${payload.job.spec.taskId}`);
       await refresh();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
@@ -403,13 +403,13 @@ export default function Page() {
     }
   }
 
-  async function cancelTask(taskId: string) {
-    const response = await fetch(`/api/tasks/${taskId}/cancel`, { method: "POST" });
+  async function cancelJob(jobId: string) {
+    const response = await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
     if (!response.ok) {
       setNotice(`Cancel failed: ${response.status}`);
       return;
     }
-    setNotice(`Cancel requested for ${taskId}`);
+    setNotice(`Cancel requested for ${jobId}`);
     await refresh();
   }
 
@@ -433,14 +433,14 @@ export default function Page() {
           <p className="eyebrow">Mystra</p>
           <h1>Control Plane</h1>
           <p className="sectionCopy">
-            Compact operations workbench for tasks, runner capacity, and MCP access.
+            Compact operations workbench for jobs, runner capacity, and MCP access.
           </p>
         </div>
 
         <nav className="railNav" aria-label="Control plane modules">
-          <a className="railLink" href="#tasks">
+          <a className="railLink" href="#jobs">
             <strong>Tasks</strong>
-            <span>{jobs.length} tasks in view</span>
+            <span>{jobs.length} jobs in view</span>
           </a>
           <a className="railLink" href="#projects">
             <strong>Projects</strong>
@@ -519,7 +519,7 @@ export default function Page() {
             <p className="eyebrow">Workbench</p>
             <h2>Operational overview</h2>
             <p className="sectionCopy">
-              Create tasks, inspect run state, watch runner nodes, and query MCP tools without leaving the queue.
+              Create jobs, inspect run state, watch runner nodes, and query MCP tools without leaving the queue.
             </p>
           </div>
           <div className="toolbar">
@@ -566,7 +566,7 @@ export default function Page() {
               <p className="eyebrow">Projects</p>
               <h3>Project configuration</h3>
               <p className="sectionCopy">
-                Tasks inherit repository, default branch, default agent, and runtime image from Projects.
+                Jobs inherit repository, default branch, default agent, and runtime image from Projects.
               </p>
             </div>
             <span className="counter">{projects.length}</span>
@@ -595,13 +595,13 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="module" id="tasks">
+        <section className="module" id="jobs">
           <div className="moduleHeader">
             <div>
               <p className="eyebrow">Tasks</p>
-              <h3>Task queue and execution detail</h3>
+              <h3>Job queue and execution detail</h3>
               <p className="sectionCopy">
-                Submit new work, scan queue state, and inspect the current task record.
+                Submit new work, scan queue state, and inspect the current job record.
               </p>
             </div>
           </div>
@@ -610,12 +610,12 @@ export default function Page() {
             <section className="pane">
               <div className="paneHeader">
                 <div>
-                  <h4>Create task</h4>
-                  <p className="subtleText">Tasks resolve repo, base branch, agent, and image from the selected Project.</p>
+                  <h4>Create job</h4>
+                  <p className="subtleText">Jobs resolve repo, base branch, agent, and image from the selected Project.</p>
                 </div>
                 <span className="counter">{jobs.length}</span>
               </div>
-              <form className="jobForm" onSubmit={(event) => void createTask(event)}>
+              <form className="jobForm" onSubmit={(event) => void createJob(event)}>
                 <label>
                   Task ID
                   <input
@@ -680,7 +680,7 @@ export default function Page() {
                 </label>
                 <div className="formActions span2">
                   <button className="primaryButton" disabled={isSubmitting || projects.length === 0} type="submit">
-                    {isSubmitting ? "Creating..." : "Create task"}
+                    {isSubmitting ? "Creating..." : "Create job"}
                   </button>
                 </div>
               </form>
@@ -690,7 +690,7 @@ export default function Page() {
               <div className="paneHeader">
                 <div>
                   <h4>Queue</h4>
-                  <p className="subtleText">Recent tasks stay selectable, but now scan like an operator queue.</p>
+                  <p className="subtleText">Recent jobs stay selectable, but now scan like an operator queue.</p>
                 </div>
               </div>
               <div className="queueTable">
@@ -703,19 +703,19 @@ export default function Page() {
                   </div>
                 ) : null}
                 <div className="list">
-                  {jobs.length === 0 ? <p className="empty">No tasks yet.</p> : null}
+                  {jobs.length === 0 ? <p className="empty">No jobs yet.</p> : null}
                   {jobs.map((snapshot) => (
                     <button
-                      aria-pressed={snapshot.task.id === selectedJob?.task.id}
-                      className={`listItem queueRow ${snapshot.task.id === selectedJob?.task.id ? "selected" : ""}`}
-                      key={snapshot.task.id}
+                      aria-pressed={snapshot.job.id === selectedJob?.job.id}
+                      className={`listItem queueRow ${snapshot.job.id === selectedJob?.job.id ? "selected" : ""}`}
+                      key={snapshot.job.id}
                       type="button"
-                      onClick={() => setSelectedJobId(snapshot.task.id)}
+                      onClick={() => setSelectedJobId(snapshot.job.id)}
                     >
                       <span className="queueCell queuePrimary">
-                        <span className="itemTitle">{snapshot.task.spec.taskId}</span>
+                        <span className="itemTitle">{snapshot.job.spec.taskId}</span>
                         <span className="itemMeta">
-                          {snapshot.task.spec.agent} / attempt {snapshot.run.attempt}
+                          {snapshot.job.spec.agent} / attempt {snapshot.run.attempt}
                         </span>
                         <span className="queueSummary">{queueSummary(snapshot)}</span>
                       </span>
@@ -723,8 +723,8 @@ export default function Page() {
                         <span className={`pill ${stateTone(snapshot.run.state)}`}>{snapshot.run.state}</span>
                       </span>
                       <span className="queueCell queueBranch">
-                        <span className="branchValue">{snapshot.task.spec.branchName}</span>
-                        <span className="itemMeta">{snapshot.task.spec.baseBranch}</span>
+                        <span className="branchValue">{snapshot.job.spec.branchName}</span>
+                        <span className="itemMeta">{snapshot.job.spec.baseBranch}</span>
                       </span>
                       <span className="queueCell queueUpdated">
                         <span className="timeValue">{relativeTime(snapshot.run.updatedAt)}</span>
@@ -739,7 +739,7 @@ export default function Page() {
             <section className="pane">
               <div className="paneHeader">
                 <div>
-                  <h4>Selected task</h4>
+                  <h4>Selected job</h4>
                   <p className="subtleText">Run state, merge request, and latest structured payload.</p>
                 </div>
                 <div className="paneActions">
@@ -747,7 +747,7 @@ export default function Page() {
                     <button
                       className="dangerButton"
                       type="button"
-                      onClick={() => void cancelTask(selectedJob.task.id)}
+                      onClick={() => void cancelJob(selectedJob.job.id)}
                     >
                       Cancel
                     </button>
@@ -761,12 +761,12 @@ export default function Page() {
                     <span className="subtleText">Updated {relativeTime(selectedJob.run.updatedAt)}</span>
                   </div>
                   <div className="detailGrid">
-                    <div className="kv"><span>Task</span><strong>{selectedJob.task.spec.taskId}</strong></div>
-                    <div className="kv"><span>Agent</span><strong>{selectedJob.task.spec.agent}</strong></div>
-                    <div className="kv"><span>Repo</span><strong>{selectedJob.task.spec.repo}</strong></div>
-                    <div className="kv"><span>Base</span><strong>{selectedJob.task.spec.baseBranch}</strong></div>
-                    <div className="kv"><span>Branch</span><strong>{selectedJob.task.spec.branchName}</strong></div>
-                    <div className="kv"><span>Created</span><strong>{relativeTime(selectedJob.task.createdAt)}</strong></div>
+                    <div className="kv"><span>Task</span><strong>{selectedJob.job.spec.taskId}</strong></div>
+                    <div className="kv"><span>Agent</span><strong>{selectedJob.job.spec.agent}</strong></div>
+                    <div className="kv"><span>Repo</span><strong>{selectedJob.job.spec.repo}</strong></div>
+                    <div className="kv"><span>Base</span><strong>{selectedJob.job.spec.baseBranch}</strong></div>
+                    <div className="kv"><span>Branch</span><strong>{selectedJob.job.spec.branchName}</strong></div>
+                    <div className="kv"><span>Created</span><strong>{relativeTime(selectedJob.job.createdAt)}</strong></div>
                   </div>
                   {selectedJob.run.result?.summary ? (
                     <p className="summaryBlock">{selectedJob.run.result.summary}</p>
@@ -838,7 +838,7 @@ export default function Page() {
                   <pre className="jsonBlock">{jsonPreview(selectedJob.run.result ?? selectedJob.events.at(-1) ?? selectedJob)}</pre>
                 </div>
               ) : (
-                <p className="empty">Select a task to inspect it.</p>
+                <p className="empty">Select a job to inspect it.</p>
               )}
             </section>
           </div>
@@ -905,12 +905,12 @@ export default function Page() {
                 <div className="kv"><span>Path</span><strong>/api/mcp</strong></div>
               </div>
               <div className="toolList">
-                <span>mystra_create_task</span>
+                <span>mystra_create_job</span>
                 <span>mystra_create_project</span>
                 <span>mystra_list_projects</span>
                 <span>mystra_get_project</span>
-                <span>mystra_get_task</span>
-                <span>mystra_cancel_task</span>
+                <span>mystra_get_job</span>
+                <span>mystra_cancel_job</span>
                 <span>mystra_list_runners</span>
               </div>
             </section>

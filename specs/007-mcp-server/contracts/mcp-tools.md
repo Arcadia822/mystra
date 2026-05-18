@@ -4,12 +4,12 @@
 
 - `mystra_create_context_bundle`
 - `mystra_list_context_bundles`
-- `mystra_create_task`
+- `mystra_create_job`
 - `mystra_create_project`
 - `mystra_list_projects`
 - `mystra_get_project`
-- `mystra_get_task`
-- `mystra_cancel_task`
+- `mystra_get_job`
+- `mystra_cancel_job`
 - `mystra_list_runners`
 - `mystra_health`
 

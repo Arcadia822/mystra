@@ -22,7 +22,7 @@ manually in runner-specific code.
 provider owns the execution semantics. Otherwise the provider seam is just a
 polite rumor.
 
-**Independent Test**: Submit a task with a resolved runtime contract and verify
+**Independent Test**: Submit a job with a resolved runtime contract and verify
 the sandbox provider launches a Docker task container using the declared image,
 mounts, context bundles, caches, and secret references.
 
@@ -32,7 +32,7 @@ mounts, context bundles, caches, and secret references.
    caches, and secrets, **When** the sandbox provider launches a task
    container, **Then** the container uses those declared runtime inputs without
    the runner independently re-deriving them.
-2. **Given** the runtime contract changes for a project, **When** a later task is
+2. **Given** the runtime contract changes for a project, **When** a later job is
    executed, **Then** the sandbox provider applies the new contract without
    changing workflow or agent-adapter behavior.
 3. **Given** the requested runtime contract is invalid for the provider,

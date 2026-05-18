@@ -12,7 +12,7 @@
 
 ## Decision: Introduce A Typed `Project.runtime` Object
 
-**Rationale**: A structured runtime object can hold provider family, Docker image, context bundles, mount/port/cache/secret policy, and override policy without scattering runtime fields across Project, TaskSpec, runner daemon, scripts, and docs.
+**Rationale**: A structured runtime object can hold provider family, Docker image, context bundles, mount/port/cache/secret policy, and override policy without scattering runtime fields across Project, JobSpec, runner daemon, scripts, and docs.
 
 **Alternatives considered**:
 
@@ -22,13 +22,13 @@
 
 ## Decision: MVP Uses One Default Runtime While Reserving Named Profiles
 
-**Rationale**: Projects will eventually need multiple runtime profiles for work modes such as frontend development, backend development, documentation-only work, and testing. The first version should not implement that management surface before the default runtime path works. Task runtime override remains valid, but it is constrained by Project policy and applies on top of the Project default runtime in the MVP.
+**Rationale**: Projects will eventually need multiple runtime profiles for work modes such as frontend development, backend development, documentation-only work, and testing. The first version should not implement that management surface before the default runtime path works. Job runtime override remains valid, but it is constrained by Project policy and applies on top of the Project default runtime in the MVP.
 
 **Alternatives considered**:
 
-- Implement full runtime profile CRUD now: rejected because it expands the first slice before Project default runtime and task submission are proven.
-- Ban task runtime overrides: rejected because advanced callers need a controlled way to request allowed image or context changes.
-- Allow arbitrary task runtime overrides: rejected because mounts, secrets, cache, and ports are safety-sensitive management surfaces.
+- Implement full runtime profile CRUD now: rejected because it expands the first slice before Project default runtime and job submission are proven.
+- Ban job runtime overrides: rejected because advanced callers need a controlled way to request allowed image or context changes.
+- Allow arbitrary job runtime overrides: rejected because mounts, secrets, cache, and ports are safety-sensitive management surfaces.
 
 ## Decision: Mounts Have System, Project, And Runtime/Image Ownership
 
@@ -42,27 +42,28 @@
 
 ## Decision: Runtime Resolver Owns Effective Runtime Resolution
 
-**Rationale**: The control plane should combine Project runtime config, permitted task overrides, context bundle resolution, and runner compatibility into one resolved runtime contract. Runners execute the resolved contract; they do not invent how to find image or context.
+**Rationale**: The control plane should combine Project runtime config, permitted job overrides, context bundle resolution, and runner compatibility into one resolved runtime contract. Runners execute the resolved contract; they do not invent how to find image or context.
 
 **Alternatives considered**:
 
 - Runner reads Project runtime fields and resolves bundles itself: rejected because it couples runner execution to control-plane business state and creates duplicate policy logic.
-- Task stores only raw overrides and leaves defaults unresolved until runner start: rejected because invalid runtime config would fail too late.
+- Job stores only raw overrides and leaves defaults unresolved until runner start: rejected because invalid runtime config would fail too late.
 - Return only Project runtime config in claim: rejected because the claim should be a run-specific snapshot after policy checks.
 
 ## Decision: Context Bundles Are Runtime Inputs With Policy
 
-**Rationale**: Mystra should manage how context becomes available to a run, but concrete bundle contents such as skills, issue context, or project guidance are runtime inputs or release artifacts. Source-owned examples may exist, but they are not the authoritative Project runtime contents.
+**Rationale**: Mystra should manage how context becomes available to a run, but concrete bundle contents such as skills, a frozen approved spec, issue context, or project guidance are runtime inputs or release artifacts. Source-owned examples may exist, but they are not the authoritative Project runtime contents. The execution-facing spec must be frozen at job submission time so sandbox execution consumes an injected artifact instead of a live collaborative thread.
 
 **Alternatives considered**:
 
 - Bake all skills/context into `packages/runner-image`: rejected because it turns the platform repo into a runtime content repository.
 - Inline context into runner-daemon prompt text: rejected because it makes context changes code changes and hides ownership.
+- Treat collaborative chat history as a fallback execution source: rejected because it creates an implicit second contract surface that cannot be audited or replayed reliably.
 - Let task agents fetch missing context from third-party tools: rejected for the MVP because container context boundaries should be explicit and auditable.
 
 ## Decision: Preserve Docker MVP Through Provider-Specific Translation
 
-**Rationale**: The first provider remains single-machine Docker. The resolved runtime contract can contain Docker image information for Docker runs, while future provider families can interpret different environment references without changing Project/task envelope semantics.
+**Rationale**: The first provider remains single-machine Docker. The resolved runtime contract can contain Docker image information for Docker runs, while future provider families can interpret different environment references without changing Project/job envelope semantics.
 
 **Alternatives considered**:
 

@@ -11,8 +11,8 @@ Represents stable configuration for a GitLab/GitHub project.
 | `slug` | string | yes | Globally unique URL/CLI identifier |
 | `repo` | string | yes | Repository URL or canonical repo identifier |
 | `baseBranch` | string | yes | Defaults to `main` |
-| `defaultAgent` | `codex` or `copilot` | yes | Task default |
-| `runtime` | object | yes | Structured runtime config; current public image contract lives at `runtime.image` |
+| `defaultAgent` | `codex` or `copilot` | yes | Job default |
+| `image` | string | yes | Runtime image used by runner claim/executor |
 | `prewarmConfig` | object | yes | JSON, defaults to `{}` |
 | `metadata` | object | yes | JSON, defaults to `{}` |
 | `archivedAt` | ISO string or null | no | Null means active |
@@ -22,11 +22,11 @@ Represents stable configuration for a GitLab/GitHub project.
 Validation:
 
 - `slug` is unique.
-- `runtime.image` is non-empty for the Docker provider.
+- `image` is non-empty.
 - `defaultAgent` uses shared `agentNameSchema`.
 - `prewarmConfig` and `metadata` must serialize to JSON objects.
 
-## Task
+## Job
 
 Represents a submitted coding task.
 
@@ -49,18 +49,18 @@ Represents a submitted coding task.
 
 Validation:
 
-- Task creation requires active `projectId`.
+- Job creation requires active `projectId`.
 - Explicit repo/baseBranch/agent overrides are allowed and stored as snapshots.
-- Project mutation after task creation does not change task snapshot.
+- Project mutation after job creation does not change job snapshot.
 
 ## Run
 
-Represents an execution attempt for a task.
+Represents an execution attempt for a job.
 
 | Field | Type | Required | Notes |
 |---|---|---:|---|
 | `id` | string UUID | yes | Internal identifier |
-| `taskId` | string UUID | yes | Public/domain FK to Task |
+| `jobId` | string UUID | yes | FK to Job |
 | `state` | run state enum | yes | Starts as `queued` |
 | `attempt` | integer | yes | Defaults to 1 |
 | `assignedRunnerSessionId` | string UUID or null | no | Set on claim |
@@ -95,7 +95,7 @@ Append-only structured lifecycle event.
 |---|---|---:|---|
 | `id` | string UUID | yes | Internal identifier |
 | `runId` | string UUID | yes | FK to Run |
-| `taskId` | string UUID | yes | Public/domain FK to Task |
+| `jobId` | string UUID | yes | FK to Job |
 | `type` | string | yes | Event type |
 | `severity` | string | yes | Defaults to `info` |
 | `data` | object | yes | JSON payload |
@@ -109,7 +109,7 @@ Structured pointer to generated output.
 |---|---|---:|---|
 | `id` | string UUID | yes | Internal identifier |
 | `runId` | string UUID | yes | FK to Run |
-| `taskId` | string UUID | yes | Public/domain FK to Task |
+| `jobId` | string UUID | yes | FK to Job |
 | `kind` | string | yes | Example: `merge_request`, `pull_request`, `branch`, future artifact kinds |
 | `name` | string | yes | Display name |
 | `uri` | string | yes | URL or artifact URI |
@@ -119,7 +119,7 @@ Structured pointer to generated output.
 ## Relationships
 
 ```text
-Project 1 ── * Task 1 ── * Run
+Project 1 ── * Job 1 ── * Run
                  │        ├── * RunEvent
                  │        └── * Artifact
                  └── resolved repo/baseBranch/agent snapshot
@@ -129,6 +129,6 @@ RunnerSession 1 ── * Run (assignedRunnerSessionId)
 
 ## State Notes
 
-- Project archive does not mutate historical tasks.
+- Project archive does not mutate historical jobs.
 - Runner session restart creates a new token; cleanup is post-MVP.
 - Non-terminal runs survive control-plane restart unchanged.

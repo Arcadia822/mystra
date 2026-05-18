@@ -3,7 +3,7 @@
 **Feature Branch**: `013-agent-first-control-plane`  
 **Created**: 2026-05-15  
 **Status**: Draft  
-**Dependency Note**: Build on `001-project-and-sqlite` for project-backed task execution, `007-mcp-server` for the existing remote submission surface, and `008-mcp-skills` for companion-skill ergonomics. This feature defines the next control-plane contract layer: API as truth, a typed agent runtime surface, and an operator CLI surface for external agents such as OpenClaw.
+**Dependency Note**: Build on `001-project-and-sqlite` for project-backed job execution, `007-mcp-server` for the existing remote submission surface, and `008-mcp-skills` for companion-skill ergonomics. This feature defines the next control-plane contract layer: API as truth, a typed agent runtime surface, and an operator CLI surface for external agents such as OpenClaw.
 **Input**: User description: "Prioritize Mystra as an agent-first control plane on a Debian server, where OpenClaw coordinates work over Lark and uses Mystra to develop both the Mystra and Skrya projects. Management capabilities should prioritize API, skill/MCP, and CLI over UI. The preferred interface model is skill as policy, API as truth, SDK as agent runtime, and CLI as operator runtime."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -29,7 +29,7 @@ As the coordinating OpenClaw agent, I want to submit work for a selected project
 
 **Why this priority**: This is the core operating path for the intended deployment model. If OpenClaw cannot submit work and retrieve status/results end to end, Mystra cannot function as the execution backend for the demo or the real server workflow.
 
-**Independent Test**: Submit a task for either `mystra` or `skrya`, poll status from queued to terminal state, and retrieve the final branch or review artifact summary without using the UI.
+**Independent Test**: Submit a job for either `mystra` or `skrya`, poll status from queued to terminal state, and retrieve the final branch or review artifact summary without using the UI.
 
 **Acceptance Scenarios**:
 

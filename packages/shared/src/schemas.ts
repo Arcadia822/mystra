@@ -3,8 +3,8 @@ import { z } from "zod";
 export const agentNameSchema = z.enum(["codex", "copilot"]);
 export type AgentName = z.infer<typeof agentNameSchema>;
 
-export const taskSourceSchema = z.enum(["mcp", "api"]);
-export type TaskSource = z.infer<typeof taskSourceSchema>;
+export const jobSourceSchema = z.enum(["mcp", "api"]);
+export type JobSource = z.infer<typeof jobSourceSchema>;
 
 export const mergeRequestSpecSchema = z
   .object({
@@ -34,6 +34,35 @@ export const contextBundleSourceSchema = z
   })
   .strict();
 export type ContextBundleSource = z.infer<typeof contextBundleSourceSchema>;
+
+function rejectUnsafeBundleFilePath(file: { path: string }, ctx: z.RefinementCtx): void {
+  if (
+    file.path.startsWith("/")
+    || file.path.split(/[\\/]/).some((segment) => segment === ".." || segment.length === 0)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Inline context bundle files must use safe relative paths",
+      path: ["path"],
+    });
+  }
+}
+
+export const contextBundleInlineFileSchema = z
+  .object({
+    path: z.string().min(1),
+    content: z.string(),
+  })
+  .strict()
+  .superRefine(rejectUnsafeBundleFilePath);
+export type ContextBundleInlineFile = z.infer<typeof contextBundleInlineFileSchema>;
+
+export const jobInlineContextBundlePayloadSchema = z
+  .object({
+    files: z.array(contextBundleInlineFileSchema).min(1),
+  })
+  .strict();
+export type JobInlineContextBundlePayload = z.infer<typeof jobInlineContextBundlePayloadSchema>;
 
 export const runtimeSecretRefSchema = z
   .object({
@@ -163,7 +192,7 @@ export const projectRuntimeConfigSchema = z
   .strict();
 export type ProjectRuntimeConfig = z.infer<typeof projectRuntimeConfigSchema>;
 
-export const taskRuntimeOverrideSchema = z
+export const jobRuntimeOverrideSchema = z
   .object({
     runtimeProfile: z.string().min(1).optional(),
     provider: sandboxProviderSchema.optional(),
@@ -172,7 +201,42 @@ export const taskRuntimeOverrideSchema = z
     metadata: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
-export type TaskRuntimeOverride = z.infer<typeof taskRuntimeOverrideSchema>;
+export type JobRuntimeOverride = z.infer<typeof jobRuntimeOverrideSchema>;
+
+export const executionContractReferenceSchema = z
+  .object({
+    kind: z.literal("execution-spec"),
+    artifactId: z.string().uuid(),
+    uri: z.string().min(1),
+    bundleSlug: z.string().min(1),
+    mountPath: z.string().min(1),
+    filePath: z.string().min(1),
+    frozenAt: z.string().datetime(),
+  })
+  .strict();
+export type ExecutionContractReference = z.infer<typeof executionContractReferenceSchema>;
+
+export const executionSpecArtifactSchema = z
+  .object({
+    version: z.literal(1),
+    kind: z.literal("execution-spec"),
+    jobId: z.string().uuid(),
+    runId: z.string().uuid(),
+    taskId: z.string().min(1),
+    source: jobSourceSchema,
+    projectId: z.string().uuid(),
+    repo: z.string().min(1),
+    baseBranch: z.string().min(1),
+    branchName: z.string().min(1),
+    agent: agentNameSchema,
+    prompt: z.string().min(1),
+    mergeRequest: mergeRequestSpecSchema.optional(),
+    metadata: z.record(z.string(), z.unknown()).default({}),
+    frozenAt: z.string().datetime(),
+    executionContract: executionContractReferenceSchema,
+  })
+  .strict();
+export type ExecutionSpecArtifact = z.infer<typeof executionSpecArtifactSchema>;
 
 export const resolvedRuntimeContractSchema = z
   .object({
@@ -190,6 +254,7 @@ export const resolvedRuntimeContractSchema = z
       source: contextBundleSourceSchema,
       failureMode: contextBundleFailureModeSchema,
     }).strict()).default([]),
+    executionContract: executionContractReferenceSchema.optional(),
     mounts: z.array(runtimeMountSchema).default([]),
     exposedPorts: z.array(z.object({
       containerPort: z.number().int().positive(),
@@ -290,10 +355,10 @@ export const projectUpdateSchema = z
   .strict();
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
-export const taskSpecSchema = z
+export const jobSpecSchema = z
   .object({
     taskId: z.string().min(1),
-    source: taskSourceSchema,
+    source: jobSourceSchema,
     projectId: z.string().uuid(),
     repo: z.string().min(1).optional(),
     baseBranch: z.string().min(1).optional(),
@@ -301,11 +366,11 @@ export const taskSpecSchema = z
     agent: agentNameSchema.optional(),
     prompt: z.string().min(1),
     mergeRequest: mergeRequestSpecSchema.optional(),
-    runtime: taskRuntimeOverrideSchema.optional(),
+    runtime: jobRuntimeOverrideSchema.optional(),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
-export type TaskSpec = z.infer<typeof taskSpecSchema>;
+export type JobSpec = z.infer<typeof jobSpecSchema>;
 
 export const runnerRegistrationSchema = z
   .object({
@@ -322,7 +387,7 @@ export type RunnerRegistration = z.infer<typeof runnerRegistrationSchema>;
 export const runnerPollRequestSchema = z
   .object({
     runnerSessionId: z.string().uuid(),
-    maxTasks: z.number().int().positive().default(1),
+    maxJobs: z.number().int().positive().default(1),
   })
   .strict();
 export type RunnerPollRequest = z.infer<typeof runnerPollRequestSchema>;
@@ -346,11 +411,11 @@ export type RunnerLocalConfig = z.infer<typeof runnerLocalConfigSchema>;
 
 // --- 003-config-first-runner-durability: Cancellation Outcome ---
 
-export const cancelTaskOutcomeSchema = z.discriminatedUnion("kind", [
+export const cancelJobOutcomeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("canceled") }).strict(),
   z.object({ kind: z.literal("cancellation_requested") }).strict(),
 ]);
-export type CancelTaskOutcome = z.infer<typeof cancelTaskOutcomeSchema>;
+export type CancelJobOutcome = z.infer<typeof cancelJobOutcomeSchema>;
 
 // --- 003-config-first-runner-durability: Runner Observation ---
 

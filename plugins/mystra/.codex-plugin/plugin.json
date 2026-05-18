@@ -1,0 +1,43 @@
+{
+  "name": "mystra",
+  "version": "0.1.0",
+  "description": "Mystra MCP workflows for submitting implementation work and checking job status from Codex.",
+  "author": {
+    "name": "Mystra",
+    "url": "https://github.com/Arcadia822/mystra"
+  },
+  "homepage": "https://github.com/Arcadia822/mystra",
+  "repository": "https://github.com/Arcadia822/mystra",
+  "license": "MIT",
+  "keywords": [
+    "mystra",
+    "mcp",
+    "workflow",
+    "automation",
+    "agent"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Mystra",
+    "shortDescription": "Submit Mystra jobs and inspect workflow status through the local MCP endpoint.",
+    "longDescription": "Guidance for using Mystra from Codex, including packaging user journeys or implementation requests into Mystra jobs and checking job status through the local control-plane MCP endpoint.",
+    "developerName": "Mystra",
+    "category": "Developer",
+    "capabilities": [
+      "MCP",
+      "Workflows",
+      "Automation"
+    ],
+    "websiteURL": "https://github.com/Arcadia822/mystra",
+    "defaultPrompt": [
+      "Use Mystra to submit this implementation request.",
+      "Create a Mystra job from this user journey.",
+      "Check the status of an existing Mystra job."
+    ],
+    "brandColor": "#4F46E5",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg",
+    "screenshots": []
+  }
+}

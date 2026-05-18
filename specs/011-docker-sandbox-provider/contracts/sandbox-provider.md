@@ -18,7 +18,7 @@ cleanup outcomes.
 
 ## Non-Responsibilities
 
-- Resolving the runtime contract from project/task configuration.
+- Resolving the runtime contract from project/job configuration.
 - Choosing workflow order or repository-review behavior.
 - Generating agent commands or prompt content.
 

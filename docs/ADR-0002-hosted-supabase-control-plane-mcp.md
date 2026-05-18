@@ -6,9 +6,9 @@ Superseded by ADR-0004 for RDB provider selection. The control-plane MCP endpoin
 
 ## Context
 
-The MVP control plane is intended to run on Vercel. A local-only database would make the deployed control plane unable to persist tasks, runner sessions, structured events, results, and artifacts without extra tunneling.
+The MVP control plane is intended to run on Vercel. A local-only database would make the deployed control plane unable to persist jobs, runner sessions, structured events, results, and artifacts without extra tunneling.
 
-Mystra also needs to be controlled by agents through MCP. Running a separate MCP bridge would add another deployment and authentication surface before the core task lifecycle is proven.
+Mystra also needs to be controlled by agents through MCP. Running a separate MCP bridge would add another deployment and authentication surface before the core job lifecycle is proven.
 
 ## Decision
 
@@ -18,7 +18,7 @@ Expose Mystra's MCP surface from `apps/control-plane` using official Streamable 
 
 Use a shared runner registration token for private runner enrollment. After registration, the control plane issues a runner session token for polling, structured event writes, and result submission.
 
-The MVP does not add control-plane caller authentication, callback URLs, retry tools, or log tools. The exposed MCP tools are limited to task creation, task inspection, cancellation, and runner listing.
+The MVP does not add control-plane caller authentication, callback URLs, retry tools, or log tools. The exposed MCP tools are limited to job creation, job inspection, cancellation, and runner listing.
 
 ## Consequences
 
@@ -41,7 +41,7 @@ Negative:
 
 The decision is validated when:
 
-1. `apps/control-plane` can create a task through HTTP and Streamable HTTP MCP endpoints against the configured `RdbProvider`.
+1. `apps/control-plane` can create a job through HTTP and Streamable HTTP MCP endpoints against the configured `RdbProvider`.
 2. A runner can register with `RUNNER_REGISTRATION_TOKEN`.
 3. The runner can poll, append structured events, and submit a result using its issued session token.
 4. No separate MCP bridge is required for the MVP control path.

@@ -11,7 +11,7 @@ describe("runEventSchema", () => {
   it("accepts structured events without raw log offsets", () => {
     const parsed = runEventSchema.parse({
       runId: "550e8400-e29b-41d4-a716-446655440000",
-      taskId: "550e8400-e29b-41d4-a716-446655440001",
+      jobId: "550e8400-e29b-41d4-a716-446655440001",
       timestamp: "2026-04-30T00:00:00.000Z",
       type: "container.started",
       severity: "info",
@@ -26,7 +26,7 @@ describe("runEventSchema", () => {
     expect(() =>
       runEventSchema.parse({
         runId: "550e8400-e29b-41d4-a716-446655440000",
-        taskId: "550e8400-e29b-41d4-a716-446655440001",
+        jobId: "550e8400-e29b-41d4-a716-446655440001",
         timestamp: "2026-04-30T00:00:00.000Z",
         type: "agent.log",
         severity: "info",
@@ -38,7 +38,7 @@ describe("runEventSchema", () => {
   it("accepts deterministic quality-gate lifecycle events", () => {
     const parsed = runEventSchema.parse({
       runId: "550e8400-e29b-41d4-a716-446655440000",
-      taskId: "550e8400-e29b-41d4-a716-446655440001",
+      jobId: "550e8400-e29b-41d4-a716-446655440001",
       timestamp: "2026-04-30T00:00:00.000Z",
       type: "quality_gate.failed",
       severity: "error",
@@ -54,7 +54,7 @@ describe("runEventSchema", () => {
   it("accepts workflow node lifecycle events with structured node metadata", () => {
     const parsed = runEventSchema.parse({
       runId: "550e8400-e29b-41d4-a716-446655440000",
-      taskId: "550e8400-e29b-41d4-a716-446655440001",
+      jobId: "550e8400-e29b-41d4-a716-446655440001",
       timestamp: "2026-04-30T00:00:00.000Z",
       type: "workflow.node.failed",
       severity: "error",
@@ -76,7 +76,7 @@ describe("runEventSchema", () => {
   it("accepts provider-neutral review creation events", () => {
     const parsed = runEventSchema.parse({
       runId: "550e8400-e29b-41d4-a716-446655440000",
-      taskId: "550e8400-e29b-41d4-a716-446655440001",
+      jobId: "550e8400-e29b-41d4-a716-446655440001",
       timestamp: "2026-04-30T00:00:00.000Z",
       type: "review.created",
       severity: "info",
@@ -97,7 +97,7 @@ describe("runEventSchema", () => {
 
   it("exports control-plane handoff and terminal event vocabularies from the shared lifecycle schema", () => {
     expect(controlPlaneLifecycleHandoffEventTypes.map((type) => runEventTypeSchema.parse(type))).toEqual([
-      "task.created",
+      "job.created",
       "run.queued",
       "run.assigned",
     ]);

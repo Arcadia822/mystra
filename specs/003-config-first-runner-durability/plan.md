@@ -68,11 +68,11 @@ apps/control-plane/
 ├── app/api/runner/
 │   ├── register/route.ts   # registration accepts config-derived capability fields
 │   ├── heartbeat/route.ts  # heartbeat remains thin durable observation
-│   └── tasks/
+│   └── jobs/
 │       ├── route.ts        # claim remains pull-based and eligibility-bound
 │       ├── [id]/events/route.ts
 │       └── [id]/result/route.ts
-├── app/api/tasks/[id]/cancel/route.ts
+├── app/api/jobs/[id]/cancel/route.ts
 ├── app/api/routes.test.ts
 └── src/lib/db/
     ├── rdb-provider.ts
@@ -89,7 +89,7 @@ desired-state, and observation contracts live in `packages/shared/src/schemas.ts
 Durable ownership remains in `RdbProvider` and `SqliteRdbProvider`. Runner-local
 behavior stays in
 `apps/runner-daemon/src/index.ts`, where the current `readConfig -> register ->
-heartbeat -> claim -> executeTask` loop already exists. No new scheduler package
+heartbeat -> claim -> executeJob` loop already exists. No new scheduler package
 or worker orchestration service is introduced.
 
 ## Phase 0 Research Summary
@@ -153,8 +153,8 @@ implementing provider or runner tasks.
   GitNexus found it in `apps/control-plane/src/lib/db/sqlite-provider.ts` and
   connected it to provider tests plus execution flows such as `ClaimNextRun -> Now`.
 - Existing runner daemon `main` calls `readConfig`, `register`, heartbeat,
-  claim, and `executeTask`; this is already the correct headless loop shape.
-- API impact for `/api/runner/tasks` is LOW with no detected frontend consumers,
+  claim, and `executeJob`; this is already the correct headless loop shape.
+- API impact for `/api/runner/jobs` is LOW with no detected frontend consumers,
   but it affects runner route flows and must still be covered by route tests.
 - Direct source inspection confirmed current cancellation immediately
   transitions to `canceled` and decrements runner capacity if assigned; this
