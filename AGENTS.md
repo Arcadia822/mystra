@@ -170,14 +170,12 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (3558 symbols, 5753 relationships, 194 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
 ## Always Do
 
-- Use the repo-local LSP (`pnpm lsp:typescript`) for TypeScript symbol-local
-  work such as definitions, references, diagnostics, and rename preparation.
 - **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
 - **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
@@ -186,8 +184,6 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 
 ## Never Do
 
-- NEVER treat LSP-only navigation as a substitute for required GitNexus impact
-  analysis.
 - NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
 - NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
