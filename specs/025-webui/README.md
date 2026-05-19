@@ -94,7 +94,7 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 - Runner pool：注册状态、capacity、stale window、eligible projects/providers。
 - Sandbox provider：当前单机 Docker，未来可替换 provider。
 - Management surfaces：API truth、Skill/MCP、CLI、UI 的启用状态。
-- Theme/appearance：沿用 `011-control-plane-design-system` 的 token mood。
+- Theme/appearance：沿用 `023-control-plane-design-system` 的 token mood。
 - Trust boundary：MVP 为 private ops surface，caller auth 不在 MVP。
 
 ## 演示顺序
@@ -119,7 +119,7 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 
 ## 生成截图
 
-截图位于 `specs/webui/screenshots/`：
+截图位于 `specs/025-webui/screenshots/`：
 
 - [01-overview.png](screenshots/01-overview.png)
 - [02-new-work-intake.png](screenshots/02-new-work-intake.png)
@@ -133,7 +133,7 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 ```sh
 NODE_PATH=/Users/arcadia/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules \
 /Users/arcadia/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node \
-specs/webui/mockups/render-mockups.cjs
+specs/025-webui/mockups/render-mockups.cjs
 ```
 
 视觉复查记录位于 [VISION_CHECK.md](VISION_CHECK.md)。

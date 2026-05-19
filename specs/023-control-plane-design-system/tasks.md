@@ -1,12 +1,12 @@
 # Tasks: Control-Plane Design System
 
-**Input**: Design documents from `/specs/011-control-plane-design-system/`
+**Input**: Design documents from `/specs/023-control-plane-design-system/`
 **Prerequisites**: `plan.md`, `spec.md`
 
 ## Phase 1: Foundations
 
-- [x] T001 Define Codex-inspired design goals and theme-system constraints in `specs/011-control-plane-design-system/spec.md`
-- [x] T002 Define implementation scope and verification path in `specs/011-control-plane-design-system/plan.md`
+- [x] T001 Define Codex-inspired design goals and theme-system constraints in `specs/023-control-plane-design-system/spec.md`
+- [x] T002 Define implementation scope and verification path in `specs/023-control-plane-design-system/plan.md`
 
 ## Phase 2: Theme System
 
@@ -27,5 +27,5 @@
 
 ## Phase 5: Documentation Hardening
 
-- [x] T011 [US3] Expand `specs/011-control-plane-design-system/spec.md` into a global Mystra design-system reference
-- [x] T012 [US3] Expand `specs/011-control-plane-design-system/plan.md` with theme contract, token families, component boundary, and adoption rules
+- [x] T011 [US3] Expand `specs/023-control-plane-design-system/spec.md` into a global Mystra design-system reference
+- [x] T012 [US3] Expand `specs/023-control-plane-design-system/plan.md` with theme contract, token families, component boundary, and adoption rules

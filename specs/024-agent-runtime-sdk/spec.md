@@ -1,6 +1,6 @@
 # Feature Specification: Agent Runtime SDK
 
-**Feature Branch**: `016-agent-runtime-sdk`  
+**Feature Branch**: `024-agent-runtime-sdk`  
 **Created**: 2026-05-15  
 **Status**: Draft  
 **Dependency Note**: Build after `014-management-api-truth`. This feature defines the default typed agent runtime layer for OpenClaw and similar coordinators. It should consume the canonical management API rather than creating a competing surface.

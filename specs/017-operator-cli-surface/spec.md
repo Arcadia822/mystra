@@ -3,7 +3,7 @@
 **Feature Branch**: `017-operator-cli-surface`  
 **Created**: 2026-05-15  
 **Status**: Draft  
-**Dependency Note**: Build after `014-management-api-truth` and in parallel with `016-agent-runtime-sdk` where practical. This feature defines the shell-first operator surface for the Debian-hosted deployment.
+**Dependency Note**: Build after `014-management-api-truth` and in parallel with `024-agent-runtime-sdk` where practical. This feature defines the shell-first operator surface for the Debian-hosted deployment.
 **Input**: User description: "Mystra should expose an operator CLI surface for Debian-server workflows so project inspection, run inspection, and result retrieval do not depend on the web UI."
 
 ## User Scenarios & Testing *(mandatory)*

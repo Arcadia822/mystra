@@ -1,7 +1,7 @@
 # Implementation Plan: Control-Plane Design System
 
-**Branch**: `[011-control-plane-design-system]` | **Date**: 2026-05-15 | **Spec**: `specs/011-control-plane-design-system/spec.md`
-**Input**: Feature specification from `/specs/011-control-plane-design-system/spec.md`
+**Branch**: `[023-control-plane-design-system]` | **Date**: 2026-05-15 | **Spec**: `specs/023-control-plane-design-system/spec.md`
+**Input**: Feature specification from `/specs/023-control-plane-design-system/spec.md`
 
 ## Summary
 
@@ -32,7 +32,7 @@ Define a global Mystra design system, documented from the Codex-inspired referen
 ### Documentation (this feature)
 
 ```text
-specs/011-control-plane-design-system/
+specs/023-control-plane-design-system/
 ├── spec.md
 ├── plan.md
 └── tasks.md

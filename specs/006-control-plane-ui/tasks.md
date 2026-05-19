@@ -5,12 +5,12 @@
 
 **Tests**: Use existing `apps/control-plane` test/build/typecheck commands for any revived implementation work.
 
-**Organization**: Retroactive status backfill. The original UI optimization scope largely landed in `apps/control-plane/app/`, while later visual-system work moved under `011-control-plane-design-system`. This feature is now closed at prototype scope; queue filtering and companion-skill discovery UI are intentionally excluded from 006 completion.
+**Organization**: Retroactive status backfill. The original UI optimization scope largely landed in `apps/control-plane/app/`, while later visual-system work moved under `023-control-plane-design-system`. This feature is now closed at prototype scope; queue filtering and companion-skill discovery UI are intentionally excluded from 006 completion.
 
 ## Phase 1: Retroactive Scope Reconciliation
 
 - [x] T001 Re-audit the current dashboard in `apps/control-plane/app/page.tsx`, `layout.tsx`, and `globals.css` against `spec.md`.
-- [x] T002 Reconcile this feature with later control-plane design-system work under `specs/011-control-plane-design-system/`, treating 011 as the visual-system follow-on rather than a replacement for operator workflow surfaces.
+- [x] T002 Reconcile this feature with later control-plane design-system work under `specs/023-control-plane-design-system/`, treating 023 as the visual-system follow-on rather than a replacement for operator workflow surfaces.
 - [x] T003 Refresh the retroactive Spec Kit notes so this feature records the shipped dashboard scope instead of a placeholder-only plan.
 
 ## Phase 2: Operator Health and Job Visibility
@@ -25,7 +25,7 @@
 
 ## Phase 4: Closure
 
-- [x] T008 Record that remaining UI-only visual refinements now live under `011-control-plane-design-system`, and that deeper queue/discovery ergonomics are follow-on scope rather than part of the 006 prototype.
+- [x] T008 Record that remaining UI-only visual refinements now live under `023-control-plane-design-system`, and that deeper queue/discovery ergonomics are follow-on scope rather than part of the 006 prototype.
 - [x] T009 Validate the current dashboard against existing control-plane checks:
       `pnpm --filter @mystra/control-plane typecheck`,
       `pnpm --filter @mystra/control-plane test`,

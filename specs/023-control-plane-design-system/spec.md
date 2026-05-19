@@ -1,6 +1,6 @@
 # Feature Specification: Control-Plane Design System
 
-**Feature Branch**: `[011-control-plane-design-system]`  
+**Feature Branch**: `[023-control-plane-design-system]`  
 **Created**: 2026-05-15  
 **Status**: Implemented; closure verified
 **Input**: User description: "参考现有设计参考来做；学习 Codex 的主题、布局和风格，构建本项目的设计系统。颜色不必照抄，但要准备一套主题系统。"
