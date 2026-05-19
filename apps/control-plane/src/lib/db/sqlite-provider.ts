@@ -40,6 +40,7 @@ import {
 } from "@mystra/shared";
 
 import { sqliteMigrations } from "./migrations";
+import { projectCoordinationRunSummary } from "../coordination-run-summary";
 import { resolveRuntimeContract } from "../runtime/resolve-runtime";
 import type {
   JobRecord,
@@ -712,6 +713,20 @@ export class SqliteRdbProvider implements RdbProvider {
       return undefined;
     }
     return this.snapshotFromJobRow(row);
+  }
+
+  getJobSummary(jobId: string) {
+    const snapshot = this.getJob(jobId);
+    if (!snapshot) {
+      return undefined;
+    }
+
+    return projectCoordinationRunSummary({
+      job: snapshot.job,
+      run: snapshot.run,
+      recentEvents: snapshot.events,
+      ...(snapshot.project?.slug ? { projectSlug: snapshot.project.slug } : {}),
+    });
   }
 
   getJobByRunId(runId: string): JobSnapshot | undefined {

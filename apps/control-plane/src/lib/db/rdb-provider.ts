@@ -1,6 +1,7 @@
 import type {
   CancelJobOutcome,
   CancellationRequestMetadata,
+  CoordinationRunSummary,
   ContextBundle,
   ContextBundleCreate,
   JobSpec,
@@ -94,6 +95,7 @@ export interface RdbProvider {
 
   createJob(input: unknown): JobSnapshot;
   getJob(id: string): JobSnapshot | undefined;
+  getJobSummary(id: string): CoordinationRunSummary | undefined;
   getJobByRunId(runId: string): JobSnapshot | undefined;
   listJobs(): JobSnapshot[];
   cancelJob(id: string): CancelJobOutcome & { snapshot: JobSnapshot };

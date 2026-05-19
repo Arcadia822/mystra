@@ -1,5 +1,7 @@
 export * from "./cache.js";
+export * from "./coordination-run-summary.js";
 export * from "./events.js";
+export * from "./management.js";
 export * from "./repository.js";
 export * from "./result.js";
 export * from "./sandbox.js";
