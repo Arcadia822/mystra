@@ -31,7 +31,7 @@ The current product boundary is Open Agents source-authoritative baseline reuse 
    - `specs/<feature>/`
 4. Update 5xP files only when a durable project rule changes.
    - A durable rule now in force: treat Open Agents as a source-authoritative framework baseline and reference architecture, not as a packaged SDK with complete extension interfaces for Mystra surfaces.
-   - Another durable rule now in force: prefer neutral platform language such as `Mystra platform`, `workspace`, and `project` over company/customer-specific tenancy terms in project-wide docs and specs.
+   - Another durable rule now in force: prefer neutral platform language such as `Mystra platform`, `Team`, and `project`, and reserve `workspace` for the run-scoped working directory / execution-context surface rather than using it as a tenancy synonym.
    - Another durable rule now in force: avoid overfitting 5xP to one example deployment shape; prefer platform-contract language over environment-specific examples such as bare-metal host descriptions.
    - Another durable rule now in force: prioritize management surfaces in the order `API -> skill/MCP -> CLI -> UI`; UI is secondary to agent- and operator-facing programmable interfaces.
 5. Keep feature-specific requirements inside Spec-Kit specs, plans, tasks, and generated design artifacts.

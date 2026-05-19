@@ -14,7 +14,7 @@ Mystra should remain a **headless orchestration control plane** with pull-based 
 
 Mystra's long-term operating model is a hosted **Mystra platform** that accepts
 many independent software development streams at once. The neutral tenancy term
-is **workspace**: a workspace can hold multiple projects, each with its own
+is **Team**: a Team can hold multiple projects, each with its own
 workflow variant, runtime image, product route, user stories, and acceptance
 criteria.
 
@@ -26,7 +26,7 @@ The intended shape is:
 
 ```text
 Mystra platform
-  -> workspace
+  -> Team
     -> project
       -> product route / user stories / acceptance criteria
       -> workflow variant derived from shared platform primitives
@@ -48,7 +48,7 @@ operate without durable run state at all.
 - Internal platform operators who provision and observe runners.
 - Internal engineers or agents that submit coding tasks through HTTP or Mystra remote MCP.
 - Reviewers who inspect the produced repository artifacts.
-- Future hosted operators who manage many workspaces and project lanes on the same Mystra platform.
+- Future hosted operators who manage many Teams and project lanes on the same Mystra platform.
 
 Mystra is not a public multi-tenant product in the MVP.
 
@@ -63,7 +63,7 @@ In scope for the MVP:
 - Pull-based runner daemon over outbound long polling.
 - Sandbox task execution on the runner host.
 - Project-owned runtime configuration for Docker image, context bundles, mounts, ports, caches, and secret references.
-- Shared platform-owned sandbox provider capacity that can be allocated across multiple workspaces and projects.
+- Shared platform-owned sandbox provider capacity that can be allocated across multiple Teams and projects.
 - Agent execution through provider adapters.
 - Repository artifact delivery through repository providers.
 - Remote MCP server entrypoint for other agents and skills to submit user journeys and implementation requests.
@@ -98,7 +98,7 @@ Explicitly out of scope for the MVP:
 - Project, runtime, and template inputs can grow declarative over time, but runners execute against resolved contracts rather than repeatedly consulting mutable config during the hot path.
 - Other agents and skills can send work through Mystra remote MCP without needing direct runner or sandbox access.
 - Documentation remains good enough for future agents to continue work from repository artifacts alone.
-- The architecture can evolve from one local project path toward many workspace/project lanes without rewriting core product contracts.
+- The architecture can evolve from one local project path toward many Team/project lanes without rewriting core product contracts.
 - The system can keep durable execution truth while still moving toward a shared-nothing scaling model that minimizes shared mutable hot-path state.
 
 ## Source Documents

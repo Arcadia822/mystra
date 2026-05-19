@@ -36,11 +36,11 @@ supabase              Migrations, seed, generated database types
 ## North Star Topology
 
 Mystra should be designed as a hosted **Mystra platform** that can serve many
-independent workstreams at once. The neutral tenancy unit is **workspace**.
+independent workstreams at once. The neutral tenancy unit is **Team**.
 
 ```text
 Mystra platform
-  -> workspace
+  -> Team
     -> project
       -> workflow variant
       -> runtime image / execution contract
@@ -48,7 +48,7 @@ Mystra platform
 ```
 
 MVP may implement only one concrete local path, but contracts should preserve
-room for workspace-scoped defaults, project-scoped overrides, and shared
+room for Team-scoped defaults, project-scoped overrides, and shared
 platform resource pools.
 
 ## Important Commands
@@ -99,8 +99,8 @@ pnpm lsp:typescript
 - `Project.runtime.image` is the first-version Docker image contract; there is no top-level `Project.image` compatibility field.
 - `JobSpec` carries task identity and optional policy-limited runtime overrides, not platform capabilities.
 - Runner claim responses include a resolved runtime contract; runner daemons execute that contract instead of independently interpreting Project fields.
-- Platform resource pools such as `SandboxProvider` capacity should remain platform-owned and allocatable across many workspaces and projects rather than being modeled as project-private infrastructure.
-- Workflow contracts should support a shared base plus workspace/project-specific variants instead of assuming one global hardcoded lifecycle forever.
+- Platform resource pools such as `SandboxProvider` capacity should remain platform-owned and allocatable across many Teams and projects rather than being modeled as project-private infrastructure.
+- Workflow contracts should support a shared base plus Team/project-specific variants instead of assuming one global hardcoded lifecycle forever.
 - Local development may use one machine, but the contract should still read like infrastructure that can scale into shared-nothing control-plane/worker topologies later.
 - Project, runtime, and template inputs may be declared centrally, but job submission or assignment should resolve them into immutable workflow/runtime contracts before runner execution starts.
 - Shared-nothing is a scaling direction for hot-path coordination, not a claim that Mystra can operate without durable state for jobs, runs, events, results, and artifacts.
@@ -133,9 +133,10 @@ This also means Mystra is better described as a headless control-plane-and-runne
 ## Tenancy And Resource Direction
 
 - **Mystra platform** owns shared providers, control-plane policy, and resource pools.
-- **Workspace** is the neutral coordination scope for groups of projects and product inputs.
+- **Team** is the tenancy and coordination scope for groups of projects and product inputs.
 - **Project** owns repository identity, default runtime contract, and workflow customization inputs.
-- **Run-time allocation** should allow one shared sandbox provider pool to serve many workspaces and projects safely.
+- **Workspace** is the run-scoped working directory and execution-context surface prepared for one run.
+- **Run-time allocation** should allow one shared sandbox provider pool to serve many Teams and projects safely.
 
 ## Runner Host Facts
 

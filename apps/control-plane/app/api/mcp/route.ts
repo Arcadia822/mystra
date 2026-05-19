@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  coordinationRunSummaryPayloadSchema,
   cancellationRequestMetadataSchema,
   contextBundleSchema,
   contextBundleCreateSchema,
@@ -438,6 +439,17 @@ export async function POST(request: Request) {
             },
           },
           {
+            name: "mystra_get_job_summary",
+            description: "Get the compact coordination summary for a local Mystra job.",
+            inputSchema: {
+              type: "object",
+              required: ["jobId"],
+              properties: {
+                jobId: { type: "string" },
+              },
+            },
+          },
+          {
             name: "mystra_cancel_job",
             description: "Cancel a local Mystra job.",
             inputSchema: {
@@ -532,6 +544,19 @@ export async function POST(request: Request) {
         const jobId = z.string().parse(call.arguments.jobId);
         const snapshot = db.getJob(jobId);
         return jsonRpc(rpc.id, textToolResult(snapshot ? jobSnapshotSchema.parse(snapshot) : { error: "job_not_found" }));
+      }
+
+      if (call.name === "mystra_get_job_summary") {
+        const jobId = z.string().parse(call.arguments.jobId);
+        const summary = db.getJobSummary(jobId);
+        return jsonRpc(
+          rpc.id,
+          textToolResult(
+            summary
+              ? coordinationRunSummaryPayloadSchema.parse({ summary })
+              : { error: "job_not_found" },
+          ),
+        );
       }
 
       if (call.name === "mystra_cancel_job") {

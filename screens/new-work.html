@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mystra · 新工作</title>
+  <style>
+    :root {
+      --bg: oklch(97.5% 0.005 106.5);
+      --rail: oklch(95.2% 0.006 106.2);
+      --surface: oklch(100% 0 89.9);
+      --surface-soft: oklch(98.8% 0.003 95);
+      --surface-tint: oklch(96.8% 0.009 258);
+      --fg: oklch(25.4% 0.011 254.0);
+      --muted: oklch(49.9% 0.013 149.7);
+      --subtle: oklch(63% 0.01 150);
+      --border: oklch(91.8% 0.011 95.2);
+      --border-strong: oklch(87.0% 0.014 93.0);
+      --accent: oklch(57.3% 0.199 261.8);
+      --accent-soft: oklch(96.2% 0.018 261.3);
+      --accent-strong: oklch(49% 0.18 261.8);
+      --success: oklch(64% 0.12 157);
+      --success-soft: oklch(96% 0.03 157);
+      --danger: oklch(61% 0.17 25);
+      --danger-soft: oklch(96% 0.03 25);
+      --shadow-1: 0 18px 50px color-mix(in oklch, var(--fg) 8%, transparent);
+      --shadow-2: 0 8px 28px color-mix(in oklch, var(--fg) 6%, transparent);
+      --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      color: var(--fg);
+      background:
+        radial-gradient(circle at top left, color-mix(in oklch, white 70%, transparent), transparent 26%),
+        var(--bg);
+    }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app {
+      min-height: 100vh;
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 24px 28px 36px;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 32px;
+    }
+    .rail {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      min-height: calc(100vh - 48px);
+      border-radius: 30px;
+      padding: 22px 18px;
+      background: color-mix(in oklch, var(--rail) 88%, transparent);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-1);
+      display: grid;
+      align-content: start;
+      gap: 22px;
+      backdrop-filter: blur(16px);
+    }
+    .eyebrow {
+      margin: 0;
+      font: 700 11px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--subtle);
+    }
+    .brand h1,
+    .topbar h2,
+    .canvas h3,
+    .composer h3,
+    .feedback h4,
+    .hint h4 {
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+    .brand p,
+    .navLink span,
+    .sectionCopy,
+    .meta,
+    .hint p,
+    .feedback p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+    .navLink {
+      display: grid;
+      gap: 4px;
+      padding: 13px 14px;
+      border-radius: 16px;
+      text-decoration: none;
+      color: var(--muted);
+      border: 1px solid transparent;
+      transition: 140ms ease;
+      transition-property: background, border-color, color;
+    }
+    .navLink:hover,
+    .navLink.active {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--fg);
+    }
+    .navLink strong { font-size: 14px; }
+    .laneList {
+      display: grid;
+      gap: 10px;
+    }
+    .lane {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .laneDot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--accent) 55%, var(--surface));
+      box-shadow: 0 0 0 6px color-mix(in oklch, var(--accent) 12%, transparent);
+    }
+    .content {
+      display: grid;
+      align-content: start;
+      gap: 22px;
+      padding-top: 4px;
+    }
+    .topbar {
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 4px;
+    }
+    .topbar h2 {
+      font-size: 34px;
+      line-height: 1.05;
+    }
+    .topActions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .ghostPill,
+    .statePill {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: color-mix(in oklch, var(--surface) 85%, transparent);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .shellCard {
+      border-radius: 30px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      box-shadow: var(--shadow-1);
+      backdrop-filter: blur(16px);
+      padding: 28px;
+    }
+    .canvas {
+      display: grid;
+      gap: 22px;
+    }
+    .intro {
+      display: grid;
+      gap: 10px;
+      max-width: 780px;
+    }
+    .intro h3 {
+      font-size: clamp(36px, 5vw, 58px);
+      line-height: 1.02;
+    }
+    .intro p {
+      margin: 0;
+      max-width: 62ch;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.6;
+    }
+    .frame {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .composer {
+      border-radius: 26px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-2);
+      padding: 24px;
+      display: grid;
+      gap: 20px;
+    }
+    .composerHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+    }
+    .composerHeader h3 {
+      font-size: 24px;
+      line-height: 1.15;
+    }
+    .composerHeader p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 54ch;
+      line-height: 1.55;
+    }
+    .miniBadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font: 600 12px/1 var(--font-mono);
+      white-space: nowrap;
+    }
+    .projectGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .projectCard {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface-soft);
+      padding: 16px;
+      text-align: left;
+      display: grid;
+      gap: 10px;
+      transition: 140ms ease;
+      transition-property: border-color, background, transform, box-shadow;
+    }
+    .projectCard:hover {
+      transform: translateY(-1px);
+      border-color: var(--border-strong);
+    }
+    .projectCard[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 16%, transparent);
+    }
+    .projectTop {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+    }
+    .projectName {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .projectSlug {
+      color: var(--muted);
+      font: 600 12px/1 var(--font-mono);
+    }
+    .projectMeta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: color-mix(in oklch, var(--surface) 82%, transparent);
+      font-size: 12px;
+    }
+    .field {
+      display: grid;
+      gap: 10px;
+    }
+    .fieldHead {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: baseline;
+    }
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .hintLine {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    textarea {
+      width: 100%;
+      min-height: 280px;
+      resize: vertical;
+      padding: 18px 18px 20px;
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--fg);
+      line-height: 1.65;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+    }
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 10%, transparent);
+      background: var(--surface);
+    }
+    .helperRow {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .inlineInfo {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .inlineInfo .tag {
+      background: transparent;
+    }
+    .footerRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      flex-wrap: wrap;
+      padding-top: 4px;
+    }
+    .footNote {
+      display: grid;
+      gap: 8px;
+      max-width: 520px;
+    }
+    .footNote strong {
+      font-size: 13px;
+      letter-spacing: -0.01em;
+    }
+    .footNote p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 16px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--fg);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      transition: 140ms ease;
+      transition-property: background, border-color, color, transform, opacity;
+    }
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+    .btn:disabled {
+      opacity: 0.52;
+      cursor: not-allowed;
+    }
+    .btnPrimary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .btnPrimary:hover:not(:disabled) {
+      background: var(--accent-strong);
+      border-color: var(--accent-strong);
+    }
+    .feedback,
+    .hint {
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 84%, transparent);
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+    }
+    .feedback h4,
+    .hint h4 {
+      font-size: 18px;
+      line-height: 1.18;
+    }
+    .feedbackList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .feedbackList li,
+    .hintList li {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .feedbackList strong,
+    .hintList strong {
+      color: var(--fg);
+      font-size: 13px;
+    }
+    .hintList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .stateReady {
+      color: var(--success);
+      background: var(--success-soft);
+      border-color: color-mix(in oklch, var(--success) 26%, transparent);
+    }
+    .stateBlocked {
+      color: var(--muted);
+    }
+    .alert {
+      display: none;
+      border-radius: 18px;
+      padding: 14px 16px;
+      border: 1px solid transparent;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .alert.show { display: block; }
+    .alert.error {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: color-mix(in oklch, var(--danger) 25%, transparent);
+    }
+    .alert.success {
+      background: var(--success-soft);
+      color: color-mix(in oklch, var(--success) 82%, black);
+      border-color: color-mix(in oklch, var(--success) 26%, transparent);
+    }
+    .summaryCard {
+      display: none;
+      border-radius: 22px;
+      border: 1px solid color-mix(in oklch, var(--success) 28%, transparent);
+      background: color-mix(in oklch, var(--success-soft) 72%, var(--surface));
+      padding: 18px;
+      gap: 14px;
+    }
+    .summaryCard.show {
+      display: grid;
+    }
+    .summaryGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .summaryGrid .cell {
+      border-radius: 16px;
+      border: 1px solid color-mix(in oklch, var(--success) 18%, transparent);
+      background: color-mix(in oklch, white 80%, transparent);
+      padding: 12px 13px;
+      display: grid;
+      gap: 6px;
+    }
+    .summaryGrid .cell span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .summaryGrid .cell strong {
+      font-size: 14px;
+      font-family: var(--font-mono);
+      letter-spacing: -0.01em;
+    }
+    @media (max-width: 1200px) {
+      .frame { grid-template-columns: 1fr; }
+      .feedback, .hint { order: 2; }
+    }
+    @media (max-width: 1080px) {
+      .app { grid-template-columns: 1fr; }
+      .rail { position: static; min-height: auto; }
+    }
+    @media (max-width: 760px) {
+      .app { padding: 16px; gap: 18px; }
+      .shellCard { padding: 18px; border-radius: 24px; }
+      .composer { padding: 18px; border-radius: 22px; }
+      .projectGrid { grid-template-columns: 1fr; }
+      .summaryGrid { grid-template-columns: 1fr; }
+      .topbar h2 { font-size: 28px; }
+      .intro h3 { font-size: 34px; }
+      textarea { min-height: 220px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail" aria-label="Mystra application shell">
+      <div class="brand">
+        <p class="eyebrow">Mystra / control plane</p>
+        <h1>Mystra</h1>
+        <p class="sectionCopy">Agent-first control plane for coding work.</p>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <a class="navLink" href="../index.html"><strong>Overview</strong><span>prototype launcher</span></a>
+        <a class="navLink active" href="new-work.html"><strong>新工作</strong><span>选择 project 并创建 task</span></a>
+        <a class="navLink" href="#"><strong>运行</strong><span>compact run summary</span></a>
+        <a class="navLink" href="#"><strong>项目</strong><span>lane + runtime contracts</span></a>
+        <a class="navLink" href="#"><strong>技能与 MCP</strong><span>agent entry surfaces</span></a>
+        <a class="navLink" href="#"><strong>配置</strong><span>runner pool + sandbox policy</span></a>
+      </nav>
+
+      <div>
+        <p class="eyebrow">Available projects</p>
+        <div class="laneList">
+          <div class="lane"><span class="laneDot"></span><span>`mystra` · control plane + workflow specs</span></div>
+          <div class="lane"><span class="laneDot"></span><span>`skrya` · eval digest + docs shaping</span></div>
+          <div class="lane"><span class="laneDot"></span><span>`managed-skills` · skill surface operations</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <h2>新工作</h2>
+        <div class="topActions">
+          <span class="ghostPill">private ops surface</span>
+          <span id="headerState" class="statePill stateBlocked">等待选择 project</span>
+        </div>
+      </header>
+
+      <section class="shellCard canvas" aria-labelledby="page-title" data-od-id="new-work-shell">
+        <div class="intro">
+          <p class="eyebrow">Task intake</p>
+          <h3 id="page-title">要让 Mystra 执行什么？</h3>
+          <p>把这一页收回到最小闭环：先选一个 project，再用自然语言交代目标、背景和验收条件。workflow、agent、repo、runtime 和 runner eligibility 都由服务端根据 project 默认配置推导，不在首屏要求用户判断。</p>
+        </div>
+
+        <div class="frame">
+          <form id="taskForm" class="composer" novalidate>
+            <div class="composerHeader">
+              <div>
+                <h3>创建 Mystra 任务</h3>
+                <p>提交后会创建 `task`，解析 project 默认 workflow，并把你送到对应的 run detail。没有弹层。没有执行预检。只是一次干净的交付入口。</p>
+              </div>
+              <div class="miniBadge">HTTP API truth</div>
+            </div>
+
+            <div class="field">
+              <div class="fieldHead">
+                <label>选择 project</label>
+                <span id="projectHint" class="hintLine">必选。提交范围决定后续 repo / workflow / runtime 推导。</span>
+              </div>
+              <div id="projectGrid" class="projectGrid" role="group" aria-label="Project selector">
+                <button type="button" class="projectCard" data-project="mystra">
+                  <div class="projectTop">
+                    <div>
+                      <div class="projectName">mystra</div>
+                      <div class="projectSlug">arcadia/mystra</div>
+                    </div>
+                    <span class="tag">default</span>
+                  </div>
+                  <div class="projectMeta">
+                    <span class="tag">control plane</span>
+                    <span class="tag">sqlite first</span>
+                    <span class="tag">runner daemon</span>
+                  </div>
+                </button>
+                <button type="button" class="projectCard" data-project="skrya">
+                  <div class="projectTop">
+                    <div>
+                      <div class="projectName">skrya</div>
+                      <div class="projectSlug">arcadia/skrya</div>
+                    </div>
+                    <span class="tag">editorial</span>
+                  </div>
+                  <div class="projectMeta">
+                    <span class="tag">digest protocol</span>
+                    <span class="tag">zh-CN docs</span>
+                  </div>
+                </button>
+                <button type="button" class="projectCard" data-project="managed-skills">
+                  <div class="projectTop">
+                    <div>
+                      <div class="projectName">managed-skills</div>
+                      <div class="projectSlug">arcadia/managed-skills</div>
+                    </div>
+                    <span class="tag">ops</span>
+                  </div>
+                  <div class="projectMeta">
+                    <span class="tag">skill packs</span>
+                    <span class="tag">surface policy</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="fieldHead">
+                <label for="prompt">工作描述</label>
+                <span id="countHint" class="hintLine">建议包含目标、上下文、验收标准或相关 spec/issue 路径。</span>
+              </div>
+              <textarea id="prompt" name="prompt" placeholder="例如：把 Overview 的 Toplist 改成带条形图的列表，并同步更新 specs/025-webui/overview-analytics.md 与截图说明。"></textarea>
+            </div>
+
+            <div class="helperRow">
+              <div class="inlineInfo">
+                <span class="tag">project required</span>
+                <span class="tag">natural-language prompt</span>
+                <span class="tag">server resolves workflow</span>
+              </div>
+              <span id="charCount" class="hintLine">0 字</span>
+            </div>
+
+            <div id="errorAlert" class="alert error" role="alert"></div>
+            <div id="successAlert" class="alert success" role="status"></div>
+
+            <div class="summaryCard" id="summaryCard" aria-live="polite">
+              <div>
+                <p class="eyebrow">Task created</p>
+                <h4>任务已经进入创建后的下一步……也就是 run detail。</h4>
+              </div>
+              <div class="summaryGrid">
+                <div class="cell"><span>project</span><strong id="summaryProject">mystra</strong></div>
+                <div class="cell"><span>task id</span><strong id="summaryTask">task_0000</strong></div>
+                <div class="cell"><span>run id</span><strong id="summaryRun">run_0000</strong></div>
+                <div class="cell"><span>payload</span><strong id="summaryPayload">project + prompt</strong></div>
+              </div>
+            </div>
+
+            <div class="footerRow">
+              <div class="footNote">
+                <strong>提交语义</strong>
+                <p id="payloadPreview">payload 只包含 `project` 与 `prompt`。resolved runtime contract、repo、base branch 与 development branch 会在服务端冻结，不在这里暴露成可编辑字段。</p>
+              </div>
+              <div class="actions">
+                <button type="button" class="btn" id="loadExample">填入 Mystra 示例</button>
+                <button type="submit" class="btn btnPrimary" id="submitBtn" disabled>创建任务</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="feedback" aria-label="Task state guidance">
+            <div>
+              <p class="eyebrow">First-screen contract</p>
+              <h4>为什么这里只剩两个动作</h4>
+              <p>因为用户不是来配置 runner 的。任何需要 project 默认配置、workflow contract 或 runtime image 才能推导出来的内容，都不该在首屏向用户索取。</p>
+            </div>
+            <ul class="feedbackList">
+              <li><strong>No project</strong><span>composer 可写，但提交不可用。页面明确提示先选 project。</span></li>
+              <li><strong>Ready</strong><span>project 已选且 prompt 非空，主按钮进入可提交状态。</span></li>
+              <li><strong>Creating</strong><span>按钮 loading，防止重复提交，同时保留文本内容。</span></li>
+              <li><strong>Created</strong><span>显示 task/run 摘要，并把下一步动作指向 run detail。</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <aside class="hint" data-od-id="new-work-deferred-config">
+          <div>
+            <p class="eyebrow">Resolved later</p>
+            <h4>这些配置不会进入首屏</h4>
+            <p>它们仍然存在，只是被正确地推迟到服务端解析与 run detail 查看阶段。</p>
+          </div>
+          <ul class="hintList">
+            <li><strong>workflow</strong><span>由 project default workflow 解析，不在这里下拉选择。</span></li>
+            <li><strong>agent</strong><span>来自 workflow agent config，不让用户在首屏做多余判断。</span></li>
+            <li><strong>repo / base branch</strong><span>取自 project lane 事实，不拆成单独配置表单。</span></li>
+            <li><strong>runtime / runner</strong><span>由 control plane 解析 eligible capability，不做预检面板。</span></li>
+          </ul>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const PROJECTS = {
+      "mystra": {
+        prompt: "把 Overview 的 Toplist 改成带条形图的列表，并同步更新 specs/025-webui/overview-analytics.md 与截图说明。",
+        route: "/runs?project=mystra"
+      },
+      "skrya": {
+        prompt: "整理本周 eval digest 模板，保留 agent-facing reference product 对比，并更新 README.zh-CN.md 的示例段落。",
+        route: "/runs?project=skrya"
+      },
+      "managed-skills": {
+        prompt: "梳理 skill pack 暴露面，收窄默认可见技能，并补一份 allowlist-first 的维护说明。",
+        route: "/runs?project=managed-skills"
+      }
+    };
+
+    const taskForm = document.getElementById("taskForm");
+    const projectButtons = Array.from(document.querySelectorAll(".projectCard"));
+    const promptField = document.getElementById("prompt");
+    const submitBtn = document.getElementById("submitBtn");
+    const loadExampleBtn = document.getElementById("loadExample");
+    const projectHint = document.getElementById("projectHint");
+    const payloadPreview = document.getElementById("payloadPreview");
+    const countHint = document.getElementById("countHint");
+    const charCount = document.getElementById("charCount");
+    const headerState = document.getElementById("headerState");
+    const errorAlert = document.getElementById("errorAlert");
+    const successAlert = document.getElementById("successAlert");
+    const summaryCard = document.getElementById("summaryCard");
+    const summaryProject = document.getElementById("summaryProject");
+    const summaryTask = document.getElementById("summaryTask");
+    const summaryRun = document.getElementById("summaryRun");
+    const summaryPayload = document.getElementById("summaryPayload");
+
+    let selectedProject = "";
+    let isCreating = false;
+    let createdRoute = "";
+
+    function setHeaderState(label, ready) {
+      headerState.textContent = label;
+      headerState.classList.toggle("stateReady", ready);
+      headerState.classList.toggle("stateBlocked", !ready);
+    }
+
+    function hideAlerts() {
+      errorAlert.className = "alert error";
+      errorAlert.textContent = "";
+      successAlert.className = "alert success";
+      successAlert.textContent = "";
+    }
+
+    function updatePayloadPreview() {
+      if (!selectedProject) {
+        payloadPreview.textContent = "payload 只包含 `project` 与 `prompt`。先选择一个 project，系统才会冻结后续运行合同。";
+        return;
+      }
+      payloadPreview.textContent = `提交体将类似 { project: "${selectedProject}", prompt: "..." }，其余运行配置从 ${selectedProject} 的默认 lane 设置推导。`;
+    }
+
+    function validate() {
+      const hasProject = Boolean(selectedProject);
+      const promptValue = promptField.value.trim();
+      const ready = hasProject && promptValue.length > 0 && !isCreating;
+
+      submitBtn.disabled = !ready;
+      charCount.textContent = `${promptField.value.length} 字`;
+      countHint.textContent = hasProject
+        ? "可直接粘贴 spec 路径、验收标准、相关 issue 或链接。"
+        : "先选 project；未选择时不会创建 task。";
+      projectHint.textContent = hasProject
+        ? `${selectedProject} 已选中。workflow / repo / runtime 将在服务端解析。`
+        : "必选。提交范围决定后续 repo / workflow / runtime 推导。";
+      setHeaderState(
+        isCreating
+          ? "正在创建 task…"
+          : ready
+            ? "可以创建任务"
+            : hasProject
+              ? "等待填写工作描述"
+              : "等待选择 project",
+        ready || isCreating
+      );
+      updatePayloadPreview();
+    }
+
+    function resetSubmitButton() {
+      submitBtn.textContent = "创建任务";
+      submitBtn.type = "submit";
+      submitBtn.onclick = null;
+      createdRoute = "";
+    }
+
+    projectButtons.forEach((button) => {
+      button.setAttribute("aria-pressed", "false");
+      button.addEventListener("click", () => {
+        selectedProject = button.dataset.project || "";
+        projectButtons.forEach((candidate) => {
+          candidate.setAttribute("aria-pressed", String(candidate === button));
+        });
+        hideAlerts();
+        summaryCard.classList.remove("show");
+        resetSubmitButton();
+        validate();
+      });
+    });
+
+    promptField.addEventListener("input", () => {
+      hideAlerts();
+      summaryCard.classList.remove("show");
+      resetSubmitButton();
+      validate();
+    });
+
+    loadExampleBtn.addEventListener("click", () => {
+      if (!selectedProject) {
+        errorAlert.textContent = "先选择一个 project，示例才知道该沿哪条 lane 继续。";
+        errorAlert.classList.add("show");
+        return;
+      }
+      promptField.value = PROJECTS[selectedProject].prompt;
+      promptField.focus();
+      hideAlerts();
+      validate();
+    });
+
+    taskForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      hideAlerts();
+
+      const promptValue = promptField.value.trim();
+      if (!selectedProject) {
+        errorAlert.textContent = "还没有 project。此结果在此类尝试的预期范围之内。";
+        errorAlert.classList.add("show");
+        validate();
+        return;
+      }
+      if (!promptValue) {
+        errorAlert.textContent = "工作描述为空。Mystra 目前还不能从沉默中稳定推导目标。";
+        errorAlert.classList.add("show");
+        validate();
+        return;
+      }
+
+      isCreating = true;
+      submitBtn.textContent = "创建中…";
+      validate();
+
+      window.setTimeout(() => {
+        isCreating = false;
+        const suffix = Date.now().toString().slice(-6);
+        const taskId = `task_${suffix}`;
+        const runId = `run_${suffix}`;
+        createdRoute = PROJECTS[selectedProject].route;
+
+        successAlert.textContent = `已创建 ${taskId}，下一步将进入 run detail，并从 ${selectedProject} 的默认配置冻结执行输入。`;
+        successAlert.classList.add("show");
+        summaryProject.textContent = selectedProject;
+        summaryTask.textContent = taskId;
+        summaryRun.textContent = runId;
+        summaryPayload.textContent = `project + prompt (${promptValue.length} chars)`;
+        summaryCard.classList.add("show");
+        submitBtn.textContent = "查看 Run Detail";
+        submitBtn.type = "button";
+        submitBtn.disabled = false;
+        submitBtn.onclick = () => {
+          if (createdRoute) {
+            window.location.href = createdRoute;
+          }
+        };
+        setHeaderState("任务已创建", true);
+      }, 900);
+    });
+
+    validate();
+  </script>
+</body>
+</html>

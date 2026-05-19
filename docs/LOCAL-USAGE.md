@@ -2,6 +2,18 @@
 
 This is the fastest path for exercising Mystra's current MVP surfaces locally and on the development machine.
 
+## Management Surface Hierarchy
+
+Use the management surfaces in this order when more than one path exists:
+
+| Surface | Current role |
+|---|---|
+| HTTP API | Canonical product and operator truth |
+| Local skills | Default agent-facing policy layer over the API |
+| CLI | Shell-first operator surface over the API |
+| MCP | Transport adapter and integration boundary |
+| UI | Secondary inspection / explainer surface |
+
 ## Start the control plane
 
 ```sh
@@ -121,6 +133,13 @@ Useful things to look for:
 - `run.state` tells you whether the run is still queued, active, or terminal
 - `events[]` tells you which lifecycle step was last observed
 - `run.result` carries MR/PR metadata, quality-gate summary, and failure details
+
+For the compact coordination-friendly summary surface:
+
+```sh
+pnpm job:status -- --job-id <job-id>
+pnpm job:status -- --job-id <job-id> --wait
+```
 
 For retained preview containers:
 

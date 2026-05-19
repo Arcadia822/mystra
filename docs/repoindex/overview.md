@@ -17,7 +17,7 @@ Mystra is a self-use coding-agent orchestration platform. Its current MVP lets i
 
 Architecturally, Mystra is a **headless control-plane-and-runner system**. It is closer to Jenkins / Salt / Nomad than to a pure file-driven local tool: the product may use more declarative project/runtime/template inputs over time, but it still needs durable execution truth for jobs, runs, events, and artifacts.
 
-The near-term goal is one self-use, local-first path that works end to end. The north-star direction is a hosted **Mystra platform** serving many **workspaces** and **projects** without rewriting core contracts, with a developer experience similar in spirit to Stripe Minion.
+The near-term goal is one self-use, local-first path that works end to end. The north-star direction is a hosted **Mystra platform** serving many **Teams** and **projects** without rewriting core contracts, with a developer experience similar in spirit to Stripe Minion.
 
 The deployment path should stay **single-node first** and later expand into a **shared-nothing clustered** form where practical. In this repository, shared-nothing refers to minimizing shared mutable hot-path state, not to eliminating durable state entirely.
 
@@ -141,10 +141,12 @@ pnpm preview -- quality mystra-<run-id>
 
 ### Spec-Kit
 
-`specs/spec-status.md` currently shows all listed features as complete:
+`specs/spec-status.md` is the source of truth for current Spec-Kit completion
+state:
 
-- 001 through 012 are marked complete in the current status artifact
-- the tracked feature set is fully backfilled into Spec-Kit format
+- 001 through 024 are currently reconciled into Spec-Kit with spec artifacts
+- 025-webui currently has a spec and requirements checklist, and still needs
+  `plan.md` and `tasks.md`
 
 ### GitNexus
 
@@ -153,7 +155,7 @@ GitNexus was refreshed before this overview, and the current repository graph wa
 ## Important constraints
 
 - `Project.runtime.image` is the runtime image contract; there is no top-level compatibility `Project.image` field.
-- `JobSpec` carries task identity and limited runtime overrides, not platform capability declarations.
+- `JobSpec` carries job identity and limited runtime overrides, not platform capability declarations.
 - Runner claim responses return a resolved runtime contract, and the runner executes that contract rather than independently interpreting Project state.
 - Sandbox task environments must not receive platform-breaking host access.
 - Secrets must be injected at runtime through env vars or read-only files.

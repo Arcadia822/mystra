@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mystra Web UI Prototype Launcher</title>
+  <style>
+    :root {
+      --bg: oklch(97.5% 0.005 106.5);
+      --surface: oklch(100% 0 89.9);
+      --surface-soft: oklch(98.8% 0.003 95);
+      --fg: oklch(25.4% 0.011 254.0);
+      --muted: oklch(49.9% 0.013 149.7);
+      --border: oklch(91.8% 0.011 95.2);
+      --border-strong: oklch(87.0% 0.014 93.0);
+      --accent: oklch(57.3% 0.199 261.8);
+      --accent-soft: oklch(96.2% 0.018 261.3);
+      --success: oklch(64% 0.12 157);
+      --warning: oklch(71% 0.13 82);
+      --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --shadow: 0 16px 48px color-mix(in oklch, var(--fg) 8%, transparent);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      color: var(--fg);
+      background:
+        radial-gradient(circle at top left, color-mix(in oklch, var(--surface) 65%, transparent), transparent 28%),
+        var(--bg);
+    }
+    a { color: inherit; text-decoration: none; }
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 32px;
+      padding: 24px 28px 36px;
+      max-width: 1680px;
+      margin: 0 auto;
+    }
+    .rail,
+    .panel,
+    .card {
+      border: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+    }
+    .rail {
+      border-radius: 30px;
+      padding: 24px 18px;
+      display: grid;
+      align-content: start;
+      gap: 22px;
+      position: sticky;
+      top: 24px;
+      min-height: calc(100vh - 48px);
+    }
+    .brand h1,
+    .hero h2,
+    .card h3,
+    .panel h3 { margin: 0; letter-spacing: -0.03em; }
+    .brand p,
+    .hero p,
+    .meta,
+    .panel p,
+    .card p { margin: 0; color: var(--muted); }
+    .eyebrow {
+      font: 700 11px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+    .nav a {
+      border-radius: 16px;
+      padding: 13px 14px;
+      border: 1px solid transparent;
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+    }
+    .nav a.active,
+    .nav a:hover {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--fg);
+    }
+    .main {
+      display: grid;
+      align-content: start;
+      gap: 24px;
+      padding-top: 6px;
+    }
+    .hero {
+      display: grid;
+      gap: 16px;
+      max-width: 760px;
+      padding: 8px 4px;
+    }
+    .hero h2 {
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 1.02;
+    }
+    .hero .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      width: fit-content;
+      font: 600 12px/1.2 var(--font-mono);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+    .card {
+      border-radius: 26px;
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+    .card .thumb {
+      aspect-ratio: 16 / 10;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in oklch, var(--accent) 7%, var(--surface)) 0%, var(--surface-soft) 100%);
+      overflow: hidden;
+      position: relative;
+    }
+    .card .thumb::before,
+    .card .thumb::after {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 75%, transparent);
+    }
+    .card .thumb::after {
+      inset: auto 18px 18px 18px;
+      height: 34%;
+      background:
+        linear-gradient(90deg,
+          color-mix(in oklch, var(--accent) 24%, var(--surface)) 0 32%,
+          color-mix(in oklch, var(--success) 26%, var(--surface)) 32% 58%,
+          color-mix(in oklch, var(--warning) 28%, var(--surface)) 58% 100%);
+    }
+    .card .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font: 600 12px/1 var(--font-mono);
+      color: var(--muted);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 6px color-mix(in oklch, var(--success) 14%, transparent);
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .panel {
+      border-radius: 24px;
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+    .panel ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .panel li {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .panel li strong {
+      color: var(--fg);
+      font-size: 13px;
+    }
+    @media (max-width: 1080px) {
+      .shell { grid-template-columns: 1fr; }
+      .rail { position: static; min-height: auto; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">
+        <div class="eyebrow">Mystra / Control Plane</div>
+        <h1>Mystra</h1>
+        <p>Agent-first orchestration shell for reviewable coding work.</p>
+      </div>
+      <nav class="nav" aria-label="Prototype navigation">
+        <a class="active" href="index.html">
+          <strong>Prototype Launcher</strong>
+          <span>当前可浏览的界面入口</span>
+        </a>
+        <a href="screens/new-work.html">
+          <strong>新工作</strong>
+          <span>project 选择 + prompt 提交</span>
+        </a>
+      </nav>
+      <div class="panel">
+        <div class="eyebrow">Scope</div>
+        <h3>当前续写点</h3>
+        <p>沿用 `specs/025-webui` 的 agent-first 演示壳，只把“新工作”页从旧弹层草图推进为真实首屏流程。</p>
+      </div>
+    </aside>
+    <main class="main">
+      <section class="hero" data-od-id="launcher-hero">
+        <div class="kicker">specs/025-webui · continuation</div>
+        <h2>把“新工作”从解释型草图，收敛成真的任务交付入口。</h2>
+        <p>这个版本保留 Mystra 现有的浅灰桌面、固定左 rail 和克制状态色，但去掉弹层、预检、右侧 inspector。用户只做两件事：选一个 project，然后描述想让 Mystra 完成什么。</p>
+        <div class="actions">
+          <a class="btn primary" href="screens/new-work.html">打开新工作页面</a>
+          <a class="btn" href="specs/025-webui/new-work.md">查看设计说明</a>
+        </div>
+      </section>
+
+      <section class="grid" aria-label="Prototype screens" data-od-id="launcher-grid">
+        <article class="card">
+          <div class="thumb" aria-hidden="true"></div>
+          <div class="row">
+            <div>
+              <h3>新工作 / New Work</h3>
+              <p>桌面 web 首屏，带 project 选择、自然语言 composer、表单验证与创建反馈。</p>
+            </div>
+            <div class="status"><span class="dot"></span>interactive</div>
+          </div>
+          <div class="actions">
+            <a class="btn primary" href="screens/new-work.html">进入屏幕</a>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="eyebrow">Intent</div>
+          <h3>保留的系统感</h3>
+          <ul>
+            <li><strong>视觉</strong><span>冷灰底、白面板、轻边框、蓝色仅用于主动作与选中状态。</span></li>
+            <li><strong>信息边界</strong><span>workflow、agent、repo、runtime 继续由服务端推导，不把配置判断甩给首屏用户。</span></li>
+            <li><strong>交互</strong><span>disabled → ready → creating → created 四个状态完整闭环，便于下一步接 run detail。</span></li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

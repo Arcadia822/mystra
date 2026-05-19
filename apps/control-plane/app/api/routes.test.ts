@@ -10,6 +10,7 @@ import { getDb, resetDbForTests } from "@/lib/db";
 import { GET as listContextBundles, POST as postContextBundle } from "./context-bundles/route";
 import { POST as cancelJob } from "./jobs/[id]/cancel/route";
 import { GET as getJob } from "./jobs/[id]/route";
+import { GET as getJobSummary } from "./jobs/[id]/summary/route";
 import { POST as postJob } from "./jobs/route";
 import { POST as postMcp } from "./mcp/route";
 import { GET as getProject, PATCH as patchProject, DELETE as deleteProject } from "./projects/[slug]/route";
@@ -349,6 +350,77 @@ describe("Job and MCP project contracts", () => {
     ]));
   });
 
+  it("returns a compact HTTP job summary without raw event history", async () => {
+    const created = await createProject("http-job-summary");
+    const createdJob = await json<{ job: { id: string } }>(
+      await postJob(jsonRequest("http://localhost/api/jobs", {
+        taskId: "http-job-summary-task",
+        source: "api",
+        projectId: created.project.id,
+        branchName: "mystra/http-job-summary",
+        prompt: "Observe this compact summary through HTTP",
+      })),
+    );
+
+    const response = await getJobSummary(new Request(`http://localhost/api/jobs/${createdJob.job.id}/summary`), {
+      params: Promise.resolve({ id: createdJob.job.id }),
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await json<{
+      summary: {
+        runState: string;
+        phase: string;
+        milestone: { key: string };
+        events?: unknown;
+        workflow?: unknown;
+      };
+    }>(response);
+    expect(payload.summary.runState).toBe("queued");
+    expect(payload.summary.phase).toBe("queued");
+    expect(payload.summary.milestone.key).toBe("queued");
+    expect(payload.summary).not.toHaveProperty("events");
+    expect(payload.summary).not.toHaveProperty("workflow");
+  });
+
+  it("returns the compact summary through mystra_get_job_summary", async () => {
+    const created = await createProject("mcp-job-summary");
+    const createdJob = await json<{ job: { id: string } }>(
+      await postJob(jsonRequest("http://localhost/api/jobs", {
+        taskId: "mcp-job-summary-task",
+        source: "api",
+        projectId: created.project.id,
+        branchName: "mystra/mcp-job-summary",
+        prompt: "Observe this compact summary through MCP",
+      })),
+    );
+
+    const response = await postMcp(jsonRequest("http://localhost/api/mcp", {
+      jsonrpc: "2.0",
+      id: "get-job-summary",
+      method: "tools/call",
+      params: {
+        name: "mystra_get_job_summary",
+        arguments: {
+          jobId: createdJob.job.id,
+        },
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    const rpc = await json<{ result: { content: Array<{ text: string }> } }>(response);
+    const payload = JSON.parse(rpc.result.content[0]?.text ?? "{}") as {
+      summary: {
+        runState: string;
+        phase: string;
+        milestone: { key: string };
+      };
+    };
+    expect(payload.summary.runState).toBe("queued");
+    expect(payload.summary.phase).toBe("queued");
+    expect(payload.summary.milestone.key).toBe("queued");
+  });
+
   it("returns validated runner payloads through mystra_list_runners", async () => {
     await registerRunner(jsonRequest("http://localhost/api/runner/register", {
       runnerName: "mcp-list-runners",
@@ -465,6 +537,7 @@ describe("Job and MCP project contracts", () => {
     const rpc = await json<{ result: { tools: Array<{ name: string; inputSchema: { properties: Record<string, unknown> } }> } }>(response);
     const createJobTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_job");
     const createProjectTool = rpc.result.tools.find((tool) => tool.name === "mystra_create_project");
+    const getJobSummaryTool = rpc.result.tools.find((tool) => tool.name === "mystra_get_job_summary");
 
     expect(createJobTool?.inputSchema.properties.runtime).toEqual(expect.objectContaining({
       additionalProperties: false,
@@ -472,6 +545,13 @@ describe("Job and MCP project contracts", () => {
     expect(createProjectTool?.inputSchema.properties.runtime).toEqual(expect.objectContaining({
       additionalProperties: false,
     }));
+    expect(getJobSummaryTool?.inputSchema).toEqual({
+      type: "object",
+      required: ["jobId"],
+      properties: {
+        jobId: { type: "string" },
+      },
+    });
   });
 
   it("advertises shared lifecycle handoff metadata in MCP tools/list", async () => {

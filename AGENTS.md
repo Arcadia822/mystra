@@ -62,10 +62,21 @@ Use `spec-kit-workflow` as the meta-flow. It is the project-local router that bi
 - Bug: `debugging-and-error-recovery`.
 - Review: `code-review-and-quality`.
 - Git operations: `git-workflow-and-versioning`.
+- Post-feature closeout: `feature-closeout`.
 - Docs/ADR: `documentation-and-adrs`.
 - Launch/deploy: `shipping-and-launch`.
 
 Do not use global fallback skills when a project-local copy exists under `.agents/skills/`. Do not create feature-level PRDs, plans, or task lists under `docs/`; use `specs/<feature>/`.
+
+### Toolchain — Node and pnpm
+
+Use the repository-pinned runtime before running installs, tests, LSP, or
+GitNexus:
+
+- `.nvmrc` pins Node to `24.14.0`; `package.json` also requires `>=24 <25`.
+- On machines with `fnm`, run `fnm install 24.14.0 && fnm use 24.14.0`.
+- On machines with `nvm`, run `nvm use`.
+- Use Corepack for the pinned package manager: `corepack use pnpm@10.25.0`.
 
 ### LSP — Symbol Navigation
 
@@ -81,7 +92,7 @@ TypeScript symbol or file:
 
 ### GitNexus — Code Intelligence
 
-Use `gitnexus-guide` as the entry point. Ensure index is fresh (`npx gitnexus analyze`) before use.
+Use `gitnexus-guide` as the entry point. Ensure index is fresh (`pnpm dlx gitnexus analyze --force`) before use.
 
 - Start with the repo-local LSP (`pnpm lsp:typescript`) when you need
   TypeScript symbol-local navigation, then move to GitNexus when the question
@@ -142,11 +153,14 @@ Mystra MVP uses the Open Agents project as a source-authoritative framework base
 The near-term MVP goal is self-use: let other agents and skills submit user journeys and implementation requests through Mystra remote MCP, then have Mystra execute the configured workflow and return reviewable repository artifacts through the current repository providers.
 
 The north-star model is a hosted **Mystra platform** serving many independent
-**workspaces**. Each workspace may contain multiple projects with their own
+**Teams**. Each Team may contain multiple projects with their own
 workflow variants, runtime images, product routes, user stories, and acceptance
 criteria, while sharing platform-owned provider pools such as sandbox capacity.
 Use this as the architectural direction when designing extensible interfaces,
 even if the current MVP only proves one local path.
+
+Reserve **workspace** for the run-scoped working directory and execution-context
+delivery surface, not for tenancy.
 
 The intended long-term experience is similar in spirit to **Stripe Minion**:
 fast task intake, clear workflow execution ownership, reviewable outputs, and
@@ -170,9 +184,9 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (3558 symbols, 5753 relationships, 194 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (4503 symbols, 6959 relationships, 220 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+> If any GitNexus tool warns the index is stale, run `pnpm dlx gitnexus analyze --force` in terminal first.
 
 ## Always Do
 
