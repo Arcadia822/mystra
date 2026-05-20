@@ -3,7 +3,7 @@
 **用途**: 为老板演示 Mystra 当前 MVP 能力，并争取项目支持。  
 **定位**: UI 是演示和操作外壳，不是产品真相。Mystra 的核心管理能力仍按 `API -> Skill/MCP -> CLI -> UI` 的优先级建设。  
 **当前规范边界**: `specs/025-webui/spec.md` 现在只定义前端框架层：主题功能与 Claude design-system 对齐、国际化、主侧边栏、`chatLayout` / `dashboardLayout` / `readLayout` 三种核心 layout、基础组件、响应式，以及后续页面能力接入和未来 Electron 兼容的边界。  
-**本文角色**: 本 README 中的页面地图、草图和演示叙事现在属于非规范性的探索材料，可作为后续页面拆分 spec 的输入，但不再代表 `025-webui` 当前的规范范围。  
+**本文角色**: 本 README 中的页面地图、草图和演示叙事现在属于非规范性的探索材料，可作为后续页面拆分 spec 的输入，但不再代表 `025-webui` 当前的规范范围。页面材料已拆到 `026` 到 `031`。  
 **参考风格**: Codex Desktop 的浅灰桌面、左侧固定导航、中间工作画布、右侧详情/配置栏、低饱和边框、克制按钮和少量状态色。
 
 ## 事实来源
@@ -32,82 +32,30 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 
 ## 页面地图（后续页面 spec 候选拆分）
 
-| 页面 | 主要观众 | 未来可单独成 spec 的能力方向 | 演示价值 |
-| --- | --- | --- | --- |
-| 1. Overview | 研发经理、Agent 提效负责人 | task、项目、agent、model、runner 的高层效率与健康指标 | 3 秒内说明 Agent 开发体系是否有效、哪里需要关注 |
-| 2. 新工作 | 内部工程师、协调 agent | 必选 project、对话式任务输入、基于 project 默认配置创建 task | 证明用户只需要表达目标，不需要理解运行配置 |
-| 3. 运行详情 Run Detail | reviewer、操作者 | compact run summary、当前阶段、runner、workflow 节点、事件摘要、交付 artifact | 证明无需读日志也能解释执行 |
-| 4. 项目配置 Project Lane | 平台操作者 | repo、base branch、default agent、runtime image、context bundles、mount/cache/secret refs、workflow hint | 证明多项目与运行配置有边界 |
-| 5. 技能与 MCP Integrations | agent 集成方 | MCP endpoint、tools/list、companion skills、安装/调用片段、连接状态 | 证明 Mystra 是 agent-first，而非 UI-first |
-| 6. 平台配置 Platform Settings | 平台操作者 | runner pool、sandbox provider、资源容量、trust boundary、主题、私有网络说明 | 证明可运营，不只是 demo 页面 |
+| 页面 | 页面目录 | 已迁移材料 |
+| --- | --- | --- |
+| Overview | [`../026-overview-dashboard/`](../026-overview-dashboard/) | `overview-analytics.md`, `screenshots/01-overview.png` |
+| Inbox | [`../027-inbox/`](../027-inbox/) | 暂无 |
+| New Job | [`../028-new-job/`](../028-new-job/) | `new-work.md`, `screenshots/02-new-work-intake.png` |
+| Project | [`../029-project/`](../029-project/) | `screenshots/04-project-config.png` |
+| Settings | [`../030-settings/`](../030-settings/) | `screenshots/05-skills-mcp.png`, `screenshots/06-platform-settings.png` |
+| Recent Jobs | [`../031-recent-jobs/`](../031-recent-jobs/) | `screenshots/03-run-detail.png` |
 
 ## 页面能力
 
-### 1. Overview
+### 页面拆分
 
-- 左侧 sidebar 是全局应用壳，独立于 Overview 页面设计。
-- Overview 不提供发起任务的输入入口；发起任务只进入 `新工作`。
-- 主画布是克制的管理仪表盘，面向研发经理和 Agent 提效负责人。
-- 主题围绕 `task`、`项目`、`agent`、`model`、`runner`。
-- 主仪表盘只展示 tasks、success rate、time to artifact、LLM cost、run time composition 和 toplist。
-- MVP 不做深入 analytics 仪表盘；下钻只带条件跳转到对应列表页。
-- Overview 不做 More filters、环比展示、右侧便览或页面内重复大标题。
-- Overview 的筛选控件收缩为两个按钮：`Time` 与 `Project`，并放在主图表区上方单独一行。
-- 详细分析设计见 [overview-analytics.md](overview-analytics.md)。
-
-### 2. 新工作
-
-- 页面形态接近 agent/chat AI 产品的 `新对话`，不是弹层、配置表单或执行预检页。
-- 用户必须先选择一个 `project`，然后在 composer 中描述要做的工作。
-- workflow 来自 project 的默认 workflow 配置；agent 来自 workflow 中的 agent 配置。
-- repo、base branch、context bundles、runtime image、runner eligibility 都由 project 配置和 workflow 解析得到。
-- 开发 branch 不要求用户填写；名称可以由 agent 在执行过程中按 project 规则生成。
-- 首屏不展示右侧 inspector，不拆成上下区，不展示预检区。
-- 详细页面设计见 [new-work.md](new-work.md)。
-
-### 3. 运行详情 Run Detail
-
-- 顶部展示 `task id`、`run id`、项目、状态、当前 phase。
-- 主区域展示 compact run summary，而不是完整事件流。
-- 时间线展示 queued、assigned、workflow running、artifact delivered、terminal。
-- 右侧 inspector 展示 runner、runtime image、context bundle、result links。
-- 事件和 JSON 只作为折叠诊断，不抢占主要叙事。
-
-### 4. 项目配置 Project Lane
-
-- 基础身份：名称、slug、repo、base branch、default agent、archive 状态。
-- Runtime：provider、image、override policy、context bundles、mounts、cache、secret refs。
-- Workflow：provider、blueprint name/version、prewarm config。
-- Lane 隔离：提交到 `mystra` 不应复用 `skrya` 的上下文。
-- Secret 页面只展示引用，不展示 secret 值。这个约束令人遗憾地理性。
-
-### 5. 技能与 MCP Integrations
-
-- MCP endpoint：`/api/mcp`、transport、health、tools/list。
-- Companion skills：
-  - submit user journey
-  - submit implementation request
-  - check job status
-- 展示 install/call snippet，但保持简短。
-- 强调 UI 是观察与配置面，默认提交路径仍是 skill/MCP。
-
-### 6. 平台配置 Platform Settings
-
-- Runner pool：注册状态、capacity、stale window、eligible projects/providers。
-- Sandbox provider：当前单机 Docker，未来可替换 provider。
-- Management surfaces：API truth、Skill/MCP、CLI、UI 的启用状态。
-- Theme/appearance：沿用 `023-control-plane-design-system` 的 token mood。
-- Trust boundary：MVP 为 private ops surface，caller auth 不在 MVP。
+具体页面内容不在 025 中继续展开。025 只保留 shell/framework 边界；页面材料按上表迁移到各自目录。Inbox 当前没有可迁移材料，先保持空目录。
 
 ## 演示顺序
 
 1. 打开 Overview，说明 Mystra 当前的 Agent 开发效率、质量、成本和容量状态。
-2. 点击“新工作”，选择 project，并输入一段自然语言工作描述。
-3. 切到运行详情，解释 compact summary 如何让协调 agent 轮询。
+2. 点击 New Job，选择 project，并输入一段自然语言工作描述。
+3. 切到 Recent Jobs，解释 compact summary 如何让协调 agent 轮询。
 4. 打开交付 artifact 区，说明输出是 branch / PR / MR / summary。
 5. 进入项目配置，展示 runtime/context 是可配置合同，不是硬编码脚本。
-6. 进入技能与 MCP，说明 Codex/Copilot/其他 agent 如何接入。
-7. 最后进入平台配置，说明 runner/sandbox/provider 可演进。
+6. 进入 Settings 中的技能与 MCP 材料，说明 Codex/Copilot/其他 agent 如何接入。
+7. 最后进入 Settings 中的平台配置材料，说明 runner/sandbox/provider 可演进。
 
 ## 视觉方向
 
@@ -121,14 +69,14 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 
 ## 生成截图
 
-截图位于 `specs/025-webui/screenshots/`：
+截图已移到页面目录：
 
-- [01-overview.png](screenshots/01-overview.png)
-- [02-new-work-intake.png](screenshots/02-new-work-intake.png)
-- [03-run-detail.png](screenshots/03-run-detail.png)
-- [04-project-config.png](screenshots/04-project-config.png)
-- [05-skills-mcp.png](screenshots/05-skills-mcp.png)
-- [06-platform-settings.png](screenshots/06-platform-settings.png)
+- [`../026-overview-dashboard/screenshots/01-overview.png`](../026-overview-dashboard/screenshots/01-overview.png)
+- [`../028-new-job/screenshots/02-new-work-intake.png`](../028-new-job/screenshots/02-new-work-intake.png)
+- [`../031-recent-jobs/screenshots/03-run-detail.png`](../031-recent-jobs/screenshots/03-run-detail.png)
+- [`../029-project/screenshots/04-project-config.png`](../029-project/screenshots/04-project-config.png)
+- [`../030-settings/screenshots/05-skills-mcp.png`](../030-settings/screenshots/05-skills-mcp.png)
+- [`../030-settings/screenshots/06-platform-settings.png`](../030-settings/screenshots/06-platform-settings.png)
 
 可复现渲染脚本位于 [mockups/render-mockups.cjs](mockups/render-mockups.cjs)。生成命令：
 
@@ -140,7 +88,7 @@ specs/025-webui/mockups/render-mockups.cjs
 
 视觉复查记录位于 [VISION_CHECK.md](VISION_CHECK.md)。
 
-说明：本轮只更新新工作页面文档，不重新生成 UI 图；当前 `02-new-work-intake.png` 仍是上一轮视觉草图，后续重绘时应以 [new-work.md](new-work.md) 为准。
+说明：本轮只迁移现有页面材料，不补写缺失页面 spec 内容。
 
 ## 需求质量评估
 

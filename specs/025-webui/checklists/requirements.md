@@ -48,9 +48,9 @@ Notes:
   as the full page-behavior specification.
 - Major assumptions: the MVP UI remains a secondary operations surface; API is
   truth and skill/MCP and CLI stay ahead of UI in management priority.
-- Major assumptions: the only approved top-level menus are `Overview`,
-  `New Job`, `Jobs`, `Project`, and `Settings`; page-specific behavior for each
-  menu will be specified later in dedicated follow-on specs.
+- Major assumptions: the only approved top-level menus are `Overview`, `Inbox`,
+  `New Job`, `Project`, `Settings`, and `Recent Jobs`; page-specific behavior
+  for each menu will be specified later in dedicated follow-on specs.
 - Major assumptions: shell-level scope explicitly includes theme support aligned
   with the Claude design-system direction, internationalization, the main
   sidebar, `chatLayout`/`dashboardLayout`/`readLayout`, shared base components,
@@ -60,6 +60,6 @@ Notes:
   operational interpretation stay out of this framework spec unless explicitly
   promoted later.
 - Remaining gaps or planning reminders: follow-on specs should define concrete
-  behavior for `Overview`, `New Job`, `Jobs`, `Project`, and `Settings` without
-  changing the approved shell taxonomy, framework-owned layouts/components, or
-  Electron-compatible shell boundary.
+  behavior for `Overview`, `Inbox`, `New Job`, `Project`, `Settings`, and
+  `Recent Jobs` without changing the approved shell taxonomy,
+  framework-owned layouts/components, or Electron-compatible shell boundary.

@@ -3,17 +3,17 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 
 const ROOT = path.resolve(__dirname, "..");
-const SCREENSHOT_DIR = path.join(ROOT, "screenshots");
+const SPECS_ROOT = path.resolve(ROOT, "..");
 const WIDTH = 1990;
 const HEIGHT = 1248;
 
 const nav = [
   ["overview", "Overview", "Overview"],
-  ["intake", "新工作", "Intake"],
-  ["runs", "运行", "Runs"],
-  ["projects", "项目", "Projects"],
-  ["skills", "技能与 MCP", "Skills"],
-  ["settings", "配置", "Settings"],
+  ["inbox", "Inbox", "Inbox"],
+  ["intake", "New Job", "New Job"],
+  ["projects", "Project", "Project"],
+  ["settings", "Settings", "Settings"],
+  ["runs", "Recent Jobs", "Recent Jobs"],
 ];
 
 function css() {
@@ -859,7 +859,7 @@ function projectConfig() {
 }
 
 function skillsMcp() {
-  return shell("skills", "技能与 MCP", `
+  return shell("settings", "技能与 MCP", `
     <div class="center inspectorAware" style="padding-top:40px">
       <h1 class="pageTitle">让 agent 按 Mystra 的方式工作</h1>
       <div class="toolbarRow" style="border-top:0;padding-top:0;margin-bottom:18px">
@@ -946,31 +946,31 @@ function platformSettings() {
 }
 
 const pages = [
-  ["01-overview", "Overview", overviewDashboard()],
-  ["02-new-work-intake", "New Work Intake", intake()],
-  ["03-run-detail", "Run Detail", runDetail()],
-  ["04-project-config", "Project Config", projectConfig()],
-  ["05-skills-mcp", "Skills And MCP", skillsMcp()],
-  ["06-platform-settings", "Platform Settings", platformSettings()],
+  ["Overview", overviewDashboard(), path.join(SPECS_ROOT, "026-overview-dashboard/screenshots/01-overview.png")],
+  ["New Job", intake(), path.join(SPECS_ROOT, "028-new-job/screenshots/02-new-work-intake.png")],
+  ["Recent Jobs", runDetail(), path.join(SPECS_ROOT, "031-recent-jobs/screenshots/03-run-detail.png")],
+  ["Project", projectConfig(), path.join(SPECS_ROOT, "029-project/screenshots/04-project-config.png")],
+  ["Settings / Skills MCP", skillsMcp(), path.join(SPECS_ROOT, "030-settings/screenshots/05-skills-mcp.png")],
+  ["Settings / Platform", platformSettings(), path.join(SPECS_ROOT, "030-settings/screenshots/06-platform-settings.png")],
 ];
 
 async function main() {
-  await fs.mkdir(SCREENSHOT_DIR, { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 });
 
   const indexParts = [];
-  for (const [slug, title, html] of pages) {
+  for (const [title, html, screenshotPath] of pages) {
     await page.setContent(html, { waitUntil: "networkidle" });
-    const screenshotPath = path.join(SCREENSHOT_DIR, `${slug}.png`);
+    await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath, fullPage: false });
-    indexParts.push(`<section><h2>${title}</h2><img src="../screenshots/${slug}.png" /></section>`);
+    const imagePath = path.relative(__dirname, screenshotPath);
+    indexParts.push(`<section><h2>${title}</h2><img src="${imagePath}" /></section>`);
   }
 
   await browser.close();
   const indexHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#e6e7eb;margin:0;padding:24px}section{margin:0 0 28px}img{width:100%;max-width:995px;border:1px solid #c4c7cf;border-radius:8px}</style></head><body>${indexParts.join("")}</body></html>`;
   await fs.writeFile(path.join(__dirname, "index.html"), indexHtml);
-  console.log(`Rendered ${pages.length} screenshots to ${SCREENSHOT_DIR}`);
+  console.log(`Rendered ${pages.length} screenshots to page spec directories under ${SPECS_ROOT}`);
 }
 
 main().catch((error) => {

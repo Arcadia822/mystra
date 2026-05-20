@@ -27,8 +27,8 @@ features to be implemented before the shell is usable.
 **Acceptance Scenarios**:
 
 1. **Given** the operator opens the application shell, **When** navigation is
-   rendered, **Then** the top-level menu contains only `Overview`, `New Job`,
-   `Jobs`, `Project`, and `Settings`.
+   rendered, **Then** the top-level menu contains only `Overview`, `Inbox`,
+   `New Job`, `Project`, `Settings`, and `Recent Jobs`.
 2. **Given** the operator navigates between approved routes, **When** each route
    loads, **Then** the shell provides consistent navigation, page framing, and
    shared visual structure even when the page's dedicated feature spec has not
@@ -43,9 +43,10 @@ features to be implemented before the shell is usable.
 ### User Story 2 - Future Page Specs Plug Into The Shell Without Redefining It (Priority: P1)
 
 As a future Mystra agent or frontend maintainer, I want page-specific work to
-land behind a stable shell contract, so that `Overview`, `New Job`, `Jobs`,
-`Project`, and `Settings` can evolve through separate specs without repeatedly
-changing the product taxonomy or shared UI ownership boundaries.
+land behind a stable shell contract, so that `Overview`, `Inbox`, `New Job`,
+`Project`, `Settings`, and `Recent Jobs` can evolve through separate specs
+without repeatedly changing the product taxonomy or shared UI ownership
+boundaries.
 
 **Why this priority**: The owner wants page functionality decomposed into later
 specs. This spec must therefore define what belongs to the framework and what
@@ -58,7 +59,7 @@ preferences.
 
 **Acceptance Scenarios**:
 
-1. **Given** a later spec defines concrete `Jobs` behavior, **When** that work
+1. **Given** a later spec defines concrete `Recent Jobs` behavior, **When** that work
    is implemented, **Then** it attaches to the existing approved shell rather
    than adding a new top-level menu or replacing shell ownership.
 2. **Given** a page capability requires new data, actions, or visual
@@ -199,13 +200,13 @@ while remaining compatible with a future Electron-hosted shell.
   as a secondary operations and inspection shell over Mystra's existing
   management capabilities.
 - **FR-002**: The top-level navigation of the MVP UI framework MUST contain only
-  `Overview`, `New Job`, `Jobs`, `Project`, and `Settings`.
+  `Overview`, `Inbox`, `New Job`, `Project`, `Settings`, and `Recent Jobs`.
 - **FR-003**: This spec MUST own shell-level concerns only, including approved
   navigation, route framing, shared layout structure, shared visual language,
   shell-wide preference plumbing, and future-compatible host-shell boundaries.
 - **FR-004**: This spec MUST NOT define concrete page-specific product behavior
-  for `Overview`, `New Job`, `Jobs`, `Project`, or `Settings`; those behaviors
-  MUST be specified in dedicated follow-on specs.
+  for `Overview`, `Inbox`, `New Job`, `Project`, `Settings`, or `Recent Jobs`;
+  those behaviors MUST be specified in dedicated follow-on specs.
 - **FR-005**: Each approved top-level menu MUST have a route or route-equivalent
   shell entry so the navigation model is concrete even before page-specific
   functionality is implemented.
@@ -283,8 +284,9 @@ while remaining compatible with a future Electron-hosted shell.
 
 ### Measurable Outcomes
 
-- **SC-001**: The MVP UI exposes only `Overview`, `New Job`, `Jobs`, `Project`,
-  and `Settings` as top-level menus, with no extra primary navigation areas.
+- **SC-001**: The MVP UI exposes only `Overview`, `Inbox`, `New Job`,
+  `Project`, `Settings`, and `Recent Jobs` as top-level menus, with no extra
+  primary navigation areas.
 - **SC-002**: The shell provides a main sidebar plus the approved
   `chatLayout`, `dashboardLayout`, and `readLayout` archetypes as reusable
   framework primitives for later page specs.
