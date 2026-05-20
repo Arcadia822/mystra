@@ -1,4 +1,4 @@
-# Specification Quality Checklist: MVP Operations Web UI
+# Specification Quality Checklist: MVP Operations Web UI Framework
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-05-19  
@@ -34,24 +34,32 @@
 Reviewed with the project-local `product-requirements` rubric, adapted to
 Spec-Kit output rules.
 
-**Quality Score**: 96/100
+**Quality Score**: 97/100
 
 - Business Value & Goals: 29/30
-- Functional Requirements: 24/25
+- Functional Requirements: 25/25
 - User Or Operator Experience: 19/20
 - Technical Constraints: 15/15
 - Scope & Priorities: 9/10
 
 Notes:
 
-- Readiness conclusion: ready for planning as an MVP operator-facing UI slice.
+- Readiness conclusion: ready for planning as a shell-and-framework slice, not
+  as the full page-behavior specification.
 - Major assumptions: the MVP UI remains a secondary operations surface; API is
   truth and skill/MCP and CLI stay ahead of UI in management priority.
 - Major assumptions: the only approved top-level menus are `Overview`,
-  `New Job`, `Jobs`, `Project`, and `Settings`; job detail is subordinate to
-  `Jobs`, not a separate primary menu.
-- Major assumptions: `Settings` owns light/dark switching, theme switching, and
-  locale selection in the MVP shell.
-- Remaining gaps or planning reminders: planning should keep `Project` and
-  `Settings` tightly scoped and avoid inventing extra functional areas or
-  menu-level taxonomy not named in this spec.
+  `New Job`, `Jobs`, `Project`, and `Settings`; page-specific behavior for each
+  menu will be specified later in dedicated follow-on specs.
+- Major assumptions: shell-level scope explicitly includes theme support aligned
+  with the Claude design-system direction, internationalization, the main
+  sidebar, `chatLayout`/`dashboardLayout`/`readLayout`, shared base components,
+  responsive behavior, and future Electron compatibility.
+- Major assumptions: appearance, theme, locale, layouts, components, and host
+  compatibility remain framework concerns, while page data, actions, and
+  operational interpretation stay out of this framework spec unless explicitly
+  promoted later.
+- Remaining gaps or planning reminders: follow-on specs should define concrete
+  behavior for `Overview`, `New Job`, `Jobs`, `Project`, and `Settings` without
+  changing the approved shell taxonomy, framework-owned layouts/components, or
+  Electron-compatible shell boundary.

@@ -1,9 +1,9 @@
 ---
-name: spec-kit-workflow
+name: aaa-spec-kit
 description: Route feature work through Spec-Kit commands and 5xP project context. Use at the start of sessions that need requirements, planning, implementation, review, or shipping work governed by Spec-Kit.
 ---
 
-# Spec-Kit Workflow
+# AAA Spec-Kit
 
 ## Purpose
 

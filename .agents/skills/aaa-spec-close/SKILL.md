@@ -1,9 +1,9 @@
 ---
-name: feature-closeout
+name: aaa-spec-close
 description: Close out a finished feature by syncing Spec-Kit and code-intelligence state, refreshing durable onboarding docs, and cleaning merged git/issue state with explicit user confirmation.
 ---
 
-# Feature Closeout
+# AAA Spec Close
 
 Use this skill after a feature is implemented and reviewed, either:
 

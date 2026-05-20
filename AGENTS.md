@@ -43,7 +43,7 @@ Feature-specific artifacts belong in `specs/<feature>/`. Durable project rules b
 
 ## Spec-Kit Skill Routing
 
-Use `spec-kit-workflow` as the meta-flow. It is the project-local router that binds the generic engineering skills to Mystra's `.codex/prompts/speckit.*`, `.specify/`, and `specs/<feature>/` structure.
+Use `aaa-spec-kit` as the meta-flow. It is the project-local router that binds the generic engineering skills to Mystra's `.codex/prompts/speckit.*`, `.specify/`, and `specs/<feature>/` structure.
 
 - Vague idea: `idea-refine`, then `/speckit.specify` when concrete.
 - New feature/change: `spec-driven-development` through `/speckit.specify`.
@@ -62,7 +62,12 @@ Use `spec-kit-workflow` as the meta-flow. It is the project-local router that bi
 - Bug: `debugging-and-error-recovery`.
 - Review: `code-review-and-quality`.
 - Git operations: `git-workflow-and-versioning`.
-- Post-feature closeout: `feature-closeout`.
+- Post-feature closeout: `aaa-spec-close`.
+  Use it after a feature is implemented and reviewed, either on the feature
+  branch before merge-ready handoff or on `main` after merge, to refresh
+  Spec-Kit and code-intelligence state, reconcile feature artifacts with landed
+  code, and prepare branch/issue cleanup that still requires explicit user
+  confirmation.
 - Docs/ADR: `documentation-and-adrs`.
 - Launch/deploy: `shipping-and-launch`.
 
@@ -172,7 +177,7 @@ Mystra MVP excludes caller auth, logs API, retry API, callback URLs, quality-gat
 
 This project is built by AI agents. Treat repository documentation as the durable memory surface.
 
-- Always follow `spec-kit-workflow` and the `.codex/prompts/speckit.*` flow for non-trivial feature, contract, or implementation work.
+- Always follow `aaa-spec-kit` and the `.codex/prompts/speckit.*` flow for non-trivial feature, contract, or implementation work.
 - For non-trivial plans, run `plan-eng-review` after `/speckit.plan` and before
   `/speckit.tasks`; translate review findings into plan changes, task items, or
   explicit waived risks.

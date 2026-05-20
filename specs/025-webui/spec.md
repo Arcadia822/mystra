@@ -1,233 +1,307 @@
-# Feature Specification: MVP Operations Web UI
+# Feature Specification: MVP Operations Web UI Framework
 
 **Feature Branch**: `025-webui`  
 **Created**: 2026-05-19  
 **Status**: Draft  
-**Input**: User description: "简单补充 025 的 spec，作为 mvp 版本的操作 ui"
+**Input**: User description: "简单补充 025 的 spec，作为 mvp 版本的操作 ui" plus follow-up scope decisions: keep `025-webui` focused on the frontend framework only, move concrete page capabilities into later page-specific specs, and include the framework foundations for theme/design-system, internationalization, main sidebar, shared layout modes, base components, responsiveness, and future Electron compatibility.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Operator Submits Work From The New Job Surface (Priority: P1)
+### User Story 1 - Operator Uses The Approved Shell Framework (Priority: P1)
 
-As an internal operator, I want to open `New Job`, choose a project, and
-describe the work in natural language, so that I can submit a Mystra job
-without manually reasoning about runtime, runner, or workflow configuration.
+As an internal operator, I want the MVP UI to provide a stable shell with the
+approved top-level navigation and shared page framing, so that I can recognize
+Mystra's human-facing surface without that shell owning page-specific business
+behavior.
 
-**Why this priority**: This is the smallest operator-facing slice that proves
-the UI can help a human initiate work while still respecting the existing
-agent-first control-plane model.
+**Why this priority**: The first useful UI slice is the framework itself:
+navigation, layout, route framing, and shared chrome. Mystra remains API-truth
+and agent-first; the shell should exist before any one page tries to become the
+product.
 
-**Independent Test**: Open the UI, choose a project, submit a natural-language
-request, and verify that Mystra creates the corresponding work item and takes
-the operator to the resulting run detail view.
-
-**Acceptance Scenarios**:
-
-1. **Given** the operator opens the `New Job` page and has not selected a
-   project,
-   **When** they type a request, **Then** the UI preserves the draft text but
-   keeps submission disabled until a project is chosen.
-2. **Given** the operator selects a project and enters a non-empty request,
-   **When** they submit, **Then** the UI creates work using project-owned
-   defaults rather than asking the operator to fill runtime, branch, or runner
-   details manually.
-3. **Given** Mystra rejects the submission, **When** the UI shows the failure,
-   **Then** the operator can see a structured error and retry without losing the
-   request text.
-
----
-
-### User Story 2 - Operator Uses Jobs To Track Progress And Outcomes (Priority: P1)
-
-As an operator or reviewer, I want a `Jobs` surface that lists work and opens a
-compact job detail view, so that I can understand execution state and final
-artifacts without reading the full event stream or raw logs.
-
-**Why this priority**: The MVP UI should primarily help humans interpret the
-existing execution truth that already lives in the API and persistence layer.
-
-**Independent Test**: Open the `Jobs` menu, inspect queued, running, and
-terminal jobs, and confirm that the UI shows status, current phase, key
-milestones, relevant runtime context, and final delivery artifacts in a
-human-readable form.
-
-**Acceptance Scenarios**:
-
-1. **Given** jobs exist in Mystra, **When** the operator opens `Jobs`, **Then**
-   the page shows a list of jobs with project, status, and enough summary
-   information to choose one for inspection.
-2. **Given** a selected job is still in progress, **When** the operator opens
-   job detail under `Jobs`, **Then** the UI summarizes milestone progression
-   such as queued, assigned, workflow running, and artifact delivery instead of
-   requiring raw event inspection.
-3. **Given** the selected job reaches a terminal state, **When** the operator
-   reviews the result, **Then** the UI surfaces final summary facts and
-   reviewable artifacts such as branch, PR, MR, or equivalent result references
-   when they exist.
-
----
-
-### User Story 3 - Operator Uses Only The Approved Navigation Shell (Priority: P2)
-
-As a platform operator, I want the MVP UI to stay constrained to the approved
-navigation shell, so that the product remains easy to understand and does not
-grow ad hoc menus or UI-first management surfaces.
-
-**Why this priority**: MVP Mystra is API-truth and agent-first. The UI should
-help inspection and limited operations, but it must not become the only place
-where the platform is understandable.
-
-**Independent Test**: Navigate the full shell on desktop and mobile layouts and
-verify that the product exposes only `Overview`, `New Job`, `Jobs`, `Project`,
-and `Settings`, with no extra top-level menus.
+**Independent Test**: Open the application on desktop and narrow viewports and
+verify that the shell exposes only the approved top-level menus, provides a
+consistent page frame for each route, and does not require page-specific
+features to be implemented before the shell is usable.
 
 **Acceptance Scenarios**:
 
 1. **Given** the operator opens the application shell, **When** navigation is
    rendered, **Then** the top-level menu contains only `Overview`, `New Job`,
    `Jobs`, `Project`, and `Settings`.
-2. **Given** the operator opens `Overview`, **When** the page loads, **Then**
-   it shows high-level job, success-rate, time-to-artifact, cost, and
-   runner-health signals suitable for an MVP operational summary rather than a
-   deep analytics suite.
-3. **Given** the operator opens `Project` or `Settings`, **When** the page
-   loads, **Then** the UI shows only the corresponding project facts or
-   application/platform settings without inventing extra functional areas or
-   configuration concepts that are not already part of Mystra's management
-   model.
+2. **Given** the operator navigates between approved routes, **When** each route
+   loads, **Then** the shell provides consistent navigation, page framing, and
+   shared visual structure even when the page's dedicated feature spec has not
+   been implemented yet.
+3. **Given** one approved page has only framework-level support so far,
+   **When** the operator opens it, **Then** the UI may show placeholder or
+   read-only framing content instead of inventing page behavior that belongs to
+   a later spec.
 
 ---
 
-### User Story 4 - Operator Uses The UI Across Device, Theme, And Language Contexts (Priority: P2)
+### User Story 2 - Future Page Specs Plug Into The Shell Without Redefining It (Priority: P1)
 
-As an internal operator, I want the MVP UI to adapt across screen sizes, visual
-themes, and supported languages, so that the same product remains usable in
-daily operations rather than only in one desktop/demo presentation mode.
+As a future Mystra agent or frontend maintainer, I want page-specific work to
+land behind a stable shell contract, so that `Overview`, `New Job`, `Jobs`,
+`Project`, and `Settings` can evolve through separate specs without repeatedly
+changing the product taxonomy or shared UI ownership boundaries.
 
-**Why this priority**: These are cross-cutting product requirements that affect
-every approved menu and should be treated as first-slice capabilities rather
-than polish.
+**Why this priority**: The owner wants page functionality decomposed into later
+specs. This spec must therefore define what belongs to the framework and what
+must be deferred, or the next agent will improvise... again.
 
-**Independent Test**: Open all approved menus on mobile-width and desktop-width
-viewports, switch between light and dark appearance, switch theme, and change
-language; verify that navigation and primary content remain usable without
-breaking the operator flow.
+**Independent Test**: Review the shell contract and verify that a later
+page-specific spec can add concrete content to one approved route without
+changing top-level navigation, management-surface hierarchy, or shell-wide
+preferences.
 
 **Acceptance Scenarios**:
 
-1. **Given** the operator opens the UI on a narrow viewport, **When** they move
-   between `Overview`, `New Job`, `Jobs`, `Project`, and `Settings`, **Then**
-   the shell remains usable without horizontal-overflow-dependent navigation.
-2. **Given** the operator switches between light and dark appearance,
-   **When** the pages re-render, **Then** the approved menus and primary content
-   remain readable and visually coherent in both modes.
-3. **Given** the operator changes theme or language in `Settings`, **When** they
-   revisit the main menus, **Then** the selected theme and locale remain applied
-   consistently across the UI.
+1. **Given** a later spec defines concrete `Jobs` behavior, **When** that work
+   is implemented, **Then** it attaches to the existing approved shell rather
+   than adding a new top-level menu or replacing shell ownership.
+2. **Given** a page capability requires new data, actions, or visual
+   interpretation, **When** that capability is specified, **Then** it is owned
+   by a dedicated follow-on spec rather than silently expanding this framework
+   spec.
+3. **Given** the shell framework is already present, **When** later page specs
+   arrive incrementally, **Then** they can ship independently without forcing a
+   redesign of global navigation, layout primitives, or shared preference
+   plumbing.
+
+---
+
+### User Story 3 - Operator Uses The Shell Across Device, Theme, And Locale Contexts (Priority: P2)
+
+As an internal operator, I want the shell framework to handle responsive
+navigation, appearance, theme, and locale scaffolding, so that later page specs
+inherit a usable cross-cutting foundation instead of each reinventing it.
+
+**Why this priority**: Responsiveness, visual preference, and localization are
+framework concerns. They should be solved once at the shell level, not
+re-litigated page by page.
+
+**Independent Test**: Open the shell on narrow and wide viewports, switch light
+and dark appearance, change theme and locale, and verify that the shell remains
+usable even if page-specific functionality is still placeholder-level.
+
+**Acceptance Scenarios**:
+
+1. **Given** the operator uses a narrow viewport, **When** they navigate between
+   approved routes, **Then** the shell remains usable without horizontal
+   overflow being the primary navigation strategy.
+2. **Given** the operator switches light/dark appearance or theme, **When** the
+   shell re-renders, **Then** shared navigation and page framing remain visually
+   coherent across approved routes.
+3. **Given** the operator changes locale, **When** they revisit the shell,
+   **Then** shared navigation and framework-owned copy reflect the selected
+   locale or a predictable fallback.
+
+---
+
+### User Story 4 - Frontend Maintainer Reuses Shared Layouts And Components (Priority: P2)
+
+As a frontend maintainer, I want the shell framework to provide a main sidebar,
+shared layout archetypes, and a base component layer aligned with Mystra's
+design-system direction, so that later page specs can compose consistent UI
+surfaces instead of rebuilding structure and primitives ad hoc.
+
+**Why this priority**: If the framework does not own sidebar, layout modes, and
+base components now, every later page spec will smuggle framework decisions
+back in through the side door. That pattern is not elegant. It is merely
+predictable.
+
+**Independent Test**: Review the shell contract and verify that later page specs
+can choose among the approved layout archetypes and shared base components
+without redefining the sidebar, token model, or primitive interaction patterns.
+
+**Acceptance Scenarios**:
+
+1. **Given** the operator is using the shell, **When** navigation is displayed,
+   **Then** the main sidebar remains the shared primary navigation container for
+   approved top-level routes.
+2. **Given** a later page spec needs a conversational, dashboard, or
+   reading-focused surface, **When** it is implemented, **Then** it can attach to
+   `chatLayout`, `dashboardLayout`, or `readLayout` rather than inventing a new
+   top-level framing model by default.
+3. **Given** a later page spec needs buttons, inputs, badges, panels, lists, or
+   similar primitives, **When** it is implemented, **Then** it can rely on the
+   framework's shared component layer and design-system alignment instead of
+   introducing an unrelated visual grammar.
+
+---
+
+### User Story 5 - Future Desktop Packaging Preserves The Same Framework Contract (Priority: P3)
+
+As a future Mystra maintainer, I want the shell framework to remain compatible
+with a later Electron wrapper, so that Mystra can gain a desktop shell without
+rewriting navigation, layout, theming, localization, or base component
+contracts.
+
+**Why this priority**: The owner explicitly wants later Electron compatibility.
+That should be treated as an architectural guardrail for the framework slice,
+not as an apology added during packaging week.
+
+**Independent Test**: Review the framework requirements and verify that shell
+concerns are expressed in a way that can run in the current web delivery shape
+while remaining compatible with a future Electron-hosted shell.
+
+**Acceptance Scenarios**:
+
+1. **Given** Mystra is currently delivered as a web control-plane UI, **When**
+   the shell framework is implemented, **Then** it does not assume a browser-only
+   product model that would force route taxonomy, theme handling, or layout
+   ownership to be redesigned for Electron.
+2. **Given** a future Electron shell wraps the same frontend, **When** that
+   migration happens, **Then** main sidebar, shared layouts, i18n, and theme
+   systems remain reusable rather than being web-only special cases.
+3. **Given** a framework capability truly depends on the host environment,
+   **When** it is specified or implemented, **Then** the environment-specific
+   seam is explicit instead of being hidden inside otherwise shared shell
+   behavior.
 
 ---
 
 ### Edge Cases
 
-- What happens when there are no projects yet? The UI should explain why new
-  work cannot be submitted and direct the operator toward project setup instead
-  of presenting an empty-but-clickable intake flow.
-- What happens when summary data is incomplete or a run is stale? The UI should
-  show the best available structured state and mark missing details explicitly
-  rather than inventing lifecycle progress.
-- What happens when navigation space is limited on small screens? The UI should
-  preserve access to all approved menus without introducing a different product
-  taxonomy for mobile.
-- What happens when a selected theme or locale is unavailable for part of the
-  UI? The product should fall back predictably while keeping core navigation and
-  job operations understandable.
-- What happens when a page depends on backend capabilities that are not mature
-  enough for editing? The MVP UI may stay inspection-first and keep unsupported
-  controls read-only or absent.
-- What happens when a capability is already better served through API, skill,
-  MCP, or CLI? The UI should defer to those surfaces rather than duplicating
-  configuration or transport semantics.
+- What happens when an approved page does not yet have a dedicated feature spec?
+  The shell should still render a valid route with placeholder or read-only
+  framing rather than omitting the route or inventing page semantics.
+- What happens when page-specific backend capabilities are not mature enough for
+  editing or live data? The framework may remain inspection-first and should not
+  fake completed product behavior.
+- What happens when navigation space is limited on small screens? The shell
+  should preserve access to all approved menus without creating a different
+  product taxonomy for mobile.
+- What happens when a selected theme or locale is not fully available? The shell
+  should fall back predictably while keeping navigation understandable.
+- What happens when a page needs a shape that does not obviously fit
+  `chatLayout`, `dashboardLayout`, or `readLayout`? The default expectation is
+  to map it onto one of the approved layout archetypes unless a later spec
+  justifies a new framework-level layout.
+- What happens when a page-specific design diverges from the shared design
+  system? The page should justify an extension to the framework rather than
+  bypassing shared tokens and primitives silently.
+- What happens when a future Electron host introduces desktop-only affordances?
+  The framework should keep shared UI contracts portable and isolate host-only
+  behavior at explicit seams.
+- What happens when a later page spec tries to introduce a new primary menu or
+  UI-owned management semantics? That change is out of scope for this feature
+  and must be justified separately against the project management-surface
+  hierarchy.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST provide an internal MVP web UI that acts as a
-  secondary operations and inspection surface over Mystra's existing management
-  capabilities.
-- **FR-002**: The top-level navigation of the MVP UI MUST contain only
+- **FR-001**: The system MUST provide an internal MVP web UI framework that acts
+  as a secondary operations and inspection shell over Mystra's existing
+  management capabilities.
+- **FR-002**: The top-level navigation of the MVP UI framework MUST contain only
   `Overview`, `New Job`, `Jobs`, `Project`, and `Settings`.
-- **FR-003**: The UI MUST allow an operator to select a project and submit a
-  natural-language work request from `New Job` without manually specifying
-  runner, runtime, workflow, repo, or branch details on the intake screen.
-- **FR-004**: The UI MUST derive execution defaults for new jobs from project
-  and workflow configuration already owned by the control plane rather than
-  creating a UI-only source of truth.
-- **FR-005**: The `Jobs` menu MUST provide a job list and a job-detail surface
-  that summarize status, current phase, key lifecycle milestones, relevant
-  runtime context, and final artifact references when available.
-- **FR-006**: The UI MUST preserve structured submission and job errors in a
-  human-readable form without forcing operators to inspect raw protocol payloads.
-- **FR-007**: The UI MUST provide an `Overview` surface with compact operational
-  signals appropriate for MVP management, including job volume, delivery
-  success, time-to-artifact, and available cost or runner-health signals.
-- **FR-008**: The `Project` menu MUST provide project inspection for repository,
-  base branch, runtime, context, and workflow defaults without expanding into
-  unrelated management domains.
-- **FR-009**: The `Settings` menu MUST contain application- and
-  platform-oriented settings needed by the MVP UI, including appearance mode,
-  theme selection, locale selection, and any existing platform settings that
-  belong in the approved shell.
-- **FR-010**: The UI MUST be responsive across supported narrow and wide
-  viewports, with navigation and primary workflows remaining usable without
-  desktop-only assumptions.
-- **FR-011**: The UI MUST support light mode and dark mode.
-- **FR-012**: The UI MUST support theme switching beyond light/dark appearance
-  mode where the product defines distinct visual themes.
-- **FR-013**: The UI MUST support internationalization so that approved menus,
-  primary page copy, and core operator flows can be presented in supported
-  locales.
-- **FR-014**: The UI MUST preserve the project management-surface hierarchy in
+- **FR-003**: This spec MUST own shell-level concerns only, including approved
+  navigation, route framing, shared layout structure, shared visual language,
+  shell-wide preference plumbing, and future-compatible host-shell boundaries.
+- **FR-004**: This spec MUST NOT define concrete page-specific product behavior
+  for `Overview`, `New Job`, `Jobs`, `Project`, or `Settings`; those behaviors
+  MUST be specified in dedicated follow-on specs.
+- **FR-005**: Each approved top-level menu MUST have a route or route-equivalent
+  shell entry so the navigation model is concrete even before page-specific
+  functionality is implemented.
+- **FR-006**: The shell MUST allow an approved route to render placeholder,
+  unavailable, or read-only framing content when that route's dedicated feature
+  spec has not yet landed.
+- **FR-007**: The shell MUST provide a main sidebar as the shared primary
+  navigation container for approved top-level routes.
+- **FR-008**: The shell MUST define and own the three core layout archetypes:
+  `chatLayout`, `dashboardLayout`, and `readLayout`.
+- **FR-009**: Later page-specific specs MUST compose onto `chatLayout`,
+  `dashboardLayout`, or `readLayout` by default unless a separately justified
+  framework change expands the approved layout set.
+- **FR-010**: The shell MUST provide a shared base component layer for common UI
+  primitives used across approved routes.
+- **FR-011**: The base component layer and shell visual language MUST align with
+  Mystra's Claude design-system direction so that themes, tokens, and component
+  behavior remain coherent across the framework.
+- **FR-012**: The shell MUST provide consistent cross-route structure for
+  navigation, page framing, and shared interaction patterns instead of letting
+  each page define its own incompatible shell.
+- **FR-013**: The shell MUST provide shared responsive behavior across supported
+  narrow and wide viewports.
+- **FR-014**: The shell MUST support light mode and dark mode.
+- **FR-015**: The shell MUST support theme switching beyond light/dark
+  appearance mode where the product defines distinct visual themes.
+- **FR-016**: The shell MUST support internationalization so that approved
+  navigation and framework-owned copy can be presented in supported locales.
+- **FR-017**: The shell MUST preserve the project management-surface hierarchy in
   which API is truth and skill/MCP and CLI remain preferred programmable
-  interfaces; the UI MUST not become the sole owner of management semantics.
-- **FR-015**: The UI MUST treat workspace as a run-scoped execution-context
+  interfaces; the UI framework MUST not become the sole owner of management
+  semantics.
+- **FR-018**: The shell MUST treat workspace as a run-scoped execution-context
   concept and MUST NOT use workspace as the tenancy term for hosted product
   structure.
-- **FR-016**: The MVP UI MUST remain private-operations focused and MUST NOT
-  require caller-auth, logs API, retry API, public SaaS tenancy management, or
-  other currently out-of-scope platform features before it is usable.
+- **FR-019**: The MVP shell framework MUST remain private-operations focused and
+  MUST NOT require caller auth, logs API, retry API, public SaaS tenancy
+  management, or other currently out-of-scope platform features before it is
+  usable.
+- **FR-020**: A later page-specific spec MUST be able to add route content,
+  actions, and data presentation for one approved menu without changing the
+  approved top-level taxonomy or shell-level ownership model.
+- **FR-021**: The shell framework MUST preserve compatibility with a future
+  Electron host so that navigation, layout archetypes, theme system,
+  internationalization, and base components can be reused without redefining the
+  framework contract.
+- **FR-022**: Any environment-specific behavior required for a future Electron
+  shell MUST be isolated behind explicit seams rather than being baked into the
+  shared framework contract as a web-only assumption.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Operations Web UI**: The internal operator-facing shell that organizes
-  Overview, New Job, Jobs, Project, and Settings.
-- **New Job Intake**: The UI flow where an operator chooses a project and
-  submits a natural-language job request.
-- **Jobs View**: The combined list/detail surface that explains one job
-  lifecycle using summary facts, milestones, runtime context, and result
-  references.
-- **Overview Snapshot**: The compact operational summary of throughput, success,
-  time-to-artifact, cost, and runner signals for a selected scope.
-- **Project View**: The inspection surface for project defaults such as repo,
-  base branch, runtime, workflow, and context-bundle boundaries.
-- **Settings View**: The shell area that owns appearance mode, theme, locale,
-  and approved application/platform settings.
+- **Operations Shell**: The framework-level UI container that organizes
+  top-level navigation and shared page framing.
+- **Main Sidebar**: The shared primary navigation rail for approved top-level
+  routes.
+- **Navigation Model**: The approved set of top-level menus and their routing
+  identity.
+- **Page Frame Contract**: The shared shell structure that later page-specific
+  specs inherit when they add content to an approved route.
+- **Layout Archetypes**: The approved framework layouts `chatLayout`,
+  `dashboardLayout`, and `readLayout`.
+- **Base Component Layer**: The shared set of UI primitives and interaction
+  patterns used across routes.
+- **Theme System**: The framework-owned theme, token, and appearance model,
+  aligned with Mystra's Claude design-system direction.
+- **Shell Preferences**: Framework-owned appearance, theme, locale, and other
+  shared UI settings that apply across routes.
+- **Placeholder Route State**: The valid shell-level state for an approved page
+  whose dedicated feature spec has not yet been implemented.
+- **Host Shell Compatibility Boundary**: The framework constraint that keeps the
+  shared UI portable between the current web host and a future Electron host.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: An operator can create a new Mystra job from `New Job` by
-  selecting a project and entering a natural-language request without filling
-  low-level execution fields manually.
-- **SC-002**: A reviewer can determine the status, current phase, and final
-  delivery artifact of a job from the `Jobs` surface without reading raw event
-  logs for the normal happy path.
-- **SC-003**: The MVP UI exposes only `Overview`, `New Job`, `Jobs`, `Project`,
+- **SC-001**: The MVP UI exposes only `Overview`, `New Job`, `Jobs`, `Project`,
   and `Settings` as top-level menus, with no extra primary navigation areas.
-- **SC-004**: Operators can use the approved menus on both narrow and wide
-  viewports, and can switch light/dark mode, theme, and supported language
-  without breaking the primary operator flow.
-- **SC-005**: The UI does not require MVP-excluded capabilities such as caller
-  authentication, retry loops, or logs API before it can support the primary
-  operator flow.
+- **SC-002**: The shell provides a main sidebar plus the approved
+  `chatLayout`, `dashboardLayout`, and `readLayout` archetypes as reusable
+  framework primitives for later page specs.
+- **SC-003**: The shell provides shared theme/design-system alignment,
+  internationalization scaffolding, base components, and responsive behavior
+  that later page specs can inherit without redefining them.
+- **SC-004**: Operators can navigate to every approved top-level route and see a
+  consistent shell-valid page frame even when page-specific behavior is deferred
+  to later specs.
+- **SC-005**: Later page-specific specs can add concrete route behavior without
+  changing the approved shell taxonomy or redefining shared layouts,
+  components, and preferences.
+- **SC-006**: Operators can use the shell on both narrow and wide viewports, and
+  can switch light/dark mode, theme, and supported language without breaking
+  shell navigation.
+- **SC-007**: The same framework contract remains usable in the current web host
+  and is not specified in a way that blocks a later Electron wrapper.
+- **SC-008**: The UI framework remains secondary to API, skill/MCP, and CLI
+  management surfaces and does not require MVP-excluded platform capabilities to
+  be useful.

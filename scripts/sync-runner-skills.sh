@@ -14,7 +14,7 @@ if [ ! -d "$IMAGE_CONTEXT" ]; then
 fi
 
 skills=(
-  spec-kit-workflow
+  aaa-spec-kit
   product-requirements
   plan-eng-review
   idea-refine

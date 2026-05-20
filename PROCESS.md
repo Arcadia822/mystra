@@ -17,7 +17,7 @@ The project uses 5xP for durable project context and Spec-Kit for feature-level 
 
 The current product boundary is Open Agents source-authoritative baseline reuse with Mystra-owned interfaces at provider and orchestration seams, plus local-first implementations: SQLite RDB, local workflow, and a single-machine sandbox path.
 
-1. Use `AGENTS.md` to route the work through `spec-kit-workflow` and identify the relevant project-local skill/process.
+1. Use `AGENTS.md` to route the work through `aaa-spec-kit` and identify the relevant project-local skill/process.
 2. Use the 5xP root files for stable project context:
    - `PRODUCT.md`
    - `PLATFORM.md`
