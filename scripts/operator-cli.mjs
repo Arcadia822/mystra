@@ -16,15 +16,19 @@ const EXIT_CODES = {
   NOT_READY: 7,
 };
 
-const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "canceled", "timed_out", "needs_human_review"]);
-const FAILURE_RUN_STATES = new Set(["failed", "canceled", "timed_out", "needs_human_review"]);
+const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "canceled", "timed_out", "waiting_for_review"]);
+const FAILURE_RUN_STATES = new Set(["failed", "canceled", "timed_out"]);
 
 function usage() {
   return `Usage:
   pnpm operator:cli -- projects list [--json] [--control-plane-url URL]
   pnpm operator:cli -- projects inspect <slug> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- issues list --integration NAME [--limit N] [--cursor TOKEN] [--json]
+  pnpm operator:cli -- issues get <identifier> --integration NAME [--json]
+  pnpm operator:cli -- issues dispatch <identifier> --integration NAME --project SLUG --agent copilot --branch NAME [--json]
   pnpm operator:cli -- runs list [--json] [--control-plane-url URL]
   pnpm operator:cli -- runs inspect <job-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- runs wait <job-id> [--interval-seconds N] [--timeout-seconds N] [--json]
   pnpm operator:cli -- runs result <job-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- runs failure <job-id> [--json] [--control-plane-url URL]`;
 }
@@ -46,16 +50,10 @@ function contextRefsSummary(refs) {
     .join(", ");
 }
 
-function workflowSummary(workflow) {
-  if (!isObject(workflow)) {
-    return "none";
-  }
-
-  const parts = [workflow.provider, workflow.blueprintName, workflow.blueprintVersion].filter(Boolean);
-  return parts.length > 0 ? parts.join(" | ") : "present";
-}
-
 function previewSummary(result) {
+  if (typeof result?.preview?.url === "string") {
+    return result.preview.url;
+  }
   if (!isObject(result?.metadata)) {
     return "none";
   }
@@ -63,13 +61,32 @@ function previewSummary(result) {
 }
 
 function managementExitCode(code) {
-  if (["PROJECT_NOT_FOUND", "JOB_NOT_FOUND", "RUN_NOT_FOUND"].includes(code)) {
+  if ([
+    "PROJECT_NOT_FOUND",
+    "JOB_NOT_FOUND",
+    "RUN_NOT_FOUND",
+    "INTEGRATION_NOT_FOUND",
+    "ISSUE_NOT_FOUND",
+  ].includes(code)) {
     return EXIT_CODES.MISSING;
   }
-  if (["PROJECT_ARCHIVED", "RESULT_UNAVAILABLE", "JOB_CANCEL_CONFLICT"].includes(code)) {
+  if ([
+    "PROJECT_ARCHIVED",
+    "RESULT_UNAVAILABLE",
+    "JOB_CANCEL_CONFLICT",
+    "ISSUE_CAPABILITY_UNAVAILABLE",
+    "INTEGRATION_NOT_CONFIGURED",
+    "DISPATCH_CONFLICT",
+  ].includes(code)) {
     return EXIT_CODES.UNAVAILABLE;
   }
-  if (code === "INVALID_SUBMISSION" || code === "INVALID_PROJECT") {
+  if ([
+    "INVALID_SUBMISSION",
+    "INVALID_PROJECT",
+    "INVALID_REQUEST",
+    "INVALID_DISPATCH",
+    "INVALID_GITHUB_REPOSITORY",
+  ].includes(code)) {
     return EXIT_CODES.INVALID;
   }
   if (code === "RESULT_NOT_READY") {
@@ -92,6 +109,14 @@ function parseArgs(argv) {
   const flags = {
     json: false,
     controlPlaneUrl: DEFAULTS.controlPlaneUrl,
+    integration: undefined,
+    limit: undefined,
+    cursor: undefined,
+    project: undefined,
+    agent: undefined,
+    branch: undefined,
+    intervalSeconds: 2,
+    timeoutSeconds: 3600,
   };
   const positionals = [];
 
@@ -117,6 +142,25 @@ function parseArgs(argv) {
       flags.controlPlaneUrl = arg.slice("--control-plane-url=".length);
       continue;
     }
+    const valueFlags = new Map([
+      ["--integration", "integration"],
+      ["--limit", "limit"],
+      ["--cursor", "cursor"],
+      ["--project", "project"],
+      ["--agent", "agent"],
+      ["--branch", "branch"],
+      ["--interval-seconds", "intervalSeconds"],
+      ["--timeout-seconds", "timeoutSeconds"],
+    ]);
+    if (valueFlags.has(arg)) {
+      const value = argv[index + 1];
+      if (!value) {
+        return { ok: false, message: `Missing value for ${arg}` };
+      }
+      flags[valueFlags.get(arg)] = value;
+      index += 1;
+      continue;
+    }
     if (arg.startsWith("--")) {
       return { ok: false, message: `Unknown flag: ${arg}` };
     }
@@ -130,7 +174,8 @@ function parseArgs(argv) {
 
   const needsTarget = (
     (group === "projects" && command === "inspect") ||
-    (group === "runs" && ["inspect", "result", "failure"].includes(command))
+    (group === "issues" && ["get", "dispatch"].includes(command)) ||
+    (group === "runs" && ["inspect", "wait", "result", "failure"].includes(command))
   );
   if (needsTarget && !target) {
     return { ok: false, message: `Missing target for ${group} ${command}` };
@@ -139,11 +184,47 @@ function parseArgs(argv) {
   if (group === "projects" && !["list", "inspect"].includes(command)) {
     return { ok: false, message: `Unknown projects command: ${command}` };
   }
-  if (group === "runs" && !["list", "inspect", "result", "failure"].includes(command)) {
+  if (group === "runs" && !["list", "inspect", "wait", "result", "failure"].includes(command)) {
     return { ok: false, message: `Unknown runs command: ${command}` };
   }
-  if (!["projects", "runs"].includes(group)) {
+  if (group === "issues" && !["list", "get", "dispatch"].includes(command)) {
+    return { ok: false, message: `Unknown issues command: ${command}` };
+  }
+  if (!["projects", "issues", "runs"].includes(group)) {
     return { ok: false, message: `Unknown command group: ${group}` };
+  }
+  if (group === "issues" && !flags.integration) {
+    return { ok: false, message: "Missing --integration for issues command" };
+  }
+  if (group === "issues" && flags.limit !== undefined) {
+    const limit = Number(flags.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return { ok: false, message: "--limit must be an integer between 1 and 100" };
+    }
+    flags.limit = limit;
+  }
+  if (
+    group === "issues"
+    && command === "dispatch"
+    && (!flags.project || !flags.agent || !flags.branch)
+  ) {
+    return {
+      ok: false,
+      message: "issues dispatch requires --project, --agent, and --branch",
+    };
+  }
+  if (group === "runs" && command === "wait") {
+    for (const [flag, value] of [
+      ["--interval-seconds", flags.intervalSeconds],
+      ["--timeout-seconds", flags.timeoutSeconds],
+    ]) {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return { ok: false, message: `${flag} must be a positive number` };
+      }
+    }
+    flags.intervalSeconds = Number(flags.intervalSeconds);
+    flags.timeoutSeconds = Number(flags.timeoutSeconds);
   }
 
   return {
@@ -154,15 +235,34 @@ function parseArgs(argv) {
       target,
       json: flags.json,
       controlPlaneUrl: flags.controlPlaneUrl,
+      ...(flags.integration ? { integration: flags.integration } : {}),
+      ...(flags.limit !== undefined ? { limit: flags.limit } : {}),
+      ...(flags.cursor ? { cursor: flags.cursor } : {}),
+      ...(flags.project ? { project: flags.project } : {}),
+      ...(flags.agent ? { agent: flags.agent } : {}),
+      ...(flags.branch ? { branch: flags.branch } : {}),
+      ...(group === "runs" && command === "wait"
+        ? {
+            intervalSeconds: flags.intervalSeconds,
+            timeoutSeconds: flags.timeoutSeconds,
+          }
+        : {}),
     },
   };
 }
 
-async function readJson(url, fetchImpl) {
+async function readJson(url, fetchImpl, init = {}) {
   let response;
   let text;
   try {
-    response = await fetchImpl(url, { headers: { accept: "application/json" } });
+    response = await fetchImpl(url, {
+      ...init,
+      headers: {
+        accept: "application/json",
+        ...(init.body ? { "content-type": "application/json" } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
     text = await response.text();
   } catch (error) {
     return operatorError(
@@ -222,7 +322,6 @@ function resultView(snapshot) {
       runId: snapshot.run.id,
       runState: snapshot.run.state,
       projectSlug: snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? null,
-      workflow: snapshot.workflow ?? null,
       result,
     },
   };
@@ -250,7 +349,6 @@ function failureView(snapshot) {
       runId: snapshot.run.id,
       runState: snapshot.run.state,
       projectSlug: snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? null,
-      workflow: snapshot.workflow ?? null,
       result,
     },
   };
@@ -280,7 +378,6 @@ function formatProjectInspect(payload) {
   pushLine(lines, `  baseBranch: ${project.baseBranch}`);
   pushLine(lines, `  defaultAgent: ${project.defaultAgent}`);
   pushLine(lines, `  runtime: ${project.runtime.provider} | image=${project.runtime.image}`);
-  pushLine(lines, `  workflow: ${workflowSummary(project.lane?.workflow)}`);
   pushLine(lines, `  contextBundles: ${contextRefsSummary(project.lane?.contextBundleRefs)}`);
   pushLine(lines, `  prewarmKeys: ${Object.keys(project.prewarmConfig ?? {}).join(", ") || "none"}`);
   return lines.join("\n");
@@ -302,13 +399,87 @@ function formatRunsList(payload) {
   return lines.join("\n");
 }
 
+function formatIssuesList(payload) {
+  const lines = ["Issues"];
+  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+    pushLine(lines, "  none");
+  } else {
+    for (const issue of payload.items) {
+      pushLine(
+        lines,
+        `  - ${issue.reference.identifier} | ${issue.state.name} | ${issue.title} | ${issue.reference.url}`,
+      );
+    }
+  }
+  if (payload.pageInfo?.hasNextPage) {
+    pushLine(lines, `nextCursor: ${payload.pageInfo.endCursor ?? "unavailable"}`);
+  }
+  return lines.join("\n");
+}
+
+function formatIssue(payload) {
+  const issue = payload.issue;
+  const lines = [`Issue ${issue.reference.identifier}`];
+  pushLine(lines, `  title: ${issue.title}`);
+  pushLine(lines, `  state: ${issue.state.name}`);
+  pushLine(lines, `  url: ${issue.reference.url}`);
+  pushLine(lines, `  description: ${issue.description ?? "none"}`);
+  return lines.join("\n");
+}
+
+function formatIssueDispatch(snapshot) {
+  const lines = [`Dispatched ${snapshot.job.spec.taskId}`];
+  pushLine(lines, `  jobId: ${snapshot.job.id}`);
+  pushLine(lines, `  runId: ${snapshot.run.id}`);
+  pushLine(lines, `  state: ${snapshot.run.state}`);
+  pushLine(lines, `  branch: ${snapshot.job.spec.branchName}`);
+  return lines.join("\n");
+}
+
+function formatRunWait(snapshot) {
+  const result = snapshot.run.result ?? {};
+  const issueIdentifier =
+    snapshot.job.spec.issue?.reference?.identifier
+    ?? result.issue?.identifier
+    ?? snapshot.job.spec.taskId;
+  const reviewUrl = result.reviewResult?.review?.url ?? result.mrUrl ?? "n/a";
+  const sandbox = result.sandboxOutcome?.session;
+  const agent = result.agentExecution;
+  const lines = [`Waiting for review ${issueIdentifier}`];
+  pushLine(lines, `  jobId: ${snapshot.job.id}`);
+  pushLine(lines, `  runId: ${snapshot.run.id}`);
+  pushLine(lines, `  branch: ${result.branch ?? snapshot.job.spec.branchName}`);
+  pushLine(
+    lines,
+    `  test: ${result.quality?.test?.status ?? "n/a"} | ${result.quality?.test?.command ?? "n/a"}`,
+  );
+  pushLine(
+    lines,
+    `  build: ${result.quality?.build?.status ?? "n/a"} | ${result.quality?.build?.command ?? "n/a"}`,
+  );
+  pushLine(lines, `  preview: ${result.preview?.url ?? "n/a"}`);
+  pushLine(lines, `  review: ${reviewUrl}`);
+  pushLine(
+    lines,
+    `  sandbox: ${sandbox?.provider ?? "n/a"} | ${sandbox?.sessionId ?? "n/a"} | ${sandbox?.status ?? "n/a"}`,
+  );
+  pushLine(
+    lines,
+    `  image: ${snapshot.runtime?.environment?.image ?? snapshot.project?.runtime?.image ?? "n/a"}`,
+  );
+  pushLine(
+    lines,
+    `  agent: ${agent?.agent ?? "n/a"} ${agent?.cliVersion ?? "n/a"} | ${agent?.mode ?? "n/a"} | cap=${agent?.maxAutopilotContinues ?? "n/a"}`,
+  );
+  return lines.join("\n");
+}
+
 function formatRunInspect(snapshot) {
   const lines = [];
   pushLine(lines, `Run ${snapshot.job.id}`);
   pushLine(lines, `  state: ${snapshot.run.state}`);
   pushLine(lines, `  branch: ${snapshot.job.spec.branchName}`);
   pushLine(lines, `  project: ${snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? "n/a"}`);
-  pushLine(lines, `  workflow: ${workflowSummary(snapshot.workflow)}`);
   pushLine(lines, `  currentLaneContext: ${contextRefsSummary(snapshot.project?.lane?.contextBundleRefs)}`);
   pushLine(lines, `  submittedLaneContext: ${contextRefsSummary(snapshot.lane?.contextBundleRefs)}`);
   pushLine(lines, `  runtime: ${snapshot.runtime?.environment?.image ?? snapshot.project?.runtime?.image ?? "n/a"}`);
@@ -325,7 +496,6 @@ function formatResult(payload) {
   pushLine(lines, `  branch: ${payload.result.branch ?? "n/a"}`);
   pushLine(lines, `  review: ${payload.result.mrUrl ?? "n/a"}`);
   pushLine(lines, `  preview: ${previewSummary(payload.result)}`);
-  pushLine(lines, `  workflow: ${workflowSummary(payload.workflow)}`);
   return lines.join("\n");
 }
 
@@ -337,7 +507,6 @@ function formatFailure(payload) {
   pushLine(lines, `  summary: ${payload.result.summary}`);
   pushLine(lines, `  errorCode: ${payload.result.errorCode ?? "n/a"}`);
   pushLine(lines, `  errorMessage: ${payload.result.errorMessage ?? "n/a"}`);
-  pushLine(lines, `  workflow: ${workflowSummary(payload.workflow)}`);
   return lines.join("\n");
 }
 
@@ -371,11 +540,23 @@ function formatSuccess(command, payload, jsonMode) {
   if (command.group === "projects" && command.command === "inspect") {
     return `${formatProjectInspect(payload)}\n`;
   }
+  if (command.group === "issues" && command.command === "list") {
+    return `${formatIssuesList(payload)}\n`;
+  }
+  if (command.group === "issues" && command.command === "get") {
+    return `${formatIssue(payload)}\n`;
+  }
+  if (command.group === "issues" && command.command === "dispatch") {
+    return `${formatIssueDispatch(payload)}\n`;
+  }
   if (command.group === "runs" && command.command === "list") {
     return `${formatRunsList(payload)}\n`;
   }
   if (command.group === "runs" && command.command === "inspect") {
     return `${formatRunInspect(payload)}\n`;
+  }
+  if (command.group === "runs" && command.command === "wait") {
+    return `${formatRunWait(payload)}\n`;
   }
   if (command.group === "runs" && command.command === "result") {
     return `${formatResult(payload)}\n`;
@@ -386,8 +567,12 @@ function formatSuccess(command, payload, jsonMode) {
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
-async function executeCommand(command, fetchImpl) {
+async function executeCommand(command, fetchImpl, deps = {}) {
   const baseUrl = command.controlPlaneUrl;
+  const sleep = deps.sleep ?? (async (milliseconds) => {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
+  });
+  const now = deps.now ?? Date.now;
 
   if (command.group === "projects" && command.command === "list") {
     return await readJson(new URL("/api/projects", baseUrl), fetchImpl);
@@ -395,8 +580,97 @@ async function executeCommand(command, fetchImpl) {
   if (command.group === "projects" && command.command === "inspect") {
     return await readJson(new URL(`/api/projects/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
   }
+  if (command.group === "issues" && command.command === "list") {
+    const url = new URL(
+      `/api/integrations/${encodeURIComponent(command.integration)}/issues`,
+      baseUrl,
+    );
+    if (command.limit !== undefined) {
+      url.searchParams.set("limit", String(command.limit));
+    }
+    if (command.cursor) {
+      url.searchParams.set("cursor", command.cursor);
+    }
+    return await readJson(url, fetchImpl);
+  }
+  if (command.group === "issues" && command.command === "get") {
+    return await readJson(
+      new URL(
+        `/api/integrations/${encodeURIComponent(command.integration)}/issues/${encodeURIComponent(command.target)}`,
+        baseUrl,
+      ),
+      fetchImpl,
+    );
+  }
+  if (command.group === "issues" && command.command === "dispatch") {
+    const project = await readJson(
+      new URL(`/api/projects/${encodeURIComponent(command.project)}`, baseUrl),
+      fetchImpl,
+    );
+    if (!project.ok) {
+      return project;
+    }
+    if (typeof project.data?.project?.id !== "string") {
+      return operatorError(
+        "INVALID_RESPONSE",
+        "Project response did not include an id",
+        EXIT_CODES.INVALID,
+        { project: command.project },
+      );
+    }
+    return await readJson(
+      new URL(
+        `/api/integrations/${encodeURIComponent(command.integration)}/issues/${encodeURIComponent(command.target)}/dispatch`,
+        baseUrl,
+      ),
+      fetchImpl,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: project.data.project.id,
+          agent: command.agent,
+          branchName: command.branch,
+        }),
+      },
+    );
+  }
   if (command.group === "runs" && command.command === "list") {
     return await readJson(new URL("/api/jobs", baseUrl), fetchImpl);
+  }
+
+  if (command.group === "runs" && command.command === "wait") {
+    const deadline = now() + command.timeoutSeconds * 1_000;
+    const url = new URL(`/api/jobs/${encodeURIComponent(command.target)}`, baseUrl);
+    while (true) {
+      const snapshot = await readJson(url, fetchImpl);
+      if (!snapshot.ok) {
+        return snapshot;
+      }
+      const state = snapshot.data?.run?.state;
+      if (TERMINAL_RUN_STATES.has(state)) {
+        if (state === "succeeded" || state === "waiting_for_review") {
+          return snapshot;
+        }
+        return operatorError(
+          "RUN_TERMINAL_FAILURE",
+          `Run reached terminal state ${state}.`,
+          EXIT_CODES.UNAVAILABLE,
+          snapshot.data,
+        );
+      }
+      if (now() >= deadline) {
+        return operatorError(
+          "WAIT_TIMEOUT",
+          "Run did not reach a terminal state before the local timeout.",
+          EXIT_CODES.NOT_READY,
+          {
+            jobId: command.target,
+            timeoutSeconds: command.timeoutSeconds,
+          },
+        );
+      }
+      await sleep(command.intervalSeconds * 1_000);
+    }
   }
 
   const snapshot = await readJson(new URL(`/api/jobs/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
@@ -428,7 +702,10 @@ export async function run(argv, deps = {}) {
     return EXIT_CODES.USAGE;
   }
 
-  const result = await executeCommand(parsed.value, fetchImpl);
+  const result = await executeCommand(parsed.value, fetchImpl, {
+    ...(deps.sleep ? { sleep: deps.sleep } : {}),
+    ...(deps.now ? { now: deps.now } : {}),
+  });
   if (!result.ok) {
     stderr(formatError(result, parsed.value.json));
     return result.exitCode ?? EXIT_CODES.TRANSPORT_ERROR;

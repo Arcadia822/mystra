@@ -1,9 +1,11 @@
 import { z } from "zod";
 
+import { issueSnapshotSchema } from "./issue-core.js";
+
 export const agentNameSchema = z.enum(["codex", "copilot"]);
 export type AgentName = z.infer<typeof agentNameSchema>;
 
-export const jobSourceSchema = z.enum(["mcp", "api"]);
+export const jobSourceSchema = z.enum(["mcp", "api", "issue"]);
 export type JobSource = z.infer<typeof jobSourceSchema>;
 
 export const mergeRequestSpecSchema = z
@@ -381,7 +383,7 @@ export type ExecutionContractReference = z.infer<typeof executionContractReferen
 
 export const executionSpecArtifactSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     kind: z.literal("execution-spec"),
     jobId: z.string().uuid(),
     runId: z.string().uuid(),
@@ -393,12 +395,23 @@ export const executionSpecArtifactSchema = z
     branchName: z.string().min(1),
     agent: agentNameSchema,
     prompt: z.string().min(1),
+    issue: issueSnapshotSchema.optional(),
+    dispatchKey: z.string().min(1).max(1_000).optional(),
     mergeRequest: mergeRequestSpecSchema.optional(),
     metadata: z.record(z.string(), z.unknown()).default({}),
     frozenAt: z.string().datetime(),
     executionContract: executionContractReferenceSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((artifact, ctx) => {
+    if (artifact.source === "issue" && (!artifact.issue || !artifact.dispatchKey)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Issue-driven execution specs require issue and dispatchKey",
+        path: ["issue"],
+      });
+    }
+  });
 export type ExecutionSpecArtifact = z.infer<typeof executionSpecArtifactSchema>;
 
 export const resolvedRuntimeContractSchema = z
@@ -528,11 +541,29 @@ export const jobSpecSchema = z
     branchName: z.string().min(1),
     agent: agentNameSchema.optional(),
     prompt: z.string().min(1),
+    issue: issueSnapshotSchema.optional(),
+    dispatchKey: z.string().min(1).max(1_000).optional(),
     mergeRequest: mergeRequestSpecSchema.optional(),
     runtime: jobRuntimeOverrideSchema.optional(),
     metadata: jsonObjectSchema.default({}),
   })
-  .strict();
+  .strict()
+  .superRefine((job, ctx) => {
+    if (job.source === "issue" && (!job.issue || !job.dispatchKey)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Issue-driven jobs require issue and dispatchKey",
+        path: ["issue"],
+      });
+    }
+    if (job.source !== "issue" && (job.issue || job.dispatchKey)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Only Issue-driven jobs may include issue or dispatchKey",
+        path: ["source"],
+      });
+    }
+  });
 export type JobSpec = z.infer<typeof jobSpecSchema>;
 
 export const runnerRegistrationSchema = z

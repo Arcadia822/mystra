@@ -16,8 +16,8 @@ export type CoordinationPhase = z.infer<typeof coordinationPhaseSchema>;
 export const coordinationMilestoneKeySchema = z.enum([
   "queued",
   "runner_assigned",
-  "workflow_started",
-  "workflow_running",
+  "execution_started",
+  "execution_running",
   "review_created",
   "terminal",
 ]);
@@ -47,6 +47,16 @@ export const coordinationTerminalSchema = z.object({
 }).strict();
 export type CoordinationTerminal = z.infer<typeof coordinationTerminalSchema>;
 
+export const coordinationExecutionPhaseSchema = z.enum([
+  "clone",
+  "agent",
+  "test",
+  "build",
+  "preview",
+  "delivery",
+]);
+export type CoordinationExecutionPhase = z.infer<typeof coordinationExecutionPhaseSchema>;
+
 export const summarySourceEventTypeSchema = z.union([
   runEventTypeSchema,
   z.literal("run.result"),
@@ -59,7 +69,7 @@ const phaseAllowedRunStates = {
   assigned: ["assigned", "starting"],
   running: ["running"],
   review_ready: ["assigned", "starting", "running"],
-  terminal: ["succeeded", "failed", "canceled", "timed_out", "needs_human_review"],
+  terminal: ["succeeded", "failed", "canceled", "timed_out", "waiting_for_review"],
 } as const satisfies Record<CoordinationPhase, readonly RunState[]>;
 
 export const coordinationRunSummarySchema = z.object({
@@ -76,7 +86,7 @@ export const coordinationRunSummarySchema = z.object({
   startedAt: z.string().datetime().optional(),
   finishedAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime(),
-  currentNodeId: z.string().min(1).optional(),
+  currentPhase: coordinationExecutionPhaseSchema.optional(),
   terminal: coordinationTerminalSchema.optional(),
   links: coordinationLinksSchema.default({}),
 }).strict().superRefine((summary, ctx) => {
@@ -122,11 +132,11 @@ export const coordinationRunSummarySchema = z.object({
     });
   }
 
-  if (summary.currentNodeId && summary.phase !== "running" && summary.phase !== "review_ready") {
+  if (summary.currentPhase && summary.phase !== "running" && summary.phase !== "review_ready") {
     ctx.addIssue({
       code: "custom",
-      message: "currentNodeId is only valid for running or review_ready summaries",
-      path: ["currentNodeId"],
+      message: "currentPhase is only valid for running or review_ready summaries",
+      path: ["currentPhase"],
     });
   }
 });

@@ -93,6 +93,8 @@ function defaultAgentAdapters(options: RunnerAgentAdapterRegistryOptions): Agent
       ...(options.codexAuthDir ? { authDir: "/root/.codex" } : {}),
     }),
     copilot: new CopilotAdapter({
+      cliVersion: "1.0.69-0",
+      maxAutopilotContinues: 10,
       cliConfigDir: "/mystra/workspace/copilot-home/.copilot",
       homeDir: "/mystra/workspace/copilot-home",
       configDir: "/mystra/workspace/copilot-home/.config",

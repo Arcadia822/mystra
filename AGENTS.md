@@ -153,13 +153,13 @@ Use `claude-design-intake` to start any design task.
 
 ## Current MVP Boundaries
 
-Mystra MVP uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces where upstream does not provide reusable package contracts. It starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), a Mystra-owned local workflow implementation, and a single-machine sandbox path.
+Mystra MVP uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces where upstream does not provide reusable package contracts. It starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), read-only Linear IssueProvider, direct Agent execution, and a single-machine sandbox path.
 
-The near-term MVP goal is self-use: let other agents and skills submit user journeys and implementation requests through Mystra remote MCP, then have Mystra execute the configured workflow and return reviewable repository artifacts through the current repository providers.
+The near-term MVP goal is self-use: let an operator or another Agent select an Issue and dispatch it through Mystra API, CLI or remote MCP, then have Mystra start the selected Agent directly inside a sandbox and return tested, previewable repository artifacts through the current repository providers.
 
 The north-star model is a hosted **Mystra platform** serving many independent
 **Teams**. Each Team may contain multiple projects with their own
-workflow variants, runtime images, product routes, user stories, and acceptance
+Issue integrations, Agent profiles, runtime images, product routes, user stories, and acceptance
 criteria, while sharing platform-owned provider pools such as sandbox capacity.
 Use this as the architectural direction when designing extensible interfaces,
 even if the current MVP only proves one local path.
@@ -168,8 +168,8 @@ Reserve **workspace** for the run-scoped working directory and execution-context
 delivery surface, not for tenancy.
 
 The intended long-term experience is similar in spirit to **Stripe Minion**:
-fast task intake, clear workflow execution ownership, reviewable outputs, and
-strong platform seams between workflow, runtime, agent, and repository layers.
+fast task intake, clear Agent execution ownership, reviewable outputs, and
+strong platform seams between Issue intake, runtime, Agent, and repository layers.
 
 Mystra MVP excludes caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, per-repository secret management, and hosted RDB provider implementation (PG/Supabase implementation is post-MVP; the interface must not leak SQLite dialect).
 
@@ -189,24 +189,25 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (4503 symbols, 6959 relationships, 220 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (4079 symbols, 6480 relationships, 209 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `pnpm dlx gitnexus analyze --force` in terminal first.
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER edit a function, class, or method without first running `impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
 
 ## Resources
 
@@ -237,6 +238,8 @@ This project is indexed by GitNexus as **mystra** (4503 symbols, 6959 relationsh
 - SQLite via `SqliteRdbProvider`, behind `RdbProvider` so future PG/Supabase compatibility is preserved (003-config-first-runner-durability)
 - TypeScript 5.9 with Node.js 24 runtime assumptions; Open Agents upstream currently serves as the source-authoritative architecture/code baseline rather than a direct Mystra runtime dependency or packaged SDK + Next.js 16 route handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, existing Mystra monorepo packages, and the upstream `vercel-labs/open-agents` repository as the architecture/code reference (004-open-agents-framework, 005-open-agents-source-baseline)
 - Mystra persists state through `RdbProvider` with SQLite first; Open Agents upstream assumes hosted Postgres/KV-style managed services that Mystra must classify as reused concept, replaced seam, or excluded (004-open-agents-framework)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Vitest 4、`better-sqlite3`、Node `child_process`、Linear GraphQL HTTP API、Docker Engine CLI、GitHub REST API、Copilot CLI `1.0.69-0` (033-issue-agent-execution)
+- 现有 `SqliteRdbProvider`；Issue snapshot 进入既有 Job 持久记录，Run result 保存 review handoff，不新增第二套数据库；旧开发数据库允许精确清空并以新 schema 重建 (033-issue-agent-execution)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

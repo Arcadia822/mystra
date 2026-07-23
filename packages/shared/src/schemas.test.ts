@@ -27,6 +27,44 @@ import {
 } from "./schemas.js";
 
 describe("jobSpecSchema", () => {
+  it("accepts an Issue-driven job only with an immutable snapshot and dispatch key", () => {
+    const parsed = jobSpecSchema.parse({
+      taskId: "ENG-123",
+      source: "issue",
+      projectId: "00000000-0000-4000-8000-000000000001",
+      branchName: "codex/eng-123",
+      agent: "copilot",
+      prompt: "Implement the frozen Linear Issue",
+      issue: {
+        reference: {
+          integration: "linear",
+          provider: "linear",
+          externalId: "issue-id",
+          identifier: "ENG-123",
+          url: "https://linear.app/example/issue/ENG-123/example",
+        },
+        title: "Add a health indicator",
+        description: null,
+        state: { id: "state-1", name: "Todo" },
+        priority: null,
+        assignee: null,
+        labels: [],
+        createdAt: "2026-07-22T00:00:00.000Z",
+        updatedAt: "2026-07-23T00:00:00.000Z",
+        fetchedAt: "2026-07-23T01:00:00.000Z",
+      },
+      dispatchKey: "linear:issue-id:project-id:codex/eng-123",
+    });
+
+    expect(parsed.source).toBe("issue");
+    expect(parsed.issue?.reference.identifier).toBe("ENG-123");
+    expect(parsed.dispatchKey).toBe("linear:issue-id:project-id:codex/eng-123");
+    expect(() => jobSpecSchema.parse({
+      ...parsed,
+      issue: undefined,
+    })).toThrow(/Issue-driven jobs/);
+  });
+
   it("accepts a minimal API job with projectId and a task-provided branch name", () => {
     const parsed = jobSpecSchema.parse({
       taskId: "task-1",
@@ -355,7 +393,7 @@ describe("runtime schemas", () => {
     expect(payload.files[0]?.path).toBe("execution-spec.json");
 
     const artifact = executionSpecArtifactSchema.parse({
-      version: 1,
+      version: 2,
       kind: "execution-spec",
       jobId: "00000000-0000-4000-8000-000000000091",
       runId: "00000000-0000-4000-8000-000000000092",
@@ -380,6 +418,10 @@ describe("runtime schemas", () => {
       },
     });
     expect(artifact.executionContract.filePath).toContain("execution-spec.json");
+    expect(() => executionSpecArtifactSchema.parse({
+      ...artifact,
+      version: 1,
+    })).toThrow();
   });
 
   it("rejects unsafe inline bundle file paths", () => {

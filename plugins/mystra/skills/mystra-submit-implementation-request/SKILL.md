@@ -8,7 +8,6 @@ metadata:
       - "submit implementation request"
       - "specReference"
       - "task scope"
-      - "workflow blueprint"
       - "mystra_create_job"
 ---
 
@@ -30,16 +29,12 @@ task scope and wants Mystra to execute the implementation.
 - `agent`
 - `baseBranch`
 - `planReference`
-- `workflowBlueprintName`
 - `constraints`
 - `metadata`
 
 ## Validation Rules
 
 - Do not call MCP if any required field is empty.
-- If a workflow blueprint hint is supplied, store it under `metadata.workflow`
-  and echo it in the prompt; the current MCP contract does not expose a
-  dedicated top-level `workflowName` field.
 - If the endpoint is unreachable, report the connection failure clearly and
   stop.
 - Stay inside the current MCP contract. Use `mystra_create_job`; do not invent
@@ -55,7 +50,6 @@ Implement the requested scope in the target project.
 Spec reference: <specReference>
 Plan reference: <optional planReference>
 Task scope: <taskScope>
-Workflow blueprint hint: <optional workflowBlueprintName>
 
 Constraints:
 <optional constraints>
@@ -84,10 +78,7 @@ request like:
       "metadata": {
         "submissionKind": "implementation-request",
         "specReference": "<specReference>",
-        "planReference": "<optional planReference>",
-        "workflow": {
-          "blueprintName": "<optional workflowBlueprintName>"
-        }
+        "planReference": "<optional planReference>"
       }
     }
   }

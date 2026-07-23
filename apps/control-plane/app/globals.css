@@ -180,8 +180,7 @@ h4 {
 .themePicker,
 .statusGrid,
 .statusStrip,
-.stack,
-.workflowList {
+.stack {
   display: grid;
 }
 
@@ -328,8 +327,7 @@ h4 {
 .module,
 .pane,
 .projectCard,
-.runnerRow,
-.workflowRow {
+.runnerRow {
   min-width: 0;
   border: 1px solid var(--border);
   background: var(--surface2);
@@ -407,8 +405,7 @@ h4 {
 
 .projectCard,
 .pane,
-.runnerRow,
-.workflowRow {
+.runnerRow {
   display: grid;
   gap: 14px;
   padding: 18px;
@@ -514,7 +511,6 @@ textarea:focus {
 .kv,
 .stat,
 .queueCell,
-.workflowPrimary,
 .eventBody {
   display: grid;
   gap: 3px;
@@ -704,8 +700,6 @@ button:disabled {
 
 .queueSummary,
 .itemMeta,
-.workflowMeta,
-.workflowSummary,
 .eventBody span {
   color: var(--text2);
 }
@@ -814,36 +808,13 @@ button:disabled {
   background: var(--surface2);
 }
 
-.workflowRowHeader,
-.workflowBadges {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.workflowBadges {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.workflowPrimary span,
-.workflowMeta span,
 .toolList span {
   overflow-wrap: anywhere;
 }
 
-.workflowPrimary strong,
 .eventBody strong {
   font-size: 13px;
   font-weight: 600;
-}
-
-.workflowMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 12px;
 }
 
 .eventRow {
@@ -951,8 +922,7 @@ button:disabled {
   .moduleHeader,
   .paneHeader,
   .detailsHeader,
-  .runnerSummary,
-  .workflowRowHeader {
+  .runnerSummary {
     flex-direction: column;
     align-items: stretch;
   }

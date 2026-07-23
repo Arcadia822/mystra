@@ -22,13 +22,28 @@ MYSTRA_RUNNER_ELIGIBLE_RUNTIME_PROVIDERS=docker
 
 - The runner registers config-derived concurrency and eligibility.
 - Claiming is pull-based and bounded by local `MYSTRA_RUNNER_CONCURRENCY`.
+- A claimed run follows one fixed sequence:
+  `clone -> Agent -> test -> build -> preview -> commit -> push -> PR`.
+- The runner contains no orchestration provider, graph, blueprint, or node
+  registry. Future policy belongs in a removable Agent hook/plugin.
 - Active Docker execution is watched locally for timeout and cancellation.
 - On cancellation or timeout, the runner emits `cleanup.started`, stops the
   container with `MYSTRA_RUNNER_CLEANUP_TIMEOUT_SECONDS`, and reports `canceled`,
   `timed_out`, or `failed` with `cleanup_failed`.
-- Missing `result.json` after a stopped container is not treated as the primary
-  failure when a terminal cancellation or timeout result has already been
-  produced.
+
+## Execution Invariants
+
+- The base container receives no repository or Agent credentials.
+- Repository credentials are scoped to clone/push operations. Copilot
+  credentials are scoped to the Agent command. Test, build, and preview phases
+  receive neither.
+- Copilot runs in bounded autopilot mode with an explicit continuation cap.
+- Test and build are independent structured quality results.
+- Preview must pass two bounded host-side probes before review handoff.
+- Successful delivery returns `waiting_for_review`, releases runner capacity,
+  retains the sandbox, and records preview, commit, branch, and PR metadata.
+- Cancellation, timeout, quality failure, preview failure, and delivery failure
+  fail closed and do not claim a review-ready result.
 
 ## Commands
 

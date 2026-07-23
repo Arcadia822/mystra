@@ -38,6 +38,109 @@ function projectInput(slug = "castrel-ai") {
   };
 }
 
+function issueSnapshot(identifier = "MYS-101") {
+  return {
+    reference: {
+      integration: "linear",
+      provider: "linear",
+      externalId: "linear-issue-101",
+      identifier,
+      url: `https://linear.app/mystra/issue/${identifier}`,
+    },
+    title: "Add a reviewable demo change",
+    description: "Implement the requested demo change and prove it with tests.",
+    state: {
+      id: "linear-state-todo",
+      name: "Todo",
+      type: "unstarted",
+    },
+    priority: {
+      value: 2,
+      label: "High",
+    },
+    assignee: null,
+    labels: [{ id: "linear-label-demo", name: "demo" }],
+    createdAt: "2026-07-23T01:00:00.000Z",
+    updatedAt: "2026-07-23T02:00:00.000Z",
+    fetchedAt: "2026-07-23T03:00:00.000Z",
+  };
+}
+
+function waitingForReviewResult() {
+  const issue = issueSnapshot().reference;
+  return {
+    status: "waiting_for_review" as const,
+    summary: "Implementation, verification, preview, and review handoff are ready.",
+    issue,
+    branch: "codex/mys-101-demo",
+    commitSha: "0123456789abcdef0123456789abcdef01234567",
+    reviewResult: {
+      status: "review_created" as const,
+      branch: {
+        status: "pushed" as const,
+        branchName: "codex/mys-101-demo",
+        branchUrl: "https://github.com/example/mystra-demo/tree/codex/mys-101-demo",
+        commitSha: "0123456789abcdef0123456789abcdef01234567",
+      },
+      review: {
+        provider: "github" as const,
+        url: "https://github.com/example/mystra-demo/pull/1",
+        number: 1,
+        displayId: "#1",
+      },
+      metadata: {},
+    },
+    quality: {
+      test: {
+        status: "passed" as const,
+        command: "pnpm test",
+        durationMs: 1_000,
+      },
+      build: {
+        status: "passed" as const,
+        command: "pnpm build",
+        durationMs: 2_000,
+      },
+    },
+    preview: {
+      url: "http://127.0.0.1:49152",
+      containerName: "mystra-preview-mys-101",
+      probeCount: 2,
+    },
+    sandboxOutcome: {
+      status: "succeeded" as const,
+      session: {
+        provider: "docker",
+        sessionId: "mystra-run-mys-101",
+        status: "retained" as const,
+        startedAt: "2026-07-23T03:05:00.000Z",
+        finishedAt: "2026-07-23T03:10:00.000Z",
+        retained: true,
+      },
+      ports: [{
+        name: "preview",
+        containerPort: 3000,
+        hostBinding: "127.0.0.1:49152",
+        url: "http://127.0.0.1:49152",
+        reachable: true,
+      }],
+      cleanup: {
+        status: "skipped" as const,
+        attemptedAt: "2026-07-23T03:10:00.000Z",
+      },
+      metadata: {},
+    },
+    agentExecution: {
+      agent: "copilot" as const,
+      cliVersion: "1.0.69-0",
+      mode: "autopilot" as const,
+      maxAutopilotContinues: 10,
+      exitCode: 0,
+      changedFiles: ["src/demo.ts"],
+    },
+  };
+}
+
 function corrupt(sql: string, ...params: unknown[]): void {
   db.close();
   const raw = new Database(dbPath);
@@ -167,6 +270,73 @@ describe("SqliteRdbProvider context bundles", () => {
 });
 
 describe("SqliteRdbProvider jobs", () => {
+  it("creates only the clean Issue-driven schema", () => {
+    const raw = new Database(dbPath, { readonly: true });
+    const columns = raw.prepare("PRAGMA table_info(jobs)").all() as Array<{ name: string }>;
+    raw.close();
+
+    expect(columns.map((column) => column.name)).toEqual(expect.arrayContaining([
+      "issue_snapshot",
+      "dispatch_key",
+    ]));
+    expect(columns.map((column) => column.name)).not.toContain("workflow_snapshot");
+  });
+
+  it("persists an immutable Issue snapshot and version 2 execution spec across reopen", () => {
+    const project = db.createProject(projectInput("issue-persistence"));
+    const issue = issueSnapshot();
+    const dispatchKey = `${issue.reference.provider}:${issue.reference.externalId}:${project.id}`;
+    const snapshot = db.createJob({
+      taskId: issue.reference.identifier,
+      source: "issue",
+      projectId: project.id,
+      branchName: "codex/mys-101-demo",
+      agent: "copilot",
+      prompt: `${issue.title}\n\n${issue.description}`,
+      issue,
+      dispatchKey,
+    });
+
+    db.close();
+    db = new SqliteRdbProvider(dbPath);
+
+    const reopened = db.getJob(snapshot.job.id);
+    expect(reopened?.job.spec.issue).toEqual(issue);
+    expect(reopened?.job.spec.dispatchKey).toBe(dispatchKey);
+    expect(db.getJobByDispatchKey(dispatchKey)?.job.id).toBe(snapshot.job.id);
+
+    const raw = new Database(dbPath, { readonly: true });
+    const artifact = raw.prepare(
+      "SELECT metadata FROM artifacts WHERE job_id = ? AND kind = 'execution-spec'",
+    ).get(snapshot.job.id) as { metadata: string };
+    raw.close();
+    const metadata = JSON.parse(artifact.metadata) as {
+      payload: { version: number; issue: { reference: { identifier: string } }; dispatchKey: string };
+    };
+    expect(metadata.payload.version).toBe(2);
+    expect(metadata.payload.issue.reference.identifier).toBe("MYS-101");
+    expect(metadata.payload.dispatchKey).toBe(dispatchKey);
+  });
+
+  it("rejects duplicate Issue dispatch keys without creating another Job", () => {
+    const project = db.createProject(projectInput("issue-idempotency"));
+    const issue = issueSnapshot();
+    const input = {
+      taskId: issue.reference.identifier,
+      source: "issue" as const,
+      projectId: project.id,
+      branchName: "codex/mys-101-demo",
+      agent: "copilot" as const,
+      prompt: issue.title,
+      issue,
+      dispatchKey: `${issue.reference.provider}:${issue.reference.externalId}:${project.id}`,
+    };
+    const first = db.createJob(input);
+
+    expect(() => db.createJob(input)).toThrow(/DISPATCH_CONFLICT/);
+    expect(db.listJobs().map((snapshot) => snapshot.job.id)).toEqual([first.job.id]);
+  });
+
   it("creates jobs with project defaults and durable snapshots", () => {
     const project = db.createProject(projectInput());
     const snapshot = db.createJob({
@@ -721,129 +891,79 @@ describe("SqliteRdbProvider runner lifecycle", () => {
     expect(db.claimNextRun(replacementRunner.id)).toBeUndefined();
   });
 
-  it("derives additive workflow execution snapshots from node lifecycle events", () => {
-    const project = db.createProject(projectInput("workflow-snapshot"));
+  it("rejects removed workflow events and exposes no workflow projection", () => {
+    const project = db.createProject(projectInput("workflow-removed"));
     const snapshot = db.createJob({
-      taskId: "task-workflow-snapshot",
+      taskId: "task-workflow-removed",
       source: "api",
       projectId: project.id,
-      branchName: "mystra/workflow-snapshot",
-      prompt: "Derive workflow inspection state",
+      branchName: "mystra/workflow-removed",
+      prompt: "Execute directly",
     });
     const runner = db.registerRunner({
-      runnerName: "runner-workflow-snapshot",
+      runnerName: "runner-workflow-removed",
       capabilities: { agents: ["codex"], executor: "docker" },
       maxConcurrency: 1,
     });
     expect(db.claimNextRun(runner.id)?.run.id).toBe(snapshot.run.id);
 
-    db.appendRunEvent(runner.id, snapshot.run.id, {
-      type: "workflow.start_requested",
-      severity: "info",
-      data: {
-        provider: "local",
-        blueprintName: "mvp.coding",
-        blueprintVersion: "1.0.0",
-      },
-    });
-    db.appendRunEvent(runner.id, snapshot.run.id, {
-      type: "workflow.started",
-      severity: "info",
-      data: {
-        provider: "local",
-        blueprintName: "mvp.coding",
-        blueprintVersion: "1.0.0",
-      },
-    });
-    db.appendRunEvent(runner.id, snapshot.run.id, {
-      type: "workflow.node.started",
-      severity: "info",
-      data: {
-        nodeId: "clone",
-        handler: "git.clone",
-        nodeKind: "deterministic",
-      },
-    });
-    db.appendRunEvent(runner.id, snapshot.run.id, {
-      type: "workflow.node.succeeded",
-      severity: "info",
-      data: {
-        nodeId: "clone",
-        handler: "git.clone",
-        nodeKind: "deterministic",
-        baseCommit: "abc123",
-      },
-    });
-    db.appendRunEvent(runner.id, snapshot.run.id, {
-      type: "workflow.node.started",
-      severity: "info",
-      data: {
-        nodeId: "agent",
-        handler: "agent.execute",
-        nodeKind: "agentic",
-        agent: "codex",
-      },
-    });
+    expect(() =>
+      db.appendRunEvent(runner.id, snapshot.run.id, {
+        type: "workflow.started",
+        severity: "info",
+        data: {},
+      }),
+    ).toThrow();
 
     const inspected = db.getJob(snapshot.job.id);
-
-    expect(inspected?.workflow).toEqual(expect.objectContaining({
-      provider: "local",
-      blueprintName: "mvp.coding",
-      blueprintVersion: "1.0.0",
-      status: "running",
-      currentNodeId: "agent",
-      terminalNodeId: "clone",
-      nodeExecutions: [
-        expect.objectContaining({
-          nodeId: "clone",
-          status: "succeeded",
-          data: expect.objectContaining({ baseCommit: "abc123" }),
-        }),
-        expect.objectContaining({
-          nodeId: "agent",
-          status: "running",
-          data: expect.objectContaining({ agent: "codex" }),
-        }),
-      ],
-    }));
+    expect(inspected && "workflow" in inspected).toBe(false);
   });
 
-  it("derives workflow metadata even before the first node execution starts", () => {
-    const project = db.createProject(projectInput("workflow-start-metadata"));
+  it("completes a retained preview as waiting_for_review and releases runner capacity", () => {
+    const project = db.createProject(projectInput("waiting-review"));
+    const issue = issueSnapshot();
     const snapshot = db.createJob({
-      taskId: "task-workflow-start-metadata",
-      source: "api",
+      taskId: issue.reference.identifier,
+      source: "issue",
       projectId: project.id,
-      branchName: "mystra/workflow-start-metadata",
-      prompt: "Capture workflow provider metadata",
+      branchName: "codex/mys-101-demo",
+      agent: "copilot",
+      prompt: issue.title,
+      issue,
+      dispatchKey: `${issue.reference.provider}:${issue.reference.externalId}:${project.id}`,
     });
     const runner = db.registerRunner({
-      runnerName: "runner-workflow-start-metadata",
-      capabilities: { agents: ["codex"], executor: "docker" },
+      runnerName: "runner-waiting-review",
+      capabilities: { agents: ["copilot"], executor: "docker" },
       maxConcurrency: 1,
     });
     expect(db.claimNextRun(runner.id)?.run.id).toBe(snapshot.run.id);
 
     db.appendRunEvent(runner.id, snapshot.run.id, {
-      type: "workflow.started",
+      type: "container.started",
       severity: "info",
-      data: {
-        provider: "local",
-        blueprintName: "mvp.coding",
-        blueprintVersion: "1.0.0",
-      },
+      data: { containerId: "mystra-run-mys-101" },
+    });
+    db.appendRunEvent(runner.id, snapshot.run.id, {
+      type: "agent.started",
+      severity: "info",
+      data: { mode: "autopilot" },
     });
 
-    const inspected = db.getJob(snapshot.job.id);
+    const completed = db.completeRun(runner.id, snapshot.run.id, waitingForReviewResult());
 
-    expect(inspected?.workflow).toEqual(expect.objectContaining({
-      provider: "local",
-      blueprintName: "mvp.coding",
-      blueprintVersion: "1.0.0",
-      status: "running",
-      nodeExecutions: [],
+    expect(completed.run.state).toBe("waiting_for_review");
+    expect(completed.run.finishedAt).toEqual(expect.any(String));
+    expect(completed.run.failureReason).toBeUndefined();
+    expect(completed.run.result).toEqual(expect.objectContaining({
+      status: "waiting_for_review",
+      preview: expect.objectContaining({ url: "http://127.0.0.1:49152" }),
     }));
+    expect(completed.events.at(-1)).toEqual(expect.objectContaining({
+      type: "run.waiting_for_review",
+      severity: "info",
+    }));
+    expect(db.listRunners()[0]?.activeRunCount).toBe(0);
   });
 
   it("records cleanup observations before accepting a canceled terminal result", () => {

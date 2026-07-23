@@ -7,3 +7,26 @@ base branch, agent, or image defaults.
 `prewarm-project.sh` is a manual cache preparation helper. Automatic prewarm is a
 future sandbox-provider capability; the current bare Docker runner only consumes
 the Project image returned by the claim API.
+
+## Operator CLI
+
+`operator-cli.mjs` is a thin HTTP client for the canonical control-plane API. It
+does not import Linear, SQLite, Integration, Job, or runner implementations.
+
+The five-command Issue-to-review path is:
+
+```sh
+pnpm operator:cli -- issues list --integration linear --limit 10
+pnpm operator:cli -- issues get MYS-101 --integration linear
+pnpm operator:cli -- issues dispatch MYS-101 --integration linear \
+  --project mystra-agent-demo --agent copilot --branch codex/mys-101-demo
+pnpm operator:cli -- runs inspect JOB_ID
+pnpm operator:cli -- runs wait JOB_ID --interval-seconds 2 --timeout-seconds 3600
+```
+
+All commands accept `--json` and
+`--control-plane-url http://127.0.0.1:3000`. `issues dispatch` resolves the
+Project slug through `GET /api/projects/{slug}` before posting the explicit
+project ID to the dispatch endpoint. `runs wait` treats
+`waiting_for_review` as a successful terminal handoff; failed, canceled, and
+timed-out Runs return non-zero.

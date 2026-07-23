@@ -8,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as dbModule from "@/lib/db";
 import { getDb, resetDbForTests } from "@/lib/db";
 import { GET as listContextBundles, POST as postContextBundle } from "./context-bundles/route";
+import { GET as getIntegrationIssue } from "./integrations/[integration]/issues/[identifier]/route";
+import { POST as dispatchIntegrationIssue } from "./integrations/[integration]/issues/[identifier]/dispatch/route";
+import { GET as listIntegrationIssues } from "./integrations/[integration]/issues/route";
 import { POST as cancelJob } from "./jobs/[id]/cancel/route";
 import { GET as getJob } from "./jobs/[id]/route";
 import { GET as getJobSummary } from "./jobs/[id]/summary/route";
@@ -61,6 +64,42 @@ function projectPayload(slug = "local-fixture") {
   };
 }
 
+function githubProjectPayload(slug = "github-fixture") {
+  return {
+    ...projectPayload(slug),
+    repo: "https://github.com/Arcadia822/mystra-demo.git",
+    defaultAgent: "copilot",
+  };
+}
+
+const linearIssuePayload = {
+  id: "linear-issue-101",
+  identifier: "MYS-101",
+  title: "Ship the demo",
+  description: "Complete the vertical slice.",
+  url: "https://linear.app/mystra/issue/MYS-101",
+  priority: 2,
+  priorityLabel: "High",
+  state: { id: "state-todo", name: "Todo", type: "unstarted" },
+  assignee: null,
+  labels: { nodes: [{ id: "label-demo", name: "demo" }] },
+  createdAt: "2026-07-23T01:00:00.000Z",
+  updatedAt: "2026-07-23T02:00:00.000Z",
+};
+
+function stubLinearFetch(
+  body: unknown = { data: { issue: linearIssuePayload } },
+) {
+  const fetchMock = vi.fn(async () =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+  vi.stubGlobal("fetch", fetchMock);
+  process.env.LINEAR_API_KEY = "linear-route-test-key";
+  return fetchMock;
+}
+
 async function createProject(slug = "local-fixture") {
   const response = await postProject(jsonRequest("http://localhost/api/projects", projectPayload(slug)));
   expect(response.status).toBe(201);
@@ -75,9 +114,233 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   resetDbForTests();
   delete process.env.MYSTRA_DB_PATH;
+  delete process.env.LINEAR_API_KEY;
   await rm(tempDir, { force: true, recursive: true });
+});
+
+describe("Issue Integration API routes", () => {
+  it("lists and gets normalized Linear Issues", async () => {
+    const fetchMock = stubLinearFetch({
+      data: {
+        issues: {
+          nodes: [linearIssuePayload],
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      },
+    });
+    const listed = await listIntegrationIssues(
+      new Request("http://localhost/api/integrations/linear/issues?limit=10&cursor=opaque"),
+      { params: Promise.resolve({ integration: "linear" }) },
+    );
+
+    expect(listed.status).toBe(200);
+    expect(await json(listed)).toEqual({
+      items: [expect.objectContaining({
+        reference: expect.objectContaining({ identifier: "MYS-101" }),
+        title: "Ship the demo",
+      })],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    });
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      data: { issue: linearIssuePayload },
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const read = await getIntegrationIssue(
+      new Request("http://localhost/api/integrations/linear/issues/MYS-101"),
+      { params: Promise.resolve({ integration: "linear", identifier: "MYS-101" }) },
+    );
+    expect(read.status).toBe(200);
+    expect(await json(read)).toEqual({
+      issue: expect.objectContaining({
+        reference: expect.objectContaining({ externalId: "linear-issue-101" }),
+      }),
+    });
+  });
+
+  it("returns stable structured errors for missing Integrations, Issues, and GraphQL failures", async () => {
+    stubLinearFetch({ data: { issue: null } });
+
+    const missingIntegration = await getIntegrationIssue(
+      new Request("http://localhost/api/integrations/missing/issues/MYS-101"),
+      { params: Promise.resolve({ integration: "missing", identifier: "MYS-101" }) },
+    );
+    expect(missingIntegration.status).toBe(404);
+    expect(await json(missingIntegration)).toEqual({
+      error: expect.objectContaining({ code: "INTEGRATION_NOT_FOUND" }),
+    });
+
+    const missingIssue = await getIntegrationIssue(
+      new Request("http://localhost/api/integrations/linear/issues/MYS-404"),
+      { params: Promise.resolve({ integration: "linear", identifier: "MYS-404" }) },
+    );
+    expect(missingIssue.status).toBe(404);
+    expect(await json(missingIssue)).toEqual({
+      error: expect.objectContaining({ code: "ISSUE_NOT_FOUND" }),
+    });
+
+    stubLinearFetch({
+      data: { issue: linearIssuePayload },
+      errors: [{ message: "partial failure" }],
+    });
+    const graphQlFailure = await getIntegrationIssue(
+      new Request("http://localhost/api/integrations/linear/issues/MYS-101"),
+      { params: Promise.resolve({ integration: "linear", identifier: "MYS-101" }) },
+    );
+    expect(graphQlFailure.status).toBe(502);
+    expect(await json(graphQlFailure)).toEqual({
+      error: expect.objectContaining({ code: "INTEGRATION_UPSTREAM_ERROR" }),
+    });
+  });
+
+  it("refetches exactly once and atomically freezes an Issue during dispatch", async () => {
+    const fetchMock = stubLinearFetch();
+    const projectResponse = await postProject(jsonRequest(
+      "http://localhost/api/projects",
+      githubProjectPayload("issue-dispatch"),
+    ));
+    const project = await json<{ project: { id: string } }>(projectResponse);
+
+    const response = await dispatchIntegrationIssue(
+      jsonRequest("http://localhost/api/integrations/linear/issues/MYS-101/dispatch", {
+        projectId: project.project.id,
+        agent: "copilot",
+        branchName: "codex/mys-101-demo",
+      }),
+      { params: Promise.resolve({ integration: "linear", identifier: "MYS-101" }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const snapshot = await json<{
+      job: {
+        id: string;
+        spec: {
+          taskId: string;
+          source: string;
+          issue: typeof linearIssuePayload & { reference: { identifier: string } };
+          dispatchKey: string;
+          prompt: string;
+          mergeRequest: { title: string; body: string };
+        };
+      };
+    }>(response);
+    expect(snapshot.job.spec).toEqual(expect.objectContaining({
+      taskId: "MYS-101",
+      source: "issue",
+      issue: expect.objectContaining({
+        reference: expect.objectContaining({ identifier: "MYS-101" }),
+        title: "Ship the demo",
+      }),
+      dispatchKey: expect.stringContaining(`linear:linear-issue-101:${project.project.id}:codex/mys-101-demo`),
+      prompt: expect.stringContaining("Complete the vertical slice."),
+      mergeRequest: {
+        title: "[MYS-101] Ship the demo",
+        body: expect.stringContaining("https://linear.app/mystra/issue/MYS-101"),
+      },
+    }));
+    expect(getDb().listJobs()).toHaveLength(1);
+  });
+
+  it("returns the existing Job ID on duplicate dispatch without creating a second Job", async () => {
+    stubLinearFetch();
+    const project = await json<{ project: { id: string } }>(
+      await postProject(jsonRequest(
+        "http://localhost/api/projects",
+        githubProjectPayload("issue-dispatch-duplicate"),
+      )),
+    );
+    const dispatch = () =>
+      dispatchIntegrationIssue(
+        jsonRequest("http://localhost/api/integrations/linear/issues/MYS-101/dispatch", {
+          projectId: project.project.id,
+          agent: "copilot",
+          branchName: "codex/mys-101-demo",
+        }),
+        { params: Promise.resolve({ integration: "linear", identifier: "MYS-101" }) },
+      );
+
+    const first = await json<{ job: { id: string } }>(await dispatch());
+    const duplicate = await dispatch();
+
+    expect(duplicate.status).toBe(409);
+    expect(await json(duplicate)).toEqual({
+      error: expect.objectContaining({
+        code: "DISPATCH_CONFLICT",
+        details: { existingJobId: first.job.id },
+      }),
+    });
+    expect(getDb().listJobs()).toHaveLength(1);
+  });
+
+  it("rejects invalid Project, Agent, runtime, and non-GitHub repository with zero partial Jobs", async () => {
+    stubLinearFetch();
+    const localProject = await createProject("not-github");
+    const cases = [
+      {
+        body: {
+          projectId: crypto.randomUUID(),
+          agent: "copilot",
+          branchName: "codex/missing-project",
+        },
+      },
+      {
+        body: {
+          projectId: localProject.project.id,
+          agent: "unknown",
+          branchName: "codex/invalid-agent",
+        },
+      },
+      {
+        body: {
+          projectId: localProject.project.id,
+          agent: "copilot",
+          branchName: "codex/invalid-runtime",
+          runtime: { provider: "kubernetes" },
+        },
+      },
+      {
+        body: {
+          projectId: localProject.project.id,
+          agent: "copilot",
+          branchName: "codex/not-github",
+        },
+      },
+    ];
+
+    for (const [index, entry] of cases.entries()) {
+      const response = await dispatchIntegrationIssue(
+        jsonRequest("http://localhost/api/integrations/linear/issues/MYS-101/dispatch", entry.body),
+        { params: Promise.resolve({ integration: "linear", identifier: "MYS-101" }) },
+      );
+      expect(response.status).toBe(index === 0 ? 404 : 400);
+    }
+    expect(getDb().listJobs()).toHaveLength(0);
+  });
+
+  it("creates no Job when the dispatch-time Linear refetch fails", async () => {
+    stubLinearFetch({ errors: [{ message: "upstream failed" }] });
+    const project = await json<{ project: { id: string } }>(
+      await postProject(jsonRequest(
+        "http://localhost/api/projects",
+        githubProjectPayload("issue-dispatch-atomic"),
+      )),
+    );
+
+    const response = await dispatchIntegrationIssue(
+      jsonRequest("http://localhost/api/integrations/linear/issues/MYS-101/dispatch", {
+        projectId: project.project.id,
+        agent: "copilot",
+        branchName: "codex/mys-101-demo",
+      }),
+      { params: Promise.resolve({ integration: "linear", identifier: "MYS-101" }) },
+    );
+
+    expect(response.status).toBe(502);
+    expect(getDb().listJobs()).toHaveLength(0);
+  });
 });
 
 describe("Project API routes", () => {
@@ -587,7 +850,7 @@ describe("Job and MCP project contracts", () => {
       "run.failed",
       "run.canceled",
       "run.timed_out",
-      "run.needs_human_review",
+      "run.waiting_for_review",
     ]);
   });
 
@@ -907,14 +1170,14 @@ describe("Job and MCP project contracts", () => {
     expect(inspected.events.map((event) => event.type)).toContain("run.stale_marked");
   });
 
-  it("accepts and persists workflow node lifecycle events from the runner", async () => {
-    const created = await createProject("workflow-node-events");
+  it("rejects removed workflow lifecycle events from the runner", async () => {
+    const created = await createProject("workflow-events-removed");
     const createdJob = await json<{ job: { id: string }; run: { id: string } }>(await postJob(jsonRequest("http://localhost/api/jobs", {
-      taskId: "task-workflow-node-events",
+      taskId: "task-workflow-events-removed",
       source: "api",
       projectId: created.project.id,
-      branchName: "mystra/workflow-node-events",
-      prompt: "Emit workflow node events",
+      branchName: "mystra/workflow-events-removed",
+      prompt: "Execute without workflow events",
     })));
     const registered = await json<{ runnerToken: string }>(await registerRunner(jsonRequest("http://localhost/api/runner/register", {
       runnerName: "runner-node-events",
@@ -939,89 +1202,25 @@ describe("Job and MCP project contracts", () => {
       })),
     );
 
-    const event = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerJobEvent(
+    const response = await appendRunnerJobEvent(
       authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
         type: "workflow.started",
         severity: "info",
-        data: {
-          provider: "local",
-          blueprintName: "mvp.coding",
-          blueprintVersion: "1.0.0",
-        },
+        data: {},
       }),
       { params: Promise.resolve({ id: claimed.run.id }) },
-    ));
-    expect(event.event.type).toBe("workflow.started");
-    expect(event.event.data).toEqual(expect.objectContaining({
-      provider: "local",
-      blueprintName: "mvp.coding",
-      blueprintVersion: "1.0.0",
-    }));
-
-    const nodeEvent = await json<{ event: { type: string; data: Record<string, unknown> } }>(await appendRunnerJobEvent(
-      authRequest(`http://localhost/api/runner/jobs/${claimed.run.id}/events`, {
-        type: "workflow.node.started",
-        severity: "info",
-        data: {
-          nodeId: "clone",
-          handler: "git.clone",
-          nodeKind: "deterministic",
-        },
-      }),
-      { params: Promise.resolve({ id: claimed.run.id }) },
-    ));
-    expect(nodeEvent.event.type).toBe("workflow.node.started");
-    expect(nodeEvent.event.data).toEqual(expect.objectContaining({
-      nodeId: "clone",
-      handler: "git.clone",
-      nodeKind: "deterministic",
-    }));
+    );
+    expect(response.status).toBe(400);
 
     const inspected = await json<{
       events: Array<{ type: string; data: Record<string, unknown> }>;
-      workflow?: {
-        provider?: string;
-        blueprintName?: string;
-        blueprintVersion?: string;
-        status: string;
-        currentNodeId?: string;
-        nodeExecutions: Array<{
-          nodeId: string;
-          status: string;
-          handler: string;
-          nodeKind: string;
-        }>;
-      };
     }>(
       await getJob(new Request(`http://localhost/api/jobs/${createdJob.job.id}`), {
         params: Promise.resolve({ id: createdJob.job.id }),
       }),
     );
-    expect(inspected.events).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        type: "workflow.node.started",
-        data: expect.objectContaining({
-          nodeId: "clone",
-          handler: "git.clone",
-          nodeKind: "deterministic",
-        }),
-      }),
-    ]));
-    expect(inspected.workflow).toEqual(expect.objectContaining({
-      provider: "local",
-      blueprintName: "mvp.coding",
-      blueprintVersion: "1.0.0",
-      status: "running",
-      currentNodeId: "clone",
-      nodeExecutions: [
-        expect.objectContaining({
-          nodeId: "clone",
-          status: "running",
-          handler: "git.clone",
-          nodeKind: "deterministic",
-        }),
-      ],
-    }));
+    expect(inspected.events.map((event) => event.type)).not.toContain("workflow.started");
+    expect("workflow" in inspected).toBe(false);
   });
 
   it("rejects runner registration with untyped capabilities", async () => {

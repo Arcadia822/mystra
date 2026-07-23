@@ -4,9 +4,14 @@
 
 Mystra is an open-source coding-agent orchestration platform.
 
-It provides a headless control plane for submitting work through HTTP or MCP, a local-first persistence layer, pluggable provider seams for runtime execution, and pull-based runners that execute workflow logic in sandboxes and return structured results plus repository review artifacts.
+It provides a headless control plane for submitting work through HTTP, CLI or MCP,
+a local-first persistence layer, pluggable Issue/runtime/repository seams, and
+pull-based runners that execute agents in sandboxes and return structured review
+handoffs.
 
-Mystra uses [Open Agents](https://github.com/vercel-labs/open-agents) as a **source-authoritative baseline and reference architecture**, while keeping Mystra-owned interfaces at provider, workflow, and orchestration seams.
+Mystra uses [Open Agents](https://github.com/vercel-labs/open-agents) as a
+**source-authoritative baseline and reference architecture**, while keeping
+Mystra-owned interfaces at provider and execution seams.
 
 ## Current status
 
@@ -16,22 +21,24 @@ Today the repository is focused on proving a local-first path with:
 
 - a Next.js control plane
 - SQLite behind `RdbProvider`
-- a Mystra-owned local workflow implementation
+- a read-only Linear `IssueProvider` behind an Integration capability
 - a pull-based runner daemon
-- sandboxed execution
+- direct Job/Run → Sandbox → Agent execution
 - repository delivery for GitLab and GitHub
 - agent execution through current provider adapters
 
-Important caveat: the current workflow implementation is an example implementation, not the final product contract. Mystra is about **workflow execution and platform seams**, not one hardcoded delivery sequence.
-
-The MVP is primarily for self-use. The long-term direction is to provide a developer experience similar in spirit to **Stripe Minion**: fast task submission, clear execution ownership, reviewable outputs, and strong platform boundaries between workflow, runtime, and repository delivery.
+The MVP is primarily for self-use. The long-term direction is to provide a
+developer experience similar in spirit to **Stripe Minion**: fast Issue intake,
+clear execution ownership, reviewable outputs, and strong platform boundaries
+between runtime, agent and repository delivery. Optional orchestration may return
+later as an agent hook plugin; it is not an active runtime dependency.
 
 ## Why Mystra exists
 
 Mystra is designed for teams that want a platform-shaped way to run coding agents on infrastructure they control, while preserving clean contracts between:
 
 - control plane and runner
-- workflow logic and persistence
+- Issue intake and persistence
 - sandbox runtime and agent adapters
 - platform capabilities and project-specific configuration
 
@@ -39,13 +46,15 @@ The architecture should remain **headless by default**: Mystra should have a fir
 
 This makes Mystra closer to a **control-plane-and-runner system** in the Jenkins / Salt / Nomad family than to a pure file-driven local tool. Declarative project or template configuration may grow over time, but Mystra still needs durable execution truth for jobs, runs, and repository artifacts.
 
-The long-term direction is a hosted **Mystra platform** that serves many **workspaces** and **projects**, each with its own workflow variants and runtime contracts, while sharing platform-owned provider pools.
+The long-term direction is a hosted **Mystra platform** that serves many **Teams**
+and projects, each with its own runtime and agent configuration, while sharing
+platform-owned provider pools. A workspace is run-scoped execution storage, not
+tenancy.
 
 ## Architecture at a glance
 
 ```text
 apps/control-plane    Next.js route handlers, state-facing APIs, MCP endpoint
-apps/workflows        Workflow provider implementations and orchestration adapters
 apps/runner-daemon    Pull-based runner service
 packages/shared       Zod schemas, state machine, events, result contracts
 packages/agent-adapters
@@ -58,14 +67,13 @@ supabase
 flowchart LR
     Caller[MCP client / API caller] --> CP[control-plane]
     CP --> DB[(RdbProvider)]
-    CP --> WF[WorkflowProvider]
+    CP --> Issue[Integration / IssueProvider]
     Runner[runner-daemon] --> CP
     Runner --> Sandbox[SandboxProvider]
     Sandbox --> Agent[AgentProvider]
     Agent --> Repo[RepoProvider]
     Shared[packages/shared] --> CP
     Shared --> Runner
-    Shared --> WF
 ```
 
 ### Provider seams
@@ -73,7 +81,7 @@ flowchart LR
 | Provider | Current implementation | Direction |
 |---|---|---|
 | `RdbProvider` | SQLite | Hosted/cloud RDB later |
-| `WorkflowProvider` | Mystra-owned local workflow | Additional implementations later |
+| `IssueProvider` | Read-only Linear | Additional integrations later |
 | `SandboxProvider` | Local sandbox path | Stronger isolation / cloud sandbox later |
 | `RepoProvider` | GitLab and GitHub | Additional hosts or variants later |
 | `AgentProvider` | Current agent adapters | Additional agent providers later |
@@ -184,7 +192,7 @@ Mystra keeps durable repository context in the 5xP files:
 - [PROFILE.md](PROFILE.md)
 - [AGENTS.md](AGENTS.md)
 
-These files describe product boundaries, platform constraints, workflow rules, and agent-facing repository conventions.
+These files describe product boundaries, platform constraints, development-process rules, and agent-facing repository conventions.
 
 ## Contributing
 

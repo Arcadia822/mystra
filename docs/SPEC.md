@@ -2,29 +2,31 @@
 
 ## Objective
 
-Build `mystra`, an internal multi-task AI development container platform that uses the Open Agents project as a source-authoritative framework baseline and reference architecture, while keeping Mystra-owned interfaces and SDK surfaces at provider and orchestration seams.
+Build `mystra`, an internal multi-task AI development container platform that uses the Open Agents project as a source-authoritative framework baseline and reference architecture, while keeping Mystra-owned interfaces and SDK surfaces at issue, repository, sandbox, agent, and persistence seams.
 
-The platform receives development tasks through an unauthenticated internal API/MCP surface, persists state through a local-first RDB provider, drives lifecycle through a local workflow provider, executes Codex CLI or GitHub Copilot CLI in Docker containers, records structured lifecycle events and final results, and produces reviewable GitLab/GitHub branches with merge requests or pull requests.
+The platform receives development tasks through an unauthenticated internal API/MCP surface or a thin HTTP CLI, can import them from a read-only Linear Issue integration, persists state through a local-first RDB provider, and executes a fixed direct lifecycle through the runner daemon. The runner starts a Docker sandbox, invokes Codex CLI or GitHub Copilot CLI, runs test and build phases, starts a host-reachable preview, and produces a reviewable GitHub pull request before entering `waiting_for_review`.
 
 The first release optimizes for internal trusted infrastructure and fast validation. It is not a public multi-tenant service.
 
 ## North Star Operating Model
 
 The long-term target is a hosted **Mystra platform** that can manage many
-independent **workspaces**. A workspace is the neutral scope for organizing
-multiple projects, each with its own workflow variant, runtime image, product
-route, user stories, and acceptance criteria, while still consuming shared
+independent **Teams**. A Team may organize multiple projects, each with its own
+runtime image, product route, user stories, acceptance criteria, and future
+pluggable execution policy, while still consuming shared
 platform-owned provider pools.
 
 ```text
 Mystra platform
-  -> workspace
+  -> Team
     -> project
       -> product route / user stories / acceptance criteria
-      -> workflow variant on shared platform primitives
       -> runtime image / execution contract
       -> jobs / runs / artifacts
 ```
+
+`workspace` is reserved for the run-scoped working directory and execution
+context delivery surface. It is not a tenancy concept.
 
 This does not expand MVP scope by itself. It defines the architectural direction
 that current interfaces should preserve.
@@ -36,12 +38,12 @@ that current interfaces should preserve.
 3. The MVP code-host targets are GitLab and GitHub.
 4. The MVP uses Docker runner containers on a configurable single host.
 5. The first RDB provider is local SQLite.
-6. The first workflow implementation is a Mystra-owned local implementation; cloud workflow durability and any external adapter adoption are future work.
+6. MVP execution is a fixed direct runner lifecycle. Any future orchestration policy must return as a removable Codex plugin or Agent hook, not as a platform-owned package above the Agent.
 7. Mystra implements its own MCP server surface inside the control-plane app.
 8. Phase 1 uses GitLab/GitHub user tokens for clone, branch push, and merge request or pull request creation.
-9. MVP intentionally has no control-plane caller auth, no logs API, no retry API, and no callback URL. Runner workflow includes a deterministic `test -> build` quality gate before push/MR/PR creation.
+9. MVP intentionally has no control-plane caller auth, no logs API, no retry API, and no callback URL. Direct execution includes deterministic `test -> build` quality phases before preview and PR creation.
 10. Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, and per-repo secret management are future work.
-11. Interfaces should avoid assuming a forever-single-project operating model; workspace and shared platform resource concepts must remain representable even before they are fully implemented.
+11. Interfaces should avoid assuming a forever-single-project operating model; Team and shared platform resource concepts must remain representable even before they are fully implemented.
 
 ## Tech Stack
 
@@ -51,10 +53,11 @@ that current interfaces should preserve.
 - Framework baseline: Open Agents source-authoritative reference architecture.
 - Public API/control plane: Next.js route handlers.
 - RDB provider: local SQLite first; hosted/cloud RDB later.
-- Workflow provider: Mystra-owned local implementation first; external adapters later if they fit the contract.
+- Issue integration: capability-based `Integration` contracts with a read-only Linear `IssueProvider`.
+- Execution: fixed direct runner lifecycle; no active orchestration provider, graph, blueprint, or node model.
 - Runner daemon: Node.js TypeScript service running under systemd on bare metal.
 - Runner runtime: Docker containers launched by the runner daemon.
-- Validation: Zod schemas shared across control plane, workflows, and runner.
+- Validation: Zod schemas shared across control plane, CLI-facing HTTP contracts, and runner.
 - Events/results: append-only `RunEvent` rows plus structured `RunResult` in the control-plane database.
 - Runner image baseline: Node 24, Python 3, uv, git, curl, ca-certificates, openssh-client, Codex CLI, and GitHub Copilot CLI.
 - Runner cache: local repo mirror/worktree cache, pnpm store cache, and uv cache on the runner host.
@@ -76,7 +79,6 @@ Service-specific commands:
 
 ```sh
 pnpm --filter @mystra/control-plane dev
-pnpm --filter @mystra/workflows dev
 pnpm --filter @mystra/runner-daemon dev
 pnpm --filter @mystra/shared test
 ```
@@ -96,8 +98,7 @@ Supabase or hosted Postgres commands are future/cloud-provider work, not part of
 mystra/
   apps/
     control-plane/       # Next.js public API, Streamable HTTP MCP endpoint, state source of truth
-    workflows/           # Workflow provider implementations and orchestration adapters
-    runner-daemon/       # Bare-metal daemon that registers and pulls jobs
+    runner-daemon/       # Bare-metal daemon that registers, pulls, and directly executes jobs
   packages/
     shared/              # JobSpec, RunEvent, RunnerEvent, RunResult, state machine schemas
     agent-adapters/      # Codex and Copilot CLI adapter contracts and implementations
@@ -235,7 +236,10 @@ mystra_list_runners
 
 The MCP endpoint lives in `apps/control-plane` and uses official Streamable HTTP semantics. A separate stdio MCP server is out of scope for MVP.
 
-`POST /jobs` persists the job and initial run first. After the database commit succeeds, the control plane asks the configured `WorkflowProvider` to drive lifecycle. The MVP workflow path is a Mystra-owned local implementation. If workflow start fails, the run remains `queued` for compensation.
+`POST /jobs` or Issue dispatch persists the Job and initial Run atomically. A
+pull-based runner claims the queued Run and owns the fixed direct lifecycle:
+sandbox launch, repository clone, Agent, test, build, preview, repository delivery
+and review handoff. The API remains the canonical implementation used by the CLI.
 
 ## Code Style
 
@@ -395,27 +399,33 @@ MVP `RunEvent` types:
 
 ```text
 job.created
-workflow.start_requested
-workflow.start_failed
-workflow.started
 run.queued
 runner.registered
 runner.heartbeat
 run.assigned
 container.starting
 container.started
+repository.clone.started
+repository.clone.succeeded
 agent.started
-quality_gate.passed
-quality_gate.failed
+agent.succeeded
+agent.failed
+quality.test.started
+quality.test.passed
+quality.test.failed
+quality.build.started
+quality.build.passed
+quality.build.failed
+preview.ready
 git.branch_created
 git.commit_created
 git.push_succeeded
-mr.created
+review.created
+run.waiting_for_review
 run.succeeded
 run.failed
 run.canceled
 run.timed_out
-run.needs_human_review
 artifact.created
 ```
 
@@ -447,8 +457,8 @@ Ask first:
 
 - Replacing Docker MVP with Kubernetes, Firecracker, E2B, gVisor, or Kata.
 - Adding OAuth, tokens, rate limits, IP allowlists, or multi-tenant product features.
-- Making any workflow provider the primary state store.
-- Adding hosted RDB or cloud workflow as an MVP requirement.
+- Making an execution plugin the primary state store.
+- Adding hosted RDB or cloud orchestration as an MVP requirement.
 - Adding retry, callback URL, logs, quality-gate fix loops, Claude CLI, remote shared cache, or per-repo secret management.
 
 Never:
@@ -464,9 +474,9 @@ Never:
 MVP is complete when:
 
 - A job can be created through the control-plane API or Mystra MCP server.
-- The control plane starts or retries starting the configured `WorkflowProvider` after job creation.
+- A registered runner can atomically claim a queued Run after Job creation.
 - The local SQLite provider can persist and recover job/run state.
-- The Mystra-owned local workflow implementation can drive the first lifecycle path without cloud services.
+- The direct runner can drive the first lifecycle path without cloud services.
 - A private runner daemon can register and pull a job without inbound networking.
 - The runner can start a Docker container with a normalized task file.
 - The container can run Codex or Copilot against a fixture repository.

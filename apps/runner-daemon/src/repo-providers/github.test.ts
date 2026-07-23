@@ -79,6 +79,13 @@ describe("github repo provider", () => {
       branchUrl: "https://github.com/acme/project/tree/mystra%2Ftask-500",
       commitSha: "def456",
     });
+    expect(spawnMock.mock.calls.flatMap((call) => call[1] as string[]).join(" ")).not.toContain("top-secret");
+    expect(spawnMock).toHaveBeenNthCalledWith(
+      1,
+      "git",
+      ["remote", "set-url", "origin", "https://github.com/acme/project.git"],
+      expect.any(Object),
+    );
   });
 
   it("normalizes SSH-style enterprise remotes behind the provider boundary", async () => {
@@ -284,7 +291,8 @@ describe("github repo provider", () => {
 
   it("returns review_failed_after_push when pull request creation fails after a pushed branch", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response("branch already has a pull request", { status: 422 }));
+      .mockResolvedValueOnce(new Response("validation failed", { status: 422 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
@@ -319,12 +327,108 @@ describe("github repo provider", () => {
         branchUrl: "https://github.com/acme/project/tree/mystra/task-509",
       },
       errorCode: "review_create_failed",
-      errorMessage: "GitHub pull request create failed 422: branch already has a pull request",
+      errorMessage: "GitHub pull request create failed 422: validation failed",
       metadata: {},
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("reuses an existing open pull request after GitHub reports a duplicate", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("already exists", { status: 422 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{
+        number: 19,
+        html_url: "https://github.com/acme/project/pull/19",
+      }]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
+
+    const result = await githubRepoProvider.createReview({
+      target: {
+        projectId: "00000000-0000-4000-8000-000000000519",
+        repoUrl: "https://github.com/acme/project.git",
+        hostKind: "github",
+        defaultBaseBranch: "main",
+      },
+      auth: {
+        kind: "runner-env",
+        provider: "github",
+        reference: "MYSTRA_GITHUB_TOKEN",
+        metadata: {},
+      },
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-519",
+      },
+      title: "Mystra task 519",
+      body: "Implement the requested change",
+      metadata: {},
+    });
+
+    expect(result).toEqual({
+      status: "review_created",
+      branch: {
+        status: "pushed",
+        branchName: "mystra/task-519",
+      },
+      review: {
+        provider: "github",
+        url: "https://github.com/acme/project/pull/19",
+        number: 19,
+        displayId: "#19",
+      },
+      metadata: {
+        repo: "acme/project",
+        targetBranch: "main",
+        reused: true,
+      },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/repos/acme/project/pulls?state=open&head=acme%3Amystra%2Ftask-519&base=main",
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+  });
+
+  it.each([403, 500])(
+    "fails closed and redacts GitHub HTTP %s response bodies",
+    async (status) => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response("upstream echoed top-secret", { status }));
+      vi.stubGlobal("fetch", fetchMock);
+      process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
+
+      const result = await githubRepoProvider.createReview({
+        target: {
+          projectId: "00000000-0000-4000-8000-000000000520",
+          repoUrl: "https://github.com/acme/project.git",
+          hostKind: "github",
+          defaultBaseBranch: "main",
+        },
+        auth: {
+          kind: "runner-env",
+          provider: "github",
+          reference: "MYSTRA_GITHUB_TOKEN",
+          metadata: {},
+        },
+        branch: {
+          status: "pushed",
+          branchName: "mystra/task-520",
+        },
+        title: "Mystra task 520",
+        body: "Implement the requested change",
+        metadata: {},
+      });
+
+      expect(result).toEqual(expect.objectContaining({
+        status: "review_failed_after_push",
+        errorCode: "review_create_failed",
+        errorMessage: expect.stringContaining("[REDACTED]"),
+      }));
+      expect(result.errorMessage).not.toContain("top-secret");
+    },
+  );
 
   it("creates normalized GitHub review handles from pull request responses", async () => {
     const fetchMock = vi.fn()

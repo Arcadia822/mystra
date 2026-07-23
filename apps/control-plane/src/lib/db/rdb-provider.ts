@@ -14,7 +14,6 @@ import type {
   RunResult,
   RunState,
   StaleMarkingResult,
-  WorkflowExecutionSnapshot,
 } from "@mystra/shared";
 
 export type JobRecord = {
@@ -65,7 +64,6 @@ export type JobSnapshot = {
   job: JobRecord;
   run: RunRecord;
   events: RunEvent[];
-  workflow?: WorkflowExecutionSnapshot;
   project?: ProjectClaim;
   runtime?: ResolvedRuntimeContract;
 };
@@ -95,6 +93,7 @@ export interface RdbProvider {
 
   createJob(input: unknown): JobSnapshot;
   getJob(id: string): JobSnapshot | undefined;
+  getJobByDispatchKey(dispatchKey: string): JobSnapshot | undefined;
   getJobSummary(id: string): CoordinationRunSummary | undefined;
   getJobByRunId(runId: string): JobSnapshot | undefined;
   listJobs(): JobSnapshot[];

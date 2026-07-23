@@ -60,25 +60,6 @@ interface JobSnapshot {
     severity: string;
     data: Record<string, unknown>;
   }>;
-  workflow?: {
-    provider?: string;
-    blueprintName?: string;
-    blueprintVersion?: string;
-    status: string;
-    currentNodeId?: string;
-    terminalNodeId?: string;
-    startedAt: string;
-    updatedAt: string;
-    nodeExecutions: Array<{
-      nodeId: string;
-      handler: string;
-      nodeKind: "deterministic" | "agentic";
-      status: "running" | "succeeded" | "failed";
-      startedAt: string;
-      finishedAt?: string;
-      data: Record<string, unknown>;
-    }>;
-  };
 }
 
 interface RunnerSession {
@@ -175,13 +156,6 @@ function severityTone(value: string): string {
   return "muted";
 }
 
-function workflowStatusTone(value: string): string {
-  if (value === "succeeded") return "good";
-  if (["failed", "canceled", "timed_out", "needs_human_review"].includes(value)) return "bad";
-  if (value === "running") return "active";
-  return "muted";
-}
-
 function eventSummary(data: Record<string, unknown>): string {
   const message = data.message;
   if (typeof message === "string" && message.trim()) return message;
@@ -197,13 +171,6 @@ function eventSummary(data: Record<string, unknown>): string {
 
   const keys = Object.keys(data);
   return keys.length > 0 ? `Fields: ${keys.join(", ")}` : "No additional data";
-}
-
-function workflowNodeTiming(execution: NonNullable<JobSnapshot["workflow"]>["nodeExecutions"][number]): string {
-  if (execution.finishedAt) {
-    return `${relativeTime(execution.finishedAt)} · started ${relativeTime(execution.startedAt)}`;
-  }
-  return `Started ${relativeTime(execution.startedAt)}`;
 }
 
 function queueSummary(snapshot: JobSnapshot): string {
@@ -775,43 +742,6 @@ export default function Page() {
                     <a className="linkButton" href={selectedJob.run.result.mrUrl} target="_blank" rel="noreferrer">
                       Open merge request
                     </a>
-                  ) : null}
-                  {selectedJob.workflow ? (
-                    <section className="detailSection" aria-labelledby="workflow-execution-heading">
-                      <div className="sectionHeader">
-                        <h4 id="workflow-execution-heading">Workflow execution</h4>
-                        <span className="counter">{selectedJob.workflow.nodeExecutions.length}</span>
-                      </div>
-                      <div className="detailGrid">
-                        <div className="kv"><span>Provider</span><strong>{selectedJob.workflow.provider ?? "—"}</strong></div>
-                        <div className="kv"><span>Blueprint</span><strong>{selectedJob.workflow.blueprintName ?? "—"}</strong></div>
-                        <div className="kv"><span>Version</span><strong>{selectedJob.workflow.blueprintVersion ?? "—"}</strong></div>
-                        <div className="kv"><span>Status</span><strong>{selectedJob.workflow.status}</strong></div>
-                        <div className="kv"><span>Current node</span><strong>{selectedJob.workflow.currentNodeId ?? "—"}</strong></div>
-                        <div className="kv"><span>Terminal node</span><strong>{selectedJob.workflow.terminalNodeId ?? "—"}</strong></div>
-                        <div className="kv"><span>Updated</span><strong>{relativeTime(selectedJob.workflow.updatedAt)}</strong></div>
-                      </div>
-                      <div className="workflowList" role="list" aria-label="Workflow node executions">
-                        {selectedJob.workflow.nodeExecutions.length > 0 ? selectedJob.workflow.nodeExecutions.map((execution) => (
-                          <article className="workflowRow" key={`${execution.nodeId}-${execution.startedAt}`} role="listitem">
-                            <div className="workflowRowHeader">
-                              <div className="workflowPrimary">
-                                <strong>{execution.nodeId}</strong>
-                                <span>{execution.handler}</span>
-                              </div>
-                              <div className="workflowBadges">
-                                <span className={`pill ${workflowStatusTone(execution.status)}`}>{execution.status}</span>
-                                <span className="pill">{execution.nodeKind}</span>
-                              </div>
-                            </div>
-                            <p className="workflowSummary">{eventSummary(execution.data)}</p>
-                            <div className="workflowMeta">
-                              <span>{workflowNodeTiming(execution)}</span>
-                            </div>
-                          </article>
-                        )) : <p className="empty detailEmpty">Workflow metadata recorded; node execution has not started yet.</p>}
-                      </div>
-                    </section>
                   ) : null}
                   <section className="detailSection">
                     <div className="sectionHeader">

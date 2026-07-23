@@ -10,7 +10,7 @@ export const runStateSchema = z.enum([
   "failed",
   "canceled",
   "timed_out",
-  "needs_human_review",
+  "waiting_for_review",
 ]);
 export type RunState = z.infer<typeof runStateSchema>;
 
@@ -19,7 +19,7 @@ export const terminalRunStates = [
   "failed",
   "canceled",
   "timed_out",
-  "needs_human_review",
+  "waiting_for_review",
 ] as const satisfies readonly RunState[];
 
 const terminalRunStateSet = new Set<RunState>(terminalRunStates);
@@ -29,12 +29,12 @@ const allowedRunStateTransitions = {
   dispatching: ["assigned", "canceled", "timed_out", "failed"],
   assigned: ["starting", "canceled", "timed_out", "failed"],
   starting: ["running", "canceled", "timed_out", "failed"],
-  running: ["succeeded", "failed", "canceled", "timed_out", "needs_human_review"],
+  running: ["succeeded", "failed", "canceled", "timed_out", "waiting_for_review"],
   succeeded: [],
   failed: [],
   canceled: [],
   timed_out: [],
-  needs_human_review: [],
+  waiting_for_review: [],
 } as const satisfies Record<RunState, readonly RunState[]>;
 
 export function isTerminalRunState(state: RunState): boolean {

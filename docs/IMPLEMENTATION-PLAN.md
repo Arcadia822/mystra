@@ -2,17 +2,23 @@
 
 ## Overview
 
-Build the MVP as a TypeScript monorepo that uses the Open Agents project as a source-authoritative framework baseline and reference architecture, while defining Mystra-owned interfaces and SDK surfaces at provider and orchestration seams. The local-first implementations are SQLite for RDB state, a Mystra-owned local workflow implementation for lifecycle orchestration, a single-machine Docker sandbox provider, Codex/Copilot agent adapters, and runner-local prewarm caches. The first proof is a fake-runner lifecycle; the second is a real runner container on the provided high-capacity server producing GitLab branch/MR or GitHub branch/PR output from jobs submitted through API or remote MCP.
+Build the MVP as a TypeScript monorepo that uses the Open Agents project as a
+source-authoritative framework baseline and reference architecture, while defining
+Mystra-owned interfaces at provider and execution seams. The local-first
+implementations are SQLite for RDB state, read-only Linear Issue intake, a
+single-machine Docker sandbox provider, Codex/Copilot agent adapters, and
+runner-local caches. The accepted proof is a real Linear Issue producing a retained
+preview and private GitHub PR through the canonical API and thin CLI.
 
 The MVP intentionally excludes control-plane auth, logs, retry, callback URLs, quality-gate fix loops, Claude CLI, and remote shared caches.
 
 ## Architecture Decisions
 
 - Open Agents is the source-authoritative framework baseline, not an assumed packaged SDK for all Mystra seams.
-- Local SQLite is the first shared state provider for control plane and workflow logic.
+- Local SQLite is the first shared state provider for Job/Run execution truth.
 - `apps/control-plane` owns HTTP APIs and the Streamable HTTP MCP endpoint.
-- `apps/workflows` owns workflow provider implementations. The first implementation is Mystra-owned and local-first, not a managed durable cloud workflow.
-- `POST /jobs` persists the job/run, then asks the configured workflow provider to start. Failed workflow starts are retried by compensation.
+- Integration owns Issue-provider capabilities; Linear is read-only.
+- Job creation persists a queued Run; a runner claims and directly executes it.
 - Runner daemon is pull-based over outbound long polling.
 - `/api/runner/jobs` uses the Vercel Node runtime with `maxDuration >= 30s`.
 - Docker is the MVP sandbox; Kubernetes remains future work behind the runner interface.
@@ -27,7 +33,7 @@ Monorepo scaffold
   -> Shared schemas and state machine
     -> RdbProvider interface, SQLite schema, persistence helpers
       -> Control-plane APIs
-        -> WorkflowProvider start + compensation
+        -> Issue dispatch + runner claim
         -> Streamable HTTP MCP endpoint
         -> Fake runner integration test
       -> Runner daemon client
@@ -46,7 +52,8 @@ Monorepo scaffold
 
 **Acceptance criteria:**
 - [ ] `pnpm install` succeeds.
-- [ ] Workspace contains `apps/control-plane`, `apps/workflows`, `apps/runner-daemon`, `packages/shared`, `packages/agent-adapters`, and `infra`.
+- [ ] Workspace contains `apps/control-plane`, `apps/runner-daemon`,
+  `packages/shared`, `packages/agent-adapters`, and `infra`.
 - [ ] Root commands exist: `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`.
 - [ ] Vitest is available for unit/integration tests.
 
@@ -137,14 +144,14 @@ Monorepo scaffold
 
 **Acceptance criteria:**
 - [ ] `POST /jobs` creates a validated job and first run.
-- [ ] `POST /jobs` commits DB state before requesting workflow start.
-- [ ] Workflow provider start failure keeps the run `queued` for compensation.
+- [ ] `POST /jobs` commits job and run state atomically before a runner can claim it.
+- [ ] Issue dispatch refetches the source issue and stores an immutable snapshot.
 - [ ] `GET /jobs/:id` returns job, run status, structured events, and final result when available.
 - [ ] `POST /jobs/:id/cancel` performs strong cancellation state update.
 - [ ] `GET /runners` returns runner session status.
 
 **Verification:**
-- [ ] Route tests with mocked persistence/workflow client.
+- [ ] Route tests with mocked persistence and Issue provider.
 - [ ] Integration test against local SQLite for create/read/cancel.
 
 **Dependencies:** Task 3
@@ -154,7 +161,7 @@ Monorepo scaffold
 - `apps/control-plane/app/api/jobs/[id]/route.ts`
 - `apps/control-plane/app/api/jobs/[id]/cancel/route.ts`
 - `apps/control-plane/app/api/runners/route.ts`
-- `apps/control-plane/src/lib/workflows/*.ts`
+- `apps/control-plane/src/lib/integrations/*.ts`
 
 **Estimated scope:** M
 
@@ -215,31 +222,25 @@ Monorepo scaffold
 - [ ] MCP tool can create a job and fetch status.
 - [ ] No real Docker or GitLab writes yet.
 
-## Phase 3: Workflow and Runner Daemon
+## Phase 3: Direct Runner Daemon
 
-### Task 7: Local Dummy Workflow Provider
+### Task 7: Issue-driven direct execution
 
-**Description:** Implement a local dummy `WorkflowProvider` that receives `run_id`, marks dispatch progress through control-plane APIs or shared services, waits for terminal state, and performs timeout compensation without requiring Vercel Workflow.
+**Description:** Implement Integration/IssueProvider intake and a fixed runner-owned
+sequence from sandbox launch through Agent, quality, preview and review handoff.
 
 **Acceptance criteria:**
-- [ ] Workflow provider stores orchestration progress only, not business state.
-- [ ] Timeout moves run to `timed_out` through control-plane API or persistence service.
-- [ ] Cancel state is respected while waiting.
-- [ ] Compensation scanner retries workflow start for queued runs whose start request failed.
+- [x] Linear Issue reads are normalized and read-only.
+- [x] Dispatch freezes an immutable Issue snapshot into Job/Run.
+- [x] Copilot autopilot is bounded and versioned.
+- [x] Test and build are independent fail-closed phases.
+- [x] Review success ends at `waiting_for_review` with retained preview.
 
 **Verification:**
-- [ ] Unit tests for success, failure, timeout, cancel, and workflow-provider start retry paths.
-- [ ] Local dummy workflow smoke test against control-plane dev server.
+- [x] Provider/route/CLI contract tests.
+- [x] Real Linear → Docker → Copilot → GitHub PR acceptance run.
 
 **Dependencies:** Task 5
-
-**Files likely touched:**
-- `apps/workflows/src/run-workflow.ts`
-- `apps/workflows/src/control-plane-client.ts`
-- `apps/workflows/src/compensation.ts`
-- `apps/workflows/src/*.test.ts`
-
-**Estimated scope:** M
 
 ### Task 8: Runner Daemon Long-Poll Client
 
@@ -322,7 +323,7 @@ Monorepo scaffold
 
 ### Checkpoint: Runner Control Loop
 
-- [ ] Workflow can dispatch a run.
+- [ ] Issue dispatch can create a run and the runner can claim it.
 - [ ] Runner daemon can claim and complete fake jobs.
 - [ ] Heartbeat expiry and strong cancellation are covered by tests.
 - [ ] Repo/dependency cache fallback behavior is covered by tests.
@@ -463,7 +464,7 @@ Monorepo scaffold
 
 **Acceptance criteria:**
 - [ ] Job created through API or MCP.
-- [ ] Workflow starts and runner claims job.
+- [ ] Issue dispatch creates a job and runner claims it.
 - [ ] Agent modifies fixture repo.
 - [ ] Task-provided branch is pushed.
 - [ ] MR or PR is created.
@@ -499,7 +500,7 @@ Monorepo scaffold
 |---|---:|---|
 | Public unauthenticated control-plane URL leaks | High | Accepted MVP risk; keep deployment private-by-convention and revisit auth after MVP. |
 | No logs slows debugging | Medium | Accepted MVP risk; rely on structured events/results until logs become a follow-up. |
-| Dummy workflow provider is mistaken for durable cloud workflow | Medium | Document it as local-only and keep durability claims out of product copy. |
+| Direct execution is mistaken for a general orchestration engine | Medium | Keep the phase sequence explicit; future policy belongs in a removable Agent hook/plugin. |
 | SQLite assumptions leak into cloud provider contracts | Medium | Keep persistence behind `RdbProvider` and test through provider behavior, not SQLite internals. |
 | Runner long polling races assign the same run twice | High | Use database-level claim transaction and run state transition guard. |
 | Docker cleanup fails after cancel/timeout | Medium | Track container IDs and workspace paths; cleanup in finally blocks and periodic reaper. |

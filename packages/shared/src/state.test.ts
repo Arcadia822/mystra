@@ -7,12 +7,14 @@ import {
   isRunnerOwnedRunState,
   isTerminalRunState,
   runStateSchema,
+  terminalRunStates,
 } from "./state.js";
 
 describe("run state transitions", () => {
   it("accepts the documented run states", () => {
     expect(runStateSchema.parse("queued")).toBe("queued");
-    expect(runStateSchema.parse("needs_human_review")).toBe("needs_human_review");
+    expect(runStateSchema.parse("waiting_for_review")).toBe("waiting_for_review");
+    expect(() => runStateSchema.parse("needs_human_review")).toThrow();
   });
 
   it("allows the happy-path lifecycle", () => {
@@ -20,7 +22,7 @@ describe("run state transitions", () => {
     expect(canTransitionRunState("dispatching", "assigned")).toBe(true);
     expect(canTransitionRunState("assigned", "starting")).toBe(true);
     expect(canTransitionRunState("starting", "running")).toBe(true);
-    expect(canTransitionRunState("running", "succeeded")).toBe(true);
+    expect(canTransitionRunState("running", "waiting_for_review")).toBe(true);
   });
 
   it("allows strong cancellation from non-terminal active states", () => {
@@ -30,8 +32,8 @@ describe("run state transitions", () => {
   });
 
   it("rejects terminal-state mutation", () => {
-    expect(isTerminalRunState("succeeded")).toBe(true);
-    expect(canTransitionRunState("succeeded", "running")).toBe(false);
+    expect(isTerminalRunState("waiting_for_review")).toBe(true);
+    expect(canTransitionRunState("waiting_for_review", "running")).toBe(false);
     expect(canTransitionRunState("failed", "queued")).toBe(false);
     expect(canTransitionRunState("timed_out", "canceled")).toBe(false);
   });
@@ -61,6 +63,15 @@ describe("state representation rule", () => {
 describe("activeRunStates", () => {
   it("lists all non-terminal states", () => {
     expect(activeRunStates).toEqual(["queued", "dispatching", "assigned", "starting", "running"]);
+  });
+});
+
+describe("waiting_for_review", () => {
+  it("is a machine-terminal success state that is not active", () => {
+    expect(terminalRunStates).toContain("waiting_for_review");
+    expect(isTerminalRunState("waiting_for_review")).toBe(true);
+    expect(isActiveRunState("waiting_for_review")).toBe(false);
+    expect(isRunnerOwnedRunState("waiting_for_review")).toBe(false);
   });
 });
 

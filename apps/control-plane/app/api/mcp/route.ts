@@ -15,7 +15,6 @@ import {
   runResultSchema,
   runStateSchema,
   terminalRunEventTypes,
-  workflowExecutionSnapshotSchema,
 } from "@mystra/shared";
 import { z } from "zod";
 
@@ -128,7 +127,6 @@ const jobSnapshotSchema = z.object({
   job: jobRecordSchema,
   run: runRecordSchema,
   events: z.array(runEventSchema),
-  workflow: workflowExecutionSnapshotSchema.optional(),
   project: projectClaimSchema.optional(),
   runtime: resolvedRuntimeContractSchema.optional(),
 }).strict();

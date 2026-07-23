@@ -133,17 +133,15 @@ export class CopilotAdapter implements AgentAdapter {
     homeDir: string;
     configDir: string;
     cacheDir: string;
+    cliVersion?: string;
+    maxAutopilotContinues?: number;
     denyMcpServers?: string[];
     deniedUrls?: string[];
   }) {}
 
   buildCommand(input: AgentExecutionRequest): string[] {
     const request = parseExecutionRequest(input);
-    const command = [
-      "copilot",
-      "--config-dir",
-      this.options.cliConfigDir,
-    ];
+    const command = ["copilot"];
     if (request.promptFilePath) {
       command.push("--attachment", request.promptFilePath);
     }
@@ -159,7 +157,9 @@ export class CopilotAdapter implements AgentAdapter {
         ? "Follow the attached instructions file as the complete user task."
         : request.prompt,
       "--allow-all",
-      "--no-ask-user",
+      "--autopilot",
+      "--max-autopilot-continues",
+      String(this.options.maxAutopilotContinues ?? 10),
       "--no-color",
       "--stream",
       "off",
@@ -181,7 +181,13 @@ export class CopilotAdapter implements AgentAdapter {
     return {
       success: this.isSuccess(parsed),
       ...(parsed.exitCode === 0 ? {} : { errorMessage: parsed.stderr.trim() || parsed.stdout.trim() || `copilot exited with ${parsed.exitCode}` }),
-      metadata: {},
+      metadata: {
+        agent: "copilot",
+        cliVersion: this.options.cliVersion ?? "unknown",
+        mode: "autopilot",
+        maxAutopilotContinues: this.options.maxAutopilotContinues ?? 10,
+        exitCode: parsed.exitCode,
+      },
     };
   }
 

@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import type { BranchDeliveryRequest, BranchDeliveryReceipt, ReviewRequest, ReviewResult } from "@mystra/shared";
 
@@ -23,8 +26,8 @@ interface GitHubReviewMetadata {
 
 interface GitHubRepoContext {
   apiBaseUrl: string;
-  authenticatedRepoUrl: string;
   branchUrlBase: string;
+  remoteUrl: string;
   repoPath: string;
 }
 
@@ -65,24 +68,25 @@ function parseGitHubTarget(targetRepoUrl: string): { host: string; repoPath: str
   };
 }
 
-function gitHubRepoContext(targetRepoUrl: string, token: string, githubHttpBaseUrl?: string | null): GitHubRepoContext {
+function gitHubRepoContext(targetRepoUrl: string, githubHttpBaseUrl?: string | null): GitHubRepoContext {
   const { host, repoPath } = parseGitHubTarget(targetRepoUrl);
   const apiBaseUrl = trimTrailingSlash(githubHttpBaseUrl || (host === "github.com" ? "https://api.github.com" : `https://${host}/api/v3`));
   return {
     apiBaseUrl,
-    authenticatedRepoUrl: `https://x-access-token:${encodeURIComponent(token)}@${host}/${repoPath}.git`,
     branchUrlBase: `https://${host}/${repoPath}`,
+    remoteUrl: `https://${host}/${repoPath}.git`,
     repoPath,
   };
 }
 
 function runCommand(command: string, args: string[], options: {
   cwd?: string;
+  env?: NodeJS.ProcessEnv;
 } = {}): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: process.env,
+      env: options.env ?? process.env,
       stdio: "inherit",
     });
     child.on("error", reject);
@@ -94,6 +98,37 @@ function runCommand(command: string, args: string[], options: {
       reject(new Error(`${command} ${args.join(" ")} exited with ${code ?? "unknown"}`));
     });
   });
+}
+
+async function withGitHubCredentials<T>(
+  token: string,
+  action: (env: NodeJS.ProcessEnv) => Promise<T>,
+): Promise<T> {
+  const directory = await mkdtemp(path.join(tmpdir(), "mystra-github-"));
+  const askpassPath = path.join(directory, "askpass.sh");
+  await writeFile(
+    askpassPath,
+    [
+      "#!/usr/bin/env bash",
+      "case \"$1\" in",
+      "  *Username*) printf '%s\\n' \"x-access-token\" ;;",
+      "  *Password*) printf '%s\\n' \"$MYSTRA_GITHUB_ASKPASS_TOKEN\" ;;",
+      "  *) exit 1 ;;",
+      "esac",
+      "",
+    ].join("\n"),
+    { mode: 0o700 },
+  );
+  try {
+    return await action({
+      ...process.env,
+      GIT_ASKPASS: askpassPath,
+      GIT_TERMINAL_PROMPT: "0",
+      MYSTRA_GITHUB_ASKPASS_TOKEN: token,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 function runCommandCapture(command: string, args: string[], options: {
@@ -196,6 +231,10 @@ function reviewFailure(
   };
 }
 
+function safeGitHubErrorBody(body: string, token: string): string {
+  return body.replaceAll(token, "[REDACTED]").slice(0, 1_000);
+}
+
 export const githubRepoProvider: RepoProvider = {
   providerName: "github",
   supports(target) {
@@ -230,7 +269,7 @@ export const githubRepoProvider: RepoProvider = {
 
     let repoContext: GitHubRepoContext;
     try {
-      repoContext = gitHubRepoContext(input.target.repoUrl, token, metadata.githubHttpBaseUrl);
+      repoContext = gitHubRepoContext(input.target.repoUrl, metadata.githubHttpBaseUrl);
     } catch (error) {
       return branchFailure(
         input,
@@ -240,11 +279,14 @@ export const githubRepoProvider: RepoProvider = {
     }
 
     try {
-      await runCommand("git", ["remote", "set-url", "origin", repoContext.authenticatedRepoUrl], {
+      await runCommand("git", ["remote", "set-url", "origin", repoContext.remoteUrl], {
         cwd: metadata.localRepoPath,
       });
-      await runCommand("git", ["push", "-u", "origin", input.branchName], {
-        cwd: metadata.localRepoPath,
+      await withGitHubCredentials(token, async (env) => {
+        await runCommand("git", ["push", "-u", "origin", input.branchName], {
+          ...(metadata.localRepoPath ? { cwd: metadata.localRepoPath } : {}),
+          env,
+        });
       });
       const commitSha = await runCommandCapture("git", ["rev-parse", "HEAD"], {
         cwd: metadata.localRepoPath,
@@ -287,11 +329,7 @@ export const githubRepoProvider: RepoProvider = {
 
     let repoContext: GitHubRepoContext;
     try {
-      repoContext = gitHubRepoContext(
-        input.target.repoUrl,
-        token,
-        metadata.githubHttpBaseUrl,
-      );
+      repoContext = gitHubRepoContext(input.target.repoUrl, metadata.githubHttpBaseUrl);
     } catch (error) {
       return reviewFailure(
         input,
@@ -316,15 +354,46 @@ export const githubRepoProvider: RepoProvider = {
     });
 
     const text = await response.text();
-    if (!response.ok) {
+    let pullRequest: { number: number; html_url: string };
+    let reused = false;
+    if (response.ok) {
+      pullRequest = JSON.parse(text) as { number: number; html_url: string };
+    } else if (response.status === 422) {
+      const owner = repoContext.repoPath.split("/")[0];
+      const query = new URLSearchParams({
+        state: "open",
+        head: `${owner}:${input.branch.branchName}`,
+        base: input.target.defaultBaseBranch,
+      });
+      const existingResponse = await fetch(
+        `${repoContext.apiBaseUrl}/repos/${repoContext.repoPath}/pulls?${query}`,
+        {
+          headers: {
+            authorization: `Bearer ${token}`,
+            accept: "application/vnd.github+json",
+          },
+        },
+      );
+      const existing = existingResponse.ok
+        ? await existingResponse.json() as Array<{ number: number; html_url: string }>
+        : [];
+      const match = existing[0];
+      if (!match) {
+        return reviewFailure(
+          input,
+          "review_create_failed",
+          `GitHub pull request create failed ${response.status}: ${safeGitHubErrorBody(text, token)}`,
+        );
+      }
+      pullRequest = match;
+      reused = true;
+    } else {
       return reviewFailure(
         input,
         "review_create_failed",
-        `GitHub pull request create failed ${response.status}: ${text}`,
+        `GitHub pull request create failed ${response.status}: ${safeGitHubErrorBody(text, token)}`,
       );
     }
-
-    const pullRequest = JSON.parse(text) as { number: number; html_url: string };
     let contextCommentStatus: "published" | "failed" | undefined;
     const commentBody = buildPreviewCommentBody(metadata);
 
@@ -350,7 +419,7 @@ export const githubRepoProvider: RepoProvider = {
         } else {
           contextCommentStatus = "failed";
           console.warn(
-            `[mystra-runner] GitHub preview comment failed ${commentResponse.status}: ${await commentResponse.text()}`,
+            `[mystra-runner] GitHub preview comment failed ${commentResponse.status}: ${safeGitHubErrorBody(await commentResponse.text(), token)}`,
           );
         }
       } catch (error) {
@@ -375,6 +444,7 @@ export const githubRepoProvider: RepoProvider = {
         ...input.metadata,
         repo: repoContext.repoPath,
         targetBranch: input.target.defaultBaseBranch,
+        ...(reused ? { reused: true } : {}),
         ...(contextCommentStatus ? { contextCommentStatus } : {}),
       },
     };

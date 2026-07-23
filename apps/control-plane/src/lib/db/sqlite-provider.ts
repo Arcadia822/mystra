@@ -6,6 +6,7 @@ import {
   contextBundleSchema,
   executionContractReferenceSchema,
   executionSpecArtifactSchema,
+  issueSnapshotSchema,
   jobSpecSchema,
   jobInlineContextBundlePayloadSchema,
   platformCapabilitiesSchema,
@@ -33,10 +34,6 @@ import {
   type RunResult,
   type RunState,
   type StaleMarkingResult,
-  type WorkflowExecutionSnapshot,
-  type WorkflowNodeExecutionSnapshot,
-  workflowExecutionSnapshotSchema,
-  workflowNodeExecutionSnapshotSchema,
 } from "@mystra/shared";
 
 import { sqliteMigrations } from "./migrations";
@@ -68,7 +65,7 @@ const terminalStates = new Set<RunState>([
   "failed",
   "canceled",
   "timed_out",
-  "needs_human_review",
+  "waiting_for_review",
 ]);
 
 const EXECUTION_SPEC_BUNDLE_SLUG = "execution-spec";
@@ -266,6 +263,15 @@ function parseJsonObject(row: Row, field: string, recordId: string): Record<stri
   }
 }
 
+function parseIssueSnapshot(raw: string, recordId: string) {
+  try {
+    return issueSnapshotSchema.parse(JSON.parse(raw) as unknown);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown parse error";
+    throw new Error(`Invalid JSON in issue_snapshot for record ${recordId}: ${detail}`);
+  }
+}
+
 function parseJsonResult(row: Row, field: string, recordId: string): RunResult | undefined {
   const raw = nullableStringField(row, field);
   if (!raw) {
@@ -371,14 +377,6 @@ export class SqliteRdbProvider implements RdbProvider {
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
     this.db.exec(sqliteMigrations);
-    this.ensureColumn("jobs", "runtime_override", "TEXT");
-    this.ensureColumn("runs", "resolved_runtime", "TEXT");
-    this.ensureColumn("runs", "cancellation_request", "TEXT");
-    this.ensureColumn("runs", "stale_reason", "TEXT");
-    this.ensureColumn("runs", "stale_marked_at", "TEXT");
-    this.ensureColumn("runner_sessions", "stale_after_seconds", "INTEGER NOT NULL DEFAULT 90");
-    this.ensureColumn("runner_sessions", "eligible_project_ids", "TEXT");
-    this.ensureColumn("runner_sessions", "eligible_runtime_providers", "TEXT");
   }
 
   close(): void {
@@ -584,6 +582,8 @@ export class SqliteRdbProvider implements RdbProvider {
       branchName: parsed.branchName,
       agent: parsed.agent ?? project.defaultAgent,
       prompt: parsed.prompt,
+      ...(parsed.issue ? { issue: parsed.issue } : {}),
+      ...(parsed.dispatchKey ? { dispatchKey: parsed.dispatchKey } : {}),
       ...(parsed.mergeRequest ? { mergeRequest: parsed.mergeRequest } : {}),
       ...(parsed.runtime ? { runtime: parsed.runtime } : {}),
       metadata: parsed.metadata,
@@ -606,7 +606,7 @@ export class SqliteRdbProvider implements RdbProvider {
       frozenAt: timestamp,
     });
     const executionSpecArtifact = executionSpecArtifactSchema.parse({
-      version: 1,
+      version: 2,
       kind: "execution-spec",
       jobId,
       runId,
@@ -618,6 +618,8 @@ export class SqliteRdbProvider implements RdbProvider {
       branchName: resolved.branchName,
       agent: resolved.agent,
       prompt: resolved.prompt,
+      ...(resolved.issue ? { issue: resolved.issue } : {}),
+      ...(resolved.dispatchKey ? { dispatchKey: resolved.dispatchKey } : {}),
       ...(resolved.mergeRequest ? { mergeRequest: resolved.mergeRequest } : {}),
       metadata: resolved.metadata,
       frozenAt: timestamp,
@@ -642,11 +644,13 @@ export class SqliteRdbProvider implements RdbProvider {
       this.db.prepare(`
         INSERT INTO jobs (
           id, project_id, task_id, source, repo, base_branch, branch_name,
-          agent, prompt, mr_title, mr_body, runtime_override, metadata, created_at, updated_at
+          agent, prompt, issue_snapshot, dispatch_key, mr_title, mr_body,
+          runtime_override, metadata, created_at, updated_at
         )
         VALUES (
           @id, @projectId, @taskId, @source, @repo, @baseBranch, @branchName,
-          @agent, @prompt, @mrTitle, @mrBody, @runtimeOverride, @metadata, @createdAt, @updatedAt
+          @agent, @prompt, @issueSnapshot, @dispatchKey, @mrTitle, @mrBody,
+          @runtimeOverride, @metadata, @createdAt, @updatedAt
         )
       `).run({
         id: jobId,
@@ -658,6 +662,8 @@ export class SqliteRdbProvider implements RdbProvider {
         branchName: resolved.branchName,
         agent: resolved.agent,
         prompt: resolved.prompt,
+        issueSnapshot: resolved.issue ? jsonStringify(resolved.issue) : null,
+        dispatchKey: resolved.dispatchKey ?? null,
         mrTitle: resolved.mergeRequest?.title ?? null,
         mrBody: resolved.mergeRequest?.body ?? null,
         runtimeOverride: resolved.runtime ? jsonStringify(resolved.runtime) : null,
@@ -700,7 +706,21 @@ export class SqliteRdbProvider implements RdbProvider {
       return jobId;
     });
 
-    const snapshot = this.getJob(create());
+    let createdJobId: string;
+    try {
+      createdJobId = create();
+    } catch (error) {
+      if (
+        resolved.dispatchKey
+        && error instanceof Error
+        && error.message.includes("UNIQUE constraint failed: jobs.dispatch_key")
+      ) {
+        throw new Error(`DISPATCH_CONFLICT: Issue dispatch already exists: ${resolved.dispatchKey}`);
+      }
+      throw error;
+    }
+
+    const snapshot = this.getJob(createdJobId);
     if (!snapshot) {
       throw new Error("Created job has no snapshot");
     }
@@ -713,6 +733,11 @@ export class SqliteRdbProvider implements RdbProvider {
       return undefined;
     }
     return this.snapshotFromJobRow(row);
+  }
+
+  getJobByDispatchKey(dispatchKey: string): JobSnapshot | undefined {
+    const row = this.db.prepare("SELECT * FROM jobs WHERE dispatch_key = ?").get(dispatchKey) as Row | undefined;
+    return row ? this.snapshotFromJobRow(row) : undefined;
   }
 
   getJobSummary(jobId: string) {
@@ -955,7 +980,8 @@ export class SqliteRdbProvider implements RdbProvider {
     const timestamp = now();
     this.transitionRun(runId, result.status, timestamp, result);
     this.decrementRunner(runnerId);
-    this.insertEvent(runId, run.jobId, `run.${result.status}` as RunEventType, result.status === "succeeded" ? "info" : "error", {
+    const severity = result.status === "succeeded" || result.status === "waiting_for_review" ? "info" : "error";
+    this.insertEvent(runId, run.jobId, `run.${result.status}` as RunEventType, severity, {
       summary: result.summary,
     }, timestamp);
 
@@ -1060,6 +1086,9 @@ export class SqliteRdbProvider implements RdbProvider {
     const mergeTitle = nullableStringField(row, "mr_title");
     const mergeBody = nullableStringField(row, "mr_body");
     const runtimeOverride = nullableStringField(row, "runtime_override");
+    const issueSnapshot = nullableStringField(row, "issue_snapshot");
+    const dispatchKey = nullableStringField(row, "dispatch_key");
+    const jobId = stringField(row, "id");
     const spec: JobSpec = jobSpecSchema.parse({
       taskId: stringField(row, "task_id"),
       source: stringField(row, "source"),
@@ -1069,12 +1098,14 @@ export class SqliteRdbProvider implements RdbProvider {
       branchName: stringField(row, "branch_name"),
       agent: stringField(row, "agent"),
       prompt: stringField(row, "prompt"),
+      ...(issueSnapshot ? { issue: parseIssueSnapshot(issueSnapshot, jobId) } : {}),
+      ...(dispatchKey ? { dispatchKey } : {}),
       ...(mergeTitle || mergeBody ? { mergeRequest: { ...(mergeTitle ? { title: mergeTitle } : {}), ...(mergeBody ? { body: mergeBody } : {}) } } : {}),
       ...(runtimeOverride ? { runtime: JSON.parse(runtimeOverride) as unknown } : {}),
-      metadata: parseJsonObject(row, "metadata", stringField(row, "id")),
+      metadata: parseJsonObject(row, "metadata", jobId),
     });
     return {
-      id: stringField(row, "id"),
+      id: jobId,
       spec,
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
@@ -1179,103 +1210,6 @@ export class SqliteRdbProvider implements RdbProvider {
     };
   }
 
-  private workflowSnapshotFromEvents(run: RunRecord, events: RunEvent[]): WorkflowExecutionSnapshot | undefined {
-    const nodeExecutions = new Map<string, WorkflowNodeExecutionSnapshot>();
-    let provider: string | undefined;
-    let blueprintName: string | undefined;
-    let blueprintVersion: string | undefined;
-    let workflowStartedAt: string | undefined;
-    let workflowUpdatedAt: string | undefined;
-    let workflowStatus: WorkflowExecutionSnapshot["status"] | undefined;
-
-    for (const event of events) {
-      if (
-        event.type === "workflow.start_requested" ||
-        event.type === "workflow.started" ||
-        event.type === "workflow.start_failed"
-      ) {
-        provider = typeof event.data.provider === "string" ? event.data.provider : provider;
-        blueprintName = typeof event.data.blueprintName === "string" ? event.data.blueprintName : blueprintName;
-        blueprintVersion = typeof event.data.blueprintVersion === "string" ? event.data.blueprintVersion : blueprintVersion;
-        workflowStartedAt ??= event.timestamp;
-        workflowUpdatedAt = event.timestamp;
-        if (event.type === "workflow.start_failed") {
-          workflowStatus = "failed";
-        } else if (!workflowStatus) {
-          workflowStatus = "running";
-        }
-      }
-
-      if (
-        event.type !== "workflow.node.started" &&
-        event.type !== "workflow.node.succeeded" &&
-        event.type !== "workflow.node.failed"
-      ) {
-        continue;
-      }
-
-      const nodeId = typeof event.data.nodeId === "string" ? event.data.nodeId : undefined;
-      const handler = typeof event.data.handler === "string" ? event.data.handler : undefined;
-      const nodeKind = event.data.nodeKind === "deterministic" || event.data.nodeKind === "agentic"
-        ? event.data.nodeKind
-        : undefined;
-      if (!nodeId || !handler || !nodeKind) {
-        continue;
-      }
-
-      const { nodeId: _nodeId, handler: _handler, nodeKind: _nodeKind, ...detailData } = event.data;
-      const current = nodeExecutions.get(nodeId);
-      const nextStatus = event.type === "workflow.node.started"
-        ? "running"
-        : event.type === "workflow.node.succeeded"
-        ? "succeeded"
-        : "failed";
-
-      nodeExecutions.set(
-        nodeId,
-        workflowNodeExecutionSnapshotSchema.parse({
-          nodeId,
-          handler,
-          nodeKind,
-          status: nextStatus,
-          startedAt: current?.startedAt ?? event.timestamp,
-          ...(nextStatus !== "running" ? { finishedAt: event.timestamp } : {}),
-          data: {
-            ...(current?.data ?? {}),
-            ...detailData,
-          },
-        }),
-      );
-    }
-
-    const executions = [...nodeExecutions.values()];
-    if (executions.length === 0 && !provider && !blueprintName && !blueprintVersion && !workflowStartedAt) {
-      return undefined;
-    }
-
-    const runningNode = [...executions].reverse().find((execution) => execution.status === "running");
-    const terminalNode = [...executions].reverse().find((execution) => execution.status !== "running");
-    const status = run.state === "succeeded" ||
-        run.state === "failed" ||
-        run.state === "canceled" ||
-        run.state === "timed_out" ||
-        run.state === "needs_human_review"
-      ? run.state
-      : (workflowStatus ?? "running");
-
-    return workflowExecutionSnapshotSchema.parse({
-      ...(provider ? { provider } : {}),
-      ...(blueprintName ? { blueprintName } : {}),
-      ...(blueprintVersion ? { blueprintVersion } : {}),
-      status,
-      ...(runningNode ? { currentNodeId: runningNode.nodeId } : {}),
-      ...(terminalNode ? { terminalNodeId: terminalNode.nodeId } : {}),
-      nodeExecutions: executions,
-      startedAt: workflowStartedAt ?? executions[0]?.startedAt ?? run.createdAt,
-      updatedAt: workflowUpdatedAt ?? executions.at(-1)?.finishedAt ?? executions.at(-1)?.startedAt ?? run.updatedAt,
-    });
-  }
-
   private snapshotFromJobRow(row: Row): JobSnapshot {
     const job = this.jobFromRow(row);
     const runRow = this.db.prepare("SELECT * FROM runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1").get(job.id) as Row | undefined;
@@ -1285,22 +1219,13 @@ export class SqliteRdbProvider implements RdbProvider {
     const run = this.runFromRow(runRow);
     const eventRows = this.db.prepare("SELECT * FROM run_events WHERE job_id = ? ORDER BY created_at ASC").all(job.id) as Row[];
     const events = eventRows.map((eventRow) => this.eventFromRow(eventRow));
-    const workflow = this.workflowSnapshotFromEvents(run, events);
     return {
       job,
       run,
       events,
-      ...(workflow ? { workflow } : {}),
       project: this.projectClaim(job.spec.projectId),
       ...(run.resolvedRuntime ? { runtime: run.resolvedRuntime } : {}),
     };
-  }
-
-  private ensureColumn(table: string, column: string, ddl: string): void {
-    const rows = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-    if (!rows.some((row) => row.name === column)) {
-      this.db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`).run();
-    }
   }
 
   private runnerById(runnerId: string): RunnerSession | undefined {
@@ -1348,7 +1273,9 @@ export class SqliteRdbProvider implements RdbProvider {
       nextState === "running" ? timestamp : null,
       terminalStates.has(nextState) ? timestamp : run.finishedAt ?? null,
       result ? jsonStringify(result) : null,
-      result?.status !== "succeeded" ? result?.errorMessage ?? result?.summary ?? null : null,
+      result && !["succeeded", "waiting_for_review"].includes(result.status)
+        ? result.errorMessage ?? result.summary
+        : null,
       runId,
     );
   }

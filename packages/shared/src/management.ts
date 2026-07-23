@@ -14,7 +14,6 @@ import {
   resolvedRuntimeContractSchema,
 } from "./schemas.js";
 import { runStateSchema } from "./state.js";
-import { workflowExecutionSnapshotSchema } from "./workflow.js";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 
@@ -63,15 +62,6 @@ export const projectSelectionViewSchema = projectSchema
   .strict();
 export type ProjectSelectionView = z.infer<typeof projectSelectionViewSchema>;
 
-export const projectLaneWorkflowHintSchema = z
-  .object({
-    provider: z.string().min(1).optional(),
-    blueprintName: z.string().min(1).optional(),
-    blueprintVersion: z.string().min(1).optional(),
-  })
-  .strict();
-export type ProjectLaneWorkflowHint = z.infer<typeof projectLaneWorkflowHintSchema>;
-
 export const laneInspectionViewSchema = z
   .object({
     repo: projectSelectionViewSchema.shape.repo,
@@ -80,7 +70,6 @@ export const laneInspectionViewSchema = z
     runtime: projectRuntimeConfigSchema,
     contextBundleRefs: z.array(contextBundleRefSchema),
     prewarmConfig: jsonObjectSchema.default({}),
-    workflow: projectLaneWorkflowHintSchema.optional(),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
@@ -136,7 +125,6 @@ export const submittedLaneSnapshotSchema = z
     runtime: resolvedRuntimeContractSchema,
     contextBundleRefs: z.array(contextBundleRefSchema),
     prewarmConfig: jsonObjectSchema.default({}),
-    workflow: projectLaneWorkflowHintSchema.optional(),
     metadata: jsonObjectSchema.default({}),
     submittedAt: z.string().datetime(),
   })
@@ -179,7 +167,6 @@ export const canonicalRunSnapshotSchema = z
     job: jobRecordSchema,
     run: runRecordSchema,
     events: z.array(runEventSchema),
-    workflow: workflowExecutionSnapshotSchema.optional(),
     project: runProjectViewSchema.optional(),
     lane: submittedLaneSnapshotSchema.optional(),
     runtime: resolvedRuntimeContractSchema.optional(),

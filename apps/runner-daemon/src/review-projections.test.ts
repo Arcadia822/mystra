@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildReviewCreatedEventData,
-  buildWorkflowNodeReviewSuccessData,
-  dockerResultFromReviewResult,
+  buildMergeRequestEventData,
 } from "./review-projections.js";
 
 describe("review projections", () => {
-  it("labels GitHub review results as pull requests while preserving MR compatibility fields", () => {
+  it("projects GitHub review results into normalized and legacy event fields", () => {
     const reviewResult = {
       status: "review_created" as const,
       branch: {
@@ -26,26 +25,13 @@ describe("review projections", () => {
       },
     };
 
-    expect(dockerResultFromReviewResult(reviewResult)).toEqual({
-      status: "succeeded",
-      summary: "Created GitHub PR #12",
-      branch: "mystra/task-1200",
-      mrUrl: "https://github.com/acme/project/pull/12",
-      mrIid: 12,
-      reviewResult,
-      metadata: {
-        repo: "acme/project",
-      },
-    });
-
-    expect(buildWorkflowNodeReviewSuccessData({
-      reviewResult,
-    })).toEqual({
-      reviewStatus: "review_created",
-      reviewProvider: "github",
+    expect(buildReviewCreatedEventData({ reviewResult })).toEqual({
+      provider: "github",
       reviewUrl: "https://github.com/acme/project/pull/12",
       reviewNumber: 12,
-      reviewDisplayId: "#12",
+      displayId: "#12",
+    });
+    expect(buildMergeRequestEventData({ reviewResult })).toEqual({
       mrUrl: "https://github.com/acme/project/pull/12",
       mrIid: 12,
     });

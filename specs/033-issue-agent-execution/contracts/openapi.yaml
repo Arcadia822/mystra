@@ -1,0 +1,293 @@
+openapi: 3.1.0
+info:
+  title: Mystra Issue and Run API
+  version: 0.1.0
+paths:
+  /api/integrations/{integration}/issues:
+    get:
+      operationId: listIssues
+      parameters:
+        - $ref: "#/components/parameters/Integration"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated normalized issues
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueListResponse"
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+  /api/integrations/{integration}/issues/{identifier}:
+    get:
+      operationId: getIssue
+      parameters:
+        - $ref: "#/components/parameters/Integration"
+        - $ref: "#/components/parameters/Identifier"
+      responses:
+        "200":
+          description: One normalized issue
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [issue]
+                properties:
+                  issue: { $ref: "#/components/schemas/Issue" }
+        "404": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+  /api/integrations/{integration}/issues/{identifier}/dispatch:
+    post:
+      operationId: dispatchIssue
+      parameters:
+        - $ref: "#/components/parameters/Integration"
+        - $ref: "#/components/parameters/Identifier"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IssueDispatchRequest" }
+      responses:
+        "201":
+          description: Canonical Job/Run snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CanonicalRunSnapshot"
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+  /api/jobs/{id}:
+    get:
+      operationId: inspectRun
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Canonical Job/Run snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CanonicalRunSnapshot"
+        "404": { $ref: "#/components/responses/Error" }
+components:
+  parameters:
+    Integration:
+      name: integration
+      in: path
+      required: true
+      schema: { type: string }
+    Identifier:
+      name: identifier
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Error:
+      description: Stable Mystra error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+  schemas:
+    IssueReference:
+      type: object
+      additionalProperties: false
+      required: [integration, provider, externalId, identifier, url]
+      properties:
+        integration: { type: string }
+        provider: { type: string }
+        externalId: { type: string }
+        identifier: { type: string }
+        url: { type: string, format: uri }
+    Issue:
+      type: object
+      additionalProperties: false
+      required:
+        - reference
+        - title
+        - description
+        - state
+        - priority
+        - assignee
+        - labels
+        - createdAt
+        - updatedAt
+        - fetchedAt
+      properties:
+        reference: { $ref: "#/components/schemas/IssueReference" }
+        title: { type: string }
+        description: { type: [string, "null"] }
+        state: { $ref: "#/components/schemas/IssueState" }
+        priority:
+          oneOf:
+            - $ref: "#/components/schemas/IssuePriority"
+            - type: "null"
+        assignee:
+          oneOf:
+            - $ref: "#/components/schemas/IssueAssignee"
+            - type: "null"
+        labels:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/IssueLabel" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        fetchedAt: { type: string, format: date-time }
+    IssueListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Issue" }
+        pageInfo:
+          type: object
+          additionalProperties: false
+          required: [hasNextPage]
+          properties:
+            hasNextPage: { type: boolean }
+            endCursor: { type: [string, "null"] }
+    IssueState:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { type: string }
+    IssuePriority:
+      type: object
+      additionalProperties: false
+      required: [value, label]
+      properties:
+        value: { type: integer }
+        label: { type: string }
+    IssueAssignee:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    IssueLabel:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    IssueDispatchRequest:
+      type: object
+      additionalProperties: false
+      required: [projectId, agent, branchName]
+      properties:
+        projectId: { type: string, format: uuid }
+        agent: { type: string, enum: [codex, copilot] }
+        branchName: { type: string }
+        mergeRequest:
+          type: object
+          additionalProperties: false
+          properties:
+            title: { type: string }
+            body: { type: string }
+        runtime:
+          type: object
+          description: Policy-limited override validated by the shared runtime schema.
+          additionalProperties: false
+    CanonicalRunSnapshot:
+      type: object
+      additionalProperties: false
+      required: [job, run, events]
+      properties:
+        job:
+          $ref: "#/components/schemas/JobRecord"
+        run:
+          $ref: "#/components/schemas/RunRecord"
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/RunEvent" }
+        project:
+          type: object
+          description: Shared RunProjectView schema; omitted when the project no longer exists.
+        lane:
+          type: object
+          description: Shared SubmittedLaneSnapshot schema captured at dispatch.
+        runtime:
+          type: object
+          description: Shared resolved runtime contract.
+    JobRecord:
+      type: object
+      additionalProperties: false
+      required: [id, spec, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        spec:
+          type: object
+          description: Strict shared JobSpec, including immutable IssueSnapshot for Issue dispatch.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    RunRecord:
+      type: object
+      additionalProperties: false
+      required: [id, jobId, state, attempt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        jobId: { type: string, format: uuid }
+        state:
+          type: string
+          enum: [queued, assigned, starting, running, waiting_for_review, failed, canceled, timed_out]
+        attempt: { type: integer, minimum: 1 }
+        assignedRunnerSessionId: { type: string, format: uuid }
+        result:
+          type: object
+          description: Strict shared RunResult schema.
+        failureReason: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+    RunEvent:
+      type: object
+      additionalProperties: false
+      required: [type, occurredAt, data]
+      properties:
+        type: { type: string }
+        occurredAt: { type: string, format: date-time }
+        data:
+          type: object
+          description: Strict event payload selected by the shared discriminated union.
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }

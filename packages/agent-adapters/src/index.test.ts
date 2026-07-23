@@ -68,6 +68,8 @@ describe("agent adapters", () => {
       homeDir: "/sandbox",
       configDir: "/sandbox/.config",
       cacheDir: "/sandbox/.cache",
+      cliVersion: "1.0.69-0",
+      maxAutopilotContinues: 10,
       denyMcpServers: ["linear"],
       deniedUrls: ["mcp.linear.app"],
     });
@@ -77,8 +79,6 @@ describe("agent adapters", () => {
       workingDirectory: "/repo",
     })).toEqual([
       "copilot",
-      "--config-dir",
-      "/sandbox/.copilot",
       "--disable-mcp-server",
       "linear",
       "--deny-url",
@@ -86,7 +86,9 @@ describe("agent adapters", () => {
       "--prompt",
       "Implement the requested change",
       "--allow-all",
-      "--no-ask-user",
+      "--autopilot",
+      "--max-autopilot-continues",
+      "10",
       "--no-color",
       "--stream",
       "off",
@@ -104,8 +106,18 @@ describe("agent adapters", () => {
     expect(adapter.parseOutput({ exitCode: 9, stdout: "", stderr: "" })).toEqual({
       success: false,
       errorMessage: "copilot exited with 9",
-      metadata: {},
+      metadata: {
+        agent: "copilot",
+        cliVersion: "1.0.69-0",
+        mode: "autopilot",
+        maxAutopilotContinues: 10,
+        exitCode: 9,
+      },
     });
+    expect(adapter.buildCommand({
+      prompt: "Implement the requested change",
+      workingDirectory: "/repo",
+    })).not.toContain("--config-dir");
   });
 
   it("uses prompt attachments for copilot when the prompt is spilled from argv", () => {
@@ -114,6 +126,8 @@ describe("agent adapters", () => {
       homeDir: "/sandbox",
       configDir: "/sandbox/.config",
       cacheDir: "/sandbox/.cache",
+      cliVersion: "1.0.69-0",
+      maxAutopilotContinues: 10,
     });
 
     expect(adapter.buildCommand({
@@ -122,14 +136,14 @@ describe("agent adapters", () => {
       workingDirectory: "/repo",
     })).toEqual([
       "copilot",
-      "--config-dir",
-      "/sandbox/.copilot",
       "--attachment",
       "/mystra/workspace/agent-prompt.txt",
       "--prompt",
       "Follow the attached instructions file as the complete user task.",
       "--allow-all",
-      "--no-ask-user",
+      "--autopilot",
+      "--max-autopilot-continues",
+      "10",
       "--no-color",
       "--stream",
       "off",
@@ -143,6 +157,8 @@ describe("agent adapters", () => {
       homeDir: "/sandbox",
       configDir: "/sandbox/.config",
       cacheDir: "/sandbox/.cache",
+      cliVersion: "1.0.69-0",
+      maxAutopilotContinues: 10,
     });
 
     expect(codex.parseOutput({
@@ -161,7 +177,13 @@ describe("agent adapters", () => {
     } as unknown as Parameters<typeof copilot.parseOutput>[0])).toEqual({
       success: false,
       errorMessage: "copilot exited with 1",
-      metadata: {},
+      metadata: {
+        agent: "copilot",
+        cliVersion: "1.0.69-0",
+        mode: "autopilot",
+        maxAutopilotContinues: 10,
+        exitCode: 1,
+      },
     });
   });
 
@@ -175,6 +197,8 @@ describe("agent adapters", () => {
         homeDir: "/sandbox",
         configDir: "/sandbox/.config",
         cacheDir: "/sandbox/.cache",
+        cliVersion: "1.0.69-0",
+        maxAutopilotContinues: 10,
       }),
     });
 

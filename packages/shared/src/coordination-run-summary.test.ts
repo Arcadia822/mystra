@@ -58,23 +58,23 @@ describe("coordinationRunSummarySchema", () => {
       taskId: "TASK-2",
       runState: "running",
       phase: "running",
-      headline: "Workflow is executing",
+      headline: "Agent execution is running",
       milestone: {
-        key: "workflow_running",
-        label: "Workflow running",
+        key: "execution_running",
+        label: "Execution running",
         observedAt: "2026-05-17T00:00:20.000Z",
       },
-      sourceEventType: "workflow.node.started",
+      sourceEventType: "execution.started",
       startedAt: "2026-05-17T00:00:10.000Z",
       updatedAt: "2026-05-17T00:00:20.000Z",
-      currentNodeId: "agent.execute",
+      currentPhase: "agent",
       links: {
         branch: "mystra/TASK-2",
       },
     });
 
     expect(assigned.phase).toBe("assigned");
-    expect(running.currentNodeId).toBe("agent.execute");
+    expect(running.currentPhase).toBe("agent");
   });
 
   it("accepts review-ready summaries before terminal completion", () => {
@@ -94,7 +94,7 @@ describe("coordinationRunSummarySchema", () => {
       sourceEventType: "review.created",
       startedAt: "2026-05-17T00:00:10.000Z",
       updatedAt: "2026-05-17T00:01:00.000Z",
-      currentNodeId: "review.create",
+      currentPhase: "delivery",
       links: {
         branch: "mystra/TASK-3",
         reviewUrl: "https://github.com/acme/project/pull/3",
@@ -150,11 +150,11 @@ describe("coordinationRunSummarySchema", () => {
       phase: "running",
       headline: "This should not validate",
       milestone: {
-        key: "workflow_running",
-        label: "Workflow running",
+        key: "execution_running",
+        label: "Execution running",
         observedAt: "2026-05-17T00:03:00.000Z",
       },
-      sourceEventType: "workflow.started",
+      sourceEventType: "execution.started",
       finishedAt: "2026-05-17T00:03:00.000Z",
       updatedAt: "2026-05-17T00:03:00.000Z",
       terminal: {

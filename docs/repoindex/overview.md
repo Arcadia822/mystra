@@ -41,9 +41,8 @@ Current MVP scope intentionally excludes:
 Mystra is a TypeScript pnpm monorepo.
 
 ```text
-apps/control-plane    Next.js control plane, HTTP APIs, MCP endpoint
-apps/workflows        Workflow provider implementations and orchestration adapters
-apps/runner-daemon    Pull-based runner service
+apps/control-plane    Next.js control plane, HTTP APIs, MCP endpoint, integrations
+apps/runner-daemon    Pull-based direct-execution runner service
 packages/shared       Shared Zod schemas, state machine, events, results
 packages/agent-adapters
 plugins/mystra
@@ -67,9 +66,10 @@ supabase
 ### Architectural direction
 
 - Open Agents is a **source-authoritative baseline**, not a packaged SDK dependency that Mystra blindly imports.
-- Mystra owns its provider and orchestration seams.
+- Mystra owns its Issue, persistence, sandbox, Agent, and repository provider seams.
 - The first durable state source is SQLite.
-- The local workflow implementation handles orchestration, not business storage.
+- The runner owns one explicit direct execution sequence. Future policy belongs
+  in a removable Agent hook/plugin.
 - Runner hosts only initiate outbound connections.
 - Project, runtime, and template inputs should resolve into immutable execution contracts before runner-side execution.
 - Shared-nothing is a scaling direction for hot-path coordination; jobs, runs, events, results, and artifacts still need durable truth.
@@ -78,15 +78,15 @@ supabase
 
 ### 1. Submit work through HTTP or remote MCP
 
-An internal caller or agent creates a Project and submits a job through the control plane HTTP APIs or `/api/mcp`. The control plane validates schemas, persists Project/job/run state, and starts the configured workflow path.
+An internal caller or agent creates a Project and submits a job through the control plane HTTP APIs or `/api/mcp`. A read-only Linear integration can also normalize an Issue and dispatch its immutable snapshot. The control plane validates schemas and persists Project/job/run state for runner claim.
 
 ### 2. Runner claim and execution
 
 The `runner-daemon` long-polls the control plane for assignable jobs, receives a resolved runtime contract, prepares the execution environment, then runs the task in the configured sandbox with the selected agent provider.
 
-### 3. Workflow execution and delivery
+### 3. Direct execution and delivery
 
-Mystra provides workflow execution rather than one fixed delivery sequence. The control plane resolves the configured workflow and runtime contract, the runner executes that workflow inside the selected sandbox, and the resulting branch or repository review artifact depends on the workflow logic in use. The current workflow implementation is only a simple example, not the long-term product contract.
+The runner executes `clone -> Agent -> test -> build -> preview -> commit -> push -> PR` inside the selected sandbox. A successful delivery enters `waiting_for_review`, retains the sandbox, and releases runner capacity.
 
 ### 4. Health, inspection, and preview
 
@@ -97,15 +97,14 @@ Operators inspect health through `mystra_health`, job APIs, and preview helpers.
 ```mermaid
 flowchart LR
     Caller[MCP client / internal caller] --> CP[apps/control-plane]
+    Linear[Linear IssueProvider] --> CP
     CP --> DB[(SQLite via RdbProvider)]
-    CP --> WF[apps/workflows]
     Runner[apps/runner-daemon] --> CP
     Runner --> Sandbox[Sandbox provider]
     Sandbox --> Agent[Agent provider]
     Agent --> Repo[Repository provider]
     Shared[packages/shared] --> CP
     Shared --> Runner
-    Shared --> WF
 ```
 
 ## Operator commands

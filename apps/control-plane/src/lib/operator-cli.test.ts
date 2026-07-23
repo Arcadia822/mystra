@@ -62,7 +62,6 @@ function projectDetailPayload() {
         },
         contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
         prewarmConfig: { manager: "pnpm" },
-        workflow: { provider: "local", blueprintName: "mvp.coding", blueprintVersion: "1.0.0" },
         metadata: {},
       },
       archivedAt: null,
@@ -109,13 +108,6 @@ function jobSnapshot(overrides: Record<string, unknown> = {}) {
       finishedAt: "2026-05-17T00:02:00.000Z",
     },
     events: [],
-    workflow: {
-      provider: "local",
-      blueprintName: "mvp.coding",
-      status: "started",
-      startedAt: "2026-05-17T00:00:10.000Z",
-      nodes: [],
-    },
     project: projectDetailPayload().project,
     lane: {
       projectId: "00000000-0000-4000-8000-000000000001",
@@ -137,7 +129,6 @@ function jobSnapshot(overrides: Record<string, unknown> = {}) {
       },
       contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
       prewarmConfig: { manager: "pnpm" },
-      workflow: { provider: "local", blueprintName: "mvp.coding", blueprintVersion: "1.0.0" },
       metadata: {},
       submittedAt: "2026-05-17T00:00:00.000Z",
     },
@@ -158,14 +149,22 @@ function jobSnapshot(overrides: Record<string, unknown> = {}) {
   return structuredClone({ ...base, ...overrides });
 }
 
-async function execute(argv: string[], responder: (url: string) => ResponseLike | Promise<ResponseLike>) {
+async function execute(
+  argv: string[],
+  responder: (url: string, init?: RequestInit) => ResponseLike | Promise<ResponseLike>,
+  overrides: {
+    sleep?: (milliseconds: number) => Promise<void>;
+    now?: () => number;
+  } = {},
+) {
   const stdout: string[] = [];
   const stderr: string[] = [];
-  const fetchImpl = vi.fn(async (url: URL | string) => await responder(String(url)));
+  const fetchImpl = vi.fn(async (url: URL | string, init?: RequestInit) => await responder(String(url), init));
   const exitCode = await run(argv, {
     fetchImpl,
     stdout: (text: string) => void stdout.push(text),
     stderr: (text: string) => void stderr.push(text),
+    ...overrides,
   });
 
   return {
@@ -188,6 +187,162 @@ describe("operator CLI", () => {
         controlPlaneUrl: "http://localhost:4000",
       },
     });
+  });
+
+  it("lists Issues through the canonical API with cursor pagination", async () => {
+    const result = await execute(
+      [
+        "issues",
+        "list",
+        "--integration",
+        "linear",
+        "--limit",
+        "10",
+        "--cursor",
+        "opaque cursor",
+      ],
+      async (url) => {
+        expect(url).toBe(
+          "http://localhost:3000/api/integrations/linear/issues?limit=10&cursor=opaque+cursor",
+        );
+        return response({
+          items: [{
+            reference: {
+              integration: "linear",
+              provider: "linear",
+              externalId: "issue-id",
+              identifier: "MYS-101",
+              url: "https://linear.app/mystra/issue/MYS-101",
+            },
+            title: "Ship the demo",
+            state: { id: "todo", name: "Todo" },
+          }],
+          pageInfo: { hasNextPage: true, endCursor: "next-cursor" },
+        });
+      },
+    );
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
+    expect(result.stdout).toContain("MYS-101 | Todo | Ship the demo");
+    expect(result.stdout).toContain("nextCursor: next-cursor");
+  });
+
+  it("gets one Issue through the canonical API", async () => {
+    const result = await execute(
+      ["issues", "get", "MYS-101", "--integration", "linear", "--json"],
+      async (url) => {
+        expect(url).toBe("http://localhost:3000/api/integrations/linear/issues/MYS-101");
+        return response({
+          issue: {
+            reference: {
+              identifier: "MYS-101",
+              url: "https://linear.app/mystra/issue/MYS-101",
+            },
+            title: "Ship the demo",
+            description: "Complete the vertical slice.",
+            state: { id: "todo", name: "Todo" },
+          },
+        });
+      },
+    );
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
+    expect(JSON.parse(result.stdout).issue.reference.identifier).toBe("MYS-101");
+  });
+
+  it("resolves a Project slug then dispatches the Issue with an HTTP POST", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const result = await execute(
+      [
+        "issues",
+        "dispatch",
+        "MYS-101",
+        "--integration",
+        "linear",
+        "--project",
+        "mystra-demo",
+        "--agent",
+        "copilot",
+        "--branch",
+        "codex/mys-101-demo",
+        "--json",
+      ],
+      async (url, init) => {
+        requests.push({ url, ...(init ? { init } : {}) });
+        if (url.endsWith("/api/projects/mystra-demo")) {
+          return response({ project: { id: "00000000-0000-4000-8000-000000000001" } });
+        }
+        return response(jobSnapshot({
+          job: {
+            ...jobSnapshot().job,
+            spec: {
+              ...jobSnapshot().job.spec,
+              source: "issue",
+              taskId: "MYS-101",
+            },
+          },
+        }), 201);
+      },
+    );
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
+    expect(requests.map((request) => request.url)).toEqual([
+      "http://localhost:3000/api/projects/mystra-demo",
+      "http://localhost:3000/api/integrations/linear/issues/MYS-101/dispatch",
+    ]);
+    expect(requests[1]?.init?.method).toBe("POST");
+    expect(JSON.parse(String(requests[1]?.init?.body))).toEqual({
+      projectId: "00000000-0000-4000-8000-000000000001",
+      agent: "copilot",
+      branchName: "codex/mys-101-demo",
+    });
+    expect(JSON.parse(result.stdout).job.spec.taskId).toBe("MYS-101");
+  });
+
+  it("maps structured Issue server errors and transport failures to stable exit codes", async () => {
+    const missing = await execute(
+      ["issues", "get", "MYS-404", "--integration", "linear"],
+      async () => response({
+        error: {
+          code: "ISSUE_NOT_FOUND",
+          message: "Issue not found: MYS-404",
+        },
+      }, 404),
+    );
+    const conflict = await execute(
+      [
+        "issues",
+        "dispatch",
+        "MYS-101",
+        "--integration",
+        "linear",
+        "--project",
+        "mystra-demo",
+        "--agent",
+        "copilot",
+        "--branch",
+        "codex/mys-101-demo",
+      ],
+      async (url) => url.endsWith("/api/projects/mystra-demo")
+        ? response({ project: { id: "00000000-0000-4000-8000-000000000001" } })
+        : response({
+            error: {
+              code: "DISPATCH_CONFLICT",
+              message: "Issue dispatch already exists",
+            },
+          }, 409),
+    );
+    const transport = await execute(
+      ["issues", "list", "--integration", "linear"],
+      async () => {
+        throw new Error("control plane unavailable");
+      },
+    );
+
+    expect(missing.exitCode).toBe(EXIT_CODES.MISSING);
+    expect(conflict.exitCode).toBe(EXIT_CODES.UNAVAILABLE);
+    expect(transport.exitCode).toBe(EXIT_CODES.TRANSPORT_ERROR);
+    expect(transport.stderr).toContain("control plane unavailable");
   });
 
   it("prints a human-readable project list", async () => {
@@ -232,13 +387,178 @@ describe("operator CLI", () => {
     expect(result.stdout).toContain("updated=2026-05-17T00:02:00.000Z");
   });
 
-  it("prints workflow and lane facts for run inspection", async () => {
+  it("prints direct execution and context facts for run inspection", async () => {
     const result = await execute(["runs", "inspect", "job-1"], async () => response(jobSnapshot()));
 
     expect(result.exitCode).toBe(EXIT_CODES.OK);
-    expect(result.stdout).toContain("workflow: local | mvp.coding");
     expect(result.stdout).toContain("currentLaneContext: agent-skills");
     expect(result.stdout).toContain("submittedLaneContext: agent-skills");
+    expect(result.stdout).not.toContain("workflow:");
+  });
+
+  it("waits for waiting_for_review and prints the complete handoff as success", async () => {
+    const active = jobSnapshot({
+      run: {
+        ...jobSnapshot().run,
+        state: "running",
+        result: undefined,
+        finishedAt: undefined,
+      },
+    });
+    const ready = jobSnapshot({
+      job: {
+        ...jobSnapshot().job,
+        spec: {
+          ...jobSnapshot().job.spec,
+          taskId: "MYS-101",
+          source: "issue",
+          issue: {
+            reference: {
+              identifier: "MYS-101",
+              url: "https://linear.app/mystra/issue/MYS-101",
+            },
+          },
+        },
+      },
+      run: {
+        ...jobSnapshot().run,
+        state: "waiting_for_review",
+        result: {
+          status: "waiting_for_review",
+          summary: "Ready for review",
+          branch: "codex/mys-101-demo",
+          commitSha: "0123456789abcdef",
+          issue: {
+            identifier: "MYS-101",
+            url: "https://linear.app/mystra/issue/MYS-101",
+          },
+          quality: {
+            test: { status: "passed", command: "pnpm test", durationMs: 1000 },
+            build: { status: "passed", command: "pnpm build", durationMs: 2000 },
+          },
+          preview: {
+            url: "http://127.0.0.1:49152",
+            containerName: "mystra-preview-mys-101",
+            probeCount: 2,
+          },
+          reviewResult: {
+            status: "review_created",
+            branch: {
+              status: "pushed",
+              branchName: "codex/mys-101-demo",
+              commitSha: "0123456789abcdef",
+            },
+            review: {
+              provider: "github",
+              url: "https://github.com/Arcadia822/mystra-demo/pull/1",
+              number: 1,
+              displayId: "#1",
+            },
+          },
+          sandboxOutcome: {
+            status: "succeeded",
+            session: {
+              provider: "docker",
+              sessionId: "container-1",
+              status: "retained",
+              retained: true,
+            },
+          },
+          agentExecution: {
+            agent: "copilot",
+            cliVersion: "1.0.69-0",
+            mode: "autopilot",
+            maxAutopilotContinues: 10,
+            exitCode: 0,
+            changedFiles: ["src/demo.ts"],
+          },
+        },
+      },
+      runtime: {
+        environment: {
+          provider: "docker",
+          image: "mystra-copilot-runner:1.0.69-0",
+        },
+      },
+    });
+    let polls = 0;
+    const result = await execute(
+      [
+        "runs",
+        "wait",
+        "job-1",
+        "--interval-seconds",
+        "1",
+        "--timeout-seconds",
+        "10",
+      ],
+      async (url) => {
+        expect(url).toBe("http://localhost:3000/api/jobs/job-1");
+        polls += 1;
+        return response(polls === 1 ? active : ready);
+      },
+      { sleep: async () => {}, now: () => 0 },
+    );
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
+    expect(polls).toBe(2);
+    expect(result.stdout).toContain("Waiting for review MYS-101");
+    expect(result.stdout).toContain("test: passed | pnpm test");
+    expect(result.stdout).toContain("build: passed | pnpm build");
+    expect(result.stdout).toContain("preview: http://127.0.0.1:49152");
+    expect(result.stdout).toContain("review: https://github.com/Arcadia822/mystra-demo/pull/1");
+    expect(result.stdout).toContain("sandbox: docker | container-1 | retained");
+    expect(result.stdout).toContain("agent: copilot 1.0.69-0 | autopilot | cap=10");
+    expect(result.stderr).toBe("");
+  });
+
+  it("returns a local timeout while waiting for an active Run", async () => {
+    const active = jobSnapshot({
+      run: {
+        ...jobSnapshot().run,
+        state: "running",
+        result: undefined,
+        finishedAt: undefined,
+      },
+    });
+    const times = [0, 1_001];
+    const result = await execute(
+      ["runs", "wait", "job-1", "--timeout-seconds", "1", "--json"],
+      async () => response(active),
+      { sleep: async () => {}, now: () => times.shift() ?? 1_001 },
+    );
+
+    expect(result.exitCode).toBe(EXIT_CODES.NOT_READY);
+    expect(JSON.parse(result.stderr)).toEqual({
+      ok: false,
+      code: "WAIT_TIMEOUT",
+      message: "Run did not reach a terminal state before the local timeout.",
+      payload: {
+        jobId: "job-1",
+        timeoutSeconds: 1,
+      },
+    });
+  });
+
+  it("propagates server and transport errors while waiting", async () => {
+    const missing = await execute(
+      ["runs", "wait", "missing"],
+      async () => response({
+        error: {
+          code: "JOB_NOT_FOUND",
+          message: "Job not found: missing",
+        },
+      }, 404),
+    );
+    const transport = await execute(
+      ["runs", "wait", "job-1"],
+      async () => {
+        throw new Error("socket closed");
+      },
+    );
+
+    expect(missing.exitCode).toBe(EXIT_CODES.MISSING);
+    expect(transport.exitCode).toBe(EXIT_CODES.TRANSPORT_ERROR);
   });
 
   it("prints a terminal result summary", async () => {

@@ -20,12 +20,14 @@ CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
   task_id TEXT NOT NULL,
-  source TEXT NOT NULL CHECK (source IN ('mcp', 'api')),
+  source TEXT NOT NULL CHECK (source IN ('mcp', 'api', 'issue')),
   repo TEXT NOT NULL,
   base_branch TEXT NOT NULL DEFAULT 'main',
   branch_name TEXT NOT NULL,
   agent TEXT NOT NULL CHECK (agent IN ('codex', 'copilot')),
   prompt TEXT NOT NULL,
+  issue_snapshot TEXT,
+  dispatch_key TEXT,
   mr_title TEXT,
   mr_body TEXT,
   runtime_override TEXT,
@@ -106,6 +108,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
 CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug);
 CREATE INDEX IF NOT EXISTS idx_context_bundles_slug ON context_bundles(slug);
 CREATE INDEX IF NOT EXISTS idx_jobs_project_id ON jobs(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_dispatch_key ON jobs(dispatch_key) WHERE dispatch_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_runs_job_id ON runs(job_id);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state);
 CREATE INDEX IF NOT EXISTS idx_runs_assigned_runner ON runs(assigned_runner_session_id);

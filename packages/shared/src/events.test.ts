@@ -35,42 +35,48 @@ describe("runEventSchema", () => {
     ).toThrow();
   });
 
-  it("accepts deterministic quality-gate lifecycle events", () => {
+  it("accepts separate deterministic test and build lifecycle events", () => {
     const parsed = runEventSchema.parse({
       runId: "550e8400-e29b-41d4-a716-446655440000",
       jobId: "550e8400-e29b-41d4-a716-446655440001",
       timestamp: "2026-04-30T00:00:00.000Z",
-      type: "quality_gate.failed",
+      type: "quality.test.failed",
       severity: "error",
       data: {
-        sequence: ["test", "build"],
+        command: "pnpm test",
+        durationMs: 1200,
+        exitCode: 1,
         logPath: "/mystra/workspace/quality-gate.log",
       },
     });
 
-    expect(parsed.type).toBe("quality_gate.failed");
+    expect(parsed.type).toBe("quality.test.failed");
   });
 
-  it("accepts workflow node lifecycle events with structured node metadata", () => {
-    const parsed = runEventSchema.parse({
+  it("rejects workflow-specific lifecycle events", () => {
+    expect(() => runEventSchema.parse({
       runId: "550e8400-e29b-41d4-a716-446655440000",
       jobId: "550e8400-e29b-41d4-a716-446655440001",
       timestamp: "2026-04-30T00:00:00.000Z",
       type: "workflow.node.failed",
       severity: "error",
-      data: {
-        nodeId: "quality_gate",
-        handler: "quality_gate.run",
-        nodeKind: "deterministic",
-        summary: "Quality gate failed during test -> build",
-      },
-    });
+      data: { nodeId: "quality_gate" },
+    })).toThrow();
+  });
 
-    expect(parsed.type).toBe("workflow.node.failed");
-    expect(parsed.data).toEqual(expect.objectContaining({
-      nodeId: "quality_gate",
-      handler: "quality_gate.run",
-    }));
+  it("accepts direct execution, clone, agent, preview and review reuse facts", () => {
+    for (const type of [
+      "execution.started",
+      "repository.clone.started",
+      "repository.clone.succeeded",
+      "agent.succeeded",
+      "quality.build.passed",
+      "preview.ready",
+      "review.reused",
+      "run.waiting_for_review",
+    ] as const) {
+      expect(runEventTypeSchema.parse(type)).toBe(type);
+    }
   });
 
   it("accepts provider-neutral review creation events", () => {
@@ -106,7 +112,7 @@ describe("runEventSchema", () => {
       "run.failed",
       "run.canceled",
       "run.timed_out",
-      "run.needs_human_review",
+      "run.waiting_for_review",
     ]);
   });
 });

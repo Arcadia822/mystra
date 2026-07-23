@@ -133,7 +133,6 @@ describe("project selection views", () => {
         },
         contextBundleRefs: [],
         prewarmConfig: { manager: "pnpm" },
-        workflow: { blueprintName: "mvp.coding", blueprintVersion: "1.0.0" },
         metadata: { projectLane: "mystra" },
       },
       archivedAt: null,
@@ -143,7 +142,7 @@ describe("project selection views", () => {
 
     expect(parsed.runtime.image).toBe("ghcr.io/arcadia/mystra-runner:latest");
     expect(parsed.metadata).toEqual({ projectLane: "mystra" });
-    expect(parsed.lane.workflow).toEqual({ blueprintName: "mvp.coding", blueprintVersion: "1.0.0" });
+    expect("workflow" in parsed.lane).toBe(false);
   });
 
   it("accepts project create payloads with explicit success field names", () => {
@@ -236,8 +235,8 @@ describe("project selection views", () => {
     expect(listed.runners[0]?.capabilities.executor).toBe("docker");
   });
 
-  it("accepts explicit lane inspection views with optional workflow hints", () => {
-    const parsed = laneInspectionViewSchema.parse({
+  it("accepts explicit lane inspection views and rejects workflow hints", () => {
+    const lane = {
       repo: "git@example.com:arcadia/skrya.git",
       baseBranch: "develop",
       defaultAgent: "copilot",
@@ -259,10 +258,17 @@ describe("project selection views", () => {
       contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
       prewarmConfig: { manager: "pnpm" },
       metadata: { projectLane: "skrya" },
-    });
+    };
+    const parsed = laneInspectionViewSchema.parse(lane);
 
-    expect(parsed.workflow).toBeUndefined();
+    expect("workflow" in parsed).toBe(false);
     expect(parsed.contextBundleRefs[0]?.slug).toBe("agent-skills");
+    expect(() => laneInspectionViewSchema.parse({
+      ...lane,
+      workflow: {
+        blueprintName: "mvp.coding",
+      },
+    })).toThrow();
   });
 });
 
@@ -351,10 +357,6 @@ describe("canonicalRunSnapshotSchema", () => {
           },
           contextBundleRefs: [],
           prewarmConfig: { manager: "pnpm" },
-          workflow: {
-            blueprintName: "mvp.coding",
-            blueprintVersion: "1.0.0",
-          },
           metadata: { projectLane: "mystra" },
         },
         archivedAt: null,
@@ -381,10 +383,6 @@ describe("canonicalRunSnapshotSchema", () => {
         },
         contextBundleRefs: [],
         prewarmConfig: { manager: "pnpm" },
-        workflow: {
-          blueprintName: "mvp.coding",
-          blueprintVersion: "1.0.0",
-        },
         metadata: { projectLane: "mystra" },
         submittedAt: "2026-05-15T00:00:00.000Z",
       },
@@ -393,6 +391,15 @@ describe("canonicalRunSnapshotSchema", () => {
     expect(parsed.run.result?.status).toBe("succeeded");
     expect(parsed.project?.slug).toBe("mystra");
     expect(parsed.lane?.projectSlug).toBe("mystra");
+    expect(() => canonicalRunSnapshotSchema.parse({
+      ...parsed,
+      workflow: {
+        provider: "local",
+        blueprintName: "mvp.coding",
+        blueprintVersion: "1.0.0",
+        nodeExecutions: [],
+      },
+    })).toThrow();
   });
 
   it("accepts submitted lane snapshots as additive historical attribution", () => {
@@ -434,5 +441,11 @@ describe("canonicalRunSnapshotSchema", () => {
 
     expect(parsed.projectSlug).toBe("skrya");
     expect(parsed.runtime.environment.image).toBe("ghcr.io/arcadia/skrya-runner:latest");
+    expect(() => submittedLaneSnapshotSchema.parse({
+      ...parsed,
+      workflow: {
+        blueprintName: "mvp.coding",
+      },
+    })).toThrow();
   });
 });

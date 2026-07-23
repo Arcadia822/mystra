@@ -30,8 +30,8 @@ function terminalLabel(status: TerminalStatus): string {
       return "Canceled";
     case "timed_out":
       return "Timed out";
-    case "needs_human_review":
-      return "Needs human review";
+    case "waiting_for_review":
+      return "Waiting for review";
   }
 }
 
@@ -62,7 +62,40 @@ function linkSummary(result: RunResult | undefined, branchName: string) {
 }
 
 function latestEvent(events: RunEvent[], types: readonly RunEvent["type"][]): RunEvent | undefined {
-  return events.find((event) => types.includes(event.type));
+  return events.findLast((event) => types.includes(event.type));
+}
+
+function executionPhaseForEvent(
+  event: RunEvent | undefined,
+): CoordinationRunSummary["currentPhase"] {
+  if (!event) {
+    return undefined;
+  }
+  if ([
+    "git.branch_created",
+    "git.commit_created",
+    "git.push_succeeded",
+    "review.created",
+    "review.reused",
+  ].includes(event.type)) {
+    return "delivery";
+  }
+  if (["preview.started", "preview.ready", "preview.failed"].includes(event.type)) {
+    return "preview";
+  }
+  if (event.type.startsWith("quality.build.")) {
+    return "build";
+  }
+  if (event.type.startsWith("quality.test.")) {
+    return "test";
+  }
+  if (event.type.startsWith("agent.")) {
+    return "agent";
+  }
+  if (event.type.startsWith("repository.clone.")) {
+    return "clone";
+  }
+  return undefined;
 }
 
 function milestoneForRun(input: SummaryProjectionInput): {
@@ -70,13 +103,37 @@ function milestoneForRun(input: SummaryProjectionInput): {
   headline: string;
   milestone: CoordinationMilestone;
   sourceEventType: CoordinationRunSummary["sourceEventType"];
-  currentNodeId?: string;
+  currentPhase?: CoordinationRunSummary["currentPhase"];
   terminal?: CoordinationRunSummary["terminal"];
 } {
   const { run, recentEvents } = input;
-  const currentNodeEvent = latestEvent(recentEvents, ["workflow.node.started"]);
-  const reviewEvent = latestEvent(recentEvents, ["review.created", "mr.created"]);
-  const workflowStartedEvent = latestEvent(recentEvents, ["workflow.started", "container.started", "agent.started"]);
+  const executionEvent = latestEvent(recentEvents, [
+    "repository.clone.started",
+    "repository.clone.succeeded",
+    "agent.started",
+    "agent.succeeded",
+    "agent.failed",
+    "quality.test.started",
+    "quality.test.passed",
+    "quality.test.failed",
+    "quality.build.started",
+    "quality.build.passed",
+    "quality.build.failed",
+    "preview.started",
+    "preview.ready",
+    "preview.failed",
+    "git.branch_created",
+    "git.commit_created",
+    "git.push_succeeded",
+    "review.created",
+    "review.reused",
+  ]);
+  const reviewEvent = latestEvent(recentEvents, ["review.created", "review.reused"]);
+  const executionStartedEvent = latestEvent(recentEvents, [
+    "execution.started",
+    "container.started",
+    "agent.started",
+  ]);
   const assignedEvent = latestEvent(recentEvents, ["run.assigned"]);
   const queuedEvent = latestEvent(recentEvents, ["run.queued"]);
 
@@ -117,46 +174,45 @@ function milestoneForRun(input: SummaryProjectionInput): {
         observedAt: reviewEvent.timestamp,
       },
       sourceEventType: reviewEvent.type,
-      ...(currentNodeEvent && typeof currentNodeEvent.data.nodeId === "string"
-        ? { currentNodeId: currentNodeEvent.data.nodeId }
-        : {}),
+      currentPhase: "delivery",
     };
   }
 
-  if (run.state === "running" && currentNodeEvent && typeof currentNodeEvent.data.nodeId === "string") {
+  const currentPhase = executionPhaseForEvent(executionEvent);
+  if (run.state === "running" && executionEvent && currentPhase) {
     return {
       phase: "running",
-      headline: `Workflow is executing ${currentNodeEvent.data.nodeId}.`,
+      headline: `Direct execution is running the ${currentPhase} phase.`,
       milestone: {
-        key: "workflow_running",
-        label: "Workflow running",
-        observedAt: currentNodeEvent.timestamp,
+        key: "execution_running",
+        label: "Execution running",
+        observedAt: executionEvent.timestamp,
       },
-      sourceEventType: currentNodeEvent.type,
-      currentNodeId: currentNodeEvent.data.nodeId,
+      sourceEventType: executionEvent.type,
+      currentPhase,
     };
   }
 
-  if (run.state === "running" && workflowStartedEvent) {
+  if (run.state === "running" && executionStartedEvent) {
     return {
       phase: "running",
-      headline: "Workflow is running.",
+      headline: "Direct execution has started.",
       milestone: {
-        key: "workflow_started",
-        label: "Workflow started",
-        observedAt: workflowStartedEvent.timestamp,
+        key: "execution_started",
+        label: "Execution started",
+        observedAt: executionStartedEvent.timestamp,
       },
-      sourceEventType: workflowStartedEvent.type,
+      sourceEventType: executionStartedEvent.type,
     };
   }
 
   if (run.state === "running") {
     return {
       phase: "running",
-      headline: "Workflow is running.",
+      headline: "Direct execution is running.",
       milestone: {
-        key: "workflow_started",
-        label: "Workflow started",
+        key: "execution_started",
+        label: "Execution started",
         observedAt: run.startedAt ?? run.updatedAt,
       },
       sourceEventType: "run.state",
@@ -204,7 +260,7 @@ export function projectCoordinationRunSummary(input: SummaryProjectionInput): Co
     ...(input.run.startedAt ? { startedAt: input.run.startedAt } : {}),
     ...(input.run.finishedAt ? { finishedAt: input.run.finishedAt } : {}),
     updatedAt: input.run.updatedAt,
-    ...(state.currentNodeId ? { currentNodeId: state.currentNodeId } : {}),
+    ...(state.currentPhase ? { currentPhase: state.currentPhase } : {}),
     ...(state.terminal ? { terminal: state.terminal } : {}),
     links: linkSummary(input.run.result, input.job.spec.branchName),
   });
