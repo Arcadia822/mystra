@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mystra · Control Plane Objects</title>
+  <style>
+    :root{color-scheme:dark;--page:#0b0d10;--side:#111419;--panel:#14181e;--muted:#8d96a3;--text:#eef2f6;--line:#2a3038;--hover:#1b2129;--selected:#253244;--focus:#72a7ff;--ok:#70d6a3;--warn:#e4bb69;--bad:#f1897f;--r:8px;font:14px/1.45 Inter,ui-sans-serif,system-ui,sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--text)}button{font:inherit;color:inherit}.shell{min-height:100vh;display:grid;grid-template-columns:240px 1fr}.side{position:sticky;top:0;height:100vh;padding:12px 10px;border-right:1px solid var(--line);background:var(--side);display:flex;flex-direction:column}.brand{height:44px;display:flex;align-items:center;gap:10px;padding:0 9px;font-weight:650}.mark{width:20px;height:20px;border:1px solid var(--focus);display:grid;place-items:center;border-radius:5px;color:var(--focus);font-size:11px}.nav{display:grid;gap:4px;margin-top:16px}.nav button{height:34px;border:0;border-radius:6px;background:transparent;text-align:left;padding:0 10px;color:var(--muted);cursor:pointer}.nav button:hover{background:var(--hover);color:var(--text)}.nav button.active{background:var(--selected);color:var(--text)}.settings{margin-top:auto}.main{min-width:0}.top{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 20px}.top strong{font-size:14px}.refresh{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:5px 10px}.content{padding:14px 20px 40px;display:grid;gap:14px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.stat,.panel{border:1px solid var(--line);background:var(--panel);border-radius:var(--r)}.stat{padding:14px}.stat span,.meta{color:var(--muted);font-size:12px}.stat strong{display:block;font:600 24px/1.2 ui-monospace,monospace;margin-top:5px}.panel h2{font-size:13px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}.row{display:grid;grid-template-columns:1.5fr .8fr .8fr .8fr;gap:12px;align-items:center;min-height:46px;padding:8px 14px;border-top:1px solid var(--line)}.row:first-of-type{border-top:0}.row button,.link{border:0;background:none;color:var(--focus);text-align:left;padding:0;cursor:pointer}.badge{display:inline-flex;width:max-content;border:1px solid var(--line);border-radius:999px;padding:2px 7px;font-size:11px}.badge.ok{color:var(--ok)}.badge.warn{color:var(--warn)}.badge.bad{color:var(--bad)}.detail{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr);gap:12px}.kv{display:grid;grid-template-columns:145px 1fr;gap:8px;padding:9px 14px;border-top:1px solid var(--line)}.kv:first-of-type{border-top:0}.kv span:first-child{color:var(--muted)}.actions{display:flex;gap:8px}.danger{border:1px solid color-mix(in srgb,var(--bad) 50%,var(--line));background:transparent;color:var(--bad);border-radius:6px;padding:6px 10px}.hidden{display:none}.empty{padding:28px 14px;color:var(--muted)}button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+    @media(max-width:800px){.shell{grid-template-columns:64px 1fr}.brand span,.nav button span,.settings span{display:none}.nav button{display:grid;place-items:center}.stats{grid-template-columns:repeat(2,1fr)}.detail{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr}.row>:nth-child(n+3){display:none}}
+    @media(max-width:480px){.content{padding-inline:12px}.top{padding-inline:12px}.stats{grid-template-columns:1fr 1fr}.shell{grid-template-columns:52px 1fr}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand"><span class="mark">M</span><span>Mystra</span></div>
+      <nav class="nav" aria-label="Primary">
+        <button class="active" data-view="overview">⌂ <span>Control Plane</span></button>
+        <button data-view="runners">R <span>Runners</span></button>
+        <button data-view="tasks">T <span>Tasks</span></button>
+      </nav>
+      <button class="nav settings"><span>Settings</span></button>
+    </aside>
+    <main class="main">
+      <header class="top"><strong id="title">Control Plane</strong><button class="refresh">Refresh</button></header>
+      <section class="content" id="overview">
+        <div class="stats">
+          <article class="stat"><span>Active tasks</span><strong>2</strong></article>
+          <article class="stat"><span>Waiting review</span><strong>1</strong></article>
+          <article class="stat"><span>Runner capacity</span><strong>3 / 5</strong></article>
+          <article class="stat"><span>Failed</span><strong>1</strong></article>
+        </div>
+        <section class="panel"><h2>Recent tasks</h2>
+          <div class="row"><button data-open="task">MYS-184 · Restore task detail routing</button><span class="badge warn">running</span><span>mystra</span><span class="meta">12s ago</span></div>
+          <div class="row"><button data-open="task">MYS-181 · Fix responsive runner table</button><span class="badge ok">waiting review</span><span>demo-ui</span><span class="meta">4m ago</span></div>
+        </section>
+        <section class="panel"><h2>Runner health</h2>
+          <div class="row"><button data-open="runner">arcadia-mac</button><span class="badge ok">online</span><span>1 / 3</span><span class="meta">Docker · Copilot</span></div>
+          <div class="row"><button data-open="runner">local-spare</button><span class="badge bad">stale</span><span>0 / 2</span><span class="meta">128s ago</span></div>
+        </section>
+      </section>
+      <section class="content hidden" id="runners">
+        <section class="panel"><h2>Runners · 2 sessions</h2>
+          <div class="row"><button data-open="runner">arcadia-mac</button><span class="badge ok">online</span><span>1 / 3 active</span><span class="meta">Docker · Copilot</span></div>
+          <div class="row"><button data-open="runner">local-spare</button><span class="badge bad">stale</span><span>0 / 2 active</span><span class="meta">Docker · Codex</span></div>
+        </section>
+      </section>
+      <section class="content hidden" id="tasks">
+        <section class="panel"><h2>Tasks · all states</h2>
+          <div class="row"><button data-open="task">MYS-184 · Restore task detail routing</button><span class="badge warn">running</span><span>codex/mys-184</span><span class="meta">arcadia-mac</span></div>
+          <div class="row"><button data-open="task">MYS-181 · Fix responsive runner table</button><span class="badge ok">waiting review</span><span>codex/mys-181</span><span class="meta">preview ready</span></div>
+        </section>
+      </section>
+      <section class="content hidden" id="runner">
+        <div class="detail">
+          <section class="panel"><h2>Runner · arcadia-mac</h2>
+            <div class="kv"><span>Status</span><span class="badge ok">online</span></div>
+            <div class="kv"><span>Concurrency</span><span>1 active / 3 max</span></div>
+            <div class="kv"><span>Executor</span><span>docker</span></div>
+            <div class="kv"><span>Agents</span><span>copilot, codex</span></div>
+            <div class="kv"><span>Image</span><span>mystra-copilot:0.0.374</span></div>
+          </section>
+          <section class="panel"><h2>Assigned tasks</h2><div class="row"><button data-open="task">MYS-184</button><span class="badge warn">running</span></div></section>
+        </div>
+      </section>
+      <section class="content hidden" id="task">
+        <div class="detail">
+          <section class="panel"><h2>Task · MYS-184</h2>
+            <div class="kv"><span>State</span><span class="badge warn">running</span></div>
+            <div class="kv"><span>Project</span><span>mystra</span></div>
+            <div class="kv"><span>Branch</span><span>codex/mys-184</span></div>
+            <div class="kv"><span>Runner</span><button class="link" data-open="runner">arcadia-mac</button></div>
+            <div class="kv"><span>Agent</span><span>copilot · autopilot cap 10</span></div>
+          </section>
+          <section class="panel"><h2>Operations</h2><div class="empty"><div class="actions"><button class="refresh">Refresh</button><button class="danger">Cancel task</button></div><p class="meta" style="margin-top:12px">Result, preview and PR appear here at waiting_for_review.</p></div></section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const titles={overview:"Control Plane",runners:"Runners",tasks:"Tasks",runner:"Runner detail",task:"Task detail"};
+    function show(id){document.querySelectorAll(".content").forEach(x=>x.classList.toggle("hidden",x.id!==id));document.getElementById("title").textContent=titles[id];document.querySelectorAll("[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===id))}
+    document.addEventListener("click",e=>{const target=e.target.closest("[data-view],[data-open]");if(target)show(target.dataset.view||target.dataset.open)});
+  </script>
+</body>
+</html>

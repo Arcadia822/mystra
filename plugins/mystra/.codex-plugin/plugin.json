@@ -1,7 +1,7 @@
 {
   "name": "mystra",
-  "version": "0.1.0",
-  "description": "Mystra MCP workflows for submitting implementation work and checking job status from Codex.",
+  "version": "0.1.0+codex.20260726024320",
+  "description": "Operate Mystra tasks through MCP and open the local control plane in the Codex browser.",
   "author": {
     "name": "Mystra",
     "url": "https://github.com/Arcadia822/mystra"
@@ -12,7 +12,9 @@
   "keywords": [
     "mystra",
     "mcp",
-    "workflow",
+    "control-plane",
+    "tasks",
+    "runners",
     "automation",
     "agent"
   ],
@@ -20,20 +22,21 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Mystra",
-    "shortDescription": "Submit Mystra jobs and inspect workflow status through the local MCP endpoint.",
-    "longDescription": "Guidance for using Mystra from Codex, including packaging user journeys or implementation requests into Mystra jobs and checking job status through the local control-plane MCP endpoint.",
+    "shortDescription": "Operate Mystra tasks and open its Web UI in the Codex browser.",
+    "longDescription": "Use Mystra from Codex through its local MCP endpoint, inspect tasks and runners, and open the Control Plane, Runner detail, or Task detail in the Codex internal browser.",
     "developerName": "Mystra",
     "category": "Developer",
     "capabilities": [
       "MCP",
-      "Workflows",
-      "Automation"
+      "Task Operations",
+      "Control Plane",
+      "Browser Handoff"
     ],
     "websiteURL": "https://github.com/Arcadia822/mystra",
     "defaultPrompt": [
-      "Use Mystra to submit this implementation request.",
-      "Create a Mystra job from this user journey.",
-      "Check the status of an existing Mystra job."
+      "Open the Mystra control plane.",
+      "Open this Mystra task in the Web UI.",
+      "Check the status of an existing Mystra task."
     ],
     "brandColor": "#4F46E5",
     "composerIcon": "./assets/icon.svg",

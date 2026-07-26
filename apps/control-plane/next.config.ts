@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const allowedDevOrigins = (process.env.MYSTRA_CONTROL_PLANE_ALLOWED_DEV_ORIGINS ?? "localhost")
+const allowedDevOrigins = (process.env.MYSTRA_CONTROL_PLANE_ALLOWED_DEV_ORIGINS ?? "localhost,127.0.0.1")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);

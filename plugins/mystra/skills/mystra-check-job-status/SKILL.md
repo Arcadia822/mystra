@@ -1,6 +1,6 @@
 ---
 name: mystra-check-job-status
-description: Retrieve human-readable Mystra job status and result data through the MCP endpoint using a job id.
+description: Retrieve human-readable Mystra task status and result data through the MCP endpoint using a job id.
 metadata:
   priority: 4
   promptSignals:
@@ -53,7 +53,7 @@ Summarize:
 - job id / task id
 - run state
 - result status and summary when present
-- workflow status when present
+- Issue snapshot and current execution state when present
 - MR/PR URL when present
 
 Prefer a short human-readable summary plus the key identifiers needed for

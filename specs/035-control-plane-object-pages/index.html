@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>035-control-plane-object-pages</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"035-control-plane-object-pages","title":"035-control-plane-object-pages","prototypeHref":"mockups/index.html?v=1785033179602","generatedAt":"2026-07-26T02:58:01.703Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：Control Plane 对象页与 Codex 浏览器入口\n\n**Feature Branch**: `codex/webui`\n**Created**: 2026-07-25\n**Status**: Complete\n**Baseline**: `main@bc50ac3`\n**Owner Story Review**: Owner 已明确要求以最新 `main` 和真实 CLI 旅程为准，\n不沿用 `025-webui` 的旧旅程；因此本规格直接采用下述故事集。\n\n## User Scenarios & Testing\n\n### User Story 1 - 查看 Control Plane 当前状态 (Priority: P1)\n\n作为 Mystra 操作员，我希望打开唯一的 Control Plane 概览页，立即看到 Task\n状态分布、Runner 可用容量和最近活动，以便判断平台是否能接收和执行工作。\n\n**Independent Test**: 同一临时数据库下，CLI `control-plane inspect` 与 Web `/`\n展示相同的 Task、Runner 和容量计数。\n\n**Acceptance Scenarios**:\n\n1. **Given** 控制面可访问，**When** 操作员打开 `/`，**Then** 页面展示 Task 总数、\n   queued、active、waiting for review、failed、Runner online/stale 和可用容量。\n2. **Given** API 暂时失败，**When** 页面刷新，**Then** 页面保留清晰错误状态和重试操作，\n   不展示伪造的零值。\n3. **Given** CLI 访问同一控制面，**When**执行 `control-plane inspect`，**Then**关键计数\n   与页面一致。\n\n### User Story 2 - 检查 Runner 列表与单个 Runner (Priority: P1)\n\n作为 Mystra 操作员，我希望 Runner 有独立列表和详情页，以便检查心跳、能力、并发、\n正在执行的 Task 和身份信息，而不是在一张混合仪表盘里寻找节点。\n\n**Independent Test**: CLI `runners list/inspect` 与 Web `/runners`、\n`/runners/:id` 读取同一 API，字段一致。\n\n**Acceptance Scenarios**:\n\n1. **Given** 存在 Runner session，**When** 打开 `/runners`，**Then**每个 Runner\n   显示 online/stale、active/max concurrency、executor、agents、image 和最近心跳。\n2. **Given** 打开 Runner 详情，**When**该 Runner 有已分配 Task，**Then**详情页链接\n   到对应 Task；没有分配时显示诚实空状态。\n3. **Given** Runner ID 不存在，**When**打开详情页或运行 CLI inspect，**Then**返回稳定\n   404/缺失错误，而不是空白页面。\n\n### User Story 3 - 完成 Task 列表、详情与操作旅程 (Priority: P1)\n\n作为 Mystra 操作员，我希望 Task 有独立列表和详情页，并能执行与 CLI 相同的\ninspect、wait/refresh、cancel、result/failure 检查，以便 Web 和 CLI 是同一产品的两个入口。\n\n**Independent Test**: 对同一组 Job/Run fixture，CLI `tasks list/inspect/cancel/result/failure`\n与 Web `/tasks`、`/tasks/:id` 展示相同状态并产生相同取消结果。\n\n**Acceptance Scenarios**:\n\n1. **Given** 存在多个状态的 Task，**When**打开 `/tasks`，**Then**可按状态筛选并进入详情。\n2. **Given** 打开 Task 详情，**When** Run 仍在进行，**Then**页面自动刷新并显示事件、\n   Issue snapshot、Project、runtime、Runner 和当前阶段。\n3. **Given** Task 可取消，**When**点击 Cancel 并确认，**Then**页面调用现有 canonical\n   cancel API，随后展示最新状态；终态 Task 不提供虚假可用操作。\n4. **Given** Task 到达 `waiting_for_review`，**When**打开详情，**Then**展示 test/build、\n   preview、PR、sandbox 和 Agent 证据，并提供外部链接。\n5. **Given** CLI 使用旧 `runs` 命令，**When**升级后继续执行，**Then**行为保持兼容；\n   新 `tasks` 命令是同一实现的对象命名别名。\n\n### User Story 4 - 从 Codex 打开 Mystra Web UI (Priority: P1)\n\n作为在 Codex 中操作 Mystra 的用户，我希望 Mystra Plugin 能检查本地控制面并在\nCodex 内置浏览器打开目标页面，以便聊天负责指令，Web UI 负责检查和操作。\n\n**Independent Test**: 安装/验证 repo-local `plugins/mystra` 后，调用\n`mystra-open-control-plane` 技能可返回并打开精确 URL；控制面不可达时明确失败。\n\n**Acceptance Scenarios**:\n\n1. **Given** 本地控制面可达，**When**用户要求打开 Mystra，**Then** Plugin 使用\n   `http://127.0.0.1:3000`（或显式配置 URL）在 Codex internal browser 打开页面。\n2. **Given**用户指定 Task 或 Runner ID，**When**打开界面，**Then**直接打开对应详情路由。\n3. **Given**控制面不可达，**When**技能执行，**Then**报告连接失败，不打开伪造页面。\n\n## Requirements\n\n### Functional Requirements\n\n- **FR-001**: Web MUST 提供 `/` 作为唯一 Control Plane 概览/详情页。\n- **FR-002**: Web MUST 提供 `/runners` 与 `/runners/:id`。\n- **FR-003**: Web MUST 提供 `/tasks` 与 `/tasks/:id`；Task MUST 投影现有 Job/Run，\n  不新增第三套持久化实体。\n- **FR-004**: 页面 MUST 通过 canonical Web API 读取和操作，不直接访问 SQLite。\n- **FR-005**: Control Plane、Runner、Task 的用户可见操作 MUST 有 CLI 对应。\n- **FR-006**: CLI MUST 新增 `control-plane inspect`、`runners list/inspect` 和\n  `tasks list/inspect/wait/cancel/result/failure`，同时保留 `runs` 兼容。\n- **FR-007**: API MUST 新增稳定的 Control Plane projection 与 Runner detail 读取路由。\n- **FR-008**: Task cancel MUST 复用现有 `/api/jobs/:id/cancel`。\n- **FR-009**: 页面 MUST 提供 loading、empty、error、not-found、active、terminal 和\n  `waiting_for_review` 状态。\n- **FR-010**: 页面 MUST 可键盘操作、具备可见 focus、语义化 heading 和可访问标签。\n- **FR-011**: 页面颜色 MUST 使用 Mystra 语义 token，不在 route component 中硬编码颜色。\n- **FR-012**: Codex Plugin MUST 通过 browser handoff 打开 Web URL；MUST NOT 声称注册\n  原生 Codex tab 或任意 right-panel React surface。\n- **FR-013**: Plugin MUST 保持可移除；Mystra API/CLI/Runner 不依赖 Plugin 存在。\n- **FR-014**: 本功能测试 MUST NOT 调用或修改远端 Linear。\n- **FR-015**: 旧 `025-webui` 旅程 MUST NOT 作为验收证据。\n\n### Key Entities\n\n- **ControlPlaneProjection**: 当前 Task/Runner/容量的只读聚合。\n- **RunnerProjection**: 现有 `PublicRunnerSession` 的页面与 CLI 投影。\n- **TaskProjection**: 现有 `JobSnapshot` 的页面与 CLI 投影。\n- **BrowserHandoff**: Plugin 输出的目标 URL 与 `codex-internal-browser` 打开策略。\n\n## Assumptions\n\n- Runner 当前没有 drain/restart 等管理 API，因此本功能的 Runner 操作为 list、\n  inspect、refresh 和跳转到已分配 Task；不伪造 mutation。\n- `Task` 是面向操作员的对象名，底层继续使用 Job/Run schema 和 API 路径。\n- Linear Issue list/get/dispatch 仍由既有 API/CLI 提供，但不在本功能的外部验收中调用。\n\n## Explicitly Out of Scope\n\n- Linear Project 创建、Issue 写回或任何远端 Linear mutation。\n- Runner drain/restart/delete、Kubernetes 管理或新 Runner 协议。\n- 新数据库表或 Job/Run 状态机。\n- 自动 merge/deploy。\n- Codex 原生 tab 注册或自定义 browser bridge。\n\n## Success Criteria\n\n- **SC-001**: 五个页面路由可直接打开，列表与详情均有真实数据状态。\n- **SC-002**: 页面与 CLI 对同一 fixture 的核心字段和操作结果一致。\n- **SC-003**: 一名用户可在 Web 中完成 overview → runners → runner detail →\n  task detail → cancel/result review 的完整旅程。\n- **SC-004**: 页面在 320、768、1024、1440px 下无不可恢复的水平溢出。\n- **SC-005**: 浏览器控制台无 error/warning，关键交互可键盘完成。\n- **SC-006**: Plugin validator 通过，技能可以打开 overview、Runner detail 和 Task detail。\n- **SC-007**: focused tests、lint、typecheck、test、build 和 GitNexus change detection 通过。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/035-control-plane-object-pages/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/035-control-plane-object-pages/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# 交互原型\n\n入口：[Control Plane Object Pages Prototype](./mockups/index.html)\n\n覆盖：\n\n- Control Plane overview；\n- Runner list 与 Runner detail；\n- Task list 与 Task detail；\n- sidebar、状态 badge、刷新与取消操作位置；\n- desktop 与窄屏布局。\n\n原型使用静态 fixture，仅验证信息架构、层级和交互位置。最终验收必须使用真实\nNext.js 页面和 canonical API。\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1785033179602"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# 实现计划：Control Plane Object Pages\n\n## Technical Context\n\n- TypeScript 5.9、Node 24、Next.js 16 App Router、React 19、Vitest 4。\n- 现有 SQLite/RdbProvider、JobSnapshot、PublicRunnerSession 不变。\n- UI 通过 route handlers 访问 canonical API。\n- Codex Plugin 复用 `plugins/mystra`，增加 browser handoff skill。\n\n## Constitution Check\n\n- 不新增 MVP 排除项：PASS。\n- API/CLI/UI 同源：PASS。\n- 不新增持久化或 workflow abstraction：PASS。\n- Plugin 可移除且不是执行依赖：PASS。\n- 不调用 Linear：PASS。\n\n## Architecture\n\n```text\nCodex chat\n  -> Mystra Plugin skill\n    -> internal browser URL\n      -> Next.js object pages\n        -> canonical API\n          -> existing RdbProvider\n\nOperator CLI\n  -> same canonical API\n```\n\n## Implementation Slices\n\n1. 新增 Control Plane projection 与 Runner detail route，并添加 route tests。\n2. 扩展 Operator CLI 的对象命名与读/取消操作，并添加 injected-fetch tests。\n3. 建立共享 AppShell、类型、格式化与数据状态组件。\n4. 实现 overview、Runner list/detail、Task list/detail。\n5. 更新 `plugins/mystra` manifest，增加打开 Web UI skill 与验证脚本。\n6. 使用临时 SQLite fixture 运行 CLI 与浏览器同旅程验收。\n\n## Engineering Review\n\n- **Risk**: Task 术语与 Job/Run API 名称混淆。\n  **Mitigation**: 契约明确 Task 是投影，不改 API 路径或持久化。\n- **Risk**: overview 在客户端多次请求后与 CLI 计数漂移。\n  **Mitigation**: 单一 `/api/control-plane` 聚合。\n- **Risk**: Runner detail 需要新 DB 方法。\n  **Mitigation**: 通过现有 `listRunners()` 读取，不改 provider interface。\n- **Risk**: 旧 Web UI staged/untracked 资产混入提交。\n  **Mitigation**: 只 stage 035、运行代码与 Plugin 精确文件。\n\n## Verification\n\n- API/CLI focused tests。\n- `pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm build`。\n- Plugin validator。\n- 浏览器：五个路由、console、network、keyboard、320/768/1024/1440。\n- CLI 与 Web 使用同一临时数据库逐项对照。\n- GitNexus `detect_changes({scope:\"compare\", base_ref:\"main\"})`。\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Control Plane Object Pages\n\n- [x] T001 新增 Control Plane projection route 与测试到 `apps/control-plane/app/api/control-plane/route.ts`\n- [x] T002 新增 Runner detail route 与测试到 `apps/control-plane/app/api/runners/[id]/route.ts`\n- [x] T003 扩展 CLI 命令契约到 `scripts/operator-cli.mjs`\n- [x] T004 扩展 CLI contract tests 到 `apps/control-plane/src/lib/operator-cli.test.ts`\n- [x] T005 [P] 建立共享页面类型与格式化工具到 `apps/control-plane/app/_lib/`\n- [x] T006 [P] 建立共享 AppShell 与状态组件到 `apps/control-plane/app/_components/`\n- [x] T007 [US1] 实现 Control Plane overview `apps/control-plane/app/page.tsx`\n- [x] T008 [US2] 实现 Runner list `apps/control-plane/app/runners/page.tsx`\n- [x] T009 [US2] 实现 Runner detail `apps/control-plane/app/runners/[id]/page.tsx`\n- [x] T010 [US3] 实现 Task list `apps/control-plane/app/tasks/page.tsx`\n- [x] T011 [US3] 实现 Task detail 与 cancel `apps/control-plane/app/tasks/[id]/page.tsx`\n- [x] T012 统一实现语义 token、responsive 和 a11y `apps/control-plane/app/globals.css`\n- [x] T013 [US4] 新增 Plugin browser handoff skill `plugins/mystra/skills/mystra-open-control-plane/SKILL.md`\n- [x] T014 [US4] 更新并验证 `plugins/mystra/.codex-plugin/plugin.json`\n- [x] T015 运行 API/CLI focused tests\n- [x] T016 运行 lint、typecheck、test、build\n- [x] T017 使用临时 SQLite 完成 CLI 与 Web 同旅程验收\n- [x] T018 完成浏览器 console/network/keyboard/responsive 验证\n- [x] T019 运行 GitNexus detect changes 与代码审查\n- [x] T020 刷新 Spec View 与完成证据\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

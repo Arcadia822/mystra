@@ -1,0 +1,22 @@
+# Tasks: Control Plane Object Pages
+
+- [x] T001 新增 Control Plane projection route 与测试到 `apps/control-plane/app/api/control-plane/route.ts`
+- [x] T002 新增 Runner detail route 与测试到 `apps/control-plane/app/api/runners/[id]/route.ts`
+- [x] T003 扩展 CLI 命令契约到 `scripts/operator-cli.mjs`
+- [x] T004 扩展 CLI contract tests 到 `apps/control-plane/src/lib/operator-cli.test.ts`
+- [x] T005 [P] 建立共享页面类型与格式化工具到 `apps/control-plane/app/_lib/`
+- [x] T006 [P] 建立共享 AppShell 与状态组件到 `apps/control-plane/app/_components/`
+- [x] T007 [US1] 实现 Control Plane overview `apps/control-plane/app/page.tsx`
+- [x] T008 [US2] 实现 Runner list `apps/control-plane/app/runners/page.tsx`
+- [x] T009 [US2] 实现 Runner detail `apps/control-plane/app/runners/[id]/page.tsx`
+- [x] T010 [US3] 实现 Task list `apps/control-plane/app/tasks/page.tsx`
+- [x] T011 [US3] 实现 Task detail 与 cancel `apps/control-plane/app/tasks/[id]/page.tsx`
+- [x] T012 统一实现语义 token、responsive 和 a11y `apps/control-plane/app/globals.css`
+- [x] T013 [US4] 新增 Plugin browser handoff skill `plugins/mystra/skills/mystra-open-control-plane/SKILL.md`
+- [x] T014 [US4] 更新并验证 `plugins/mystra/.codex-plugin/plugin.json`
+- [x] T015 运行 API/CLI focused tests
+- [x] T016 运行 lint、typecheck、test、build
+- [x] T017 使用临时 SQLite 完成 CLI 与 Web 同旅程验收
+- [x] T018 完成浏览器 console/network/keyboard/responsive 验证
+- [x] T019 运行 GitNexus detect changes 与代码审查
+- [x] T020 刷新 Spec View 与完成证据
