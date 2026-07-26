@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>037-remote-repository-integrations</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"037-remote-repository-integrations","title":"037-remote-repository-integrations","prototypeHref":"mockups/index.html?v=1785041703401","generatedAt":"2026-07-26T06:05:00.432Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: 远程仓库 Integration 与 Project 强绑定\n\n**Feature Branch**: `037-remote-repository-integrations`  \n**Created**: 2026-07-25  \n**Status**: Ready for planning  \n**Input**: Project 不再接受本地仓库；每个 Project 必须绑定由可扩展 RepoProvider 解析的远程 Git 仓库。当前支持 GitHub 与 Linear 两个 Integration 插件，其中 GitHub 提供 Repository 与 Issue capability，Linear 提供 Issue capability。使用全新 GitHub 测试仓库完成 E2E，不使用现有仓库。\n\n## User Scenarios & Testing\n\n### User Story 1 - 从 GitHub 远程仓库创建 Project (Priority: P1)\n\n平台操作员可以通过 API、CLI 或 Web 页面浏览当前 GitHub 授权可访问的仓库，选择一个远程仓库并创建 Project。Project 保存经 GitHub RepoProvider 验证的仓库快照，而不是本地路径或任意字符串。\n\n**Why this priority**: Project 是所有任务执行的稳定归属。若仓库身份仍由 Runner 在执行时猜测，服务端部署、权限失败与错误仓库派发都会变成同一种模糊事故。\n\n**Independent Test**: 使用全新创建的私有 GitHub 测试仓库，通过三种入口中的任意一种创建 Project；读取 Project 时可见相同的 provider、远程身份、clone URL、默认分支与可见性。\n\n**Acceptance Scenarios**:\n\n1. **Given** GitHub Integration 已配置且凭据有效，**When** 操作员列出仓库，**Then** 系统返回授权账户可访问的远程仓库并支持游标分页。\n2. **Given** 操作员选择 `owner/repository`，**When** 创建 Project，**Then** 系统先通过 GitHub RepoProvider 重新解析该仓库，再持久化 Project。\n3. **Given** 仓库不存在、凭据无权访问或 Integration 没有 RepoProvider capability，**When** 创建 Project，**Then** 创建失败且数据库中不存在部分 Project。\n4. **Given** 输入包含 `local/*`、绝对路径、`file://` 或未经 Provider 解析的远程 URL，**When** 创建或更新 Project，**Then** 输入被拒绝。\n\n---\n\n### User Story 2 - GitHub 与 Linear 作为可组合 Integration 插件 (Priority: P1)\n\n平台维护者可以注册实现不同 capability 的 Integration 插件。GitHub 插件同时提供 RepoProvider 与 IssueProvider；Linear 插件仅提供 IssueProvider。核心 registry 不包含 provider-specific 分支。\n\n**Why this priority**: “GitHub 支持仓库、Linear 支持 Issue”不是两个布尔开关，而是插件能力组合。否则增加 GitLab、GitHub Enterprise 或新的 Issue 系统时仍需修改平台核心。\n\n**Independent Test**: 注册 GitHub、Linear 及测试替身 Integration，验证 registry 能按 capability 解析 provider；缺失 capability 返回稳定错误；增加测试替身无需修改 registry。\n\n**Acceptance Scenarios**:\n\n1. **Given** 默认 Integration registry，**When** 查询 descriptor，**Then** 只出现 `github` 与 `linear`，且 capabilities 分别为 `repositories + issues` 与 `issues`。\n2. **Given** 一个只提供 IssueProvider 的 Integration，**When** 请求 RepoProvider，**Then** 返回 `REPOSITORY_CAPABILITY_UNAVAILABLE`。\n3. **Given** 新 Provider 实现相同契约，**When** 注册到 registry，**Then** 现有 Project、Issue、Job 与 Runner 合同无需 provider-specific 修改。\n\n---\n\n### User Story 3 - 从 GitHub 或 Linear Issue 分派到绑定仓库 (Priority: P2)\n\n操作员可以继续从 Linear Issue 分派任务，也可以在指定 GitHub 仓库范围内浏览、读取和分派 GitHub Issue。分派必须使用所选 Project 已冻结的 Repository snapshot，Issue 文本不能覆盖目标仓库。\n\n**Why this priority**: Issue 是工作来源，Project repository 是执行目标。两者必须可组合，但不能互相冒充。\n\n**Independent Test**: 在新建 GitHub 测试仓库创建一个 Issue；分别读取 GitHub Issue 与一条 Linear Issue；将 GitHub Issue 分派到对应 Project，并验证 Job、ExecutionSpec 与 Runner claim 使用同一 Repository snapshot。\n\n**Acceptance Scenarios**:\n\n1. **Given** GitHub IssueProvider，**When** 未提供 repository scope 就 list/get Issue，**Then** 请求被拒绝为无效请求。\n2. **Given** GitHub repository scope，**When** list/get Issue，**Then** Pull Request 不会被伪装成 Issue，返回结果带有 Repository reference。\n3. **Given** Linear IssueProvider，**When** list/get Issue，**Then** 现有只读行为与分页语义保持不变。\n4. **Given** Issue 已选择且 Project 存在，**When** dispatch，**Then** Job 保存不可变 Issue snapshot 与 Repository snapshot；Runner 不再接受 job 级 repo override。\n\n---\n\n### User Story 4 - 服务端 Runner 只执行远程 Repository contract (Priority: P2)\n\nRunner 使用已冻结的远程 Repository snapshot 克隆代码、推送分支并创建 Review。它不支持宿主机本地目录作为 Project repository，也不通过 URL hostname 临时推断 provider。\n\n**Why this priority**: 服务端 Mystra 没有用户笔记本上的目录。保留 local 兼容字段只会把无效状态推迟到最昂贵的执行阶段。\n\n**Independent Test**: 对新建 GitHub 测试仓库运行完整任务，验证 clone、Agent、test、build、preview、push 与 PR；静态搜索证明 Project/Job/claim 合同中没有 local repository fallback。\n\n**Acceptance Scenarios**:\n\n1. **Given** 一个已解析的 GitHub Repository snapshot，**When** Runner claim Job，**Then** provider 与 clone URL 直接来自冻结快照。\n2. **Given** 缺失 Repository snapshot 的历史或伪造 Job，**When** Runner 处理，**Then** fail closed，不尝试本地目录或默认仓库。\n3. **Given** 成功执行，**When** 创建 Review，**Then** Review provider 与 Project repository provider 一致。\n\n### Edge Cases\n\n- GitHub 返回空仓库、归档仓库、默认分支为空、组织仓库或分页游标时，必须维持稳定的规范化结果。\n- GitHub Issues API 同时返回 Issue 与 Pull Request 时，必须过滤 Pull Request。\n- Project 已绑定仓库随后被删除或权限撤销时，读取 Project 仍保留快照；需要远端操作时返回 provider 的稳定错误。\n- 更新 Project repository 时必须完整重新解析并原子替换快照，不能混合旧 externalId 与新 clone URL。\n- GitHub 与 Linear 的 rate limit、timeout、unauthorized 和无效响应必须映射到稳定 Integration error。\n- 旧 SQLite schema 与历史数据不迁移；启动时必须检测不兼容 schema 并给出 clean-rebuild 指引，测试数据库直接重建。\n\n## Requirements\n\n### Functional Requirements\n\n- **FR-001**: Project MUST 包含一个且仅一个 `RepositorySnapshot`，并且该快照 MUST 来自已注册 Integration 的 RepoProvider。\n- **FR-002**: Project create/update 公共输入 MUST 使用 `RepositorySelector`，不得接受本地路径、`file://`、裸 clone URL 或旧 `repo` 字符串字段。\n- **FR-003**: Project、Project view、Lane snapshot、Job、ExecutionSpec 与 Runner claim MUST 使用同一结构化 Repository snapshot；Job MUST NOT 覆盖 Project repository。\n- **FR-004**: Repository snapshot MUST 至少包含 Integration 名称、provider、external ID、`owner/name`、Web URL、clone URL、默认分支、可见性与 fetched timestamp。\n- **FR-005**: Integration contract MUST 支持可选 `RepoProvider` 与 `IssueProvider` capabilities；registry MUST 仅依赖 capability contract。\n- **FR-006**: GitHub Integration MUST 实现 RepoProvider 的 list/get，并实现 repository-scoped IssueProvider 的 list/get。\n- **FR-007**: Linear Integration MUST 保持只读 IssueProvider 的 list/get，不获得 repository capability。\n- **FR-008**: 默认 registry MUST 注册且只注册 `github` 与 `linear` 两个产品 Integration。\n- **FR-009**: RepoProvider 与 IssueProvider MUST 验证所有第三方响应，并将凭据、超时、限流、无权限、not found 与无效响应映射为稳定错误。\n- **FR-010**: GitHub IssueProvider MUST 排除 Pull Request，并在 Issue reference 中保存 Repository reference。\n- **FR-011**: Web API MUST 是 canonical implementation；CLI 与 Web UI MUST 通过相同 API 完成 Integration 浏览、Repository 浏览、Project 创建与读取。\n- **FR-012**: GitHub 凭据 MUST 只从运行环境中的 `MYSTRA_GITHUB_TOKEN` 读取；Linear 凭据 MUST 只从 `LINEAR_API_KEY` 读取；响应、日志、数据库、Issue snapshot 与 evidence 不得包含 secret value。\n- **FR-013**: Runner repository delivery provider MUST 与 Integration RepoProvider 分工明确：前者执行 clone/push/review，后者发现并解析远程身份；两者通过共享 Repository snapshot 对齐。\n- **FR-014**: Runner MUST 根据 Repository snapshot 的 provider 选择交付实现，不得从任意 URL 或本地路径猜测 provider。\n- **FR-015**: 旧 local repository 与 job-level repo override MUST 从活动 schema、API、CLI、UI、测试 fixture 与运行路径中移除。\n- **FR-016**: E2E MUST 创建一个新的私有 GitHub 测试仓库和至少一个测试 Issue，不得使用 Mystra、castrel-ai 或其他现有仓库。\n- **FR-017**: E2E MUST 验证 GitHub Repository list/get、GitHub Issue list/get、Linear Issue list/get、Project create/read，以及从 GitHub Issue 到等待 Review 的标准执行路径。\n- **FR-018**: GitLab 不作为本次默认 Integration；契约 MUST 允许未来 GitLab 同时实现 RepoProvider 与 IssueProvider，而无需修改 Project、Job 或 Runner 的共享 schema。\n\n### Key Entities\n\n- **IntegrationPlugin**: 外部系统插件，拥有稳定 descriptor，并可组合一个或多个 Provider capability。\n- **RepoProvider**: Integration capability，负责分页列出并按 provider-native identifier 解析远程 Git repository。\n- **IssueProvider**: Integration capability，负责分页列出并读取规范化 Issue，可声明是否要求 Repository scope。\n- **RepositorySelector**: Project create/update 的外部输入，只包含 Integration 与 provider-native identifier。\n- **RepositorySnapshot**: Provider 解析后的不可变远程仓库事实，随 Project 与 Job execution contract 冻结。\n- **Project**: 必须绑定一个 Repository snapshot，并拥有 runtime 与 Agent 默认值。\n- **RepoDeliveryProvider**: Runner 侧 clone/push/review 执行边界，消费 Repository snapshot，不负责仓库发现。\n\n## Assumptions\n\n- 当前产品只启用 `github` 与 `linear`；GitLab 是由契约证明可扩展的后续 Integration，不在默认 registry。\n- GitHub repository identifier 使用大小写保真的 `owner/name`；Issue identifier 在 GitHub Integration 中使用十进制 issue number，并配合 repository scope。\n- GitHub 测试仓库默认 private，E2E 结束后保留以便用户复核，不自动删除。\n- 用户已授权读取本机现有 GitHub/Linear 凭据并创建全新 GitHub 测试资源。\n- 历史数据库允许清空重建，因此不提供旧 `repo` 字段的数据迁移或兼容读取。\n\n## Success Criteria\n\n### Measurable Outcomes\n\n- **SC-001**: 100% 新建或更新的 Project 都能追溯到一次成功的 RepoProvider resolve，且不存在无 repository 的 Project。\n- **SC-002**: 对 local path、`file://`、裸 URL、缺失 capability、无权限仓库与不存在仓库的负向测试全部 fail closed，数据库零部分写入。\n- **SC-003**: GitHub 与 Linear 的 Issue list/get 契约测试及真实授权 smoke test 全部通过，GitHub Issue 结果中 Pull Request 数量为零。\n- **SC-004**: API、CLI 与 Web UI 对同一 GitHub repository 和 Project 的关键字段完全一致。\n- **SC-005**: 新建 GitHub 测试仓库完成一次 clone、Agent、test、build、preview、push、PR，并进入 `waiting_for_review`。\n- **SC-006**: 对活动源代码、schema、API、CLI 与 UI 的精确检查找不到 Project local repository fallback 或 job-level repo override。\n- **SC-007**: 新增第三个测试 Integration 时只需实现 capability 并注册，不需修改 registry、Project schema、Job schema或 Runner claim schema。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：远程仓库 Integration 与 Project 强绑定\n\n## 摘要\n\nProject 不再保存本地路径或任意 repository 字符串。操作员从 GitHub Integration 选择真实远程仓库，Mystra 保存经 RepoProvider 验证的仓库快照，并将它贯穿 Job、Runner 与 Review。\n\n## 功能地图\n\n- GitHub Integration：Repository list/get、Issue list/get。\n- Linear Integration：Issue list/get。\n- Project：强制绑定一个远程 Repository snapshot。\n- API、CLI、Web UI：共享同一管理契约。\n- Runner：消费冻结快照完成 clone、push 与 PR。\n\n## 边界\n\n- 不保留 local repository 或 job-level repo override。\n- 不把 GitLab 注册为当前默认 Integration，但契约允许未来实现。\n- 不新增 OAuth、webhook、Issue write-back、Integration 管理后台或 per-repository secret manager。\n- 不使用任何现有仓库做 E2E。\n\n## 分阶段能力图\n\n1. 冻结共享 Repository 与 Provider contracts。\n2. 接入 GitHub 与 Linear 插件能力。\n3. 迁移 Project、Job、Runner、API、CLI 与 UI。\n4. 创建全新 GitHub 测试仓库并完成真实执行与 Review。\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：远程仓库 Integration 与 Project 强绑定\n\n## Owner 评审\n\n- [x] Project 必须绑定远程 Git repository。\n- [x] GitHub 提供 repositories 与 issues。\n- [x] Linear 仅提供 issues。\n- [x] local repository 支持全部移除。\n- [x] E2E 只能使用全新测试仓库。\n\n## Spec 就绪度\n\n- [x] Repository snapshot 与 selector 边界明确。\n- [x] Provider capability 与 Runner delivery 分工明确。\n- [x] API、CLI、UI 与真实 E2E 均有可验证结果。\n- [x] 需求质量得分达到 96/100。\n\n## 后续插件检查\n\n- [ ] GitLab Integration 实现 repositories 与 issues。\n- [ ] GitHub Enterprise host 配置。\n- [ ] Integration 安装、启停与凭据管理页面。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n独立交互原型：[mockups/index.html](./mockups/index.html)\n\n覆盖：\n\n- Projects 空状态与“Create from GitHub”入口。\n- GitHub repository picker 的 loading、error、empty 与 selection。\n- Project create form 的 repository 强制绑定。\n- Project detail 中 provider、remote identity 与 snapshot metadata。\n- Integration capability 摘要，明确 GitHub 与 Linear 的能力差异。\n\n限制：\n\n- 原型不调用真实 GitHub、Linear 或 Mystra API。\n- Issue 浏览仍按 Integration 分开，不恢复通用 Tasks Issue 面板。\n- 视觉结构沿用当前 Control Plane，不引入新的设计系统。\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1785041703401"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: 远程仓库 Integration 与 Project 强绑定\n\n**Branch**: `037-remote-repository-integrations` | **Date**: 2026-07-25 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/037-remote-repository-integrations/spec.md`\n\n## Summary\n\n把 repository 从 Project 上的任意字符串提升为由 Integration RepoProvider 解析的结构化远程事实。GitHub Integration 同时实现 Repository 与 Issue capability，Linear Integration 保持只读 Issue capability。Project create/update 在写入 SQLite 前完成远端 resolve；Job、ExecutionSpec、Runner claim 与 Review 使用冻结的 `RepositorySnapshot`。旧 `repo` 字段、本地路径与 job override 一次性删除。\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9，Node.js 24.14.0  \n**Primary Dependencies**: Next.js 16 Route Handlers、React 19、Zod 4、Vitest 4、`better-sqlite3`、GitHub REST API、Linear GraphQL API、Node `child_process`、Docker Engine CLI  \n**Storage**: `SqliteRdbProvider`；Project 与 Job 保存 JSON `repository_snapshot`，旧开发库 clean rebuild  \n**Testing**: Vitest contract/unit/integration tests，CLI parity tests，真实 API smoke，Docker/Copilot/GitHub E2E，浏览器验收  \n**Target Platform**: headless Mystra control plane 与单机 Docker runner；合同不依赖宿主机本地 repository  \n**Project Type**: TypeScript monorepo web service + CLI + runner daemon + Web UI  \n**Performance Goals**: Repository/Issue list 默认最多 25 条、最多 100 条；第三方请求 15 秒 timeout；单次 Project create 只做一次 provider resolve  \n**Constraints**: API canonical；第三方响应必须验证；secret 不持久化；不新增 OAuth/webhook/write-back；不使用现有 repository 做 E2E  \n**Scale/Scope**: 当前默认 2 个 Integration、1 个 RepoProvider implementation、2 个 IssueProvider implementations；契约支持后续 provider 注册\n\n## Constitution Check\n\n### Pre-design\n\n- Specification owns boundaries：PASS。明确移除 local repository；不引入排除项。\n- Typed contracts：PASS。Repository selector/snapshot、provider inputs/outputs、errors、HTTP payload 全部由 shared Zod schema 拥有。\n- Replaceable providers：PASS。Integration registry 只解析 capability；GitHub/Linear 是实现，不进入 Project 核心分支。\n- Isolation and secrets：PASS。`MYSTRA_GITHUB_TOKEN` 与 `LINEAR_API_KEY` 仅在 provider 请求阶段使用。\n- Verification and docs：PASS。包含 provider contract、Project persistence、Runner E2E 与页面验收。\n\n### Post-design\n\n- Runner delivery 与 Integration discovery 分离，避免 Control Plane provider 实例进入 Runner 热路径：PASS。\n- Project repository 在 dispatch 时冻结，Runner 不重新查询 Integration：PASS。\n- Web API 为 canonical implementation，CLI/UI 均不直接访问 GitHub/Linear：PASS。\n- GitLab 只作为未来 capability implementation，不作为当前默认插件：PASS。\n- WorkflowProvider/blueprint/node 未恢复：PASS。\n\n## Architecture\n\n```text\nGitHub Integration plugin\n  ├── RepoProvider.list/get ──> RepositorySnapshot\n  └── IssueProvider.list/get ─> IssueSnapshot (+ repository reference)\n\nLinear Integration plugin\n  └── IssueProvider.list/get ─> IssueSnapshot\n\nAPI / CLI / Web UI\n  └── Project create { repository: RepositorySelector }\n        └── IntegrationRegistry.requireRepoProvider()\n              └── resolve before transaction\n                    └── Project.repository: RepositorySnapshot\n                          └── Job.repository snapshot\n                                └── ExecutionSpec / Runner claim\n                                      └── RepoDeliveryProvider\n                                            └── clone / push / PR\n```\n\n### Contract ownership\n\n1. `packages/shared/src/repository.ts` owns provider-neutral repository schemas.\n2. `apps/control-plane/src/lib/integrations/types.ts` owns runtime provider interfaces over those schemas.\n3. Integration modules own third-party request/response validation and normalization.\n4. Project route/service owns selector-to-snapshot resolution.\n5. `RdbProvider` persists only resolved snapshots and never invokes external providers.\n6. Runner `RepoDeliveryProvider` consumes frozen snapshots and never discovers repositories.\n\n### Data flow\n\n#### Project creation\n\n1. Client submits Project config plus `{ integration, identifier }`.\n2. Route validates `projectCreateRequestSchema`.\n3. Registry resolves Integration and requires `repositories` capability.\n4. RepoProvider refetches GitHub repository and returns validated snapshot.\n5. Route creates a resolved persistence input; SQLite transaction inserts Project.\n6. API returns Project with the same snapshot consumed by CLI and UI.\n\n#### Issue dispatch\n\n1. Route validates Project and reads its Repository snapshot.\n2. Registry selects the requested IssueProvider.\n3. GitHub provider receives Project repository scope; Linear ignores optional scope.\n4. Dispatch freezes Issue and Repository snapshots into Job.\n5. Claim and execution spec carry the same snapshots.\n6. Runner selects delivery implementation by `repository.provider`.\n\n## Project Structure\n\n### Documentation\n\n```text\nspecs/037-remote-repository-integrations/\n├── spec.md\n├── features.md\n├── checklists.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── prototype.md\n├── mockups/index.html\n├── contracts/\n│   ├── providers.md\n│   └── http-cli.md\n├── checklists/\n│   ├── requirements.md\n│   └── engineering-review.md\n├── evidence/\n└── tasks.md\n```\n\n### Source code\n\n```text\npackages/shared/src/\n├── repository.ts\n├── issue-core.ts\n├── schemas.ts\n└── management.ts\n\napps/control-plane/src/lib/\n├── integrations/\n│   ├── types.ts\n│   ├── registry.ts\n│   ├── github.ts\n│   └── linear.ts\n├── projects/resolve-project-input.ts\n└── db/\n\napps/control-plane/app/api/\n├── integrations/\n└── projects/\n\napps/control-plane/app/projects/\n├── page.tsx\n└── [slug]/page.tsx\n\napps/runner-daemon/src/\n├── repo-providers.ts\n└── index.ts\n\nscripts/operator-cli.mjs\n```\n\n**Structure Decision**: 保持现有 monorepo 包边界；共享数据合同进入 `@mystra/shared`，第三方客户端只存在于 Control Plane Integration 模块，Runner 只保留交付实现。\n\n## Migration\n\n1. 删除 Project/Job 的 `repo` 字段并新增 `repository_snapshot TEXT NOT NULL`。\n2. `ProjectCreate` 拆为公共 selector request 与已解析 persistence input。\n3. 删除 API/MCP job submission 中的 repo override。\n4. 删除 Runner hostname detection 作为 provider 选择依据。\n5. 开发/测试数据库重建；不读取或自动迁移旧 schema。\n6. 更新所有 fixture，任何 `local/*` repository fixture 都必须消失。\n\n## Verification checkpoints\n\n| Checkpoint | Evidence |\n|---|---|\n| Shared contracts | repository、issue、management schema tests |\n| Provider extensibility | registry fake capability tests |\n| GitHub normalization | mocked REST tests，PR filtering，pagination/errors |\n| Project atomicity | route + SQLite tests，provider failure zero rows |\n| API/CLI/UI parity | same repository/project JSON key comparison |\n| Runner contract | direct-execution and repo delivery tests |\n| Real integrations | new GitHub repo + issue，Linear read-only smoke |\n| Full E2E | Docker/Copilot/test/build/preview/push/PR/waiting_for_review |\n| Removal audit | exact searches for local Project repo and job repo override |\n\n## Risks\n\n| Risk | Level | Mitigation |\n|---|---|---|\n| `repo` removal breaks many fixtures but misses one runtime path | High | Shared schema first，typecheck drives migration，GitNexus detect changes before commit |\n| GitHub Issues endpoint returns PRs | Medium | Validate `pull_request` marker and filter before normalization |\n| Provider resolve occurs before DB transaction and repository changes immediately afterward | Medium | Persist fetched timestamp and immutable snapshot；execution failures remain explicit |\n| Encoded `owner/name` route ambiguity | Medium | Public Project selector accepts identifier in JSON；repository get uses query parameter contract |\n| Existing dirty 5xP/spec work overlaps durable rule changes | Medium | Patch only scoped lines and stage feature-owned hunks separately |\n| Real E2E consumes external resources and Copilot time | Medium | Create isolated private repository with deterministic tiny fixture and preserve it for review |\n\n## GitNexus evidence\n\n- `IntegrationRegistry`：MEDIUM，5 个直接 importers，主要为 Issue routes 与 dispatch。\n- `Integration`：LOW，直接影响 registry、tests 与 Linear implementation。\n- `projectSchema`：图索引报告 LOW，但文本与类型搜索显示 persistence、management、CLI、UI、Runner 有广泛结构依赖；按高风险 contract migration 处理。\n- `dispatchIssue`：LOW，直接影响 dispatch route，并参与 POST execution flow。\n- `SqliteRdbProvider.createProject`：LOW，直接测试依赖。\n- `/api/projects*`：LOW direct-consumer signal，但存在未被 route graph 识别的 CLI/UI fetch；通过显式 parity tests 补足。\n\n## Complexity Tracking\n\n无 Constitution violation。新增 Provider capability 是项目既定边界，不是额外架构层。\n\n## Engineering Review\n\n**Status**: CLEAR  \n**Mode**: FULL_REVIEW  \n**Reviewed**: 2026-07-25\n\n### Step 0: Scope Challenge\n\n范围保持不变。将 local repository compatibility 留在 Project 或 Job 中会直接违背服务端部署目标；只给 Project 增加 URL regex 则无法证明 repository 存在。完整 selector → resolve → snapshot 迁移是最小的正确边界。\n\n### What already exists\n\n- `packages/shared/src/repository.ts` 已有 branch/review delivery schemas，复用并扩展 provider-neutral repository identity，不另建平行包。\n- Runner 已有 GitHub/GitLab push/review implementations，保留具体实现并把接口明确改名为 `RepoDeliveryProvider`。\n- Linear `IssueProvider`、Integration errors 与 registry 已存在，扩展 capabilities 而不是重写。\n- Project API、CLI list/inspect 与 Web list/detail 已存在，在相同 route 上迁移 payload。\n- 033 已证明 Docker/Copilot/GitHub 完整执行，可复用 runner fixture 与 E2E 操作顺序，但必须创建新的 repository。\n\n### Architecture review\n\n发现并在计划中解决 3 项：\n\n1. `[P1] (confidence: 10/10)` Project 的任意 `repo` 字符串无法证明远端 identity。采用 Provider resolve 后的 snapshot。\n2. `[P1] (confidence: 9/10)` Control Plane discovery 与 Runner delivery 都叫 RepoProvider 会混淆职责。Runner 接口改名为 `RepoDeliveryProvider`。\n3. `[P1] (confidence: 9/10)` GitHub issue number 不是全局唯一。Issue input 增加 repository scope，dispatch 从 Project 自动注入。\n\n### Code quality review\n\n- registry 继续使用 capability lookup，不增加 provider switch。\n- GitHub REST envelope 与每个 item 均由 Zod 校验，normalizer 不接受 passthrough secrets。\n- Project request schema 与 persistence schema 分离，避免 DB 层意外持久化 selector。\n- 删除 hostname guessing 与 job repo override，避免两套 source of truth。\n- 多阶段数据流图保留在本 plan；实现代码只在不直观的 snapshot freeze 路径添加最小注释。\n\n### Test coverage diagram\n\n```text\nCODE PATH COVERAGE PLAN\n=======================\n[+] IntegrationRegistry\n    ├── [TEST] descriptor/capability alignment\n    ├── [TEST] duplicate name\n    ├── [TEST] missing Integration\n    ├── [TEST] missing repositories capability\n    └── [TEST] third-party fake plugin registration\n\n[+] GitHubIntegration\n    ├── [TEST] repository list/get + pagination\n    ├── [TEST] issue list/get + required repository scope\n    ├── [TEST] PR filtering\n    ├── [TEST] empty/not-found\n    └── [TEST] auth/rate-limit/timeout/invalid JSON/invalid shape\n\n[+] Project create/update\n    ├── [TEST] selector -> resolve -> snapshot -> insert\n    ├── [TEST] missing/unauthorized repository -> zero rows\n    ├── [TEST] local/path/file URL/legacy repo -> reject\n    └── [TEST] repository replacement is atomic\n\n[+] Job freeze and Runner claim\n    ├── [TEST] Project snapshot -> Job snapshot\n    ├── [TEST] Project later changes, Job remains immutable\n    ├── [TEST] missing snapshot fails closed\n    └── [TEST] delivery provider selected by snapshot.provider\n\nUSER FLOW COVERAGE PLAN\n=======================\n[+] [→E2E] GitHub repository -> Project via CLI\n[+] [→E2E] Same Project visible in Web UI\n[+] [→E2E] GitHub Issue -> dispatch -> Docker/Copilot -> test/build\n    -> preview -> push -> PR -> waiting_for_review\n[+] [→E2E] Linear Issue read-only smoke remains operational\n[+] [BROWSER] repository picker loading/error/empty/success/retry\n[+] [BROWSER] invalid submit, double submit prevention, narrow viewport, keyboard focus\n```\n\n所有新增分支在 tasks 中要求对应测试；没有已知未覆盖的回归路径。\n\n### Failure modes\n\n| Codepath | Production failure | Test | Handling | User-visible |\n|---|---|---|---|---|\n| GitHub repository list/get | 401/403/429/timeout/invalid body | required | stable Integration error | API/CLI/UI 明确错误与 retry |\n| GitHub issue list/get | PR 混入或 scope 缺失 | required | filter / fail closed | 明确 scope 错误 |\n| Project create | resolve 成功后 DB conflict | required | DB insert 原子失败 | 409 slug conflict |\n| Project update | 新 repo resolve 失败 | required | 不写入旧 Project | 保留原 snapshot |\n| Runner claim | snapshot provider 未注册 | required | fail closed before clone | Run failure reason |\n| E2E | Copilot、Docker 或 preview 失败 | required evidence | structured Run result | Task detail 显示阶段 |\n\nCritical silent gaps：0。\n\n### Performance review\n\n- Repository list 和 Issue list 有 1..100 bounds 与 opaque cursor，无无界 fetch。\n- Project create/update 单次 resolve，不做 N+1。\n- Project list 读取持久 snapshot，不逐项调用 GitHub。\n- 不引入缓存；首次实现的授权可见性与 freshness 优先于缓存复杂度。\n\n### NOT in scope\n\n- GitLab 默认 Integration：当前产品明确只启用 GitHub 与 Linear；只保留可实现契约。\n- GitHub Enterprise：需要 host configuration 与独立 credential policy。\n- OAuth、webhook、Issue write-back：超出只读 MVP。\n- Integration 安装/启停/secret management UI：需要独立安全与 tenancy 设计。\n- 历史 SQLite 数据迁移：用户已允许删除历史数据，兼容会保留被禁止的 local 状态。\n- 通用 Issues 页面：GitHub 与 Linear 展示逻辑不同，继续按 Integration 单独设计。\n\n### Parallelization\n\n顺序实现为主。共享 schemas 是所有切片的依赖；同一 worktree 内依次完成可减少 fixture 与 contract 冲突。\n\n| Lane | Work | Depends on |\n|---|---|---|\n| A | shared repository/issue/project contracts | — |\n| B | Integration registry + GitHub/Linear providers | A |\n| C | persistence + Project/Issue API | A, B |\n| D | CLI + Web UI | C |\n| E | Runner migration + real E2E | A, C |\n\n在 contract freeze 后 D 与 Runner 的非重叠实现可并行，但本任务未请求 sub-agent，保持单线以保护 dirty worktree。\n\n### Review completion\n\n- Step 0: scope accepted as-is\n- Architecture Review: 3 issues found, all resolved in plan\n- Code Quality Review: 4 guardrails added\n- Test Review: diagram produced, 0 unresolved gaps\n- Performance Review: 0 blocking issues\n- NOT in scope: written\n- What already exists: written\n- TODOS.md updates: 0; deferred items already belong to explicit feature boundaries\n- Failure modes: 0 critical gaps\n- Outside voice: skipped；当前 plan 已由用户的明确模型约束与现有代码证据决定\n- Parallelization: 5 dependency lanes, sequential execution selected\n- Lake Score: 10/10 complete option selected\n\n## GSTACK REVIEW REPORT\n\n| Review | Trigger | Why | Runs | Status | Findings |\n|--------|---------|-----|------|--------|----------|\n| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |\n| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |\n| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 3 issues, 0 critical gaps |\n| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | prototype prepared |\n| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |\n\n**UNRESOLVED:** 0  \n**VERDICT:** ENG CLEARED — ready for task decomposition and implementation.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: 远程仓库 Integration 与 Project 强绑定\n\n**Input**: `spec.md`、`plan.md`、`research.md`、`data-model.md`、`contracts/`  \n**Tests**: 本功能改变共享合同、外部 Integration、持久化、Runner 与 UI；每个切片必须先有失败测试。\n\n## Phase 1: Contract foundation\n\n- [x] T001 [US1] 在 `packages/shared/src/repository.test.ts`、`issue.test.ts`、`management.test.ts` 添加 Repository selector/snapshot/list、Issue repository scope、Project request/view 的失败与成功合同测试。\n- [x] T002 [US1] 在 `packages/shared/src/repository.ts`、`issue-core.ts`、`schemas.ts`、`management.ts` 实现 provider-neutral contracts，并删除 Project/Job legacy `repo`。\n- [x] T003 [US4] 更新 branch/review delivery contracts 使用 `RepositorySnapshot` 与开放 provider key，验证现有 GitHub/GitLab delivery result 行为。\n\n**Checkpoint**: `pnpm --filter @mystra/shared test` 与 typecheck 通过；精确搜索无 shared legacy Project/Job repo。\n\n## Phase 2: Integration plugins\n\n- [x] T004 [US2] 在 registry tests 中先覆盖 descriptors、duplicate names、capability mismatch、missing repositories capability 与第三方 fake plugin。\n- [x] T005 [US2] 扩展 `integrations/types.ts`、`registry.ts`、`errors.ts`，实现 `IntegrationPlugin`、`RepoProvider`、扩展的 `IssueProvider` 和 list descriptors。\n- [x] T006 [US2] 把 Linear 组装为显式 plugin factory，并保持现有 read-only list/get、pagination 与错误测试。\n- [x] T007 [US1] 为 GitHub repository list/get 编写 mocked REST tests，覆盖 pagination、archived、not found、auth、rate limit、timeout、invalid JSON/shape。\n- [x] T008 [US3] 为 GitHub issue list/get 编写 mocked REST tests，覆盖 required repository scope、PR filtering、empty、not found 与错误语义。\n- [x] T009 [US1] 实现 `integrations/github.ts`，以 `MYSTRA_GITHUB_TOKEN` 提供 repositories + issues，并在 default registry 注册 GitHub 与 Linear。\n\n**Checkpoint**: Integration tests 全部通过；registry 不含 provider-specific branch。\n\n## Phase 3: Persistence and canonical API\n\n- [x] T010 [US1] 更新 SQLite tests，覆盖 `repository_snapshot` persistence、atomic create/update、Job freeze、Project 后续更新不修改 Job 与 legacy schema rejection。\n- [x] T011 [US1] 修改 migrations、RdbProvider 与 SqliteRdbProvider，Project/Job 只持久化 resolved Repository snapshot；删除 job override。\n- [x] T012 [US1] 为 Project resolver service 添加 tests：selector resolve、default branch、archived repo、capability/provider failure 与 zero partial write。\n- [x] T013 [US1] 实现 Project request resolver，并让 POST/PATCH routes 异步 resolve 后调用 RdbProvider。\n- [x] T014 [US2] 添加 `GET /api/integrations` 与 repository list/resolve routes 的 route tests 和实现。\n- [x] T015 [US3] 扩展 Issue routes 与 dispatch tests，支持 GitHub repository scope；dispatch 从 Project snapshot 提供 scope。\n- [x] T016 [US3] 更新 MCP/Job routes 与 schemas，删除公共 repo override，并验证 API submission 始终从 Project snapshot 冻结 repository。\n\n**Checkpoint**: Control Plane focused tests 通过；API negative tests 证明无部分写入。\n\n## Phase 4: Thin CLI and Web UI\n\n- [x] T017 [US1] 先更新 operator CLI tests，覆盖 integrations list、repositories list/get、projects create、GitHub scoped issues 与 stable exit codes。\n- [x] T018 [US1] 实现 CLI flags/commands，仅调用 canonical API；更新 human-readable repository/project output。\n- [x] T019 [US1] 添加 Projects 页面 component tests 或可测试 reducer，覆盖 repository picker loading/error/empty/selection、validation 与 double submit。\n- [x] T020 [US1] 实现 `/projects` 的 GitHub remote repository picker 与 Project create；更新 detail 显示 Repository snapshot，不增加通用 Issues UI。\n- [x] T021 [US2] 在 Project 页面呈现 GitHub/Linear capability descriptor 摘要，并保持 Integration-specific Issue 展示延期。\n\n**Checkpoint**: CLI/API JSON parity；browser 页面可完成与 CLI 相同的 Project creation journey。\n\n## Phase 5: Runner migration\n\n- [x] T022 [US4] 先更新 Runner tests，覆盖 snapshot provider selection、clone URL、missing provider、missing snapshot 与无 hostname/local fallback。\n- [x] T023 [US4] 将 Runner interface 改为 `RepoDeliveryProvider`，让 claim、direct execution、push/review 消费 Repository snapshot。\n- [x] T024 [US4] 删除 active runner path 的 repository hostname inference 与 `job.spec.repo`，更新 environment/execution spec projections。\n\n**Checkpoint**: Runner focused tests 通过；GitNexus 显示 execution flows 只消费结构化 snapshot。\n\n## Phase 6: Real E2E\n\n- [x] T025 [US1] 使用本机 GitHub 授权创建唯一 private 测试 repository，提交 deterministic Web fixture 并创建 GitHub Issue；记录无 secret evidence。\n- [x] T026 [US2] 使用真实 API/CLI 验证 GitHub repository list/get、GitHub Issue list/get 与 Linear Issue list/get。\n- [x] T027 [US1] 用 CLI 从新 repository 创建 Project，再用 Web UI 读取/创建等价 Project 并比较关键 JSON 字段。\n- [x] T028 [US3] 从新 GitHub Issue dispatch，运行 Docker/Copilot autopilot，验证 test/build/preview/push/PR 与 `waiting_for_review`。\n- [x] T029 [US4] 验证 retained sandbox、preview URL、branch、PR 与 structured result 全部指向新 repository。\n\n## Phase 7: Closure\n\n- [x] T030 更新 `PRODUCT.md`、`PLATFORM.md`、`PROCESS.md`、Integration/DB/Runner local docs，消除 current-MVP local repository 描述。\n- [x] T031 运行 removal audit、lint、typecheck、全部 tests、build、Spec-Kit analyze/status/doctor 与 `git diff --check`。\n- [x] T032 用真实浏览器验证 `/projects` 和详情页的 loading/error/empty/success、keyboard、responsive、console/network，并保留最终 Project 页。\n- [x] T033 运行 `gitnexus_detect_changes`，检查共享合同、API、persistence 与 Runner execution flows 的实际影响。\n- [x] T034 更新 evidence、Spec View、tasks completion，执行 code review gate 并提交 scoped feature changes。\n\n## Dependencies\n\n- T001 → T002 → T003。\n- T004/T007/T008 可在 T002 后分别编写测试；T005 → T006/T009。\n- T010/T012/T014/T015/T016 在合同冻结后可写失败测试；实现顺序 T011 → T013 → T14-T16。\n- T017/T019 依赖 API contract；T018/T020/T021 依赖相应 tests。\n- T022 → T023 → T024。\n- T025-T029 依赖 Phase 1-5 与本机 external authorization。\n- T030-T034 在 runtime evidence 完成后执行。\n\n## Verification discipline\n\n- 每项实现先运行最窄 test，再运行 package test。\n- Phase checkpoint 失败时停止进入下一阶段。\n- 不通过修改测试期望来掩盖缺失的 remote-only行为。\n- E2E repository 保留供 owner review，不自动删除。\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

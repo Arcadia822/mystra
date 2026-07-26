@@ -13,7 +13,7 @@ Excalidraw 文件包含一个分层架构视图：
    - API 调用方
    - Next.js 控制平面与 HTTP/SSE MCP 端点
    - Open Agents 源码基线 / 参考架构层
-   - Integration / IssueProvider
+   - IntegrationPlugin / RepoProvider / IssueProvider
    - 本地 SQLite RDB provider
    - Pull-based runner-daemon
    - Runner 本地 repo / pnpm / uv 预热缓存
@@ -85,8 +85,11 @@ Mystra 明确区分平台能力与项目状态：
 
 - `PlatformCapabilities`：runner 注册时声明的平台运行时能力，包括支持的 agent 和 executor 类型。
 - `PlatformDefaults`：平台级默认限制，包括并发、超时、心跳过期、长轮询超时、CPU 和内存配额。
-- `Project`：项目作用域配置，包括 repo、默认分支、默认 agent、运行镜像、预热配置和元数据。
-- `JobSpec`：身份层（`taskId`、`source`）加 `projectId`、任务分支、prompt 和可选覆盖项，不承载平台级执行能力。
+- `Project`：项目作用域配置，包括一个经 RepoProvider 解析的远程
+  RepositorySnapshot、默认分支、默认 agent、运行镜像、预热配置和元数据；
+  不接受本地路径或任意 clone URL。
+- `JobSpec`：身份层（`taskId`、`source`）加 `projectId`、任务分支、prompt
+  和冻结的 Project 仓库事实，不允许 job 级仓库或基础分支覆盖，也不承载平台级执行能力。
 
 当前实现中，runner 注册已经从无类型 capability bag 收紧为类型化 `PlatformCapabilities`；Docker 运行镜像来自 Project，而不是 runner 全局配置。
 

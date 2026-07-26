@@ -10,7 +10,7 @@ const defaults = {
 
 function usage() {
   console.error(`Usage:
-scripts/submit-job.mjs --project <slug> --task-id TASK-123 --branch mystra/TASK-123-name --title "MR title" --body "MR body" --prompt-file /tmp/prompt.md [--agent codex|copilot] [--repo <override>] [--base-branch <override>] [--no-wait]`);
+scripts/submit-job.mjs --project <slug> --task-id TASK-123 --branch mystra/TASK-123-name --title "MR title" --body "MR body" --prompt-file /tmp/prompt.md [--agent codex|copilot] [--no-wait]`);
   process.exit(2);
 }
 
@@ -81,8 +81,6 @@ const payload = {
   taskId: args["task-id"],
   source: defaults.source,
   projectId: project.project.id,
-  ...(args.repo ? { repo: args.repo } : {}),
-  ...(args["base-branch"] ? { baseBranch: args["base-branch"] } : {}),
   branchName: args.branch,
   agent: args.agent ?? defaults.agent,
   prompt,
@@ -110,7 +108,7 @@ if (args["no-wait"]) {
   process.exit(0);
 }
 
-const terminal = new Set(["succeeded", "failed", "canceled", "timed_out", "needs_human_review"]);
+const terminal = new Set(["succeeded", "failed", "canceled", "timed_out", "waiting_for_review"]);
 const started = Date.now();
 let lastState = created.run.state;
 
@@ -124,7 +122,11 @@ while (true) {
   if (terminal.has(snapshot.run.state)) {
     const summary = summarize(snapshot);
     console.log(JSON.stringify(summary, null, 2));
-    process.exit(snapshot.run.state === "succeeded" ? 0 : 1);
+    process.exit(
+      snapshot.run.state === "succeeded" || snapshot.run.state === "waiting_for_review"
+        ? 0
+        : 1,
+    );
   }
 
   if ((Date.now() - started) / 1000 > defaults.timeoutSeconds) {

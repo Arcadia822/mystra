@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   branchDeliveryReceiptSchema,
+  repositoryListRequestSchema,
+  repositoryListResponseSchema,
+  repositorySelectorSchema,
+  repositorySnapshotSchema,
   repositoryAuthBindingSchema,
   repositoryTargetSchema,
   reviewRequestSchema,
@@ -9,11 +13,72 @@ import {
 } from "./repository.js";
 
 describe("repository provider schemas", () => {
+  const githubRepository = {
+    integration: "github",
+    provider: "github",
+    externalId: "R_kgDOFixture",
+    fullName: "Arcadia822/mystra-remote-e2e",
+    url: "https://github.com/Arcadia822/mystra-remote-e2e",
+    cloneUrl: "https://github.com/Arcadia822/mystra-remote-e2e.git",
+    defaultBranch: "main",
+    visibility: "private",
+    isArchived: false,
+    fetchedAt: "2026-07-26T00:00:00.000Z",
+  };
+  const gitlabRepository = {
+    ...githubRepository,
+    integration: "gitlab",
+    provider: "gitlab",
+    externalId: "101",
+    fullName: "group/project",
+    url: "https://gitlab.example.com/group/project",
+    cloneUrl: "https://gitlab.example.com/group/project.git",
+    visibility: "internal",
+  } as const;
+
+  it("accepts a provider selector and a resolved remote repository snapshot", () => {
+    expect(repositorySelectorSchema.parse({
+      integration: "github",
+      identifier: "Arcadia822/mystra-remote-e2e",
+    })).toEqual({
+      integration: "github",
+      identifier: "Arcadia822/mystra-remote-e2e",
+    });
+    expect(repositorySnapshotSchema.parse(githubRepository)).toEqual(githubRepository);
+  });
+
+  it("rejects local, file, ssh, and provider-leaking repository snapshots", () => {
+    for (const cloneUrl of [
+      "local/mystra",
+      "/Users/arcadia/Documents/mystra",
+      "file:///tmp/mystra",
+      "git@github.com:Arcadia822/mystra.git",
+    ]) {
+      expect(() => repositorySnapshotSchema.parse({
+        ...githubRepository,
+        cloneUrl,
+      })).toThrow();
+    }
+
+    expect(() => repositorySnapshotSchema.parse({
+      ...githubRepository,
+      token: "must-not-leak",
+    })).toThrow();
+  });
+
+  it("validates bounded repository pagination", () => {
+    expect(repositoryListRequestSchema.parse({ first: 25 })).toEqual({ first: 25 });
+    expect(() => repositoryListRequestSchema.parse({ first: 101 })).toThrow();
+    expect(repositoryListResponseSchema.parse({
+      items: [githubRepository],
+      pageInfo: { hasNextPage: true, endCursor: "next-page" },
+    }).items[0]?.provider).toBe("github");
+  });
+
   it("accepts a GitLab review-created result with an opaque auth binding", () => {
     const target = repositoryTargetSchema.parse({
       projectId: "00000000-0000-4000-8000-000000000101",
-      repoUrl: "https://gitlab.example.com/group/project.git",
-      hostKind: "gitlab",
+      repository: gitlabRepository,
       defaultBaseBranch: "main",
     });
 
@@ -68,8 +133,7 @@ describe("repository provider schemas", () => {
   it("accepts a GitHub review-created result with a normalized review handle", () => {
     const target = repositoryTargetSchema.parse({
       projectId: "00000000-0000-4000-8000-000000000106",
-      repoUrl: "https://github.example.com/acme/project.git",
-      hostKind: "github",
+      repository: githubRepository,
       defaultBaseBranch: "main",
     });
 
@@ -125,8 +189,7 @@ describe("repository provider schemas", () => {
   it("rejects review creation requests unless the branch was pushed", () => {
     const target = repositoryTargetSchema.parse({
       projectId: "00000000-0000-4000-8000-000000000104",
-      repoUrl: "https://gitlab.example.com/group/project.git",
-      hostKind: "gitlab",
+      repository: gitlabRepository,
       defaultBaseBranch: "main",
     });
     const auth = repositoryAuthBindingSchema.parse({

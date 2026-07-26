@@ -7,6 +7,7 @@ import {
   executionContractReferenceSchema,
   executionSpecArtifactSchema,
   issueSnapshotSchema,
+  jobSubmissionSchema,
   jobSpecSchema,
   jobInlineContextBundlePayloadSchema,
   platformCapabilitiesSchema,
@@ -218,6 +219,33 @@ function id(): string {
   return crypto.randomUUID();
 }
 
+function resetLegacyRepositorySchema(db: Database.Database): void {
+  const projectTable = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'projects'",
+  ).get() as { name: string } | undefined;
+  if (!projectTable) {
+    return;
+  }
+  const columns = db.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "repo")) {
+    return;
+  }
+
+  db.pragma("foreign_keys = OFF");
+  for (const table of [
+    "artifacts",
+    "run_events",
+    "runs",
+    "jobs",
+    "runner_sessions",
+    "context_bundles",
+    "projects",
+  ]) {
+    db.exec(`DROP TABLE IF EXISTS ${table}`);
+  }
+  db.pragma("foreign_keys = ON");
+}
+
 function stringField(row: Row, field: string): string {
   const value = row[field];
   if (typeof value !== "string") {
@@ -376,6 +404,7 @@ export class SqliteRdbProvider implements RdbProvider {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
+    resetLegacyRepositorySchema(this.db);
     this.db.exec(sqliteMigrations);
   }
 
@@ -399,18 +428,18 @@ export class SqliteRdbProvider implements RdbProvider {
     try {
       this.db.prepare(`
         INSERT INTO projects (
-          id, name, slug, repo, base_branch, default_agent, runtime,
+          id, name, slug, repository_snapshot, base_branch, default_agent, runtime,
           prewarm_config, metadata, archived_at, created_at, updated_at
         )
         VALUES (
-          @id, @name, @slug, @repo, @baseBranch, @defaultAgent, @runtime,
+          @id, @name, @slug, @repositorySnapshot, @baseBranch, @defaultAgent, @runtime,
           @prewarmConfig, @metadata, @archivedAt, @createdAt, @updatedAt
         )
       `).run({
         id: project.id,
         name: project.name,
         slug: project.slug,
-        repo: project.repo,
+        repositorySnapshot: jsonStringify(project.repository),
         baseBranch: project.baseBranch,
         defaultAgent: project.defaultAgent,
         runtime: jsonStringify(project.runtime),
@@ -469,7 +498,7 @@ export class SqliteRdbProvider implements RdbProvider {
         UPDATE projects
         SET name = @name,
             slug = @slug,
-            repo = @repo,
+            repository_snapshot = @repositorySnapshot,
             base_branch = @baseBranch,
             default_agent = @defaultAgent,
             runtime = @runtime,
@@ -482,7 +511,7 @@ export class SqliteRdbProvider implements RdbProvider {
         id: next.id,
         name: next.name,
         slug: next.slug,
-        repo: next.repo,
+        repositorySnapshot: jsonStringify(next.repository),
         baseBranch: next.baseBranch,
         defaultAgent: next.defaultAgent,
         runtime: jsonStringify(next.runtime),
@@ -564,7 +593,7 @@ export class SqliteRdbProvider implements RdbProvider {
   }
 
   createJob(input: unknown): JobSnapshot {
-    const parsed = jobSpecSchema.parse(input);
+    const parsed = jobSubmissionSchema.parse(input);
     const project = this.getProjectById(parsed.projectId);
     if (!project) {
       throw new Error(`PROJECT_NOT_FOUND: Project not found: ${parsed.projectId}`);
@@ -577,8 +606,8 @@ export class SqliteRdbProvider implements RdbProvider {
       taskId: parsed.taskId,
       source: parsed.source,
       projectId: parsed.projectId,
-      repo: parsed.repo ?? project.repo,
-      baseBranch: parsed.baseBranch ?? project.baseBranch,
+      repository: project.repository,
+      baseBranch: project.baseBranch,
       branchName: parsed.branchName,
       agent: parsed.agent ?? project.defaultAgent,
       prompt: parsed.prompt,
@@ -613,7 +642,7 @@ export class SqliteRdbProvider implements RdbProvider {
       taskId: resolved.taskId,
       source: resolved.source,
       projectId: resolved.projectId,
-      repo: resolved.repo,
+      repository: resolved.repository,
       baseBranch: resolved.baseBranch,
       branchName: resolved.branchName,
       agent: resolved.agent,
@@ -643,12 +672,12 @@ export class SqliteRdbProvider implements RdbProvider {
     const create = this.db.transaction(() => {
       this.db.prepare(`
         INSERT INTO jobs (
-          id, project_id, task_id, source, repo, base_branch, branch_name,
+          id, project_id, task_id, source, repository_snapshot, base_branch, branch_name,
           agent, prompt, issue_snapshot, dispatch_key, mr_title, mr_body,
           runtime_override, metadata, created_at, updated_at
         )
         VALUES (
-          @id, @projectId, @taskId, @source, @repo, @baseBranch, @branchName,
+          @id, @projectId, @taskId, @source, @repositorySnapshot, @baseBranch, @branchName,
           @agent, @prompt, @issueSnapshot, @dispatchKey, @mrTitle, @mrBody,
           @runtimeOverride, @metadata, @createdAt, @updatedAt
         )
@@ -657,7 +686,7 @@ export class SqliteRdbProvider implements RdbProvider {
         projectId: resolved.projectId,
         taskId: resolved.taskId,
         source: resolved.source,
-        repo: resolved.repo,
+        repositorySnapshot: jsonStringify(resolved.repository),
         baseBranch: resolved.baseBranch,
         branchName: resolved.branchName,
         agent: resolved.agent,
@@ -1048,7 +1077,7 @@ export class SqliteRdbProvider implements RdbProvider {
       id: projectId,
       name: stringField(row, "name"),
       slug: stringField(row, "slug"),
-      repo: stringField(row, "repo"),
+      repository: parseJsonObject(row, "repository_snapshot", projectId),
       baseBranch: stringField(row, "base_branch"),
       defaultAgent: stringField(row, "default_agent"),
       runtime: projectRuntimeConfigSchema.parse(parseJsonObject(row, "runtime", projectId)),
@@ -1093,7 +1122,7 @@ export class SqliteRdbProvider implements RdbProvider {
       taskId: stringField(row, "task_id"),
       source: stringField(row, "source"),
       projectId,
-      repo: stringField(row, "repo"),
+      repository: parseJsonObject(row, "repository_snapshot", jobId),
       baseBranch: stringField(row, "base_branch"),
       branchName: stringField(row, "branch_name"),
       agent: stringField(row, "agent"),

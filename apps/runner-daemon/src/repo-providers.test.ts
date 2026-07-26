@@ -8,6 +8,29 @@ import { createRunnerRepoProviderRegistry } from "./repo-providers.js";
 
 const tempDirs: string[] = [];
 
+function repositoryTarget(
+  projectId: string,
+  provider: string,
+  cloneUrl: string,
+) {
+  return {
+    projectId,
+    repository: {
+      integration: provider,
+      provider,
+      externalId: `${provider}-repo`,
+      fullName: "acme/project",
+      url: cloneUrl.replace(/\.git$/, ""),
+      cloneUrl,
+      defaultBranch: "main",
+      visibility: "private" as const,
+      isArchived: false,
+      fetchedAt: "2026-07-25T00:00:00.000Z",
+    },
+    defaultBaseBranch: "main",
+  };
+}
+
 async function writeProviderModule(source: string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), "mystra-repo-provider-"));
   tempDirs.push(dir);
@@ -28,8 +51,8 @@ describe("runner repo providers", () => {
       export const repoProviders = {
         gitlab: {
           providerName: "gitlab",
-          supports(target) {
-            return target.hostKind === "gitlab";
+          supports(repository) {
+            return repository.provider === "gitlab";
           },
           async pushBranch(input) {
             return { status: "pushed", branchName: input.branchName };
@@ -58,21 +81,20 @@ describe("runner repo providers", () => {
 
     expect(bundle.providerNames).toEqual(["gitlab"]);
     expect(bundle.registry.get("gitlab")?.providerName).toBe("gitlab");
-    expect(bundle.registry.select({
-      projectId: "00000000-0000-4000-8000-000000000301",
-      repoUrl: "https://gitlab.example.com/group/project.git",
-      hostKind: "gitlab",
-      defaultBaseBranch: "main",
-    })?.providerName).toBe("gitlab");
+    expect(bundle.registry.select(repositoryTarget(
+      "00000000-0000-4000-8000-000000000301",
+      "gitlab",
+      "https://gitlab.example.com/group/project.git",
+    ))?.providerName).toBe("gitlab");
   });
 
-  it("falls back to supports() when the target host is unknown", async () => {
+  it("selects an extension by the snapshot provider key", async () => {
     const modulePath = await writeProviderModule(`
       export default {
         github: {
           providerName: "github",
-          supports(target) {
-            return target.repoUrl.includes("github.com");
+          supports(repository) {
+            return repository.provider === "github";
           },
           async pushBranch(input) {
             return { status: "pushed", branchName: input.branchName };
@@ -99,36 +121,32 @@ describe("runner repo providers", () => {
       moduleSpecifiers: [modulePath],
     });
 
-    expect(bundle.registry.select({
-      projectId: "00000000-0000-4000-8000-000000000302",
-      repoUrl: "https://github.com/acme/project.git",
-      hostKind: "unknown",
-      defaultBaseBranch: "main",
-    })?.providerName).toBe("github");
+    expect(bundle.registry.select(repositoryTarget(
+      "00000000-0000-4000-8000-000000000302",
+      "github",
+      "https://github.com/acme/project.git",
+    ))?.providerName).toBe("github");
   });
 
   it("registers the built-in GitLab repo provider by default", async () => {
     const bundle = await createRunnerRepoProviderRegistry();
 
     expect(bundle.providerNames).toEqual(["gitlab", "github"]);
-    expect(bundle.registry.select({
-      projectId: "00000000-0000-4000-8000-000000000399",
-      repoUrl: "https://gitlab.example.com/group/project.git",
-      hostKind: "unknown",
-      defaultBaseBranch: "main",
-    })?.providerName).toBe("gitlab");
-    expect(bundle.registry.select({
-      projectId: "00000000-0000-4000-8000-000000000398",
-      repoUrl: "https://github.com/acme/project.git",
-      hostKind: "github",
-      defaultBaseBranch: "main",
-    })?.providerName).toBe("github");
-    expect(bundle.registry.select({
-      projectId: "00000000-0000-4000-8000-000000000397",
-      repoUrl: "https://github.com/acme/project.git",
-      hostKind: "unknown",
-      defaultBaseBranch: "main",
-    })?.providerName).toBe("github");
+    expect(bundle.registry.select(repositoryTarget(
+      "00000000-0000-4000-8000-000000000399",
+      "gitlab",
+      "https://gitlab.example.com/group/project.git",
+    ))?.providerName).toBe("gitlab");
+    expect(bundle.registry.select(repositoryTarget(
+      "00000000-0000-4000-8000-000000000398",
+      "github",
+      "https://github.com/acme/project.git",
+    ))?.providerName).toBe("github");
+    expect(bundle.registry.select(repositoryTarget(
+      "00000000-0000-4000-8000-000000000397",
+      "unknown",
+      "https://github.com/acme/project.git",
+    ))).toBeUndefined();
   });
 
   it("rejects duplicate startup repo provider registrations", async () => {

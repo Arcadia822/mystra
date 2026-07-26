@@ -22,12 +22,16 @@ const FAILURE_RUN_STATES = new Set(["failed", "canceled", "timed_out"]);
 function usage() {
   return `Usage:
   pnpm operator:cli -- control-plane inspect [--json] [--control-plane-url URL]
+  pnpm operator:cli -- integrations list [--json] [--control-plane-url URL]
+  pnpm operator:cli -- repositories list --integration NAME [--limit N] [--cursor TOKEN] [--json]
+  pnpm operator:cli -- repositories get <owner/repository> --integration NAME [--json]
   pnpm operator:cli -- projects list [--json] [--control-plane-url URL]
   pnpm operator:cli -- projects inspect <slug> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- projects create --name NAME --slug SLUG --repository-integration NAME --repository IDENTIFIER --agent NAME --runtime-image IMAGE [--json]
   pnpm operator:cli -- runners list [--json] [--control-plane-url URL]
   pnpm operator:cli -- runners inspect <runner-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- issues list --integration NAME [--limit N] [--cursor TOKEN] [--json]
-  pnpm operator:cli -- issues get <identifier> --integration NAME [--json]
+  pnpm operator:cli -- issues list --integration NAME [--repository IDENTIFIER] [--limit N] [--cursor TOKEN] [--json]
+  pnpm operator:cli -- issues get <identifier> --integration NAME [--repository IDENTIFIER] [--json]
   pnpm operator:cli -- issues dispatch <identifier> --integration NAME --project SLUG --agent copilot --branch NAME [--json]
   pnpm operator:cli -- tasks list [--json] [--control-plane-url URL]
   pnpm operator:cli -- tasks inspect <job-id> [--json] [--control-plane-url URL]
@@ -76,6 +80,7 @@ function managementExitCode(code) {
     "JOB_NOT_FOUND",
     "RUN_NOT_FOUND",
     "INTEGRATION_NOT_FOUND",
+    "REPOSITORY_NOT_FOUND",
     "ISSUE_NOT_FOUND",
   ].includes(code)) {
     return EXIT_CODES.MISSING;
@@ -85,6 +90,7 @@ function managementExitCode(code) {
     "RESULT_UNAVAILABLE",
     "JOB_CANCEL_CONFLICT",
     "ISSUE_CAPABILITY_UNAVAILABLE",
+    "REPOSITORY_CAPABILITY_UNAVAILABLE",
     "INTEGRATION_NOT_CONFIGURED",
     "DISPATCH_CONFLICT",
   ].includes(code)) {
@@ -96,6 +102,7 @@ function managementExitCode(code) {
     "INVALID_REQUEST",
     "INVALID_DISPATCH",
     "INVALID_GITHUB_REPOSITORY",
+    "REPOSITORY_SCOPE_REQUIRED",
   ].includes(code)) {
     return EXIT_CODES.INVALID;
   }
@@ -125,6 +132,11 @@ function parseArgs(argv) {
     project: undefined,
     agent: undefined,
     branch: undefined,
+    name: undefined,
+    slug: undefined,
+    repository: undefined,
+    repositoryIntegration: undefined,
+    runtimeImage: undefined,
     intervalSeconds: 2,
     timeoutSeconds: 3600,
   };
@@ -159,6 +171,11 @@ function parseArgs(argv) {
       ["--project", "project"],
       ["--agent", "agent"],
       ["--branch", "branch"],
+      ["--name", "name"],
+      ["--slug", "slug"],
+      ["--repository", "repository"],
+      ["--repository-integration", "repositoryIntegration"],
+      ["--runtime-image", "runtimeImage"],
       ["--interval-seconds", "intervalSeconds"],
       ["--timeout-seconds", "timeoutSeconds"],
     ]);
@@ -184,6 +201,7 @@ function parseArgs(argv) {
 
   const needsTarget = (
     (group === "projects" && command === "inspect") ||
+    (group === "repositories" && command === "get") ||
     (group === "runners" && command === "inspect") ||
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
     (["runs", "tasks"].includes(group) && ["inspect", "wait", "cancel", "result", "failure"].includes(command))
@@ -195,7 +213,13 @@ function parseArgs(argv) {
   if (group === "control-plane" && command !== "inspect") {
     return { ok: false, message: `Unknown control-plane command: ${command}` };
   }
-  if (group === "projects" && !["list", "inspect"].includes(command)) {
+  if (group === "integrations" && command !== "list") {
+    return { ok: false, message: `Unknown integrations command: ${command}` };
+  }
+  if (group === "repositories" && !["list", "get"].includes(command)) {
+    return { ok: false, message: `Unknown repositories command: ${command}` };
+  }
+  if (group === "projects" && !["list", "inspect", "create"].includes(command)) {
     return { ok: false, message: `Unknown projects command: ${command}` };
   }
   if (group === "runners" && !["list", "inspect"].includes(command)) {
@@ -207,18 +231,44 @@ function parseArgs(argv) {
   if (group === "issues" && !["list", "get", "dispatch"].includes(command)) {
     return { ok: false, message: `Unknown issues command: ${command}` };
   }
-  if (!["control-plane", "projects", "runners", "issues", "runs", "tasks"].includes(group)) {
+  if (![
+    "control-plane",
+    "integrations",
+    "repositories",
+    "projects",
+    "runners",
+    "issues",
+    "runs",
+    "tasks",
+  ].includes(group)) {
     return { ok: false, message: `Unknown command group: ${group}` };
   }
-  if (group === "issues" && !flags.integration) {
-    return { ok: false, message: "Missing --integration for issues command" };
+  if (["issues", "repositories"].includes(group) && !flags.integration) {
+    return { ok: false, message: `Missing --integration for ${group} command` };
   }
-  if (group === "issues" && flags.limit !== undefined) {
+  if (["issues", "repositories"].includes(group) && flags.limit !== undefined) {
     const limit = Number(flags.limit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       return { ok: false, message: "--limit must be an integer between 1 and 100" };
     }
     flags.limit = limit;
+  }
+  if (
+    group === "projects"
+    && command === "create"
+    && (
+      !flags.name
+      || !flags.slug
+      || !flags.repositoryIntegration
+      || !flags.repository
+      || !flags.agent
+      || !flags.runtimeImage
+    )
+  ) {
+    return {
+      ok: false,
+      message: "projects create requires --name, --slug, --repository-integration, --repository, --agent, and --runtime-image",
+    };
   }
   if (
     group === "issues"
@@ -258,6 +308,13 @@ function parseArgs(argv) {
       ...(flags.project ? { project: flags.project } : {}),
       ...(flags.agent ? { agent: flags.agent } : {}),
       ...(flags.branch ? { branch: flags.branch } : {}),
+      ...(flags.name ? { name: flags.name } : {}),
+      ...(flags.slug ? { slug: flags.slug } : {}),
+      ...(flags.repository ? { repository: flags.repository } : {}),
+      ...(flags.repositoryIntegration
+        ? { repositoryIntegration: flags.repositoryIntegration }
+        : {}),
+      ...(flags.runtimeImage ? { runtimeImage: flags.runtimeImage } : {}),
       ...(["runs", "tasks"].includes(group) && command === "wait"
         ? {
             intervalSeconds: flags.intervalSeconds,
@@ -381,7 +438,7 @@ function formatProjectsList(payload) {
   for (const project of payload.projects) {
     pushLine(
       lines,
-      `  - ${project.slug} | repo=${project.repo} | base=${project.baseBranch} | agent=${project.defaultAgent}${project.archivedAt ? " | archived" : ""}`,
+      `  - ${project.slug} | repository=${project.repository?.fullName ?? "n/a"} | provider=${project.repository?.provider ?? "n/a"} | base=${project.baseBranch} | agent=${project.defaultAgent}${project.archivedAt ? " | archived" : ""}`,
     );
   }
   return lines.join("\n");
@@ -440,7 +497,9 @@ function formatProjectInspect(payload) {
   const project = payload.project;
   const lines = [];
   pushLine(lines, `Project ${project.slug}`);
-  pushLine(lines, `  repo: ${project.repo}`);
+  pushLine(lines, `  repository: ${project.repository?.fullName ?? "n/a"}`);
+  pushLine(lines, `  repositoryProvider: ${project.repository?.provider ?? "n/a"}`);
+  pushLine(lines, `  cloneUrl: ${project.repository?.cloneUrl ?? "n/a"}`);
   pushLine(lines, `  baseBranch: ${project.baseBranch}`);
   pushLine(lines, `  defaultAgent: ${project.defaultAgent}`);
   pushLine(lines, `  runtime: ${project.runtime.provider} | image=${project.runtime.image}`);
@@ -476,6 +535,35 @@ function formatIssuesList(payload) {
         `  - ${issue.reference.identifier} | ${issue.state.name} | ${issue.title} | ${issue.reference.url}`,
       );
     }
+  }
+  if (payload.pageInfo?.hasNextPage) {
+    pushLine(lines, `nextCursor: ${payload.pageInfo.endCursor ?? "unavailable"}`);
+  }
+  return lines.join("\n");
+}
+
+function formatIntegrations(payload) {
+  const lines = ["Integrations"];
+  for (const integration of payload.integrations ?? []) {
+    pushLine(lines, `  - ${integration.name} | ${integration.capabilities.join(", ")}`);
+  }
+  if (!payload.integrations?.length) {
+    pushLine(lines, "  none");
+  }
+  return lines.join("\n");
+}
+
+function formatRepositories(payload) {
+  const repositories = payload.items ?? (payload.repository ? [payload.repository] : []);
+  const lines = [payload.repository ? "Repository" : "Repositories"];
+  for (const repository of repositories) {
+    pushLine(
+      lines,
+      `  - ${repository.fullName} | ${repository.visibility ?? "unknown"} | base=${repository.defaultBranch}${repository.isArchived ? " | archived" : ""}`,
+    );
+  }
+  if (repositories.length === 0) {
+    pushLine(lines, "  none");
   }
   if (payload.pageInfo?.hasNextPage) {
     pushLine(lines, `nextCursor: ${payload.pageInfo.endCursor ?? "unavailable"}`);
@@ -611,6 +699,12 @@ function formatSuccess(command, payload, jsonMode) {
   if (command.group === "control-plane") {
     return `${formatControlPlane(payload)}\n`;
   }
+  if (command.group === "integrations") {
+    return `${formatIntegrations(payload)}\n`;
+  }
+  if (command.group === "repositories") {
+    return `${formatRepositories(payload)}\n`;
+  }
   if (command.group === "projects" && command.command === "list") {
     return `${formatProjectsList(payload)}\n`;
   }
@@ -663,11 +757,53 @@ async function executeCommand(command, fetchImpl, deps = {}) {
   if (command.group === "control-plane") {
     return await readJson(new URL("/api/control-plane", baseUrl), fetchImpl);
   }
+  if (command.group === "integrations") {
+    return await readJson(new URL("/api/integrations", baseUrl), fetchImpl);
+  }
+  if (command.group === "repositories" && command.command === "list") {
+    const url = new URL(
+      `/api/integrations/${encodeURIComponent(command.integration)}/repositories`,
+      baseUrl,
+    );
+    if (command.limit !== undefined) {
+      url.searchParams.set("limit", String(command.limit));
+    }
+    if (command.cursor) {
+      url.searchParams.set("cursor", command.cursor);
+    }
+    return await readJson(url, fetchImpl);
+  }
+  if (command.group === "repositories" && command.command === "get") {
+    const url = new URL(
+      `/api/integrations/${encodeURIComponent(command.integration)}/repositories/resolve`,
+      baseUrl,
+    );
+    url.searchParams.set("identifier", command.target);
+    return await readJson(url, fetchImpl);
+  }
   if (command.group === "projects" && command.command === "list") {
     return await readJson(new URL("/api/projects", baseUrl), fetchImpl);
   }
   if (command.group === "projects" && command.command === "inspect") {
     return await readJson(new URL(`/api/projects/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
+  }
+  if (command.group === "projects" && command.command === "create") {
+    return await readJson(new URL("/api/projects", baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({
+        name: command.name,
+        slug: command.slug,
+        repository: {
+          integration: command.repositoryIntegration,
+          identifier: command.repository,
+        },
+        defaultAgent: command.agent,
+        runtime: {
+          provider: "docker",
+          image: command.runtimeImage,
+        },
+      }),
+    });
   }
   if (command.group === "runners" && command.command === "list") {
     return await readJson(new URL("/api/runners", baseUrl), fetchImpl);
@@ -689,16 +825,20 @@ async function executeCommand(command, fetchImpl, deps = {}) {
     if (command.cursor) {
       url.searchParams.set("cursor", command.cursor);
     }
+    if (command.repository) {
+      url.searchParams.set("repository", command.repository);
+    }
     return await readJson(url, fetchImpl);
   }
   if (command.group === "issues" && command.command === "get") {
-    return await readJson(
-      new URL(
+    const url = new URL(
         `/api/integrations/${encodeURIComponent(command.integration)}/issues/${encodeURIComponent(command.target)}`,
         baseUrl,
-      ),
-      fetchImpl,
     );
+    if (command.repository) {
+      url.searchParams.set("repository", command.repository);
+    }
+    return await readJson(url, fetchImpl);
   }
   if (command.group === "issues" && command.command === "dispatch") {
     const project = await readJson(

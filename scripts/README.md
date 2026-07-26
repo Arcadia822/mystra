@@ -6,7 +6,10 @@ base branch, agent, or image defaults.
 
 `prewarm-project.sh` is a manual cache preparation helper. Automatic prewarm is a
 future sandbox-provider capability; the current bare Docker runner only consumes
-the Project image returned by the claim API.
+the Project image returned by the claim API. The helper requires
+`--project <slug>` and reads that Project's resolved remote clone URL and base
+branch; local directories and ad hoc repository URL environment variables are
+not inputs.
 
 ## Operator CLI
 

@@ -11,6 +11,7 @@ import {
   type IssueReference,
   type QualityPhaseResult,
   type RepoProviderKind,
+  type RepositorySnapshot,
   type ResolvedRuntimeContract,
   type RunResult,
   type SandboxObservation,
@@ -28,7 +29,6 @@ import {
   createRunnerRepoProviderRegistry,
   type RunnerRepoProviderRegistry,
 } from "./repo-providers.js";
-import { detectRepositoryHostKind } from "./repository-host-kind.js";
 import {
   createRunnerSandboxProviderRegistry,
   type RunnerSandboxProviderRegistry,
@@ -69,7 +69,7 @@ interface ClaimedJobResponse {
     id: string;
     spec: {
       taskId: string;
-      repo: string;
+      repository: RepositorySnapshot;
       baseBranch: string;
       branchName: string;
       agent: string;
@@ -527,20 +527,13 @@ async function pollCancellationRequest(
   }
 }
 
-function repositoryTarget(
-  claim: ClaimedJobResponse,
-  config: RunnerConfig,
-) {
+function repositoryTarget(claim: ClaimedJobResponse) {
   if (!claim.job || !claim.project) {
     throw new Error("Claim is missing repository metadata");
   }
   return {
     projectId: claim.project.id,
-    repoUrl: claim.job.spec.repo,
-    hostKind: detectRepositoryHostKind(claim.job.spec.repo, {
-      gitlabHttpBaseUrl: config.gitlabHttpBaseUrl,
-      githubHttpBaseUrl: config.githubHttpBaseUrl,
-    }),
+    repository: claim.job.spec.repository,
     defaultBaseBranch: claim.job.spec.baseBranch,
   } as const;
 }
@@ -609,10 +602,12 @@ async function executeDockerJob(
     );
   }
 
-  const target = repositoryTarget(claim, config);
+  const target = repositoryTarget(claim);
   const repoProvider = repoRegistry.select(target);
   if (!repoProvider) {
-    throw new Error(`No repository provider supports ${target.repoUrl}`);
+    throw new Error(
+      `No repository delivery provider supports ${target.repository.provider}`,
+    );
   }
   const sandboxProvider = sandboxRegistry.get("docker");
   if (!sandboxProvider) {
@@ -659,7 +654,7 @@ async function executeDockerJob(
     "-e",
     `MYSTRA_TASK_ID=${job.spec.taskId}`,
     "-e",
-    `MYSTRA_REPO=${job.spec.repo}`,
+    `MYSTRA_REPO=${job.spec.repository.cloneUrl}`,
     "-e",
     `MYSTRA_BASE_BRANCH=${job.spec.baseBranch}`,
     "-e",

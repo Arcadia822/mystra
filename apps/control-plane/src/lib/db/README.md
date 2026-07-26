@@ -11,8 +11,13 @@ This module owns Mystra's `RdbProvider` boundary for the control plane.
 - Issue-driven jobs persist an immutable normalized `issue_snapshot` and a
   unique `dispatch_key`; provider-native payloads and credentials never enter
   the database.
+- Projects persist one provider-resolved `repository_snapshot`. Job creation
+  freezes that snapshot; later Project changes cannot mutate an existing Job.
+- Public Project requests never persist selectors, paths, or arbitrary clone
+  URLs. Resolution completes before the atomic create/update call.
 - The active local schema is clean-rebuild only. Historical orchestration rows
-  are not migrated or dual-read.
+  are not migrated or dual-read. A legacy Project/Job `repo` schema is removed
+  and rebuilt once at startup; no historical repository data is retained.
 - SQLite WAL mode is enabled during provider initialization.
 - Runner-owned cancellation is stored as desired-state metadata plus a
   `cancellation.requested` event; it does not create a new run state.

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jobSpecSchema } from "@mystra/shared";
+import { jobSubmissionSchema } from "@mystra/shared";
 
 import { getDb } from "@/lib/db";
 import { jsonError } from "@/lib/http";
@@ -10,7 +10,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const snapshot = getDb().createJob(jobSpecSchema.parse(await request.json()));
+    const snapshot = getDb().createJob(jobSubmissionSchema.parse(await request.json()));
     return NextResponse.json(snapshot, { status: 201 });
   } catch (error) {
     return jsonError(error, 400);

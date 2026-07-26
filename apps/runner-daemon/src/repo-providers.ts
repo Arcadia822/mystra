@@ -5,6 +5,7 @@ import type {
   BranchDeliveryRequest,
   BranchDeliveryReceipt,
   RepoProviderKind,
+  RepositorySnapshot,
   RepositoryTarget,
   ReviewRequest,
   ReviewResult,
@@ -12,14 +13,14 @@ import type {
 import { githubRepoProvider } from "./repo-providers/github.js";
 import { gitlabRepoProvider } from "./repo-providers/gitlab.js";
 
-export interface RepoProvider {
+export interface RepoDeliveryProvider {
   readonly providerName: RepoProviderKind;
-  supports(target: RepositoryTarget): boolean;
+  supports(repository: RepositorySnapshot): boolean;
   pushBranch(input: BranchDeliveryRequest): Promise<BranchDeliveryReceipt>;
   createReview(input: ReviewRequest): Promise<ReviewResult>;
 }
 
-type RepoProviderModuleRecord = Record<string, RepoProvider>;
+type RepoProviderModuleRecord = Record<string, RepoDeliveryProvider>;
 
 interface RunnerRepoProviderRegistryOptions {
   moduleSpecifiers?: string[] | undefined;
@@ -27,8 +28,8 @@ interface RunnerRepoProviderRegistryOptions {
 }
 
 export interface RunnerRepoProviderRegistry {
-  get(providerName: string): RepoProvider | undefined;
-  select(target: RepositoryTarget): RepoProvider | undefined;
+  get(providerName: string): RepoDeliveryProvider | undefined;
+  select(target: RepositoryTarget): RepoDeliveryProvider | undefined;
 }
 
 export interface RunnerRepoProviderRegistryBundle {
@@ -36,12 +37,12 @@ export interface RunnerRepoProviderRegistryBundle {
   providerNames: string[];
 }
 
-function isRepoProvider(value: unknown): value is RepoProvider {
+function isRepoProvider(value: unknown): value is RepoDeliveryProvider {
   if (!value || typeof value !== "object") {
     return false;
   }
 
-  const provider = value as Partial<RepoProvider>;
+  const provider = value as Partial<RepoDeliveryProvider>;
   return typeof provider.providerName === "string"
     && typeof provider.supports === "function"
     && typeof provider.pushBranch === "function"
@@ -106,14 +107,12 @@ function resolveModuleSpecifier(moduleSpecifier: string): string {
 
 function createRepoProviderRegistry(providers: RepoProviderModuleRecord): RunnerRepoProviderRegistry {
   return {
-    get(providerName: string): RepoProvider | undefined {
+    get(providerName: string): RepoDeliveryProvider | undefined {
       return providers[providerName];
     },
-    select(target: RepositoryTarget): RepoProvider | undefined {
-      if (target.hostKind !== "unknown" && target.hostKind in providers) {
-        return providers[target.hostKind];
-      }
-      return Object.values(providers).find((provider) => provider.supports(target));
+    select(target: RepositoryTarget): RepoDeliveryProvider | undefined {
+      const provider = providers[target.repository.provider];
+      return provider?.supports(target.repository) ? provider : undefined;
     },
   };
 }

@@ -1,13 +1,103 @@
 import { z } from "zod";
 
-export const repoProviderKindSchema = z.enum(["gitlab", "github"]);
+export const repoProviderKindSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z][a-z0-9-]*$/);
 export type RepoProviderKind = z.infer<typeof repoProviderKindSchema>;
+
+export const repositorySelectorSchema = z
+  .object({
+    integration: repoProviderKindSchema,
+    identifier: z.string().trim().min(1).max(255),
+  })
+  .strict()
+  .superRefine((selector, ctx) => {
+    if (
+      selector.identifier.startsWith("/")
+      || selector.identifier.startsWith("\\")
+      || selector.identifier.includes("://")
+      || selector.identifier.startsWith("local/")
+      || selector.identifier.includes("\\")
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Repository selectors must use a provider-native remote identifier",
+        path: ["identifier"],
+      });
+    }
+  });
+export type RepositorySelector = z.infer<typeof repositorySelectorSchema>;
+
+export const repositoryVisibilitySchema = z.enum(["private", "public", "internal"]);
+export type RepositoryVisibility = z.infer<typeof repositoryVisibilitySchema>;
+
+const repositorySnapshotBaseSchema = z
+  .object({
+    integration: repoProviderKindSchema,
+    provider: repoProviderKindSchema,
+    externalId: z.string().trim().min(1).max(255),
+    fullName: z.string().trim().min(1).max(255),
+    url: z.string().url(),
+    cloneUrl: z.string().url(),
+    defaultBranch: z.string().trim().min(1).max(255),
+    visibility: repositoryVisibilitySchema,
+    isArchived: z.boolean(),
+    fetchedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const repositorySnapshotSchema = repositorySnapshotBaseSchema.superRefine((repository, ctx) => {
+    for (const field of ["url", "cloneUrl"] as const) {
+      if (!repository[field].startsWith("https://")) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Repository URLs must use HTTPS remote URLs",
+          path: [field],
+        });
+      }
+    }
+  });
+export type RepositorySnapshot = z.infer<typeof repositorySnapshotSchema>;
+
+export const repositoryReferenceSchema = repositorySnapshotBaseSchema
+  .pick({
+    integration: true,
+    provider: true,
+    externalId: true,
+    fullName: true,
+    url: true,
+  })
+  .strict();
+export type RepositoryReference = z.infer<typeof repositoryReferenceSchema>;
+
+export const repositoryListRequestSchema = z
+  .object({
+    first: z.number().int().min(1).max(100).default(25),
+    after: z.string().min(1).optional(),
+  })
+  .strict();
+export type RepositoryListRequest = z.infer<typeof repositoryListRequestSchema>;
+
+export const repositoryListResponseSchema = z
+  .object({
+    items: z.array(repositorySnapshotSchema),
+    pageInfo: z
+      .object({
+        hasNextPage: z.boolean(),
+        endCursor: z.string().min(1).nullable().optional(),
+      })
+      .strict(),
+  })
+  .strict();
+export type RepositoryListResponse = z.infer<typeof repositoryListResponseSchema>;
 
 export const repositoryTargetSchema = z
   .object({
     projectId: z.string().uuid(),
-    repoUrl: z.string().min(1),
-    hostKind: z.union([repoProviderKindSchema, z.literal("unknown")]).default("unknown"),
+    repository: repositorySnapshotSchema,
     defaultBaseBranch: z.string().min(1),
   })
   .strict();

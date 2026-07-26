@@ -11,11 +11,26 @@ let tempDir: string;
 let dbPath: string;
 let db: SqliteRdbProvider;
 
+function repositorySnapshot(fullName = "arcadia/mystra-fixture") {
+  return {
+    integration: "github",
+    provider: "github",
+    externalId: `repo-${fullName}`,
+    fullName,
+    url: `https://github.com/${fullName}`,
+    cloneUrl: `https://github.com/${fullName}.git`,
+    defaultBranch: "main",
+    visibility: "private" as const,
+    isArchived: false,
+    fetchedAt: "2026-07-25T00:00:00.000Z",
+  };
+}
+
 function projectInput(slug = "castrel-ai") {
   return {
     name: "Castrel AI",
     slug,
-    repo: "git@gitlab.example.com:team/castrel-ai.git",
+    repository: repositorySnapshot(),
     baseBranch: "main",
     defaultAgent: "codex" as const,
     runtime: {
@@ -182,7 +197,7 @@ describe("SqliteRdbProvider projects", () => {
     db.close();
     db = new SqliteRdbProvider(dbPath);
 
-    expect(db.getProjectBySlug("castrel-ai")?.repo).toBe("git@gitlab.example.com:team/castrel-ai.git");
+    expect(db.getProjectBySlug("castrel-ai")?.repository).toEqual(repositorySnapshot());
   });
 
   it("rejects duplicate slugs", () => {
@@ -278,8 +293,10 @@ describe("SqliteRdbProvider jobs", () => {
     expect(columns.map((column) => column.name)).toEqual(expect.arrayContaining([
       "issue_snapshot",
       "dispatch_key",
+      "repository_snapshot",
     ]));
     expect(columns.map((column) => column.name)).not.toContain("workflow_snapshot");
+    expect(columns.map((column) => column.name)).not.toContain("repo");
   });
 
   it("persists an immutable Issue snapshot and version 2 execution spec across reopen", () => {
@@ -347,7 +364,7 @@ describe("SqliteRdbProvider jobs", () => {
       prompt: "Update README",
     });
 
-    expect(snapshot.job.spec.repo).toBe(project.repo);
+    expect(snapshot.job.spec.repository).toEqual(project.repository);
     expect(snapshot.job.spec.baseBranch).toBe("main");
     expect(snapshot.job.spec.agent).toBe("codex");
     expect(snapshot.run.state).toBe("queued");
@@ -362,29 +379,34 @@ describe("SqliteRdbProvider jobs", () => {
     ]));
     expect(snapshot.events.map((event) => event.type)).toEqual(["job.created", "artifact.created", "run.queued"]);
 
-    db.updateProject("castrel-ai", { repo: "git@gitlab.example.com:team/changed.git" });
-    expect(db.getJob(snapshot.job.id)?.job.spec.repo).toBe(project.repo);
+    db.updateProject("castrel-ai", {
+      repository: repositorySnapshot("arcadia/changed-fixture"),
+    });
+    expect(db.getJob(snapshot.job.id)?.job.spec.repository).toEqual(project.repository);
     expect(db.getJob(snapshot.job.id)?.runtime?.environment.image).toBe(project.runtime.image);
     expect(db.getJob(snapshot.job.id)?.runtime?.executionContract?.filePath)
       .toBe("/mystra/context/execution-spec/execution-spec.json");
   });
 
-  it("allows explicit job overrides", () => {
+  it("rejects repository and base branch overrides at the Job boundary", () => {
     const project = db.createProject(projectInput());
-    const snapshot = db.createJob({
+    expect(() => db.createJob({
       taskId: "task-2",
       source: "mcp",
       projectId: project.id,
       repo: "git@github.com:team/override.git",
+      branchName: "mystra/task-2",
+      prompt: "Use overrides",
+    })).toThrow();
+    expect(() => db.createJob({
+      taskId: "task-2",
+      source: "mcp",
+      projectId: project.id,
       baseBranch: "develop",
       branchName: "mystra/task-2",
-      agent: "copilot",
       prompt: "Use overrides",
-    });
-
-    expect(snapshot.job.spec.repo).toBe("git@github.com:team/override.git");
-    expect(snapshot.job.spec.baseBranch).toBe("develop");
-    expect(snapshot.job.spec.agent).toBe("copilot");
+    })).toThrow();
+    expect(db.listJobs()).toHaveLength(0);
   });
 
   it("resolves required context bundles into run snapshots", () => {

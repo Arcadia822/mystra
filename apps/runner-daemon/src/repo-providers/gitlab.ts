@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 
 import type { BranchDeliveryRequest, BranchDeliveryReceipt, ReviewRequest, ReviewResult } from "@mystra/shared";
 
-import type { RepoProvider } from "../repo-providers.js";
+import type { RepoDeliveryProvider } from "../repo-providers.js";
 import {
   buildMergeRequestEventData,
   buildReviewCreatedEventData,
@@ -21,10 +21,6 @@ interface GitLabReviewMetadata {
     sequence?: unknown;
     logPath?: unknown;
   };
-}
-
-function isGitLabRepoUrl(repoUrl: string): boolean {
-  return repoUrl.includes("gitlab");
 }
 
 function gitLabApiContext(targetRepoUrl: string, gitlabHttpBaseUrl?: string | null): {
@@ -174,10 +170,10 @@ function buildPreviewDescription(metadata: GitLabReviewMetadata): string {
   return `\n\n---\n\nMystra preview:\n\n- Frontend: ${metadata.frontendPreviewUrl}\n- Backend: ${metadata.backendPreviewUrl || "not exposed"}\n- Container: ${metadata.previewContainer || "unknown"}\n- Preview login: \`preview@mystra.local\` / \`mystra-preview\`${qualityGateNote(metadata)}${backendNote}\n`;
 }
 
-export const gitlabRepoProvider: RepoProvider = {
+export const gitlabRepoProvider: RepoDeliveryProvider = {
   providerName: "gitlab",
-  supports(target) {
-    return target.hostKind === "gitlab" || isGitLabRepoUrl(target.repoUrl);
+  supports(repository) {
+    return repository.provider === "gitlab";
   },
   async pushBranch(input) {
     if (input.auth.provider !== "gitlab" || input.auth.kind !== "runner-env") {
@@ -208,7 +204,11 @@ export const gitlabRepoProvider: RepoProvider = {
 
     let repoContext: ReturnType<typeof gitLabAuthenticatedRepoUrl>;
     try {
-      repoContext = gitLabAuthenticatedRepoUrl(input.target.repoUrl, token, metadata.gitlabHttpBaseUrl);
+      repoContext = gitLabAuthenticatedRepoUrl(
+        input.target.repository.cloneUrl,
+        token,
+        metadata.gitlabHttpBaseUrl,
+      );
     } catch (error) {
       return branchFailure(
         input,
@@ -264,7 +264,10 @@ export const gitlabRepoProvider: RepoProvider = {
     const metadata = reviewMetadata(input);
     let apiContext: ReturnType<typeof gitLabApiContext>;
     try {
-      apiContext = gitLabApiContext(input.target.repoUrl, metadata.gitlabHttpBaseUrl);
+      apiContext = gitLabApiContext(
+        input.target.repository.cloneUrl,
+        metadata.gitlabHttpBaseUrl,
+      );
     } catch (error) {
       return reviewFailure(
         input,

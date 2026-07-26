@@ -16,6 +16,19 @@ import {
   projectListResponseSchema,
 } from "./management.js";
 
+const remoteRepository = {
+  integration: "github",
+  provider: "github",
+  externalId: "R_kgDOFixture",
+  fullName: "Arcadia822/mystra-remote-e2e",
+  url: "https://github.com/Arcadia822/mystra-remote-e2e",
+  cloneUrl: "https://github.com/Arcadia822/mystra-remote-e2e.git",
+  defaultBranch: "main",
+  visibility: "private",
+  isArchived: false,
+  fetchedAt: "2026-07-26T00:00:00.000Z",
+} as const;
+
 describe("managementErrorSchema", () => {
   it("accepts shared machine-readable errors", () => {
     const parsed = managementErrorSchema.parse({
@@ -55,7 +68,7 @@ describe("project selection views", () => {
       id: "00000000-0000-4000-8000-000000000001",
       name: "Mystra",
       slug: "mystra",
-      repo: "git@example.com:arcadia/mystra.git",
+      repository: remoteRepository,
       baseBranch: "main",
       defaultAgent: "copilot",
       archivedAt: null,
@@ -64,7 +77,7 @@ describe("project selection views", () => {
     });
 
     expect(parsed.slug).toBe("mystra");
-    expect(parsed.repo).toBe("git@example.com:arcadia/mystra.git");
+    expect(parsed.repository.fullName).toBe("Arcadia822/mystra-remote-e2e");
   });
 
   it("accepts project list payloads with explicit success field names", () => {
@@ -74,7 +87,7 @@ describe("project selection views", () => {
           id: "00000000-0000-4000-8000-000000000001",
           name: "Mystra",
           slug: "mystra",
-          repo: "git@example.com:arcadia/mystra.git",
+          repository: remoteRepository,
           baseBranch: "main",
           defaultAgent: "copilot",
           archivedAt: null,
@@ -92,7 +105,7 @@ describe("project selection views", () => {
       id: "00000000-0000-4000-8000-000000000001",
       name: "Mystra",
       slug: "mystra",
-      repo: "git@example.com:arcadia/mystra.git",
+      repository: remoteRepository,
       baseBranch: "main",
       defaultAgent: "copilot",
       runtime: {
@@ -113,7 +126,7 @@ describe("project selection views", () => {
       prewarmConfig: { manager: "pnpm" },
       metadata: { projectLane: "mystra" },
       lane: {
-        repo: "git@example.com:arcadia/mystra.git",
+        repository: remoteRepository,
         baseBranch: "main",
         defaultAgent: "copilot",
         runtime: {
@@ -151,7 +164,7 @@ describe("project selection views", () => {
         id: "00000000-0000-4000-8000-000000000001",
         name: "Mystra",
         slug: "mystra",
-        repo: "git@example.com:arcadia/mystra.git",
+        repository: remoteRepository,
         baseBranch: "main",
         defaultAgent: "copilot",
         runtime: {
@@ -237,7 +250,7 @@ describe("project selection views", () => {
 
   it("accepts explicit lane inspection views and rejects workflow hints", () => {
     const lane = {
-      repo: "git@example.com:arcadia/skrya.git",
+      repository: remoteRepository,
       baseBranch: "develop",
       defaultAgent: "copilot",
       runtime: {
@@ -281,6 +294,9 @@ describe("canonicalRunSnapshotSchema", () => {
           taskId: "task-10",
           source: "api",
           projectId: "00000000-0000-4000-8000-000000000001",
+          repository: remoteRepository,
+          baseBranch: "main",
+          agent: "copilot",
           branchName: "mystra/task-10",
           prompt: "Implement the requested change",
           metadata: {},
@@ -317,7 +333,7 @@ describe("canonicalRunSnapshotSchema", () => {
         id: "00000000-0000-4000-8000-000000000001",
         name: "Mystra",
         slug: "mystra",
-        repo: "git@example.com:arcadia/mystra.git",
+        repository: remoteRepository,
         baseBranch: "main",
         defaultAgent: "copilot",
         runtime: {
@@ -337,7 +353,7 @@ describe("canonicalRunSnapshotSchema", () => {
         },
         prewarmConfig: { manager: "pnpm" },
         lane: {
-          repo: "git@example.com:arcadia/mystra.git",
+          repository: remoteRepository,
           baseBranch: "main",
           defaultAgent: "copilot",
           runtime: {
@@ -366,7 +382,7 @@ describe("canonicalRunSnapshotSchema", () => {
       lane: {
         projectId: "00000000-0000-4000-8000-000000000001",
         projectSlug: "mystra",
-        repo: "git@example.com:arcadia/mystra.git",
+        repository: remoteRepository,
         baseBranch: "main",
         defaultAgent: "copilot",
         runtime: {
@@ -406,7 +422,7 @@ describe("canonicalRunSnapshotSchema", () => {
     const parsed = submittedLaneSnapshotSchema.parse({
       projectId: "00000000-0000-4000-8000-000000000001",
       projectSlug: "skrya",
-      repo: "git@example.com:arcadia/skrya.git",
+      repository: remoteRepository,
       baseBranch: "develop",
       defaultAgent: "copilot",
       runtime: {

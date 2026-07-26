@@ -10,11 +10,13 @@ import {
   executionSpecMountPath,
   contextBundleSchema,
   jobInlineContextBundlePayloadSchema,
+  jobSubmissionSchema,
   jobSpecSchema,
   jobRuntimeOverrideSchema,
   platformCapabilitiesSchema,
   platformDefaultsSchema,
   projectCreateSchema,
+  projectCreateRequestSchema,
   projectRuntimeConfigSchema,
   projectSchema,
   projectUpdateSchema,
@@ -26,12 +28,27 @@ import {
   staleMarkingResultSchema,
 } from "./schemas.js";
 
+const remoteRepository = {
+  integration: "github",
+  provider: "github",
+  externalId: "R_kgDOFixture",
+  fullName: "Arcadia822/mystra-remote-e2e",
+  url: "https://github.com/Arcadia822/mystra-remote-e2e",
+  cloneUrl: "https://github.com/Arcadia822/mystra-remote-e2e.git",
+  defaultBranch: "main",
+  visibility: "private",
+  isArchived: false,
+  fetchedAt: "2026-07-26T00:00:00.000Z",
+} as const;
+
 describe("jobSpecSchema", () => {
   it("accepts an Issue-driven job only with an immutable snapshot and dispatch key", () => {
     const parsed = jobSpecSchema.parse({
       taskId: "ENG-123",
       source: "issue",
       projectId: "00000000-0000-4000-8000-000000000001",
+      repository: remoteRepository,
+      baseBranch: "main",
       branchName: "codex/eng-123",
       agent: "copilot",
       prompt: "Implement the frozen Linear Issue",
@@ -66,7 +83,7 @@ describe("jobSpecSchema", () => {
   });
 
   it("accepts a minimal API job with projectId and a task-provided branch name", () => {
-    const parsed = jobSpecSchema.parse({
+    const parsed = jobSubmissionSchema.parse({
       taskId: "task-1",
       source: "api",
       projectId: "00000000-0000-4000-8000-000000000001",
@@ -75,7 +92,7 @@ describe("jobSpecSchema", () => {
     });
 
     expect(parsed.projectId).toBe("00000000-0000-4000-8000-000000000001");
-    expect(parsed.baseBranch).toBeUndefined();
+    expect("baseBranch" in parsed).toBe(false);
     expect(parsed.agent).toBeUndefined();
     expect(parsed.metadata).toEqual({});
     expect(parsed.branchName).toBe("feature/mystra-task-1");
@@ -86,7 +103,7 @@ describe("jobSpecSchema", () => {
       taskId: "task-2",
       source: "mcp",
       projectId: "00000000-0000-4000-8000-000000000002",
-      repo: "gitlab.example.com/group/project",
+      repository: remoteRepository,
       baseBranch: "develop",
       branchName: "UPPER/space allowed by task",
       agent: "copilot",
@@ -100,7 +117,7 @@ describe("jobSpecSchema", () => {
 
   it("rejects jobs without a branch name", () => {
     expect(() =>
-      jobSpecSchema.parse({
+      jobSubmissionSchema.parse({
         taskId: "task-3",
         source: "api",
         projectId: "00000000-0000-4000-8000-000000000003",
@@ -111,7 +128,7 @@ describe("jobSpecSchema", () => {
 
   it("rejects jobs without a projectId", () => {
     expect(() =>
-      jobSpecSchema.parse({
+      jobSubmissionSchema.parse({
         taskId: "task-missing-project",
         source: "api",
         branchName: "feature/missing-project",
@@ -400,7 +417,7 @@ describe("runtime schemas", () => {
       taskId: "task-1",
       source: "api",
       projectId: "00000000-0000-4000-8000-000000000093",
-      repo: "local/fixture",
+      repository: remoteRepository,
       baseBranch: "main",
       branchName: "feature/execution-spec",
       agent: "codex",
@@ -572,7 +589,7 @@ describe("projectSchema", () => {
       id: "00000000-0000-4000-8000-000000000010",
       name: "Castrel AI",
       slug: "castrel-ai",
-      repo: "gitlab.example.com/group/project",
+      repository: remoteRepository,
       defaultAgent: "copilot",
       runtime: {
         provider: "docker",
@@ -589,11 +606,11 @@ describe("projectSchema", () => {
     expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
   });
 
-  it("accepts project create payloads with runtime.image", () => {
+  it("accepts resolved project create payloads with runtime.image", () => {
     const parsed = projectCreateSchema.parse({
       name: "Castrel AI",
       slug: "castrel-ai",
-      repo: "gitlab.example.com/group/project",
+      repository: remoteRepository,
       defaultAgent: "codex",
       runtime: {
         provider: "docker",
@@ -604,12 +621,41 @@ describe("projectSchema", () => {
     expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
   });
 
+  it("accepts only a provider selector on public project create requests", () => {
+    const parsed = projectCreateRequestSchema.parse({
+      name: "Remote fixture",
+      slug: "remote-fixture",
+      repository: {
+        integration: "github",
+        identifier: "Arcadia822/mystra-remote-e2e",
+      },
+      defaultAgent: "copilot",
+      runtime: {
+        provider: "docker",
+        image: "mystra-copilot:fixture",
+      },
+    });
+
+    expect(parsed.repository.identifier).toBe("Arcadia822/mystra-remote-e2e");
+    expect(() => projectCreateRequestSchema.parse({
+      ...parsed,
+      repo: "legacy-value",
+    })).toThrow();
+    expect(() => projectCreateRequestSchema.parse({
+      ...parsed,
+      repository: {
+        integration: "github",
+        identifier: "/Users/arcadia/Documents/mystra",
+      },
+    })).toThrow();
+  });
+
   it("rejects project create payloads without runtime.image", () => {
     expect(() =>
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
-        repo: "gitlab.example.com/group/project",
+        repository: remoteRepository,
         defaultAgent: "codex",
       }),
     ).toThrow();
@@ -621,7 +667,7 @@ describe("projectSchema", () => {
         id: "00000000-0000-4000-8000-000000000011",
         name: "Castrel AI",
         slug: "castrel-ai",
-        repo: "gitlab.example.com/group/project",
+        repository: remoteRepository,
         defaultAgent: "codex",
         runtime: {
           provider: "docker",
@@ -646,7 +692,7 @@ describe("projectSchema", () => {
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
-        repo: "gitlab.example.com/group/project",
+        repository: remoteRepository,
         defaultAgent: "codex",
         runtime: {
           provider: "docker",

@@ -5,7 +5,7 @@ import path from "node:path";
 
 import type { BranchDeliveryRequest, BranchDeliveryReceipt, ReviewRequest, ReviewResult } from "@mystra/shared";
 
-import type { RepoProvider } from "../repo-providers.js";
+import type { RepoDeliveryProvider } from "../repo-providers.js";
 
 interface GitHubPushMetadata {
   localRepoPath?: string;
@@ -29,10 +29,6 @@ interface GitHubRepoContext {
   branchUrlBase: string;
   remoteUrl: string;
   repoPath: string;
-}
-
-function isGitHubRepoUrl(repoUrl: string): boolean {
-  return repoUrl.includes("github.com");
 }
 
 function trimTrailingSlash(value: string): string {
@@ -235,10 +231,10 @@ function safeGitHubErrorBody(body: string, token: string): string {
   return body.replaceAll(token, "[REDACTED]").slice(0, 1_000);
 }
 
-export const githubRepoProvider: RepoProvider = {
+export const githubRepoProvider: RepoDeliveryProvider = {
   providerName: "github",
-  supports(target) {
-    return target.hostKind === "github" || isGitHubRepoUrl(target.repoUrl);
+  supports(repository) {
+    return repository.provider === "github";
   },
   async pushBranch(input) {
     if (input.auth.provider !== "github" || input.auth.kind !== "runner-env") {
@@ -269,7 +265,10 @@ export const githubRepoProvider: RepoProvider = {
 
     let repoContext: GitHubRepoContext;
     try {
-      repoContext = gitHubRepoContext(input.target.repoUrl, metadata.githubHttpBaseUrl);
+      repoContext = gitHubRepoContext(
+        input.target.repository.cloneUrl,
+        metadata.githubHttpBaseUrl,
+      );
     } catch (error) {
       return branchFailure(
         input,
@@ -329,7 +328,10 @@ export const githubRepoProvider: RepoProvider = {
 
     let repoContext: GitHubRepoContext;
     try {
-      repoContext = gitHubRepoContext(input.target.repoUrl, metadata.githubHttpBaseUrl);
+      repoContext = gitHubRepoContext(
+        input.target.repository.cloneUrl,
+        metadata.githubHttpBaseUrl,
+      );
     } catch (error) {
       return reviewFailure(
         input,

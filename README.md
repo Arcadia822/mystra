@@ -21,7 +21,8 @@ Today the repository is focused on proving a local-first path with:
 
 - a Next.js control plane
 - SQLite behind `RdbProvider`
-- a read-only Linear `IssueProvider` behind an Integration capability
+- GitHub `RepoProvider` + repository-scoped `IssueProvider`, and read-only
+  Linear `IssueProvider`, behind composable Integrations
 - a pull-based runner daemon
 - direct Job/Run → Sandbox → Agent execution
 - repository delivery for GitLab and GitHub
@@ -67,11 +68,13 @@ supabase
 flowchart LR
     Caller[MCP client / API caller] --> CP[control-plane]
     CP --> DB[(RdbProvider)]
-    CP --> Issue[Integration / IssueProvider]
+    CP --> Integration[IntegrationPlugin]
+    Integration --> Issue[IssueProvider]
+    Integration --> Repository[RepoProvider]
     Runner[runner-daemon] --> CP
     Runner --> Sandbox[SandboxProvider]
     Sandbox --> Agent[AgentProvider]
-    Agent --> Repo[RepoProvider]
+    Agent --> Repo[RepoDeliveryProvider]
     Shared[packages/shared] --> CP
     Shared --> Runner
 ```
@@ -81,9 +84,11 @@ flowchart LR
 | Provider | Current implementation | Direction |
 |---|---|---|
 | `RdbProvider` | SQLite | Hosted/cloud RDB later |
-| `IssueProvider` | Read-only Linear | Additional integrations later |
+| `IntegrationPlugin` | GitHub and Linear | Additional capability compositions later |
+| `RepoProvider` | GitHub remote repository discovery | GitLab and other repository integrations later |
+| `IssueProvider` | GitHub repository-scoped; Linear read-only | Additional issue integrations later |
 | `SandboxProvider` | Local sandbox path | Stronger isolation / cloud sandbox later |
-| `RepoProvider` | GitLab and GitHub | Additional hosts or variants later |
+| `RepoDeliveryProvider` | GitHub and GitLab | Additional delivery hosts or variants later |
 | `AgentProvider` | Current agent adapters | Additional agent providers later |
 
 ## Quick start

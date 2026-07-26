@@ -53,7 +53,9 @@ that current interfaces should preserve.
 - Framework baseline: Open Agents source-authoritative reference architecture.
 - Public API/control plane: Next.js route handlers.
 - RDB provider: local SQLite first; hosted/cloud RDB later.
-- Issue integration: capability-based `Integration` contracts with a read-only Linear `IssueProvider`.
+- External integrations: capability-based `IntegrationPlugin` contracts.
+  GitHub provides `RepoProvider` plus repository-scoped `IssueProvider`;
+  Linear provides read-only `IssueProvider`.
 - Execution: fixed direct runner lifecycle; no active orchestration provider, graph, blueprint, or node model.
 - Runner daemon: Node.js TypeScript service running under systemd on bare metal.
 - Runner runtime: Docker containers launched by the runner daemon.
@@ -177,14 +179,21 @@ Mystra explicitly separates platform-scoped capabilities from project-scoped sta
 
 - `PlatformCapabilities` are declared by the runner platform and remain stable across jobs. This includes supported agents, executor type, and optional image identity.
 - `PlatformDefaults` are platform-level runtime defaults such as concurrency, timeout, heartbeat expiry, long-poll timeout, and container resource limits.
-- `Project` is the durable parent configuration for repository work: repo, default branch, default agent, runtime image, prewarm config, and opaque project metadata.
-- `JobSpec` remains the task identity layer (`taskId`, `source`) plus `projectId`, task branch, prompt, optional merge-request metadata, and optional repo/baseBranch/agent overrides.
+- `Project` is the durable parent configuration for repository work: one
+  provider-resolved remote `RepositorySnapshot`, base branch, default agent,
+  runtime image, prewarm config, and opaque project metadata.
+- `JobSpec` remains the task identity layer (`taskId`, `source`) plus
+  `projectId`, task branch, prompt, optional merge-request metadata, and frozen
+  Project repository/base-branch facts. Callers cannot override repository or
+  base branch per Job.
 
 North-star extension of this model:
 
 - `Mystra platform` owns shared provider pools, policy, and global scheduling.
-- `Workspace` groups projects and product inputs without forcing company/customer-specific terminology.
-- `Project` remains the repository and execution customization unit inside a workspace.
+- `Team` groups projects and product inputs without forcing
+  company/customer-specific terminology.
+- `Project` remains the repository and execution customization unit inside a
+  Team. `Workspace` is reserved for one run's prepared working directory.
 
 Success criteria for this boundary:
 
@@ -204,6 +213,12 @@ POST /projects
 GET  /projects/:slug
 PATCH /projects/:slug
 DELETE /projects/:slug
+GET  /integrations
+GET  /integrations/:integration/repositories
+POST /integrations/:integration/repositories/resolve
+GET  /integrations/:integration/issues
+GET  /integrations/:integration/issues/:identifier
+POST /integrations/:integration/issues/:identifier/dispatch
 POST /jobs
 GET  /jobs/:id
 POST /jobs/:id/cancel

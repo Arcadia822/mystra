@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { issueSnapshotSchema } from "./issue-core.js";
+import {
+  repositorySelectorSchema,
+  repositorySnapshotSchema,
+} from "./repository.js";
 
 export const agentNameSchema = z.enum(["codex", "copilot"]);
 export type AgentName = z.infer<typeof agentNameSchema>;
@@ -390,7 +394,7 @@ export const executionSpecArtifactSchema = z
     taskId: z.string().min(1),
     source: jobSourceSchema,
     projectId: z.string().uuid(),
-    repo: z.string().min(1),
+    repository: repositorySnapshotSchema,
     baseBranch: z.string().min(1),
     branchName: z.string().min(1),
     agent: agentNameSchema,
@@ -489,7 +493,7 @@ export const projectSchema = z
     id: z.string().uuid(),
     name: z.string().min(1),
     slug: z.string().min(1),
-    repo: z.string().min(1),
+    repository: repositorySnapshotSchema,
     baseBranch: z.string().min(1).default("main"),
     defaultAgent: agentNameSchema,
     runtime: projectRuntimeConfigSchema,
@@ -506,7 +510,7 @@ export const projectCreateSchema = z
   .object({
     name: z.string().min(1),
     slug: z.string().min(1),
-    repo: z.string().min(1),
+    repository: repositorySnapshotSchema,
     baseBranch: z.string().min(1).default("main"),
     defaultAgent: agentNameSchema,
     runtime: projectRuntimeConfigInputSchema,
@@ -516,11 +520,25 @@ export const projectCreateSchema = z
   .strict();
 export type ProjectCreate = z.infer<typeof projectCreateSchema>;
 
+export const projectCreateRequestSchema = z
+  .object({
+    name: z.string().min(1),
+    slug: z.string().min(1),
+    repository: repositorySelectorSchema,
+    baseBranch: z.string().min(1).optional(),
+    defaultAgent: agentNameSchema,
+    runtime: projectRuntimeConfigInputSchema,
+    prewarmConfig: jsonObjectSchema.default({}),
+    metadata: jsonObjectSchema.default({}),
+  })
+  .strict();
+export type ProjectCreateRequest = z.input<typeof projectCreateRequestSchema>;
+
 export const projectUpdateSchema = z
   .object({
     name: z.string().min(1).optional(),
     slug: z.string().min(1).optional(),
-    repo: z.string().min(1).optional(),
+    repository: repositorySnapshotSchema.optional(),
     baseBranch: z.string().min(1).optional(),
     defaultAgent: agentNameSchema.optional(),
     runtime: projectRuntimeConfigInputSchema.optional(),
@@ -531,13 +549,26 @@ export const projectUpdateSchema = z
   .strict();
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
-export const jobSpecSchema = z
+export const projectUpdateRequestSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    slug: z.string().min(1).optional(),
+    repository: repositorySelectorSchema.optional(),
+    baseBranch: z.string().min(1).optional(),
+    defaultAgent: agentNameSchema.optional(),
+    runtime: projectRuntimeConfigInputSchema.optional(),
+    prewarmConfig: jsonObjectSchema.optional(),
+    metadata: jsonObjectSchema.optional(),
+    archivedAt: z.string().datetime().nullable().optional(),
+  })
+  .strict();
+export type ProjectUpdateRequest = z.input<typeof projectUpdateRequestSchema>;
+
+const jobSubmissionBaseSchema = z
   .object({
     taskId: z.string().min(1),
     source: jobSourceSchema,
     projectId: z.string().uuid(),
-    repo: z.string().min(1).optional(),
-    baseBranch: z.string().min(1).optional(),
     branchName: z.string().min(1),
     agent: agentNameSchema.optional(),
     prompt: z.string().min(1),
@@ -547,8 +578,16 @@ export const jobSpecSchema = z
     runtime: jobRuntimeOverrideSchema.optional(),
     metadata: jsonObjectSchema.default({}),
   })
-  .strict()
-  .superRefine((job, ctx) => {
+  .strict();
+
+function validateIssueDrivenJob(
+  job: {
+    source: z.infer<typeof jobSourceSchema>;
+    issue?: z.infer<typeof issueSnapshotSchema> | undefined;
+    dispatchKey?: string | undefined;
+  },
+  ctx: z.RefinementCtx,
+): void {
     if (job.source === "issue" && (!job.issue || !job.dispatchKey)) {
       ctx.addIssue({
         code: "custom",
@@ -563,7 +602,19 @@ export const jobSpecSchema = z
         path: ["source"],
       });
     }
-  });
+}
+
+export const jobSubmissionSchema = jobSubmissionBaseSchema.superRefine(validateIssueDrivenJob);
+export type JobSubmission = z.infer<typeof jobSubmissionSchema>;
+
+export const jobSpecSchema = jobSubmissionBaseSchema
+  .extend({
+    repository: repositorySnapshotSchema,
+    baseBranch: z.string().min(1),
+    agent: agentNameSchema,
+  })
+  .strict()
+  .superRefine(validateIssueDrivenJob);
 export type JobSpec = z.infer<typeof jobSpecSchema>;
 
 export const runnerRegistrationSchema = z

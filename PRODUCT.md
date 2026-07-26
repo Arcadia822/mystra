@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Mystra is a self-use, issue-driven coding-agent execution platform. It uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces at the seams where upstream does not provide a reusable contract. The first implementation uses local-first providers.
+Mystra is a self-use, issue-driven coding-agent execution platform. It uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces at the seams where upstream does not provide a reusable contract. Control-plane state remains local-first for development, while every Project repository is remote and provider-resolved.
 
 The first useful outcome is simple: an operator selects an Issue, Mystra resolves it into an immutable Job/Run, a runner starts the selected Agent inside the selected sandbox, and the platform returns a tested, previewable repository artifact for human review.
 
@@ -59,13 +59,19 @@ In scope for the MVP:
 - Open Agents source-authoritative baseline and reference architecture reuse.
 - Next.js control plane.
 - RdbProvider interface with SQLite implementation for local dev; interface designed for PG/Supabase compatibility (production target). Schema covers projects, jobs, runs, runner sessions, events, results, and artifacts.
-- Integration capability model with a first read-only Linear IssueProvider.
+- Composable Integration plugins: GitHub provides remote repositories and
+  repository-scoped Issues; Linear provides read-only Issues.
+- Project-owned immutable remote repository snapshots resolved through a
+  RepoProvider. Local paths and caller-supplied clone URLs are not Project
+  repository inputs.
 - Pull-based runner daemon over outbound long polling.
 - Sandbox task execution on the runner host.
 - Project-owned runtime configuration for Docker image, context bundles, mounts, ports, caches, and secret references.
 - Shared platform-owned sandbox provider capacity that can be allocated across multiple Teams and projects.
 - Agent execution through provider adapters.
-- Repository artifact delivery through repository providers.
+- Repository artifact delivery through runner-side RepoDeliveryProviders,
+  using the same frozen repository snapshot as Project, Job, and execution
+  contracts.
 - Remote MCP server entrypoint for other agents and skills to submit user journeys and implementation requests.
 - Structured lifecycle events and final run results.
 - Direct Job/Run to SandboxProvider, AgentAdapter and RepoProvider execution without a workflow provider, blueprint or node graph.
@@ -94,7 +100,10 @@ Explicitly out of scope for the MVP:
 - A fake runner can complete the full queued-to-terminal lifecycle through the control plane.
 - The local SQLite provider can persist and recover job/run state without cloud services.
 - The RdbProvider interface does not leak SQLite-specific semantics; a future PG implementation is a new class, not a rewrite.
-- A read-only IssueProvider can resolve an external Issue into a traceable immutable Job input.
+- GitHub and Linear IssueProviders can resolve an external Issue into a
+  traceable immutable Job input without changing the Project repository.
+- API is canonical; CLI and Web use the same Integration, Repository, Project,
+  Job, and review-handoff contracts.
 - A real runner can claim a Job, launch the selected Agent directly in a sandbox, and produce a reviewable repository artifact.
 - Job/run state remains explainable from structured database records, without relying on transient container logs.
 - Platform capabilities stay separate from per-job project configuration.

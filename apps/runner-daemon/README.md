@@ -24,6 +24,9 @@ MYSTRA_RUNNER_ELIGIBLE_RUNTIME_PROVIDERS=docker
 - Claiming is pull-based and bounded by local `MYSTRA_RUNNER_CONCURRENCY`.
 - A claimed run follows one fixed sequence:
   `clone -> Agent -> test -> build -> preview -> commit -> push -> PR`.
+- Clone, push, and review use a `RepoDeliveryProvider` selected by the frozen
+  `RepositorySnapshot.provider`. The runner does not infer a provider from a
+  hostname and does not accept a local repository path.
 - The runner contains no orchestration provider, graph, blueprint, or node
   registry. Future policy belongs in a removable Agent hook/plugin.
 - Active Docker execution is watched locally for timeout and cancellation.
@@ -34,6 +37,8 @@ MYSTRA_RUNNER_ELIGIBLE_RUNTIME_PROVIDERS=docker
 ## Execution Invariants
 
 - The base container receives no repository or Agent credentials.
+- Project, Job, execution spec, and runner claim carry the same immutable remote
+  repository snapshot. Job-level repository overrides are rejected upstream.
 - Repository credentials are scoped to clone/push operations. Copilot
   credentials are scoped to the Agent command. Test, build, and preview phases
   receive neither.

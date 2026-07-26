@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="${MYSTRA_PROJECT_REPO_DIR:-}"
 PROJECT_SLUG=""
 CONTROL_PLANE_URL="${MYSTRA_CONTROL_PLANE_URL:-http://localhost:3000}"
 DRY_RUN=0
@@ -34,22 +33,21 @@ done
 
 mkdir -p "$CACHE_ROOT/git" "$PNPM_STORE" "$UV_CACHE" "$UV_PYTHON_INSTALL_DIR"
 
-if [ -n "$PROJECT_SLUG" ]; then
-  remote="$(curl --noproxy '*' -fsS "$CONTROL_PLANE_URL/api/projects/$PROJECT_SLUG" \
-    | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.repo));')"
-elif [ -n "${MYSTRA_PROJECT_REPO_URL:-}" ]; then
-  remote="$MYSTRA_PROJECT_REPO_URL"
-elif [ -n "$REPO_DIR" ] && [ -d "$REPO_DIR/.git" ]; then
-  remote="$(git -C "$REPO_DIR" remote get-url origin)"
-else
-  echo "Set MYSTRA_PROJECT_REPO_URL or MYSTRA_PROJECT_REPO_DIR to prewarm" >&2
+if [ -z "$PROJECT_SLUG" ]; then
+  echo "Pass --project <slug>; prewarm only accepts a persisted remote Project" >&2
   exit 1
 fi
 
+project_json="$(curl --noproxy '*' -fsS "$CONTROL_PLANE_URL/api/projects/$PROJECT_SLUG")"
+remote="$(printf '%s' "$project_json" \
+  | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.repository.cloneUrl));')"
+default_branch="$(printf '%s' "$project_json" \
+  | node -e 'let d=""; process.stdin.on("data", c => d += c); process.stdin.on("end", () => console.log(JSON.parse(d).project.baseBranch));')"
+
 if [ "$DRY_RUN" = "1" ]; then
   echo "Prewarm dry run:"
-  echo "  project: ${PROJECT_SLUG:-<env>}"
-  echo "  repo: $remote"
+  echo "  project: $PROJECT_SLUG"
+  echo "  repository: $remote"
   echo "  cache root: $CACHE_ROOT"
   exit 0
 fi
@@ -82,7 +80,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-git clone --reference-if-able "$MIRROR_DIR" --branch "${MYSTRA_PREWARM_BRANCH:-main}" "$remote" "$tmp_worktree/repo"
+git clone --reference-if-able "$MIRROR_DIR" --branch "${MYSTRA_PREWARM_BRANCH:-$default_branch}" "$remote" "$tmp_worktree/repo"
 
 if command -v pnpm >/dev/null 2>&1; then
   if [ -f "$tmp_worktree/repo/pnpm-lock.yaml" ]; then

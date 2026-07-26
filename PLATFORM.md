@@ -23,13 +23,15 @@ supabase              Migrations, seed, generated database types
 - Framework baseline: Open Agents as source-authoritative reference architecture, with Mystra-owned interfaces and SDK surfaces at reusable seams.
 - App framework: Next.js route handlers for the control plane.
 - RDB provider, first implementation: local SQLite.
-- Integration capability model, first implementation: read-only Linear IssueProvider.
+- Integration capability model: GitHub implements RepoProvider and
+  IssueProvider; Linear implements read-only IssueProvider.
 - Runner daemon: Node.js TypeScript service.
 - Sandbox provider, first implementation: single-machine sandbox task containers.
 - Validation: Zod schemas shared across services.
 - Test runner: Vitest.
 - Agent provider contract: current adapter-backed agent execution.
-- Repository provider contract in MVP: repository review delivery.
+- Repository contracts in MVP: control-plane RepoProvider discovery and
+  identity resolution, plus runner-side RepoDeliveryProvider clone/push/review.
 - Architecture posture: first-class single-node deployment first, with a shared-nothing clustered architecture later if scale, isolation, or availability require it.
 
 ## North Star Topology
@@ -85,7 +87,11 @@ pnpm lsp:typescript
 
 ## Architectural Constraints
 
-- Provider interfaces isolate local-first and cloud implementations.
+- Provider interfaces isolate external integrations and runtime
+  implementations.
+- Every Project binds exactly one provider-resolved remote repository snapshot.
+  Project, Job, execution contract, and runner claim reuse that structure; no
+  local-path or job-level repository override is supported.
 - Mystra must remain operable as a headless system; core execution and repository delivery must not depend on an interactive local UI being present.
 - SQLite is the first business state source of truth.
 - Core execution is a direct lifecycle from resolved Job/Run to sandbox, Agent and repository delivery; there is no workflow provider or graph above the Agent.
@@ -109,14 +115,19 @@ pnpm lsp:typescript
 Mystra uses Open Agents as a source-authoritative baseline and defines provider seams where the original project uses managed services or does not expose a reusable package/interface boundary. Mystra owns the actual interface and SDK definitions at those seams.
 
 ```text
-RdbProvider        local SQLite first; cloud RDB later
-IssueProvider      Linear read-only first; additional issue systems later
-SandboxProvider    single-machine sandbox first; stronger isolation later
-RepoProvider       review-delivery contract first; provider variants later
-AgentProvider      current adapter-backed execution first; more providers later
+RdbProvider           local SQLite first; cloud RDB later
+IntegrationPlugin     named composition of repository and/or issue capabilities
+RepoProvider          remote repository discovery and identity resolution
+IssueProvider         GitHub repository-scoped; Linear read-only
+SandboxProvider       single-machine sandbox first; stronger isolation later
+RepoDeliveryProvider  runner clone, push and review delivery
+AgentProvider         current adapter-backed execution first; more providers later
 ```
 
-For repository delivery, 004 treats review-delivery provider seams as MVP contract scope, with current implementations targeting GitLab and GitHub.
+GitHub is the current Project repository Integration. Runner delivery retains
+GitHub and GitLab implementations behind RepoDeliveryProvider; delivery
+selection uses the frozen repository provider instead of inferring from a URL
+hostname.
 Provider-specific realization lives in `specs/010-repo-provider-contracts/` so
 runner and agent surfaces do not hardcode one host as the only valid
 target.

@@ -4,6 +4,7 @@ import {
   integrationDescriptorSchema,
   integrationErrorResponseSchema,
   issueDispatchRequestSchema,
+  issueGetRequestSchema,
   issueListRequestSchema,
   issueListResponseSchema,
   issueSchema,
@@ -84,7 +85,40 @@ describe("Issue contracts", () => {
     })).toThrow();
   });
 
+  it("supports provider-neutral repository scope for repository-scoped Issues", () => {
+    const repository = {
+      integration: "github",
+      provider: "github",
+      externalId: "R_kgDOFixture",
+      fullName: "Arcadia822/mystra-remote-e2e",
+      url: "https://github.com/Arcadia822/mystra-remote-e2e",
+      cloneUrl: "https://github.com/Arcadia822/mystra-remote-e2e.git",
+      defaultBranch: "main",
+      visibility: "private",
+      isArchived: false,
+      fetchedAt: "2026-07-26T00:00:00.000Z",
+    };
+    expect(issueListRequestSchema.parse({ first: 10, repository })).toEqual({
+      first: 10,
+      repository,
+    });
+    expect(issueGetRequestSchema.parse({ identifier: "17", repository })).toEqual({
+      identifier: "17",
+      repository,
+    });
+  });
+
   it("models Integration capabilities without embedding provider credentials", () => {
+    expect(integrationDescriptorSchema.parse({
+      name: "github",
+      provider: "github",
+      capabilities: ["repositories", "issues"],
+    })).toEqual({
+      name: "github",
+      provider: "github",
+      capabilities: ["repositories", "issues"],
+    });
+
     expect(integrationDescriptorSchema.parse({
       name: "linear",
       provider: "linear",

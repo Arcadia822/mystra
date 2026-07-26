@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { IntegrationRegistry } from "./registry";
-import type { Integration, IssueProvider } from "./types";
+import type {
+  IntegrationPlugin,
+  IssueProvider,
+  RepoProvider,
+} from "./types";
 
 const issueProvider: IssueProvider = {
   providerName: "fake",
+  repositoryScope: "unsupported",
   async listIssues() {
     return { items: [], pageInfo: { hasNextPage: false } };
   },
@@ -13,30 +18,84 @@ const issueProvider: IssueProvider = {
   },
 };
 
+const repoProvider: RepoProvider = {
+  providerName: "fake",
+  async listRepositories() {
+    return { items: [], pageInfo: { hasNextPage: false } };
+  },
+  async getRepository() {
+    return undefined;
+  },
+};
+
 describe("IntegrationRegistry", () => {
-  it("returns the requested Issue capability", () => {
-    const integration: Integration = {
-      name: "fake",
-      provider: "fake",
-      capabilities: { issues: issueProvider },
+  it("lists descriptors and resolves third-party capabilities without provider branches", () => {
+    const integration: IntegrationPlugin = {
+      descriptor: {
+        name: "fake",
+        provider: "fake",
+        capabilities: ["repositories", "issues"],
+      },
+      capabilities: { repositories: repoProvider, issues: issueProvider },
     };
     const registry = new IntegrationRegistry([integration]);
 
+    expect(registry.list()).toEqual([integration.descriptor]);
+    expect(registry.requireRepoProvider("fake")).toBe(repoProvider);
     expect(registry.requireIssueProvider("fake")).toBe(issueProvider);
   });
 
-  it("distinguishes a missing Integration from a missing Issue capability", () => {
-    const registry = new IntegrationRegistry([{
-      name: "without-issues",
-      provider: "fake",
-      capabilities: {},
-    }]);
+  it("distinguishes a missing Integration from missing capabilities", () => {
+    const registry = new IntegrationRegistry([
+      {
+        descriptor: {
+          name: "issues-only",
+          provider: "fake",
+          capabilities: ["issues"],
+        },
+        capabilities: { issues: issueProvider },
+      },
+      {
+        descriptor: {
+          name: "repositories-only",
+          provider: "fake",
+          capabilities: ["repositories"],
+        },
+        capabilities: { repositories: repoProvider },
+      },
+    ]);
 
     expect(() => registry.requireIssueProvider("missing")).toThrow(
       expect.objectContaining({ code: "INTEGRATION_NOT_FOUND" }),
     );
-    expect(() => registry.requireIssueProvider("without-issues")).toThrow(
+    expect(() => registry.requireIssueProvider("repositories-only")).toThrow(
       expect.objectContaining({ code: "ISSUE_CAPABILITY_UNAVAILABLE" }),
     );
+    expect(() => registry.requireRepoProvider("issues-only")).toThrow(
+      expect.objectContaining({ code: "REPOSITORY_CAPABILITY_UNAVAILABLE" }),
+    );
+  });
+
+  it("rejects duplicate names and descriptor/capability mismatches", () => {
+    const valid: IntegrationPlugin = {
+      descriptor: {
+        name: "fake",
+        provider: "fake",
+        capabilities: ["issues"],
+      },
+      capabilities: { issues: issueProvider },
+    };
+
+    expect(() => new IntegrationRegistry([valid, valid])).toThrow(
+      /Duplicate Integration name: fake/,
+    );
+    expect(() => new IntegrationRegistry([{
+      descriptor: {
+        name: "mismatch",
+        provider: "fake",
+        capabilities: ["repositories"],
+      },
+      capabilities: { issues: issueProvider },
+    }])).toThrow(/capabilities do not match/);
   });
 });

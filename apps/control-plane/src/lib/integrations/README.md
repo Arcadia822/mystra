@@ -1,11 +1,22 @@
 # Integrations
 
-Integrations expose named capabilities. The first capability is
-`IssueProvider`; Linear is its first implementation.
+Integrations expose named, independently composable capabilities:
+`RepoProvider` discovers and resolves remote repositories, while
+`IssueProvider` lists and reads work items.
+
+The default registry contains exactly:
+
+- GitHub: repositories and repository-scoped Issues.
+- Linear: read-only Issues.
 
 ## Invariants
 
+- The registry selects by capability and contains no GitHub/Linear branching.
+- GitHub repository and Issue access uses the REST API. GitHub Issues require a
+  repository scope and Pull Requests are filtered from Issue results.
 - Linear access is read-only: list and get use the native GraphQL API.
+- Project inputs carry a RepositorySelector. The control plane resolves it
+  through the selected RepoProvider before a persistence method is called.
 - Provider-specific payloads are normalized into shared Issue contracts.
 - Provider errors are mapped to stable public codes without leaking credentials.
 - Pagination cursors remain opaque.
@@ -16,5 +27,19 @@ Integrations expose named capabilities. The first capability is
   only this implemented direct-execution capability when claiming jobs.
 - The HTTP API is the canonical implementation. The operator CLI only calls
   those routes and does not import provider or persistence code.
-- Environment variables are read by the control plane only; values are never
-  included in API responses, events, evidence, or logs.
+- `MYSTRA_GITHUB_TOKEN` and `LINEAR_API_KEY` are read by the control plane only;
+  values are never included in API responses, events, evidence, or logs.
+
+## Canonical routes
+
+```text
+GET  /api/integrations
+GET  /api/integrations/:integration/repositories
+POST /api/integrations/:integration/repositories/resolve
+GET  /api/integrations/:integration/issues
+GET  /api/integrations/:integration/issues/:identifier
+POST /api/integrations/:integration/issues/:identifier/dispatch
+```
+
+The operator CLI and Web Projects surface call these routes. They do not import
+provider implementations.

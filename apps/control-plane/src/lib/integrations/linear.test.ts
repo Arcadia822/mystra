@@ -75,8 +75,9 @@ describe("LinearIssueProvider", () => {
       .mockResolvedValueOnce(graphQlResponse({ data: { issue: null } }));
     const provider = new LinearIssueProvider({ apiKey: "linear-test-key", fetchImpl });
 
-    expect((await provider.getIssue("MYS-101"))?.reference.identifier).toBe("MYS-101");
-    expect(await provider.getIssue("MYS-404")).toBeUndefined();
+    expect((await provider.getIssue({ identifier: "MYS-101" }))?.reference.identifier)
+      .toBe("MYS-101");
+    expect(await provider.getIssue({ identifier: "MYS-404" })).toBeUndefined();
 
     const request = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
       query: string;
@@ -100,7 +101,8 @@ describe("LinearIssueProvider", () => {
     const fetchImpl = vi.fn(async () => new Response("authorization failed", { status }));
     const provider = new LinearIssueProvider({ apiKey: "secret-linear-key", fetchImpl });
 
-    const error = await provider.getIssue("MYS-101").catch((caught: unknown) => caught);
+    const error = await provider.getIssue({ identifier: "MYS-101" })
+      .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(IntegrationFailure);
     expect(error).toMatchObject({ code: "INTEGRATION_UNAUTHORIZED" });
@@ -131,10 +133,10 @@ describe("LinearIssueProvider", () => {
       fetchImpl: vi.fn(async () => new Response("unavailable", { status: 503 })),
     });
 
-    await expect(timeoutProvider.getIssue("MYS-101")).rejects.toMatchObject({
+    await expect(timeoutProvider.getIssue({ identifier: "MYS-101" })).rejects.toMatchObject({
       code: "INTEGRATION_TIMEOUT",
     });
-    await expect(upstreamProvider.getIssue("MYS-101")).rejects.toMatchObject({
+    await expect(upstreamProvider.getIssue({ identifier: "MYS-101" })).rejects.toMatchObject({
       code: "INTEGRATION_UPSTREAM_ERROR",
     });
   });
@@ -149,7 +151,7 @@ describe("LinearIssueProvider", () => {
         })),
     });
 
-    await expect(provider.getIssue("MYS-101")).rejects.toMatchObject({
+    await expect(provider.getIssue({ identifier: "MYS-101" })).rejects.toMatchObject({
       code: "INTEGRATION_UPSTREAM_ERROR",
     });
   });

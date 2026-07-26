@@ -8,6 +8,25 @@ import { githubRepoProvider } from "./github.js";
 
 const spawnMock = vi.hoisted(() => vi.fn());
 
+function repositoryTarget(projectId: string, cloneUrl = "https://github.com/acme/project.git") {
+  return {
+    projectId,
+    repository: {
+      integration: "github",
+      provider: "github",
+      externalId: "github-repo",
+      fullName: "acme/project",
+      url: cloneUrl.replace(/\.git$/, ""),
+      cloneUrl,
+      defaultBranch: "main",
+      visibility: "private" as const,
+      isArchived: false,
+      fetchedAt: "2026-07-25T00:00:00.000Z",
+    },
+    defaultBaseBranch: "main",
+  };
+}
+
 vi.mock("node:child_process", () => ({
   spawn: spawnMock,
 }));
@@ -53,12 +72,7 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const receipt = await githubRepoProvider.pushBranch({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000500",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000500"),
       branchName: "mystra/task-500",
       baseBranch: "main",
       commitMessage: "Mystra task 500",
@@ -97,12 +111,10 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const receipt = await githubRepoProvider.pushBranch({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000501",
-        repoUrl: "git@github.enterprise.example:acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget(
+        "00000000-0000-4000-8000-000000000501",
+        "https://github.enterprise.example/acme/project.git",
+      ),
       branchName: "mystra/task-501",
       baseBranch: "main",
       commitMessage: "Mystra task 501",
@@ -135,12 +147,10 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const result = await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000510",
-        repoUrl: "git@github.enterprise.example:acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget(
+        "00000000-0000-4000-8000-000000000510",
+        "https://github.enterprise.example/acme/project.git",
+      ),
       auth: {
         kind: "runner-env",
         provider: "github",
@@ -195,12 +205,7 @@ describe("github repo provider", () => {
   it("rejects no-diff GitHub review requests before provider review creation begins", () => {
     expect(() =>
       reviewRequestSchema.parse({
-        target: {
-          projectId: "00000000-0000-4000-8000-000000000506",
-          repoUrl: "https://github.com/acme/project.git",
-          hostKind: "github",
-          defaultBaseBranch: "main",
-        },
+        target: repositoryTarget("00000000-0000-4000-8000-000000000506"),
         auth: {
           kind: "runner-env",
           provider: "github",
@@ -220,12 +225,7 @@ describe("github repo provider", () => {
 
   it("returns auth_invalid when the configured GitHub runner-env token is missing", async () => {
     const result = await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000507",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000507"),
       auth: {
         kind: "runner-env",
         provider: "github",
@@ -261,12 +261,7 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const receipt = await githubRepoProvider.pushBranch({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000508",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000508"),
       branchName: "mystra/task-508",
       baseBranch: "main",
       commitMessage: "Mystra task 508",
@@ -297,12 +292,7 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const result = await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000509",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000509"),
       auth: {
         kind: "runner-env",
         provider: "github",
@@ -345,12 +335,7 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const result = await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000519",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000519"),
       auth: {
         kind: "runner-env",
         provider: "github",
@@ -400,12 +385,7 @@ describe("github repo provider", () => {
       process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
       const result = await githubRepoProvider.createReview({
-        target: {
-          projectId: "00000000-0000-4000-8000-000000000520",
-          repoUrl: "https://github.com/acme/project.git",
-          hostKind: "github",
-          defaultBaseBranch: "main",
-        },
+        target: repositoryTarget("00000000-0000-4000-8000-000000000520"),
         auth: {
           kind: "runner-env",
           provider: "github",
@@ -440,12 +420,10 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const result = await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000502",
-        repoUrl: "https://github.com/acme/project/",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget(
+        "00000000-0000-4000-8000-000000000502",
+        "https://github.com/acme/project/",
+      ),
       auth: {
         kind: "runner-env",
         provider: "github",
@@ -493,12 +471,7 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const result = await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000503",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000503"),
       auth: {
         kind: "runner-env",
         provider: "github",
@@ -587,12 +560,7 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     const result = await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000505",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000505"),
       auth: {
         kind: "runner-env",
         provider: "github",
@@ -666,12 +634,7 @@ describe("github repo provider", () => {
     process.env.MYSTRA_GITHUB_TOKEN = "top-secret";
 
     await githubRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000504",
-        repoUrl: "https://github.com/acme/project.git",
-        hostKind: "github",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000504"),
       auth: {
         kind: "runner-env",
         provider: "github",

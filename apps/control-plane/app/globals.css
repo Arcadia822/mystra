@@ -295,6 +295,16 @@ time {
   font-weight: 650;
 }
 
+.panelHeader > div {
+  display: grid;
+  gap: 2px;
+}
+
+.panelHeader > div > span {
+  color: var(--text2);
+  font-size: 12px;
+}
+
 .panelHeader > span,
 .panelHeader a {
   color: var(--text2);
@@ -636,6 +646,67 @@ select {
   font-size: 12px;
 }
 
+.formError {
+  color: var(--danger);
+}
+
+.projectCreatePanel {
+  overflow: visible;
+}
+
+.integrationCapabilityList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px 0;
+}
+
+.integrationCapabilityList li {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px 9px;
+}
+
+.integrationCapabilityList strong {
+  font-size: 12px;
+}
+
+.integrationCapabilityList span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.projectForm {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.projectFormGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.projectFormGrid label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.projectFormFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .mono {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -679,6 +750,10 @@ select {
   .dashboardGrid,
   .detailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .projectFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .metricGrid {
@@ -751,6 +826,15 @@ select {
 
   .filterBar {
     width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .projectFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .projectFormFooter {
     align-items: stretch;
     flex-direction: column;
   }

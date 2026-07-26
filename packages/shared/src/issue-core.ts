@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  repositoryReferenceSchema,
+  repositorySnapshotSchema,
+} from "./repository.js";
+
 export const issueReferenceSchema = z
   .object({
     integration: z.string().trim().min(1),
@@ -7,6 +12,7 @@ export const issueReferenceSchema = z
     externalId: z.string().trim().min(1),
     identifier: z.string().trim().min(1).max(255),
     url: z.string().url(),
+    repository: repositoryReferenceSchema.optional(),
   })
   .strict();
 export type IssueReference = z.infer<typeof issueReferenceSchema>;
@@ -75,9 +81,18 @@ export const issueListRequestSchema = z
   .object({
     first: z.number().int().min(1).max(100).default(25),
     after: z.string().min(1).optional(),
+    repository: repositorySnapshotSchema.optional(),
   })
   .strict();
 export type IssueListRequest = z.infer<typeof issueListRequestSchema>;
+
+export const issueGetRequestSchema = z
+  .object({
+    identifier: z.string().trim().min(1).max(255),
+    repository: repositorySnapshotSchema.optional(),
+  })
+  .strict();
+export type IssueGetRequest = z.infer<typeof issueGetRequestSchema>;
 
 export const issueListResponseSchema = z
   .object({
@@ -87,7 +102,7 @@ export const issueListResponseSchema = z
   .strict();
 export type IssueListResponse = z.infer<typeof issueListResponseSchema>;
 
-export const integrationCapabilitySchema = z.enum(["issues"]);
+export const integrationCapabilitySchema = z.enum(["repositories", "issues"]);
 export type IntegrationCapability = z.infer<typeof integrationCapabilitySchema>;
 
 export const integrationDescriptorSchema = z
@@ -110,7 +125,10 @@ export type IntegrationDescriptor = z.infer<typeof integrationDescriptorSchema>;
 
 export const integrationErrorCodeSchema = z.enum([
   "INTEGRATION_NOT_FOUND",
+  "REPOSITORY_CAPABILITY_UNAVAILABLE",
   "ISSUE_CAPABILITY_UNAVAILABLE",
+  "REPOSITORY_NOT_FOUND",
+  "REPOSITORY_SCOPE_REQUIRED",
   "ISSUE_NOT_FOUND",
   "INTEGRATION_NOT_CONFIGURED",
   "INTEGRATION_UNAUTHORIZED",

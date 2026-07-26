@@ -6,6 +6,7 @@ import Link from "next/link";
 import { EmptyState, ErrorState, LoadingState } from "../_components/states";
 import { relativeTime } from "../_lib/format";
 import { useResource } from "../_lib/use-resource";
+import { ProjectCreateForm } from "./_components/project-create-form";
 
 export default function ProjectsPage() {
   const resource = useResource<{ projects: Project[] }>("/api/projects");
@@ -13,13 +14,14 @@ export default function ProjectsPage() {
   return (
     <div className="pageContent">
       <div className="pageToolbar">
-        <p className="pageDescription">Repository execution defaults and sandbox configuration.</p>
+        <p className="pageDescription">Remote repository execution defaults and sandbox configuration.</p>
         <button className="secondaryButton" type="button" onClick={() => void resource.refresh()}>Refresh</button>
       </div>
+      <ProjectCreateForm />
       {resource.isLoading ? <LoadingState label="Loading projects" /> : null}
       {resource.error ? <ErrorState message={resource.error} onRetry={() => void resource.refresh()} /> : null}
       {!resource.isLoading && !resource.error && resource.data?.projects.length === 0 ? (
-        <EmptyState title="No projects configured" description="Create a Project through the canonical API before dispatching work." />
+        <EmptyState title="No projects configured" description="Bind a remote repository above before dispatching work." />
       ) : null}
       {resource.data?.projects.length ? (
         <section className="panel">
@@ -34,7 +36,10 @@ export default function ProjectsPage() {
                 key={project.id}
               >
                 <span className="primaryCell"><strong>{project.name}</strong><small>{project.slug}</small></span>
-                <span className="mono">{project.repo}</span>
+                <span className="primaryCell">
+                  <strong className="mono">{project.repository.fullName}</strong>
+                  <small>{project.repository.provider} · {project.repository.visibility}</small>
+                </span>
                 <span>{project.defaultAgent}</span>
                 <span className="primaryCell">
                   <strong>{project.runtime.provider}</strong>

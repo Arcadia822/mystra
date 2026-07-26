@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { projectCreateSchema } from "@mystra/shared";
+import { projectCreateRequestSchema } from "@mystra/shared";
 
 import { getDb } from "@/lib/db";
+import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
+import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
+import { resolveProjectCreateInput } from "@/lib/projects/resolve-project-input";
 
 function projectError(code: string, message: string, status: number) {
   return NextResponse.json({ error: { code, message } }, { status });
@@ -14,9 +17,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const project = getDb().createProject(projectCreateSchema.parse(await request.json()));
+    const parsed = projectCreateRequestSchema.parse(await request.json());
+    const resolved = await resolveProjectCreateInput(parsed, defaultIntegrationRegistry());
+    const project = getDb().createProject(resolved);
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
+    if (error instanceof IntegrationFailure) {
+      return integrationErrorResponse(error);
+    }
     const message = error instanceof Error ? error.message : "";
     if (message.startsWith("PROJECT_SLUG_CONFLICT")) {
       return projectError("PROJECT_SLUG_CONFLICT", message, 409);

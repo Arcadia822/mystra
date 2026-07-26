@@ -6,9 +6,9 @@ import {
   type ResolvedRuntimeContract,
 } from "@mystra/shared";
 
-export function buildLaneInspectionView(project: Pick<Project, "repo" | "baseBranch" | "defaultAgent" | "runtime" | "prewarmConfig" | "metadata">) {
+export function buildLaneInspectionView(project: Pick<Project, "repository" | "baseBranch" | "defaultAgent" | "runtime" | "prewarmConfig" | "metadata">) {
   return laneInspectionViewSchema.parse({
-    repo: project.repo,
+    repository: project.repository,
     baseBranch: project.baseBranch,
     defaultAgent: project.defaultAgent,
     runtime: project.runtime,
@@ -19,7 +19,7 @@ export function buildLaneInspectionView(project: Pick<Project, "repo" | "baseBra
 }
 
 export function buildSubmittedLaneSnapshot(input: {
-  project: Pick<Project, "id" | "slug" | "repo" | "baseBranch" | "defaultAgent" | "prewarmConfig" | "metadata">;
+  project: Pick<Project, "id" | "slug" | "repository" | "baseBranch" | "defaultAgent" | "prewarmConfig" | "metadata">;
   resolvedRuntime: ResolvedRuntimeContract;
   contextBundleRefs: ContextBundleRef[];
   submittedAt: string;
@@ -27,7 +27,7 @@ export function buildSubmittedLaneSnapshot(input: {
   return submittedLaneSnapshotSchema.parse({
     projectId: input.project.id,
     projectSlug: input.project.slug,
-    repo: input.project.repo,
+    repository: input.project.repository,
     baseBranch: input.project.baseBranch,
     defaultAgent: input.project.defaultAgent,
     runtime: input.resolvedRuntime,

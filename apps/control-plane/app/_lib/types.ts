@@ -40,7 +40,18 @@ export interface JobSnapshot {
       taskId: string;
       source: string;
       projectId?: string;
-      repo?: string;
+      repository?: {
+        integration: string;
+        provider: string;
+        externalId: string;
+        fullName: string;
+        url: string;
+        cloneUrl: string;
+        defaultBranch: string;
+        visibility: string;
+        isArchived: boolean;
+        fetchedAt: string;
+      };
       baseBranch?: string;
       branchName: string;
       agent?: string;
@@ -73,7 +84,6 @@ export interface JobSnapshot {
     id: string;
     name: string;
     slug: string;
-    repo: string;
     baseBranch: string;
     defaultAgent: string;
     runtime: {

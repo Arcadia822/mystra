@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mystra remote repository prototype</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui;background:#0b0d10;color:#ecf0f4}
+    *{box-sizing:border-box}body{margin:0}.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+    nav{border-right:1px solid #29303a;padding:24px 16px;background:#111419}nav strong{display:block;margin:0 10px 28px}
+    nav button{display:block;width:100%;text-align:left;border:0;background:transparent;color:#9ba7b4;padding:10px;border-radius:7px}
+    nav button.active{background:#20262e;color:#fff}.main{padding:28px;max-width:1100px;width:100%}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}h1{font-size:22px;margin:0}p{color:#9ba7b4}
+    .button{border:1px solid #5e7de8;background:#3158d4;color:white;border-radius:7px;padding:9px 13px;cursor:pointer}
+    .ghost{background:#171b21;border-color:#39424e}.panel{border:1px solid #29303a;background:#111419;border-radius:10px;padding:18px;margin-bottom:16px}
+    .row{display:grid;grid-template-columns:1.4fr 1.4fr .7fr .7fr;gap:16px;padding:13px 4px;border-top:1px solid #252b33}
+    .row:first-child{border-top:0}.muted{color:#8793a0;font-size:13px}.mono{font-family:ui-monospace,monospace}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.field{margin:14px 0}.field label{display:block;color:#9ba7b4;font-size:13px;margin-bottom:7px}
+    input,select{width:100%;border:1px solid #39424e;background:#0d1014;color:#fff;padding:10px;border-radius:7px}
+    .repo{display:flex;justify-content:space-between;gap:20px;padding:12px;border:1px solid #29303a;border-radius:8px;margin:8px 0;cursor:pointer}
+    .repo.selected{border-color:#5e7de8;background:#17203c}.badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#273044;color:#c6d2ff;font-size:12px}
+    .hidden{display:none}@media(max-width:720px){.shell{grid-template-columns:1fr}nav{display:none}.main{padding:18px}.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <nav><strong>MYSTRA</strong><button>Control Plane</button><button>Tasks</button><button>Runners</button><button class="active">Projects</button></nav>
+  <main class="main">
+    <section id="list">
+      <header><div><h1>Projects</h1><p>Every Project is bound to a verified remote repository.</p></div><button class="button" onclick="showCreate()">Create from GitHub</button></header>
+      <div class="panel">
+        <div class="row muted"><span>Project</span><span>Repository</span><span>Provider</span><span>Agent</span></div>
+        <div class="row"><span><strong>Remote fixture</strong><br><small class="muted">remote-fixture</small></span><span class="mono">Arcadia822/mystra-remote-e2e</span><span><i class="badge">github</i></span><span>copilot</span></div>
+      </div>
+      <div class="panel"><strong>Integration capabilities</strong><p>GitHub: repositories + issues</p><p>Linear: issues</p></div>
+    </section>
+    <section id="create" class="hidden">
+      <header><div><button class="button ghost" onclick="showList()">Back</button><h1 style="display:inline;margin-left:12px">Create Project</h1></div><span class="badge">GitHub</span></header>
+      <div class="grid">
+        <div class="panel"><strong>Select remote repository</strong><p>Loaded through the canonical Mystra API.</p>
+          <div class="repo selected" onclick="selectRepo(this)"><span><strong>mystra-remote-e2e</strong><br><small class="muted">Arcadia822/mystra-remote-e2e</small></span><span class="badge">private</span></div>
+          <div class="repo" onclick="selectRepo(this)"><span><strong>another-fixture</strong><br><small class="muted">Arcadia822/another-fixture</small></span><span class="badge">private</span></div>
+        </div>
+        <form class="panel" onsubmit="createProject(event)"><strong>Execution defaults</strong>
+          <div class="field"><label>Name</label><input value="Remote fixture" required></div>
+          <div class="field"><label>Slug</label><input value="remote-fixture" required></div>
+          <div class="field"><label>Agent</label><select><option>copilot</option><option>codex</option></select></div>
+          <div class="field"><label>Runtime image</label><input value="mystra-copilot:fixture" required></div>
+          <button class="button" type="submit">Resolve repository and create</button>
+        </form>
+      </div>
+    </section>
+    <section id="detail" class="hidden">
+      <header><div><button class="button ghost" onclick="showList()">Back</button><h1 style="display:inline;margin-left:12px">Remote fixture</h1></div><span class="badge">active</span></header>
+      <div class="grid">
+        <div class="panel"><strong>Repository</strong><p class="mono">Arcadia822/mystra-remote-e2e</p><p>Provider: github</p><p>Integration: github</p><p>Visibility: private</p></div>
+        <div class="panel"><strong>Resolved snapshot</strong><p>Default branch: main</p><p>Clone: https://github.com/Arcadia822/mystra-remote-e2e.git</p><p>Source: GitHub RepoProvider</p></div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+function only(id){for(const key of ["list","create","detail"])document.getElementById(key).classList.toggle("hidden",key!==id)}
+function showCreate(){only("create")}function showList(){only("list")}
+function selectRepo(node){document.querySelectorAll(".repo").forEach(x=>x.classList.remove("selected"));node.classList.add("selected")}
+function createProject(event){event.preventDefault();only("detail")}
+</script>
+</body>
+</html>

@@ -52,7 +52,7 @@ export const projectSelectionViewSchema = projectSchema
     id: true,
     name: true,
     slug: true,
-    repo: true,
+    repository: true,
     baseBranch: true,
     defaultAgent: true,
     archivedAt: true,
@@ -64,7 +64,7 @@ export type ProjectSelectionView = z.infer<typeof projectSelectionViewSchema>;
 
 export const laneInspectionViewSchema = z
   .object({
-    repo: projectSelectionViewSchema.shape.repo,
+    repository: projectSelectionViewSchema.shape.repository,
     baseBranch: projectSelectionViewSchema.shape.baseBranch,
     defaultAgent: projectSelectionViewSchema.shape.defaultAgent,
     runtime: projectRuntimeConfigSchema,
@@ -80,7 +80,7 @@ export const executionContextViewSchema = projectSchema
     id: true,
     name: true,
     slug: true,
-    repo: true,
+    repository: true,
     baseBranch: true,
     defaultAgent: true,
     runtime: true,
@@ -101,7 +101,7 @@ export const runProjectViewSchema = z
     id: projectSelectionViewSchema.shape.id,
     name: projectSelectionViewSchema.shape.name,
     slug: projectSelectionViewSchema.shape.slug,
-    repo: projectSelectionViewSchema.shape.repo,
+    repository: projectSelectionViewSchema.shape.repository,
     baseBranch: projectSelectionViewSchema.shape.baseBranch,
     defaultAgent: projectSelectionViewSchema.shape.defaultAgent,
     runtime: projectRuntimeConfigSchema,
@@ -119,7 +119,7 @@ export const submittedLaneSnapshotSchema = z
   .object({
     projectId: projectSelectionViewSchema.shape.id,
     projectSlug: projectSelectionViewSchema.shape.slug,
-    repo: projectSelectionViewSchema.shape.repo,
+    repository: projectSelectionViewSchema.shape.repository,
     baseBranch: projectSelectionViewSchema.shape.baseBranch,
     defaultAgent: projectSelectionViewSchema.shape.defaultAgent,
     runtime: resolvedRuntimeContractSchema,

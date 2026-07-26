@@ -8,9 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as dbModule from "@/lib/db";
 import { getDb, resetDbForTests } from "@/lib/db";
 import { GET as listContextBundles, POST as postContextBundle } from "./context-bundles/route";
+import { GET as listIntegrations } from "./integrations/route";
 import { GET as getIntegrationIssue } from "./integrations/[integration]/issues/[identifier]/route";
 import { POST as dispatchIntegrationIssue } from "./integrations/[integration]/issues/[identifier]/dispatch/route";
 import { GET as listIntegrationIssues } from "./integrations/[integration]/issues/route";
+import { GET as listIntegrationRepositories } from "./integrations/[integration]/repositories/route";
+import { GET as resolveIntegrationRepository } from "./integrations/[integration]/repositories/resolve/route";
 import { POST as cancelJob } from "./jobs/[id]/cancel/route";
 import { GET as getJob } from "./jobs/[id]/route";
 import { GET as getJobSummary } from "./jobs/[id]/summary/route";
@@ -42,7 +45,10 @@ function projectPayload(slug = "local-fixture") {
   return {
     name: "Local Fixture",
     slug,
-    repo: "local/fixture",
+    repository: {
+      integration: "github",
+      identifier: "arcadia/mystra-fixture",
+    },
     baseBranch: "main",
     defaultAgent: "codex",
     runtime: {
@@ -67,10 +73,33 @@ function projectPayload(slug = "local-fixture") {
 function githubProjectPayload(slug = "github-fixture") {
   return {
     ...projectPayload(slug),
-    repo: "https://github.com/Arcadia822/mystra-demo.git",
     defaultAgent: "copilot",
   };
 }
+
+const githubRepositoryPayload = {
+  id: 42,
+  full_name: "arcadia/mystra-fixture",
+  html_url: "https://github.com/arcadia/mystra-fixture",
+  clone_url: "https://github.com/arcadia/mystra-fixture.git",
+  default_branch: "main",
+  visibility: "private",
+  archived: false,
+};
+
+const githubIssuePayload = {
+  id: 101,
+  number: 7,
+  title: "Remote issue",
+  body: "Exercise the GitHub scoped route.",
+  html_url: "https://github.com/arcadia/mystra-fixture/issues/7",
+  state: "open",
+  state_reason: null,
+  assignee: null,
+  labels: [],
+  created_at: "2026-07-25T01:00:00.000Z",
+  updated_at: "2026-07-25T02:00:00.000Z",
+};
 
 const linearIssuePayload = {
   id: "linear-issue-101",
@@ -90,11 +119,16 @@ const linearIssuePayload = {
 function stubLinearFetch(
   body: unknown = { data: { issue: linearIssuePayload } },
 ) {
-  const fetchMock = vi.fn(async () =>
-    new Response(JSON.stringify(body), {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    const responseBody = url.startsWith("https://api.github.com/")
+      ? githubRepositoryPayload
+      : body;
+    return new Response(JSON.stringify(responseBody), {
       status: 200,
       headers: { "content-type": "application/json" },
-    }));
+    });
+  });
   vi.stubGlobal("fetch", fetchMock);
   process.env.LINEAR_API_KEY = "linear-route-test-key";
   return fetchMock;
@@ -109,6 +143,12 @@ async function createProject(slug = "local-fixture") {
 beforeEach(async () => {
   tempDir = await mkdtemp(path.join(tmpdir(), "mystra-routes-"));
   process.env.MYSTRA_DB_PATH = path.join(tempDir, "mystra.db");
+  process.env.MYSTRA_GITHUB_TOKEN = "github-route-test-key";
+  vi.stubGlobal("fetch", vi.fn(async () =>
+    new Response(JSON.stringify(githubRepositoryPayload), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })));
   resetDbForTests();
 });
 
@@ -118,10 +158,72 @@ afterEach(async () => {
   resetDbForTests();
   delete process.env.MYSTRA_DB_PATH;
   delete process.env.LINEAR_API_KEY;
+  delete process.env.MYSTRA_GITHUB_TOKEN;
   await rm(tempDir, { force: true, recursive: true });
 });
 
 describe("Issue Integration API routes", () => {
+  it("exposes descriptors, repository capabilities, and scoped GitHub Issues", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const body = url.includes("/issues")
+        ? [githubIssuePayload]
+        : url.includes("/user/repos")
+          ? [githubRepositoryPayload]
+          : githubRepositoryPayload;
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }));
+
+    const descriptors = await listIntegrations();
+    expect(await json<{ integrations: Array<{ name: string }> }>(descriptors))
+      .toEqual({
+        integrations: [
+          { name: "github", provider: "github", capabilities: ["repositories", "issues"] },
+          { name: "linear", provider: "linear", capabilities: ["issues"] },
+        ],
+      });
+
+    const repositories = await listIntegrationRepositories(
+      new Request("http://localhost/api/integrations/github/repositories?limit=10"),
+      { params: Promise.resolve({ integration: "github" }) },
+    );
+    expect(repositories.status).toBe(200);
+    expect((await json<{ items: Array<{ fullName: string }> }>(repositories)).items[0]?.fullName)
+      .toBe("arcadia/mystra-fixture");
+
+    const resolved = await resolveIntegrationRepository(
+      new Request(
+        "http://localhost/api/integrations/github/repositories/resolve"
+        + "?identifier=arcadia%2Fmystra-fixture",
+      ),
+      { params: Promise.resolve({ integration: "github" }) },
+    );
+    expect(resolved.status).toBe(200);
+
+    const missingScope = await listIntegrationIssues(
+      new Request("http://localhost/api/integrations/github/issues"),
+      { params: Promise.resolve({ integration: "github" }) },
+    );
+    expect(missingScope.status).toBe(400);
+    expect(await json(missingScope)).toEqual({
+      error: expect.objectContaining({ code: "REPOSITORY_SCOPE_REQUIRED" }),
+    });
+
+    const issues = await listIntegrationIssues(
+      new Request(
+        "http://localhost/api/integrations/github/issues"
+        + "?repository=arcadia%2Fmystra-fixture",
+      ),
+      { params: Promise.resolve({ integration: "github" }) },
+    );
+    expect(issues.status).toBe(200);
+    expect((await json<{ items: Array<{ reference: { identifier: string } }> }>(issues))
+      .items[0]?.reference.identifier).toBe("7");
+  });
+
   it("lists and gets normalized Linear Issues", async () => {
     const fetchMock = stubLinearFetch({
       data: {
@@ -202,6 +304,7 @@ describe("Issue Integration API routes", () => {
       githubProjectPayload("issue-dispatch"),
     ));
     const project = await json<{ project: { id: string } }>(projectResponse);
+    fetchMock.mockClear();
 
     const response = await dispatchIntegrationIssue(
       jsonRequest("http://localhost/api/integrations/linear/issues/MYS-101/dispatch", {
@@ -275,7 +378,7 @@ describe("Issue Integration API routes", () => {
     expect(getDb().listJobs()).toHaveLength(1);
   });
 
-  it("rejects invalid Project, Agent, runtime, and non-GitHub repository with zero partial Jobs", async () => {
+  it("rejects invalid Project, Agent, and runtime with zero partial Jobs", async () => {
     stubLinearFetch();
     const localProject = await createProject("not-github");
     const cases = [
@@ -299,13 +402,6 @@ describe("Issue Integration API routes", () => {
           agent: "copilot",
           branchName: "codex/invalid-runtime",
           runtime: { provider: "kubernetes" },
-        },
-      },
-      {
-        body: {
-          projectId: localProject.project.id,
-          agent: "copilot",
-          branchName: "codex/not-github",
         },
       },
     ];
@@ -409,7 +505,10 @@ describe("Project API routes", () => {
     const response = await postProject(jsonRequest("http://localhost/api/projects", {
       name: "Invalid Runtime",
       slug: "invalid-runtime",
-      repo: "local/invalid-runtime",
+      repository: {
+        integration: "github",
+        identifier: "arcadia/mystra-fixture",
+      },
       defaultAgent: "codex",
       image: "mystra-runner:local",
     }));
@@ -528,11 +627,11 @@ describe("Job and MCP project contracts", () => {
 
     expect(response.status).toBe(201);
     const snapshot = await json<{
-      job: { spec: { repo: string; projectId: string } };
+      job: { spec: { repository: { fullName: string }; projectId: string } };
       runtime: { executionContract: { bundleSlug: string; filePath: string } };
     }>(response);
     expect(snapshot.job.spec.projectId).toBe(created.project.id);
-    expect(snapshot.job.spec.repo).toBe("local/fixture");
+    expect(snapshot.job.spec.repository.fullName).toBe("arcadia/mystra-fixture");
     expect(snapshot.runtime.executionContract.bundleSlug).toBe("execution-spec");
     expect(snapshot.runtime.executionContract.filePath).toBe("/mystra/context/execution-spec/execution-spec.json");
   });
@@ -569,8 +668,10 @@ describe("Job and MCP project contracts", () => {
     }));
     expect(jobResponse.status).toBe(200);
     const jobRpc = await json<{ result: { content: Array<{ text: string }> } }>(jobResponse);
-    const snapshot = JSON.parse(jobRpc.result.content[0]?.text ?? "{}") as { job: { spec: { repo: string } } };
-    expect(snapshot.job.spec.repo).toBe("local/fixture");
+    const snapshot = JSON.parse(jobRpc.result.content[0]?.text ?? "{}") as {
+      job: { spec: { repository: { fullName: string } } };
+    };
+    expect(snapshot.job.spec.repository.fullName).toBe("arcadia/mystra-fixture");
   });
 
   it("returns the persisted job snapshot through mystra_get_job", async () => {
@@ -805,9 +906,21 @@ describe("Job and MCP project contracts", () => {
     expect(createJobTool?.inputSchema.properties.runtime).toEqual(expect.objectContaining({
       additionalProperties: false,
     }));
+    expect(createJobTool?.inputSchema.properties).not.toHaveProperty("repo");
+    expect(createJobTool?.inputSchema.properties).not.toHaveProperty("baseBranch");
     expect(createProjectTool?.inputSchema.properties.runtime).toEqual(expect.objectContaining({
       additionalProperties: false,
     }));
+    expect(createProjectTool?.inputSchema).toEqual(expect.objectContaining({
+      required: expect.arrayContaining(["repository"]),
+      properties: expect.objectContaining({
+        repository: expect.objectContaining({
+          required: ["integration", "identifier"],
+          additionalProperties: false,
+        }),
+      }),
+    }));
+    expect(createProjectTool?.inputSchema.properties).not.toHaveProperty("repo");
     expect(getJobSummaryTool?.inputSchema).toEqual({
       type: "object",
       required: ["jobId"],
@@ -864,7 +977,10 @@ describe("Job and MCP project contracts", () => {
         arguments: {
           name: "Invalid MCP Project",
           slug: "invalid-mcp-project",
-          repo: "local/invalid-mcp-project",
+          repository: {
+            integration: "github",
+            identifier: "arcadia/mystra-fixture",
+          },
           defaultAgent: "codex",
           image: "mystra-runner:local",
         },

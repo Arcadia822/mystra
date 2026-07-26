@@ -6,8 +6,9 @@ import {
   contextBundleCreateSchema,
   controlPlaneLifecycleHandoffEventTypes,
   jobSpecSchema,
+  jobSubmissionSchema,
   platformCapabilitiesSchema,
-  projectCreateSchema,
+  projectCreateRequestSchema,
   projectRuntimeConfigSchema,
   projectSchema,
   resolvedRuntimeContractSchema,
@@ -20,6 +21,8 @@ import { z } from "zod";
 
 import { getDb } from "@/lib/db";
 import type { PublicRunnerSession } from "@/lib/db/rdb-provider";
+import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
+import { resolveProjectCreateInput } from "@/lib/projects/resolve-project-input";
 
 const jsonRpcRequestSchema = z
   .object({
@@ -313,8 +316,6 @@ export async function POST(request: Request) {
                 taskId: { type: "string" },
                 source: { type: "string", enum: ["mcp", "api"] },
                 projectId: { type: "string" },
-                repo: { type: "string" },
-                baseBranch: { type: "string", default: "main" },
                 branchName: { type: "string" },
                 agent: { type: "string", enum: ["codex", "copilot"] },
                 prompt: { type: "string" },
@@ -351,11 +352,19 @@ export async function POST(request: Request) {
             description: "Create a Mystra Project.",
             inputSchema: {
               type: "object",
-              required: ["name", "slug", "repo", "defaultAgent", "runtime"],
+              required: ["name", "slug", "repository", "defaultAgent", "runtime"],
               properties: {
                 name: { type: "string" },
                 slug: { type: "string" },
-                repo: { type: "string" },
+                repository: {
+                  type: "object",
+                  required: ["integration", "identifier"],
+                  properties: {
+                    integration: { type: "string" },
+                    identifier: { type: "string" },
+                  },
+                  additionalProperties: false,
+                },
                 baseBranch: { type: "string", default: "main" },
                 defaultAgent: { type: "string", enum: ["codex", "copilot"] },
                 runtime: {
@@ -510,7 +519,7 @@ export async function POST(request: Request) {
       }
 
       if (call.name === "mystra_create_job") {
-        const parsed = parseToolArguments(rpc.id, call.name, jobSpecSchema, call.arguments);
+        const parsed = parseToolArguments(rpc.id, call.name, jobSubmissionSchema, call.arguments);
         if (!parsed.ok) {
           return parsed.response;
         }
@@ -518,11 +527,20 @@ export async function POST(request: Request) {
       }
 
       if (call.name === "mystra_create_project") {
-        const parsed = parseToolArguments(rpc.id, call.name, projectCreateSchema, call.arguments);
+        const parsed = parseToolArguments(
+          rpc.id,
+          call.name,
+          projectCreateRequestSchema,
+          call.arguments,
+        );
         if (!parsed.ok) {
           return parsed.response;
         }
-        return jsonRpc(rpc.id, validatedToolResult(projectSchema, db.createProject(parsed.data)));
+        const resolved = await resolveProjectCreateInput(
+          parsed.data,
+          defaultIntegrationRegistry(),
+        );
+        return jsonRpc(rpc.id, validatedToolResult(projectSchema, db.createProject(resolved)));
       }
 
       if (call.name === "mystra_list_projects") {

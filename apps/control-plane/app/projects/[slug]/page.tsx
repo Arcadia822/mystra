@@ -57,7 +57,18 @@ export default function ProjectDetailPage() {
             <div className="panelHeader"><h2>Project</h2><span className="mono">{project.id}</span></div>
             <dl className="definitionList">
               <div><dt>Slug</dt><dd>{project.slug}</dd></div>
-              <div><dt>Repository</dt><dd className="mono">{project.repo}</dd></div>
+              <div>
+                <dt>Repository</dt>
+                <dd>
+                  <a className="mono" href={project.repository.url} rel="noreferrer" target="_blank">
+                    {project.repository.fullName}
+                  </a>
+                </dd>
+              </div>
+              <div><dt>Repository provider</dt><dd>{project.repository.provider} · {project.repository.visibility}</dd></div>
+              <div><dt>Clone URL</dt><dd className="mono">{project.repository.cloneUrl}</dd></div>
+              <div><dt>Remote default</dt><dd className="mono">{project.repository.defaultBranch}</dd></div>
+              <div><dt>Snapshot fetched</dt><dd>{relativeTime(project.repository.fetchedAt)} · {project.repository.fetchedAt}</dd></div>
               <div><dt>Base branch</dt><dd className="mono">{project.baseBranch}</dd></div>
               <div><dt>Default agent</dt><dd>{project.defaultAgent}</dd></div>
               <div><dt>Created</dt><dd>{relativeTime(project.createdAt)} · {project.createdAt}</dd></div>

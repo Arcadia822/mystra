@@ -2,13 +2,14 @@ import {
   issueListResponseSchema,
   issueSchema,
   type Issue,
+  type IssueGetRequest,
   type IssueListRequest,
   type IssueListResponse,
 } from "@mystra/shared";
 import { z } from "zod";
 
 import { IntegrationFailure } from "./errors";
-import type { IssueProvider } from "./types";
+import type { IntegrationPlugin, IssueProvider } from "./types";
 
 const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -129,6 +130,7 @@ function normalizeIssue(raw: z.infer<typeof rawIssueSchema>, fetchedAt: string):
 
 export class LinearIssueProvider implements IssueProvider {
   readonly providerName = "linear";
+  readonly repositoryScope = "unsupported";
   private readonly apiKey: string | undefined;
   private readonly fetchImpl: Fetch;
   private readonly timeoutMs: number;
@@ -156,8 +158,8 @@ export class LinearIssueProvider implements IssueProvider {
     });
   }
 
-  async getIssue(identifier: string): Promise<Issue | undefined> {
-    const envelope = await this.query(getQuery, { identifier });
+  async getIssue(input: IssueGetRequest): Promise<Issue | undefined> {
+    const envelope = await this.query(getQuery, { identifier: input.identifier });
     const parsed = this.parseData(getDataSchema, envelope.data);
     return parsed.issue ? normalizeIssue(parsed.issue, new Date().toISOString()) : undefined;
   }
@@ -261,4 +263,21 @@ export class LinearIssueProvider implements IssueProvider {
     }
     return envelope.data;
   }
+}
+
+export function createLinearIntegration(input: {
+  apiKey: string | undefined;
+  fetchImpl?: Fetch;
+  timeoutMs?: number;
+}): IntegrationPlugin {
+  return {
+    descriptor: {
+      name: "linear",
+      provider: "linear",
+      capabilities: ["issues"],
+    },
+    capabilities: {
+      issues: new LinearIssueProvider(input),
+    },
+  };
 }

@@ -15,7 +15,12 @@ Use the smallest context set that can answer the task.
 
 The project uses 5xP for durable project context and Spec-Kit for feature-level specification-driven development.
 
-The current product boundary is Open Agents source-authoritative baseline reuse with Mystra-owned interfaces at provider and execution seams, plus local-first implementations: SQLite RDB, read-only Linear IssueProvider, direct Agent execution, and a single-machine sandbox path. Product runtime MUST NOT depend on a WorkflowProvider, workflow blueprint or workflow node graph.
+The current product boundary is Open Agents source-authoritative baseline reuse
+with Mystra-owned interfaces at provider and execution seams: SQLite RDB,
+GitHub RepoProvider plus repository-scoped IssueProvider, read-only Linear
+IssueProvider, direct Agent execution, and a single-machine sandbox path. Every
+Project repository is remote and provider-resolved. Product runtime MUST NOT
+depend on a WorkflowProvider, workflow blueprint or workflow node graph.
 
 1. Use `AGENTS.md` to route the work through `aaa-spec-kit` and identify the relevant project-local skill/process.
 2. Use the 5xP root files for stable project context:
@@ -34,6 +39,10 @@ The current product boundary is Open Agents source-authoritative baseline reuse 
    - Another durable rule now in force: prefer neutral platform language such as `Mystra platform`, `Team`, and `project`, and reserve `workspace` for the run-scoped working directory / execution-context surface rather than using it as a tenancy synonym.
    - Another durable rule now in force: avoid overfitting 5xP to one example deployment shape; prefer platform-contract language over environment-specific examples such as bare-metal host descriptions.
    - Another durable rule now in force: prioritize management surfaces in the order `API -> skill/MCP -> CLI -> UI`; UI is secondary to agent- and operator-facing programmable interfaces.
+   - Another durable rule now in force: API owns Integration, Repository,
+     Project, Issue, and dispatch behavior. CLI and Web are clients of those
+     contracts and must not introduce repository resolution or provider
+     branching of their own.
 5. Keep feature-specific requirements inside Spec-Kit specs, plans, tasks, and generated design artifacts.
 6. Do not create feature-level PRDs, plans, task lists, or generated design artifacts directly under `docs/`; use `specs/<feature>/`.
 7. If a submodule needs durable operating knowledge, add the smallest useful local documentation near that submodule and link it from the relevant Spec-Kit artifact or 5xP file.

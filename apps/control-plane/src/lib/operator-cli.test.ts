@@ -16,12 +16,24 @@ function response(body: unknown, status = 200) {
 }
 
 function projectDetailPayload() {
+  const repository = {
+    integration: "github",
+    provider: "github",
+    externalId: "123456",
+    fullName: "arcadia/mystra",
+    url: "https://github.com/arcadia/mystra",
+    cloneUrl: "https://github.com/arcadia/mystra.git",
+    defaultBranch: "main",
+    visibility: "private",
+    isArchived: false,
+    fetchedAt: "2026-05-17T00:00:00.000Z",
+  };
   return {
     project: {
       id: "00000000-0000-4000-8000-000000000001",
       name: "Mystra",
       slug: "mystra",
-      repo: "git@example.com:arcadia/mystra.git",
+      repository,
       baseBranch: "main",
       defaultAgent: "codex",
       runtime: {
@@ -42,7 +54,7 @@ function projectDetailPayload() {
       prewarmConfig: { manager: "pnpm" },
       metadata: {},
       lane: {
-        repo: "git@example.com:arcadia/mystra.git",
+        repository,
         baseBranch: "main",
         defaultAgent: "codex",
         runtime: {
@@ -112,7 +124,7 @@ function jobSnapshot(overrides: Record<string, unknown> = {}) {
     lane: {
       projectId: "00000000-0000-4000-8000-000000000001",
       projectSlug: "mystra",
-      repo: "git@example.com:arcadia/mystra.git",
+      repository: projectDetailPayload().project.repository,
       baseBranch: "main",
       defaultAgent: "codex",
       runtime: {
@@ -189,6 +201,87 @@ describe("operator CLI", () => {
     });
   });
 
+  it("lists Integration descriptors and remote repositories through canonical APIs", async () => {
+    const integrations = await execute(["integrations", "list", "--json"], async (url) => {
+      expect(url).toBe("http://localhost:3000/api/integrations");
+      return response({
+        integrations: [
+          { name: "github", provider: "github", capabilities: ["repositories", "issues"] },
+          { name: "linear", provider: "linear", capabilities: ["issues"] },
+        ],
+      });
+    });
+    const repositories = await execute([
+      "repositories",
+      "list",
+      "--integration",
+      "github",
+      "--limit",
+      "10",
+      "--json",
+    ], async (url) => {
+      expect(url).toBe(
+        "http://localhost:3000/api/integrations/github/repositories?limit=10",
+      );
+      return response({
+        items: [{ fullName: "arcadia/mystra-fixture", defaultBranch: "main" }],
+        pageInfo: { hasNextPage: false },
+      });
+    });
+
+    expect(integrations.exitCode).toBe(EXIT_CODES.OK);
+    expect(JSON.parse(integrations.stdout).integrations).toHaveLength(2);
+    expect(repositories.exitCode).toBe(EXIT_CODES.OK);
+    expect(JSON.parse(repositories.stdout).items[0].fullName)
+      .toBe("arcadia/mystra-fixture");
+  });
+
+  it("creates a remote-bound Project with a thin HTTP POST", async () => {
+    const result = await execute([
+      "projects",
+      "create",
+      "--name",
+      "Fixture",
+      "--slug",
+      "fixture",
+      "--repository-integration",
+      "github",
+      "--repository",
+      "arcadia/mystra-fixture",
+      "--agent",
+      "copilot",
+      "--runtime-image",
+      "mystra-copilot:fixture",
+      "--json",
+    ], async (url, init) => {
+      expect(url).toBe("http://localhost:3000/api/projects");
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        name: "Fixture",
+        slug: "fixture",
+        repository: {
+          integration: "github",
+          identifier: "arcadia/mystra-fixture",
+        },
+        defaultAgent: "copilot",
+        runtime: {
+          provider: "docker",
+          image: "mystra-copilot:fixture",
+        },
+      });
+      return response({
+        project: {
+          slug: "fixture",
+          repository: { fullName: "arcadia/mystra-fixture" },
+        },
+      }, 201);
+    });
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
+    expect(JSON.parse(result.stdout).project.repository.fullName)
+      .toBe("arcadia/mystra-fixture");
+  });
+
   it("lists Issues through the canonical API with cursor pagination", async () => {
     const result = await execute(
       [
@@ -225,6 +318,33 @@ describe("operator CLI", () => {
     expect(result.exitCode).toBe(EXIT_CODES.OK);
     expect(result.stdout).toContain("MYS-101 | Todo | Ship the demo");
     expect(result.stdout).toContain("nextCursor: next-cursor");
+  });
+
+  it("passes GitHub repository scope without reading credentials", async () => {
+    const result = await execute([
+      "issues",
+      "get",
+      "7",
+      "--integration",
+      "github",
+      "--repository",
+      "arcadia/mystra-fixture",
+      "--json",
+    ], async (url) => {
+      expect(url).toBe(
+        "http://localhost:3000/api/integrations/github/issues/7"
+        + "?repository=arcadia%2Fmystra-fixture",
+      );
+      return response({
+        issue: {
+          reference: { identifier: "7" },
+          title: "Fixture",
+          state: { name: "Open" },
+        },
+      });
+    });
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
   });
 
   it("gets one Issue through the canonical API", async () => {
@@ -352,7 +472,7 @@ describe("operator CLI", () => {
           id: "00000000-0000-4000-8000-000000000001",
           name: "Mystra",
           slug: "mystra",
-          repo: "git@example.com:arcadia/mystra.git",
+          repository: projectDetailPayload().project.repository,
           baseBranch: "main",
           defaultAgent: "codex",
           archivedAt: null,

@@ -9,6 +9,25 @@ import {
 
 const spawnMock = vi.hoisted(() => vi.fn());
 
+function repositoryTarget(projectId: string) {
+  return {
+    projectId,
+    repository: {
+      integration: "gitlab",
+      provider: "gitlab",
+      externalId: "gitlab-repo",
+      fullName: "group/project",
+      url: "https://gitlab.example.com/group/project",
+      cloneUrl: "https://gitlab.example.com/group/project.git",
+      defaultBranch: "main",
+      visibility: "private" as const,
+      isArchived: false,
+      fetchedAt: "2026-07-25T00:00:00.000Z",
+    },
+    defaultBaseBranch: "main",
+  };
+}
+
 vi.mock("node:child_process", () => ({
   spawn: spawnMock,
 }));
@@ -150,12 +169,7 @@ describe("gitlab review projections", () => {
     process.env.MYSTRA_GITLAB_TOKEN = "top-secret";
 
     const receipt = await gitlabRepoProvider.pushBranch({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000400",
-        repoUrl: "https://gitlab.example.com/group/project.git",
-        hostKind: "gitlab",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000400"),
       branchName: "mystra/task-400",
       baseBranch: "main",
       commitMessage: "Mystra task 400",
@@ -182,12 +196,7 @@ describe("gitlab review projections", () => {
     process.env.MYSTRA_GITLAB_TOKEN = "top-secret";
 
     const receipt = await gitlabRepoProvider.pushBranch({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000403",
-        repoUrl: "https://gitlab.example.com/group/project.git",
-        hostKind: "gitlab",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000403"),
       branchName: "mystra/task-403",
       baseBranch: "main",
       commitMessage: "Mystra task 403",
@@ -219,12 +228,7 @@ describe("gitlab review projections", () => {
     process.env.MYSTRA_GITLAB_TOKEN = "top-secret";
 
     const result = await gitlabRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000401",
-        repoUrl: "https://gitlab.example.com/group/project.git",
-        hostKind: "gitlab",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000401"),
       auth: {
         kind: "runner-env",
         provider: "gitlab",
@@ -280,12 +284,7 @@ describe("gitlab review projections", () => {
 
   it("returns auth_invalid when the configured GitLab runner-env token is missing", async () => {
     const result = await gitlabRepoProvider.createReview({
-      target: {
-        projectId: "00000000-0000-4000-8000-000000000402",
-        repoUrl: "https://gitlab.example.com/group/project.git",
-        hostKind: "gitlab",
-        defaultBaseBranch: "main",
-      },
+      target: repositoryTarget("00000000-0000-4000-8000-000000000402"),
       auth: {
         kind: "runner-env",
         provider: "gitlab",
