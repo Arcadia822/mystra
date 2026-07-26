@@ -15,8 +15,9 @@ const THEME_STORAGE_KEY = "mystra-control-plane-theme";
 
 const NAV_ITEMS = [
   { href: "/", label: "Control Plane", icon: "C" },
-  { href: "/runners", label: "Runners", icon: "R" },
   { href: "/tasks", label: "Tasks", icon: "T" },
+  { href: "/runners", label: "Runners", icon: "R" },
+  { href: "/projects", label: "Projects", icon: "P" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -28,6 +29,8 @@ function routeTitle(pathname: string): string {
   if (pathname === "/runners") return "Runners";
   if (pathname.startsWith("/tasks/")) return "Task detail";
   if (pathname === "/tasks") return "Tasks";
+  if (pathname.startsWith("/projects/")) return "Project detail";
+  if (pathname === "/projects") return "Projects";
   return "Control Plane";
 }
 

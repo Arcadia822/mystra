@@ -146,21 +146,3 @@ export interface ControlPlanePayload {
     recentTasks: JobSnapshot[];
   };
 }
-
-export interface Project {
-  id: string;
-  name: string;
-  slug: string;
-  repo: string;
-  baseBranch: string;
-  defaultAgent: string;
-}
-
-export interface Issue {
-  reference: {
-    identifier: string;
-    url: string;
-  };
-  title: string;
-  state: { name: string };
-}

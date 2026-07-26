@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mystra Projects prototype</title>
+  <style>
+    :root { color-scheme: dark; font: 13px/1.5 Inter, ui-sans-serif, system-ui; background:#111214; color:#e8e8e8; }
+    * { box-sizing:border-box; }
+    body { margin:0; }
+    .shell { min-height:100vh; display:grid; grid-template-columns:210px 1fr; }
+    aside { border-right:1px solid #303238; padding:18px 10px; background:#17181b; }
+    .brand { padding:0 10px 18px; font-weight:700; }
+    nav { display:grid; gap:4px; }
+    nav button { border:0; border-radius:6px; padding:9px 10px; background:transparent; color:#9da1aa; text-align:left; cursor:pointer; }
+    nav button.active { background:#292c32; color:#fff; }
+    header { height:54px; display:flex; align-items:center; justify-content:space-between; padding:0 22px; border-bottom:1px solid #303238; }
+    main { padding:20px 22px; }
+    .toolbar { display:flex; justify-content:space-between; margin-bottom:12px; }
+    .panel { border:1px solid #303238; border-radius:8px; overflow:hidden; background:#181a1e; }
+    .row { display:grid; grid-template-columns:1.3fr 1.2fr .7fr .9fr .5fr; gap:14px; align-items:center; min-height:52px; padding:8px 14px; border-top:1px solid #303238; }
+    .row:first-child { border-top:0; }
+    .row.header { min-height:34px; color:#858a95; font-size:11px; text-transform:uppercase; }
+    .project { cursor:pointer; }
+    .project:hover { background:#202329; }
+    .primary { display:grid; }
+    small,.muted { color:#9398a2; }
+    .detail { display:grid; grid-template-columns:1.3fr .7fr; gap:12px; }
+    h2 { margin:0; padding:12px 14px; border-bottom:1px solid #303238; font-size:13px; }
+    dl { margin:0; }
+    dl div { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:10px 14px; border-top:1px solid #303238; }
+    dl div:first-child { border-top:0; }
+    dt { color:#9398a2; }
+    dd { margin:0; overflow-wrap:anywhere; }
+    button { font:inherit; }
+    .action { border:1px solid #40434b; border-radius:6px; padding:6px 10px; background:#22252a; color:#e8e8e8; }
+    [hidden] { display:none !important; }
+    @media (max-width:700px) {
+      .shell { grid-template-columns:58px 1fr; }
+      aside { padding-inline:7px; }
+      .brand,nav button { overflow:hidden; white-space:nowrap; width:42px; }
+      main { padding:12px; }
+      .row { grid-template-columns:1fr auto; }
+      .row > :nth-child(n+3), .row.header { display:none; }
+      .detail { grid-template-columns:1fr; }
+      dl div { grid-template-columns:1fr; gap:2px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">M Mystra</div>
+      <nav aria-label="Primary navigation">
+        <button>Control Plane</button>
+        <button>Tasks</button>
+        <button>Runners</button>
+        <button class="active">Projects</button>
+      </nav>
+    </aside>
+    <section>
+      <header><strong id="title">Projects</strong><span class="muted">local control plane</span></header>
+      <main>
+        <section id="list">
+          <div class="toolbar"><span class="muted">Execution configuration by repository</span><button class="action">Refresh</button></div>
+          <div class="panel">
+            <div class="row header"><span>Project</span><span>Repository</span><span>Agent</span><span>Runtime</span><span>Updated</span></div>
+            <div class="row project" role="button" tabindex="0" onclick="showDetail()">
+              <span class="primary"><strong>Mystra demo</strong><small>mystra-demo</small></span>
+              <span>github.com/example/mystra-demo</span><span>copilot</span><span>docker · mystra/copilot:local</span><span>now</span>
+            </div>
+          </div>
+        </section>
+        <section id="detail" hidden>
+          <div class="toolbar"><button class="action" onclick="showList()">← Projects</button><button class="action">Refresh</button></div>
+          <div class="detail">
+            <div class="panel"><h2>Project</h2><dl>
+              <div><dt>Slug</dt><dd>mystra-demo</dd></div><div><dt>Repository</dt><dd>github.com/example/mystra-demo</dd></div>
+              <div><dt>Base branch</dt><dd>main</dd></div><div><dt>Default agent</dt><dd>copilot</dd></div>
+            </dl></div>
+            <div class="panel"><h2>Runtime</h2><dl>
+              <div><dt>Provider</dt><dd>docker</dd></div><div><dt>Image</dt><dd>mystra/copilot:local</dd></div>
+              <div><dt>Context bundles</dt><dd>product-context · read-only</dd></div><div><dt>Secrets</dt><dd>GITHUB_TOKEN · env</dd></div>
+            </dl></div>
+          </div>
+        </section>
+      </main>
+    </section>
+  </div>
+  <script>
+    const title = document.getElementById("title");
+    const list = document.getElementById("list");
+    const detail = document.getElementById("detail");
+    function showDetail(){ list.hidden=true; detail.hidden=false; title.textContent="Project detail"; }
+    function showList(){ detail.hidden=true; list.hidden=false; title.textContent="Projects"; }
+  </script>
+</body>
+</html>

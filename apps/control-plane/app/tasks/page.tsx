@@ -8,7 +8,6 @@ import { StatusBadge } from "../_components/status-badge";
 import { relativeTime, taskLabel } from "../_lib/format";
 import type { JobSnapshot } from "../_lib/types";
 import { useResource } from "../_lib/use-resource";
-import { IssueDispatchPanel } from "./issue-dispatch-panel";
 
 export default function TasksPage() {
   const resource = useResource<{ jobs: JobSnapshot[] }>("/api/jobs", 3_000);
@@ -51,11 +50,10 @@ export default function TasksPage() {
         </div>
         <button className="secondaryButton" type="button" onClick={() => void resource.refresh()}>Refresh</button>
       </div>
-      <IssueDispatchPanel onDispatched={() => void resource.refresh()} />
       {resource.isLoading ? <LoadingState label="Loading tasks" /> : null}
       {resource.error ? <ErrorState message={resource.error} onRetry={() => void resource.refresh()} /> : null}
       {!resource.isLoading && !resource.error && filtered.length === 0 ? (
-        <EmptyState title="No matching tasks" description="Change the filter or dispatch an Issue when a Project is configured." />
+        <EmptyState title="No matching tasks" description="Change the filters or refresh to check for newly recorded tasks." />
       ) : null}
       {filtered.length ? (
         <section className="panel">

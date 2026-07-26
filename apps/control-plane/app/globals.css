@@ -199,7 +199,6 @@ dd {
 .pageIdentity,
 .toolbarActions,
 .filterBar,
-.inlineForm,
 .confirmActions {
   display: flex;
   align-items: center;
@@ -352,6 +351,10 @@ time {
 
 .runnerColumns {
   grid-template-columns: minmax(220px, 1.35fr) minmax(95px, .5fr) minmax(90px, .45fr) minmax(100px, .5fr) minmax(95px, .45fr);
+}
+
+.projectColumns {
+  grid-template-columns: minmax(220px, 1.2fr) minmax(240px, 1.3fr) minmax(100px, .5fr) minmax(190px, 1fr) minmax(90px, .4fr);
 }
 
 .compactRow {
@@ -609,41 +612,9 @@ button:disabled {
   color: var(--text2);
 }
 
-.dispatchPanel {
-  overflow: visible;
-}
-
-.dispatchPanel > summary {
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  font-weight: 600;
-}
-
-.dispatchPanel[open] > summary {
-  border-bottom: 1px solid var(--border);
-}
-
-.dispatchBody {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-}
-
-.inlineForm {
-  align-items: end;
-}
-
-.inlineForm label,
-.dispatchForm label,
 .filterBar label {
   display: grid;
   gap: 4px;
-}
-
-.inlineForm label {
-  min-width: 240px;
 }
 
 label > span {
@@ -658,51 +629,6 @@ select {
   border-radius: 6px;
   background: var(--surface2);
   padding: 5px 8px;
-}
-
-.issuePicker {
-  max-height: 240px;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
-
-.issuePicker button {
-  width: 100%;
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 10px;
-  border: 0;
-  border-top: 1px solid var(--border);
-  background: transparent;
-  text-align: left;
-}
-
-.issuePicker button:first-child {
-  border-top: 0;
-}
-
-.issuePicker button:hover,
-.issuePicker button.selected {
-  background: var(--accent-soft);
-}
-
-.issuePicker button > span:first-child {
-  display: grid;
-}
-
-.issuePicker small {
-  color: var(--text2);
-}
-
-.dispatchForm {
-  display: grid;
-  grid-template-columns: minmax(180px, .7fr) minmax(130px, .4fr) minmax(260px, 1fr) auto;
-  gap: 9px;
-  align-items: end;
 }
 
 .formNotice {
@@ -763,13 +689,18 @@ select {
     grid-template-columns: minmax(200px, 1.4fr) minmax(110px, .6fr) minmax(100px, .5fr) minmax(90px, .4fr);
   }
 
+  .projectColumns {
+    grid-template-columns: minmax(210px, 1.2fr) minmax(220px, 1.25fr) minmax(110px, .55fr) minmax(90px, .4fr);
+  }
+
   .taskColumns > :nth-child(4) {
     display: none;
   }
 
-  .dispatchForm {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .projectColumns > :nth-child(4) {
+    display: none;
   }
+
 }
 
 @media (max-width: 700px) {
@@ -800,12 +731,14 @@ select {
   }
 
   .runnerColumns,
+  .projectColumns,
   .taskColumns,
   .taskRow {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .runnerColumns > :nth-child(n+3),
+  .projectColumns > :nth-child(n+3),
   .taskColumns > :nth-child(n+3),
   .taskRow > :nth-child(n+3) {
     display: none;
@@ -816,19 +749,10 @@ select {
     gap: 3px;
   }
 
-  .inlineForm,
   .filterBar {
     width: 100%;
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .inlineForm label {
-    min-width: 0;
-  }
-
-  .dispatchForm {
-    grid-template-columns: 1fr;
   }
 
   .eventList li {
