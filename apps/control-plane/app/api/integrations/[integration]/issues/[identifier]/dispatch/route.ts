@@ -13,14 +13,14 @@ export async function POST(
   try {
     const { integration, identifier } = await context.params;
     const dispatchRequest = issueDispatchRequestSchema.parse(await request.json());
-    const snapshot = await dispatchIssue({
+    const result = await dispatchIssue({
       integrationName: integration,
       identifier,
       request: dispatchRequest,
       registry: defaultIntegrationRegistry(),
       db: getDb(),
     });
-    return NextResponse.json(snapshot, { status: 201 });
+    return NextResponse.json(result, { status: result.created ? 201 : 200 });
   } catch (error) {
     return integrationErrorResponse(error);
   }

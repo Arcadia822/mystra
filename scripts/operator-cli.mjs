@@ -16,8 +16,8 @@ const EXIT_CODES = {
   NOT_READY: 7,
 };
 
-const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "canceled", "timed_out", "waiting_for_review"]);
-const FAILURE_RUN_STATES = new Set(["failed", "canceled", "timed_out"]);
+const TERMINAL_SESSION_STATES = new Set(["succeeded", "failed", "canceled", "timed_out", "waiting_for_review"]);
+const FAILURE_SESSION_STATES = new Set(["failed", "canceled", "timed_out"]);
 
 function usage() {
   return `Usage:
@@ -34,17 +34,15 @@ function usage() {
   pnpm operator:cli -- issues get <identifier> --integration NAME [--repository IDENTIFIER] [--json]
   pnpm operator:cli -- issues dispatch <identifier> --integration NAME --project SLUG --agent copilot --branch NAME [--json]
   pnpm operator:cli -- tasks list [--json] [--control-plane-url URL]
-  pnpm operator:cli -- tasks inspect <job-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- tasks wait <job-id> [--interval-seconds N] [--timeout-seconds N] [--json]
-  pnpm operator:cli -- tasks cancel <job-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- tasks result <job-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- tasks failure <job-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- runs list [--json] [--control-plane-url URL]
-  pnpm operator:cli -- runs inspect <job-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- runs wait <job-id> [--interval-seconds N] [--timeout-seconds N] [--json]
-  pnpm operator:cli -- runs cancel <job-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- runs result <job-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- runs failure <job-id> [--json] [--control-plane-url URL]`;
+  pnpm operator:cli -- tasks create --project PROJECT_ID --objective TEXT [--json]
+  pnpm operator:cli -- tasks inspect <task-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- sessions list <task-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- sessions create <task-id> --title TITLE --objective TEXT [--agent NAME] [--branch NAME] [--json]
+  pnpm operator:cli -- sessions inspect <session-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- sessions wait <session-id> [--interval-seconds N] [--timeout-seconds N] [--json]
+  pnpm operator:cli -- sessions cancel <session-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- sessions result <session-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- sessions failure <session-id> [--json] [--control-plane-url URL]`;
 }
 
 function isObject(value) {
@@ -77,8 +75,9 @@ function previewSummary(result) {
 function managementExitCode(code) {
   if ([
     "PROJECT_NOT_FOUND",
-    "JOB_NOT_FOUND",
-    "RUN_NOT_FOUND",
+    "TASK_NOT_FOUND",
+    "SESSION_NOT_FOUND",
+    "RUNNER_NOT_FOUND",
     "INTEGRATION_NOT_FOUND",
     "REPOSITORY_NOT_FOUND",
     "ISSUE_NOT_FOUND",
@@ -88,7 +87,7 @@ function managementExitCode(code) {
   if ([
     "PROJECT_ARCHIVED",
     "RESULT_UNAVAILABLE",
-    "JOB_CANCEL_CONFLICT",
+    "SESSION_CANCEL_CONFLICT",
     "ISSUE_CAPABILITY_UNAVAILABLE",
     "REPOSITORY_CAPABILITY_UNAVAILABLE",
     "INTEGRATION_NOT_CONFIGURED",
@@ -137,6 +136,8 @@ function parseArgs(argv) {
     repository: undefined,
     repositoryIntegration: undefined,
     runtimeImage: undefined,
+    title: undefined,
+    objective: undefined,
     intervalSeconds: 2,
     timeoutSeconds: 3600,
   };
@@ -176,6 +177,8 @@ function parseArgs(argv) {
       ["--repository", "repository"],
       ["--repository-integration", "repositoryIntegration"],
       ["--runtime-image", "runtimeImage"],
+      ["--title", "title"],
+      ["--objective", "objective"],
       ["--interval-seconds", "intervalSeconds"],
       ["--timeout-seconds", "timeoutSeconds"],
     ]);
@@ -204,7 +207,8 @@ function parseArgs(argv) {
     (group === "repositories" && command === "get") ||
     (group === "runners" && command === "inspect") ||
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
-    (["runs", "tasks"].includes(group) && ["inspect", "wait", "cancel", "result", "failure"].includes(command))
+    (group === "tasks" && command === "inspect") ||
+    (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command))
   );
   if (needsTarget && !target) {
     return { ok: false, message: `Missing target for ${group} ${command}` };
@@ -225,7 +229,10 @@ function parseArgs(argv) {
   if (group === "runners" && !["list", "inspect"].includes(command)) {
     return { ok: false, message: `Unknown runners command: ${command}` };
   }
-  if (["runs", "tasks"].includes(group) && !["list", "inspect", "wait", "cancel", "result", "failure"].includes(command)) {
+  if (group === "tasks" && !["list", "create", "inspect"].includes(command)) {
+    return { ok: false, message: `Unknown ${group} command: ${command}` };
+  }
+  if (group === "sessions" && !["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
   }
   if (group === "issues" && !["list", "get", "dispatch"].includes(command)) {
@@ -238,8 +245,8 @@ function parseArgs(argv) {
     "projects",
     "runners",
     "issues",
-    "runs",
     "tasks",
+    "sessions",
   ].includes(group)) {
     return { ok: false, message: `Unknown command group: ${group}` };
   }
@@ -280,7 +287,13 @@ function parseArgs(argv) {
       message: "issues dispatch requires --project, --agent, and --branch",
     };
   }
-  if (["runs", "tasks"].includes(group) && command === "wait") {
+  if (group === "tasks" && command === "create" && (!flags.project || !flags.objective)) {
+    return { ok: false, message: "tasks create requires --project and --objective" };
+  }
+  if (group === "sessions" && command === "create" && (!flags.title || !flags.objective)) {
+    return { ok: false, message: "sessions create requires --title and --objective" };
+  }
+  if (group === "sessions" && command === "wait") {
     for (const [flag, value] of [
       ["--interval-seconds", flags.intervalSeconds],
       ["--timeout-seconds", flags.timeoutSeconds],
@@ -315,7 +328,9 @@ function parseArgs(argv) {
         ? { repositoryIntegration: flags.repositoryIntegration }
         : {}),
       ...(flags.runtimeImage ? { runtimeImage: flags.runtimeImage } : {}),
-      ...(["runs", "tasks"].includes(group) && command === "wait"
+      ...(flags.title ? { title: flags.title } : {}),
+      ...(flags.objective ? { objective: flags.objective } : {}),
+      ...(group === "sessions" && command === "wait"
         ? {
             intervalSeconds: flags.intervalSeconds,
             timeoutSeconds: flags.timeoutSeconds,
@@ -375,54 +390,54 @@ async function readJson(url, fetchImpl, init = {}) {
 }
 
 function resultView(snapshot) {
-  const result = snapshot.run.result;
-  if (!TERMINAL_RUN_STATES.has(snapshot.run.state)) {
-    return operatorError("RESULT_NOT_READY", "Run result is not ready yet.", EXIT_CODES.NOT_READY, {
-      jobId: snapshot.job.id,
-      runState: snapshot.run.state,
+  const result = snapshot.session.result;
+  if (!TERMINAL_SESSION_STATES.has(snapshot.session.state)) {
+    return operatorError("RESULT_NOT_READY", "Session result is not ready yet.", EXIT_CODES.NOT_READY, {
+      sessionId: snapshot.session.id,
+      sessionState: snapshot.session.state,
     });
   }
   if (!isObject(result)) {
-    return operatorError("RESULT_UNAVAILABLE", "Run result is unavailable.", EXIT_CODES.UNAVAILABLE, {
-      jobId: snapshot.job.id,
-      runState: snapshot.run.state,
+    return operatorError("RESULT_UNAVAILABLE", "Session result is unavailable.", EXIT_CODES.UNAVAILABLE, {
+      sessionId: snapshot.session.id,
+      sessionState: snapshot.session.state,
     });
   }
 
   return {
     ok: true,
     payload: {
-      jobId: snapshot.job.id,
-      runId: snapshot.run.id,
-      runState: snapshot.run.state,
-      projectSlug: snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? null,
+      taskId: snapshot.task.id,
+      sessionId: snapshot.session.id,
+      sessionState: snapshot.session.state,
+      projectSlug: snapshot.project?.slug ?? null,
       result,
     },
   };
 }
 
 function failureView(snapshot) {
-  const result = snapshot.run.result;
-  if (!TERMINAL_RUN_STATES.has(snapshot.run.state)) {
+  const result = snapshot.session.result;
+  if (!TERMINAL_SESSION_STATES.has(snapshot.session.state)) {
     return operatorError("RESULT_NOT_READY", "Failure context is not ready yet.", EXIT_CODES.NOT_READY, {
-      jobId: snapshot.job.id,
-      runState: snapshot.run.state,
+      sessionId: snapshot.session.id,
+      sessionState: snapshot.session.state,
     });
   }
-  if (!FAILURE_RUN_STATES.has(snapshot.run.state) || !isObject(result)) {
-    return operatorError("RESULT_UNAVAILABLE", "Failure context is unavailable for this run.", EXIT_CODES.UNAVAILABLE, {
-      jobId: snapshot.job.id,
-      runState: snapshot.run.state,
+  if (!FAILURE_SESSION_STATES.has(snapshot.session.state) || !isObject(result)) {
+    return operatorError("RESULT_UNAVAILABLE", "Failure context is unavailable for this Session.", EXIT_CODES.UNAVAILABLE, {
+      sessionId: snapshot.session.id,
+      sessionState: snapshot.session.state,
     });
   }
 
   return {
     ok: true,
     payload: {
-      jobId: snapshot.job.id,
-      runId: snapshot.run.id,
-      runState: snapshot.run.state,
-      projectSlug: snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? null,
+      taskId: snapshot.task.id,
+      sessionId: snapshot.session.id,
+      sessionState: snapshot.session.state,
+      projectSlug: snapshot.project?.slug ?? null,
       result,
     },
   };
@@ -448,20 +463,13 @@ function formatControlPlane(payload) {
   const controlPlane = payload.controlPlane;
   const lines = [`Control Plane ${controlPlane.status}`];
   pushLine(lines, `  checkedAt: ${controlPlane.checkedAt}`);
+  pushLine(lines, `  tasks: ${controlPlane.tasks.total} total | ${controlPlane.tasks.withoutSessions} without Sessions`);
+  pushLine(lines, `  sessions: ${controlPlane.sessions.total} total | ${controlPlane.sessions.queued} queued | ${controlPlane.sessions.active} active | ${controlPlane.sessions.waitingForReview} waiting review | ${controlPlane.sessions.failed} failed`);
   pushLine(
     lines,
-    `  tasks: ${controlPlane.tasks.total} total | ${controlPlane.tasks.queued} queued | ${controlPlane.tasks.active} active | ${controlPlane.tasks.waitingForReview} waiting review | ${controlPlane.tasks.failed} failed`,
-  );
-  pushLine(
-    lines,
-    `  runners: ${controlPlane.runners.online}/${controlPlane.runners.total} online | ${controlPlane.runners.activeRuns}/${controlPlane.runners.maxConcurrency} active | ${controlPlane.runners.availableCapacity} available`,
+    `  runners: ${controlPlane.runners.online}/${controlPlane.runners.total} online | ${controlPlane.runners.activeSessions}/${controlPlane.runners.maxConcurrency} active | ${controlPlane.runners.availableCapacity} available`,
   );
   return lines.join("\n");
-}
-
-function runnerStatus(runner) {
-  const heartbeatAgeMs = Date.now() - new Date(runner.lastHeartbeatAt).getTime();
-  return heartbeatAgeMs <= runner.staleAfterSeconds * 1_000 ? "online" : "stale";
 }
 
 function formatRunnersList(payload) {
@@ -473,23 +481,23 @@ function formatRunnersList(payload) {
   for (const runner of payload.runners) {
     pushLine(
       lines,
-      `  - ${runner.id} | ${runner.runnerName} | ${runnerStatus(runner)} | active=${runner.activeRunCount}/${runner.maxConcurrency} | executor=${runner.capabilities.executor}`,
+      `  - ${runner.id} | ${runner.name} | ${runner.health} | active=${runner.activeSessionCount}/${runner.maxConcurrency} | executor=${runner.capabilities.executor}`,
     );
   }
   return lines.join("\n");
 }
 
 function formatRunnerInspect(payload) {
-  const { runner, assignedTasks = [] } = payload;
-  const lines = [`Runner ${runner.runnerName}`];
+  const { runner } = payload;
+  const lines = [`Runner ${runner.name}`];
   pushLine(lines, `  id: ${runner.id}`);
-  pushLine(lines, `  status: ${runnerStatus(runner)}`);
+  pushLine(lines, `  status: ${runner.health}`);
   pushLine(lines, `  heartbeat: ${runner.lastHeartbeatAt}`);
-  pushLine(lines, `  concurrency: ${runner.activeRunCount}/${runner.maxConcurrency}`);
+  pushLine(lines, `  concurrency: ${runner.activeSessionCount}/${runner.maxConcurrency}`);
   pushLine(lines, `  executor: ${runner.capabilities.executor}`);
   pushLine(lines, `  agents: ${runner.capabilities.agents.join(", ")}`);
   pushLine(lines, `  image: ${runner.capabilities.image ?? "n/a"}`);
-  pushLine(lines, `  assignedTasks: ${assignedTasks.map((task) => task.job.id).join(", ") || "none"}`);
+  pushLine(lines, `  assignments: ${runner.currentAssignments.map((assignment) => `${assignment.taskId}/${assignment.sessionId}`).join(", ") || "none"}`);
   return lines.join("\n");
 }
 
@@ -508,18 +516,30 @@ function formatProjectInspect(payload) {
   return lines.join("\n");
 }
 
-function formatRunsList(payload, objectLabel = "Runs") {
+function formatTasksList(payload) {
   const lines = [];
-  pushLine(lines, objectLabel);
-  if (!Array.isArray(payload.jobs) || payload.jobs.length === 0) {
+  pushLine(lines, "Tasks");
+  if (!Array.isArray(payload.tasks) || payload.tasks.length === 0) {
     pushLine(lines, "  none");
     return lines.join("\n");
   }
-  for (const snapshot of payload.jobs) {
+  for (const task of payload.tasks) {
     pushLine(
       lines,
-      `  - ${snapshot.job.id} | state=${snapshot.run.state} | project=${snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? "n/a"} | branch=${snapshot.job.spec.branchName} | updated=${snapshot.run.updatedAt ?? snapshot.job.updatedAt ?? "n/a"}`,
+      `  - ${task.id} | project=${task.projectId} | sessions=${task.sessionCount} | active=${task.activeSessionCount} | updated=${task.updatedAt}`,
     );
+  }
+  return lines.join("\n");
+}
+
+function formatSessionsList(payload) {
+  const lines = [`Sessions for ${payload.taskId}`];
+  if (!Array.isArray(payload.sessions) || payload.sessions.length === 0) {
+    pushLine(lines, "  none");
+    return lines.join("\n");
+  }
+  for (const session of payload.sessions) {
+    pushLine(lines, `  - ${session.id} | state=${session.state} | agent=${session.agent} | branch=${session.branch} | updated=${session.updatedAt}`);
   }
   return lines.join("\n");
 }
@@ -582,35 +602,34 @@ function formatIssue(payload) {
 }
 
 function formatIssueDispatch(snapshot) {
-  const lines = [`Dispatched ${snapshot.job.spec.taskId}`];
-  pushLine(lines, `  jobId: ${snapshot.job.id}`);
-  pushLine(lines, `  runId: ${snapshot.run.id}`);
-  pushLine(lines, `  state: ${snapshot.run.state}`);
-  pushLine(lines, `  branch: ${snapshot.job.spec.branchName}`);
+  const lines = [`Dispatched ${snapshot.task.issue?.reference?.identifier ?? snapshot.task.id}`];
+  pushLine(lines, `  taskId: ${snapshot.task.id}`);
+  pushLine(lines, `  sessionId: ${snapshot.session.id}`);
+  pushLine(lines, `  state: ${snapshot.session.state}`);
+  pushLine(lines, `  branch: ${snapshot.session.branch}`);
   return lines.join("\n");
 }
 
-function formatTaskCancel(payload) {
-  const snapshot = payload.snapshot;
-  const lines = [`Cancel ${snapshot?.job?.id ?? "task"}`];
-  pushLine(lines, `  disposition: ${payload.disposition ?? "requested"}`);
-  pushLine(lines, `  state: ${snapshot?.run?.state ?? "n/a"}`);
+function formatSessionCancel(payload) {
+  const lines = [`Cancel ${payload.session.id}`];
+  pushLine(lines, `  outcome: ${payload.outcome}`);
+  pushLine(lines, `  state: ${payload.session.state}`);
   return lines.join("\n");
 }
 
-function formatRunWait(snapshot) {
-  const result = snapshot.run.result ?? {};
+function formatSessionWait(snapshot) {
+  const result = snapshot.session.result ?? {};
   const issueIdentifier =
-    snapshot.job.spec.issue?.reference?.identifier
+    snapshot.task.issue?.reference?.identifier
     ?? result.issue?.identifier
-    ?? snapshot.job.spec.taskId;
-  const reviewUrl = result.reviewResult?.review?.url ?? result.mrUrl ?? "n/a";
+    ?? snapshot.task.id;
+  const reviewUrl = result.reviewResult?.review?.url ?? "n/a";
   const sandbox = result.sandboxOutcome?.session;
   const agent = result.agentExecution;
   const lines = [`Waiting for review ${issueIdentifier}`];
-  pushLine(lines, `  jobId: ${snapshot.job.id}`);
-  pushLine(lines, `  runId: ${snapshot.run.id}`);
-  pushLine(lines, `  branch: ${result.branch ?? snapshot.job.spec.branchName}`);
+  pushLine(lines, `  taskId: ${snapshot.task.id}`);
+  pushLine(lines, `  sessionId: ${snapshot.session.id}`);
+  pushLine(lines, `  branch: ${result.branch ?? snapshot.session.branch}`);
   pushLine(
     lines,
     `  test: ${result.quality?.test?.status ?? "n/a"} | ${result.quality?.test?.command ?? "n/a"}`,
@@ -636,35 +655,44 @@ function formatRunWait(snapshot) {
   return lines.join("\n");
 }
 
-function formatRunInspect(snapshot, objectLabel = "Run") {
+function formatSessionInspect(snapshot) {
   const lines = [];
-  pushLine(lines, `${objectLabel} ${snapshot.job.id}`);
-  pushLine(lines, `  state: ${snapshot.run.state}`);
-  pushLine(lines, `  branch: ${snapshot.job.spec.branchName}`);
-  pushLine(lines, `  project: ${snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? "n/a"}`);
-  pushLine(lines, `  currentLaneContext: ${contextRefsSummary(snapshot.project?.lane?.contextBundleRefs)}`);
-  pushLine(lines, `  submittedLaneContext: ${contextRefsSummary(snapshot.lane?.contextBundleRefs)}`);
-  pushLine(lines, `  runtime: ${snapshot.runtime?.environment?.image ?? snapshot.project?.runtime?.image ?? "n/a"}`);
-  pushLine(lines, `  resultStatus: ${snapshot.run.result?.status ?? "none"}`);
+  pushLine(lines, `Session ${snapshot.session.id}`);
+  pushLine(lines, `  taskId: ${snapshot.task.id}`);
+  pushLine(lines, `  state: ${snapshot.session.state}`);
+  pushLine(lines, `  branch: ${snapshot.session.branch}`);
+  pushLine(lines, `  project: ${snapshot.project?.slug ?? snapshot.task.projectId}`);
+  pushLine(lines, `  context: ${contextRefsSummary(snapshot.project?.lane?.contextBundleRefs)}`);
+  pushLine(lines, `  runtime: ${snapshot.session.resolvedRuntime?.environment?.image ?? snapshot.project?.runtime?.image ?? "n/a"}`);
+  pushLine(lines, `  resultStatus: ${snapshot.session.result?.status ?? "none"}`);
+  return lines.join("\n");
+}
+
+function formatTaskInspect(payload) {
+  const lines = [`Task ${payload.task.id}`];
+  pushLine(lines, `  project: ${payload.task.projectId}`);
+  pushLine(lines, `  objective: ${payload.task.objective}`);
+  pushLine(lines, `  sessions: ${payload.sessionSummary.sessionCount}`);
+  pushLine(lines, `  activeSessions: ${payload.sessionSummary.activeSessionCount}`);
   return lines.join("\n");
 }
 
 function formatResult(payload) {
   const lines = [];
-  pushLine(lines, `Result ${payload.jobId}`);
-  pushLine(lines, `  state: ${payload.runState}`);
+  pushLine(lines, `Result ${payload.sessionId}`);
+  pushLine(lines, `  state: ${payload.sessionState}`);
   pushLine(lines, `  project: ${payload.projectSlug ?? "n/a"}`);
   pushLine(lines, `  summary: ${payload.result.summary}`);
   pushLine(lines, `  branch: ${payload.result.branch ?? "n/a"}`);
-  pushLine(lines, `  review: ${payload.result.mrUrl ?? "n/a"}`);
+  pushLine(lines, `  review: ${payload.result.reviewResult?.review?.url ?? "n/a"}`);
   pushLine(lines, `  preview: ${previewSummary(payload.result)}`);
   return lines.join("\n");
 }
 
 function formatFailure(payload) {
   const lines = [];
-  pushLine(lines, `Failure ${payload.jobId}`);
-  pushLine(lines, `  state: ${payload.runState}`);
+  pushLine(lines, `Failure ${payload.sessionId}`);
+  pushLine(lines, `  state: ${payload.sessionState}`);
   pushLine(lines, `  project: ${payload.projectSlug ?? "n/a"}`);
   pushLine(lines, `  summary: ${payload.result.summary}`);
   pushLine(lines, `  errorCode: ${payload.result.errorCode ?? "n/a"}`);
@@ -726,22 +754,28 @@ function formatSuccess(command, payload, jsonMode) {
   if (command.group === "issues" && command.command === "dispatch") {
     return `${formatIssueDispatch(payload)}\n`;
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "list") {
-    return `${formatRunsList(payload, command.group === "tasks" ? "Tasks" : "Runs")}\n`;
+  if (command.group === "tasks" && command.command === "list") {
+    return `${formatTasksList(payload)}\n`;
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "inspect") {
-    return `${formatRunInspect(payload, command.group === "tasks" ? "Task" : "Run")}\n`;
+  if (command.group === "tasks" && command.command === "inspect") {
+    return `${formatTaskInspect(payload)}\n`;
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "wait") {
-    return `${formatRunWait(payload)}\n`;
+  if (command.group === "sessions" && command.command === "list") {
+    return `${formatSessionsList(payload)}\n`;
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "cancel") {
-    return `${formatTaskCancel(payload)}\n`;
+  if (command.group === "sessions" && command.command === "inspect") {
+    return `${formatSessionInspect(payload)}\n`;
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "result") {
+  if (command.group === "sessions" && command.command === "wait") {
+    return `${formatSessionWait(payload)}\n`;
+  }
+  if (command.group === "sessions" && command.command === "cancel") {
+    return `${formatSessionCancel(payload)}\n`;
+  }
+  if (command.group === "sessions" && command.command === "result") {
     return `${formatResult(payload)}\n`;
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "failure") {
+  if (command.group === "sessions" && command.command === "failure") {
     return `${formatFailure(payload)}\n`;
   }
   return `${JSON.stringify(payload, null, 2)}\n`;
@@ -867,31 +901,58 @@ async function executeCommand(command, fetchImpl, deps = {}) {
         body: JSON.stringify({
           projectId: project.data.project.id,
           agent: command.agent,
-          branchName: command.branch,
+          branch: command.branch,
         }),
       },
     );
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "list") {
-    return await readJson(new URL("/api/jobs", baseUrl), fetchImpl);
+  if (command.group === "tasks" && command.command === "list") {
+    return await readJson(new URL("/api/tasks", baseUrl), fetchImpl);
+  }
+  if (command.group === "tasks" && command.command === "create") {
+    return await readJson(new URL("/api/tasks", baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({
+        source: "api",
+        projectId: command.project,
+        objective: command.objective,
+      }),
+    });
+  }
+  if (command.group === "tasks" && command.command === "inspect") {
+    return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
+  }
+  if (command.group === "sessions" && command.command === "list") {
+    return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}/sessions`, baseUrl), fetchImpl);
+  }
+  if (command.group === "sessions" && command.command === "create") {
+    return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}/sessions`, baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({
+        title: command.title,
+        objective: command.objective,
+        ...(command.agent ? { agent: command.agent } : {}),
+        ...(command.branch ? { branch: command.branch } : {}),
+      }),
+    });
   }
 
-  if (["runs", "tasks"].includes(command.group) && command.command === "wait") {
+  if (command.group === "sessions" && command.command === "wait") {
     const deadline = now() + command.timeoutSeconds * 1_000;
-    const url = new URL(`/api/jobs/${encodeURIComponent(command.target)}`, baseUrl);
+    const url = new URL(`/api/sessions/${encodeURIComponent(command.target)}`, baseUrl);
     while (true) {
       const snapshot = await readJson(url, fetchImpl);
       if (!snapshot.ok) {
         return snapshot;
       }
-      const state = snapshot.data?.run?.state;
-      if (TERMINAL_RUN_STATES.has(state)) {
+      const state = snapshot.data?.session?.state;
+      if (TERMINAL_SESSION_STATES.has(state)) {
         if (state === "succeeded" || state === "waiting_for_review") {
           return snapshot;
         }
         return operatorError(
-          "RUN_TERMINAL_FAILURE",
-          `Run reached terminal state ${state}.`,
+          "SESSION_TERMINAL_FAILURE",
+          `Session reached terminal state ${state}.`,
           EXIT_CODES.UNAVAILABLE,
           snapshot.data,
         );
@@ -899,10 +960,10 @@ async function executeCommand(command, fetchImpl, deps = {}) {
       if (now() >= deadline) {
         return operatorError(
           "WAIT_TIMEOUT",
-          "Run did not reach a terminal state before the local timeout.",
+          "Session did not reach a terminal state before the local timeout.",
           EXIT_CODES.NOT_READY,
           {
-            jobId: command.target,
+            sessionId: command.target,
             timeoutSeconds: command.timeoutSeconds,
           },
         );
@@ -911,26 +972,26 @@ async function executeCommand(command, fetchImpl, deps = {}) {
     }
   }
 
-  if (["runs", "tasks"].includes(command.group) && command.command === "cancel") {
+  if (command.group === "sessions" && command.command === "cancel") {
     return await readJson(
-      new URL(`/api/jobs/${encodeURIComponent(command.target)}/cancel`, baseUrl),
+      new URL(`/api/sessions/${encodeURIComponent(command.target)}/cancel`, baseUrl),
       fetchImpl,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify({ reason: "Canceled by operator" }) },
     );
   }
 
-  const snapshot = await readJson(new URL(`/api/jobs/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
+  const snapshot = await readJson(new URL(`/api/sessions/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
   if (!snapshot.ok) {
     return snapshot;
   }
 
-  if (["runs", "tasks"].includes(command.group) && command.command === "inspect") {
+  if (command.group === "sessions" && command.command === "inspect") {
     return snapshot;
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "result") {
+  if (command.group === "sessions" && command.command === "result") {
     return resultView(snapshot.data);
   }
-  if (["runs", "tasks"].includes(command.group) && command.command === "failure") {
+  if (command.group === "sessions" && command.command === "failure") {
     return failureView(snapshot.data);
   }
 

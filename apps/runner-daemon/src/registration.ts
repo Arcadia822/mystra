@@ -29,7 +29,7 @@ export function buildRunnerRegistrationPayload(
       executor: config.executor,
       agents,
       providers,
-      contextBundleModes: config.executor === "docker" ? ["read-only", "job-scoped"] : [],
+      contextBundleModes: config.executor === "docker" ? ["read-only", "session-scoped"] : [],
       mountKinds: config.executor === "docker" ? ["workspace", "gitMirror", "cache", "contextBundle", "secret"] : [],
       portExposure: {
         supportsDynamicHostPorts: config.executor === "docker",

@@ -20,11 +20,10 @@ The default registry contains exactly:
 - Provider-specific payloads are normalized into shared Issue contracts.
 - Provider errors are mapped to stable public codes without leaking credentials.
 - Pagination cursors remain opaque.
-- Dispatch always refetches the selected issue, stores an immutable snapshot,
-  and uses a unique dispatch key to prevent duplicate jobs.
-- The MVP Issue dispatch contract accepts Copilot only because its direct
-  execution handoff is explicitly bounded autopilot. The Docker runner advertises
-  only this implemented direct-execution capability when claiming jobs.
+- Dispatch always refetches the selected Issue and atomically creates or reuses
+  one Task plus its initial Session using a unique dispatch key.
+- The dispatch request explicitly selects the initial Session's Agent and
+  branch; subsequent sibling Sessions may make independent selections.
 - The HTTP API is the canonical implementation. The operator CLI only calls
   those routes and does not import provider or persistence code.
 - `MYSTRA_GITHUB_TOKEN` and `LINEAR_API_KEY` are read by the control plane only;

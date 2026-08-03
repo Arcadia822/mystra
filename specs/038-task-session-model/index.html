@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>038-task-session-model</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"038-task-session-model","title":"038-task-session-model","prototypeHref":"mockups/index.html?v=1785754259037","generatedAt":"2026-08-03T12:42:39.107Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：Task / Session 业务模型迁移\n\n**Feature Branch**: `038-task-session-model`\n**Created**: 2026-08-03\n**Status**: Draft\n**Input**: 用户要求将 `Job` 全部替换为 `Task`、将 `Run` 全部替换为\n`Session`；一个 Task 与多个 Session 保持松散一对多关系，Session 可以承载\n不同子任务；Runner 是一等业务对象；`RunnerSession` 与 `RunEvent` 不是业务对象；\n允许破坏性迁移且不保留兼容性；activity timeline 暂缓决策。\n\n## User Scenarios & Testing\n\n### User Story 1 - 以 Task 组织长期工作目标 (Priority: P1)\n\n作为 Mystra 操作员或调用 Agent，我希望创建一个独立的 Task 来保存工作目标、\nProject、Issue 来源和冻结的仓库上下文，以便业务任务不再与某一次 Agent 执行绑定。\n\n**Why this priority**: Task 是新的核心业务入口。若 Task 仍只是旧 Job 的别名，\n后续多 Session 模型没有成立的基础。\n\n**Independent Test**: 创建一个不带 Session 的 Task，随后通过 API、CLI、MCP 和\nWeb 读取同一 Task；所有入口均只使用 Task 语言，并返回一致的目标与来源信息。\n\n**Acceptance Scenarios**:\n\n1. **Given** 一个有效 Project，**When** 操作员创建 Task，**Then** Task 获得稳定 ID，\n   保存 Project、目标、来源与冻结 Repository，且可以在没有 Session 时独立存在。\n2. **Given** 一个 GitHub 或 Linear Issue，**When** 调用方执行 Issue dispatch，\n   **Then** 系统创建一个 Task 和它的首个 Session，Issue 身份只归属于 Task，\n   Session 不复制或覆盖目标仓库。\n3. **Given** 已存在的 Task，**When** 操作员读取或列出 Task，**Then** 返回内容中不存在\n   Job、Run、jobId、runId 或旧兼容字段。\n\n---\n\n### User Story 2 - 在 Task 下创建独立 Session (Priority: P1)\n\n作为操作员或控制 Agent，我希望在同一个 Task 下按需创建多个 Session，分别处理\n实现、调查、验证或其他子任务，以便 Session 是可独立执行的工作单元，而 Task\n不需要充当 workflow orchestrator。\n\n**Why this priority**: 用户明确要求 Task 与 Session 是松散一对多，而不是把旧 Run\n简单改名或限制为一次执行。\n\n**Independent Test**: 先创建一个 Task，再为其创建三个具有不同标题、目标、Agent\n或 branch 的 Session；分别执行、查询和取消其中一个 Session，其他 Session 与 Task\n保持可用且状态不被连带修改。\n\n**Acceptance Scenarios**:\n\n1. **Given** 一个 Task，**When** 人或 Agent 创建多个 Session，**Then** 每个 Session\n   只归属于该 Task，但拥有独立目标、Agent、branch、runtime、状态和 Review 结果。\n2. **Given** 多个 Session 属于同一 Task，**When** 它们并行或先后执行，**Then**\n   Task 不自动排序、启动、重试或聚合这些 Session，也不形成隐含 workflow graph。\n3. **Given** 一个 Session 失败、取消或等待 Review，**When** 读取同 Task 的其他\n   Session，**Then** 其他 Session 的生命周期不被自动改变。\n4. **Given** 一个 Session 被重新执行，**When** 调用方要求再次执行该子任务，\n   **Then** 创建新的 Session；旧 Session 保持不可变的执行与 Review 记录。\n\n---\n\n### User Story 3 - 将 Runner 作为稳定业务对象 (Priority: P1)\n\n作为平台操作员，我希望查看稳定的 Runner 身份、能力、容量、健康状态和当前分配，\n而不是查看一次连接产生的 RunnerSession，以便 Runner 重启或重新注册后仍是同一资源。\n\n**Why this priority**: 当前 Runner 实际由临时 RunnerSession 表示，与用户确认的业务\n对象模型冲突，并导致心跳连接细节泄漏到管理 API 和 UI。\n\n**Independent Test**: 注册一个 Runner、执行心跳、重启并以同一稳定身份重新注册；\nRunner ID 不变，凭据或 lease 可以更新，管理面始终只返回 Runner。\n\n**Acceptance Scenarios**:\n\n1. **Given** 一个已注册 Runner，**When** Runner 重新注册或更新心跳，**Then**\n   稳定 Runner 身份保持不变，连接凭据、heartbeat 或 lease 只作为内部状态处理。\n2. **Given** Runner claim 一个 Session，**When** 操作员查看 Runner，**Then** 可以看到\n   当前容量和分配的 Task/Session 引用，但看不到 RunnerSession 业务对象。\n3. **Given** Runner 超过健康阈值未上报，**When** 系统处理 stale 状态，**Then**\n   只更新 Runner 健康与受影响 Session，不产生可管理的 RunnerSession 资源。\n\n---\n\n### User Story 4 - 完成无兼容层的统一迁移 (Priority: P1)\n\n作为 Mystra 维护者，我希望活动产品合同、持久化、API、MCP、CLI、runner 协议、\nWeb 和耐久文档只使用 Task、Session 与 Runner，以便后续 Agent 不需要理解两套模型。\n\n**Why this priority**: 用户明确允许破坏性迁移。不保留 aliases 是消除概念债务的\n验收条件，而不是可选清理。\n\n**Independent Test**: 从全新本地数据库启动完整系统，完成 Issue → Task → Session →\nRunner → sandbox → Review；对活动代码和耐久文档执行精确搜索，旧业务标识符为零。\n\n**Acceptance Scenarios**:\n\n1. **Given** 旧开发数据库包含 jobs、runs、runner_sessions 或 run_events，\n   **When** 新版本启动，**Then** 系统只对精确识别的 Mystra 数据库执行一次性重建，\n   不尝试读取或迁移旧记录。\n2. **Given** 调用方访问旧 API、CLI 或 MCP 名称，**When** 请求到达，**Then**\n   入口不存在；系统不提供重定向、alias、双写或兼容 payload。\n3. **Given** 新系统完成一次真实执行，**When** 检查业务输出，**Then** 只出现 Task、\n   Session、Runner 与 Review 语义，内部连接和事件记录不作为业务资源暴露。\n\n### Edge Cases\n\n- Task 可以没有 Session；空 Task 不是失败状态。\n- 一个 Task 可以同时拥有多个 queued、active、failed 或 waiting-for-review Session；\n  Task 本身不从这些状态推导出隐藏的执行状态机。\n- 创建 Session 时 Task 不存在、已不可用或 Project/Repository 快照缺失，必须失败关闭。\n- 同一 Issue 的重复 dispatch 必须保持幂等，返回已存在的 Task/首个 Session，\n  或给出稳定冲突；不得创建重复 Task。\n- Session 只能引用一个 Task，不能在创建后移动到另一个 Task。\n- 同一 Runner 重复注册时不得产生多个可见 Runner；名称或稳定身份冲突必须有确定行为。\n- Runner stale 时只影响分配给它且仍 active 的 Session；其他 Task/Session 不受影响。\n- 内部 Session event 写入失败不能生成半完成的业务状态变更。\n- activity timeline、事件聚合、事件 ID 和面向调用方的事件 collection 本次不定义；\n  后续必须通过独立规格决定。\n\n## Requirements\n\n### Functional Requirements\n\n- **FR-001**: 系统 MUST 将 `Task` 定义为一等业务对象，并完全移除 `Job` 业务对象。\n- **FR-002**: 系统 MUST 将 `Session` 定义为一等业务对象，并完全移除 `Run` 业务对象。\n- **FR-003**: Task MUST 与 Session 保持松散的一对多关系：Task 可有零到多个 Session，\n  每个 Session 必须且只能属于一个 Task。\n- **FR-004**: Task MUST 保存稳定 ID、Project、工作目标、来源、可选 Issue snapshot、\n  冻结 Repository snapshot、创建/更新时间与业务 metadata。\n- **FR-005**: Session MUST 保存稳定 ID、Task 引用、子任务标题/目标、Agent、branch、\n  resolved runtime、执行状态、可选 Runner 引用、结果、失败信息与生命周期时间。\n- **FR-006**: Task MUST NOT 自动创建、排序、调度、重试、取消、完成或聚合它的\n  Session；任何创建动作必须来自人、调用 Agent 或明确的 Issue dispatch 入口。\n- **FR-007**: 重复执行 MUST 创建新 Session，不得覆盖旧 Session，也不得引入\n  attempt 作为隐藏 Run 兼容模型。\n- **FR-008**: Issue dispatch MUST 在一个一致性边界内创建或复用 Task，并创建或复用\n  首个 Session；Issue identity 与 dispatch idempotency 归属于 Task。\n- **FR-009**: Session MUST 继承 Task 的 Project 和冻结 Repository identity，\n  MUST NOT 覆盖目标 Project 或 Repository。\n- **FR-010**: Session MAY 独立选择子任务目标、Agent、branch 与允许范围内的 runtime\n  override；一个 Session 的结果不得自动改变兄弟 Session。\n- **FR-011**: `Runner` MUST 是稳定的一等业务对象，包含稳定 ID、唯一名称、能力、\n  容量、eligibility、健康和当前分配投影。\n- **FR-012**: Runner 重启或重新注册 MUST 更新同一 Runner；认证 credential、heartbeat\n  与 lease MUST 是内部运行状态，不得形成 `RunnerSession` 业务对象。\n- **FR-013**: 内部执行记录 MAY 持久化为 Session event，但 MUST NOT 使用\n  `RunEvent` 名称，也 MUST NOT 作为独立业务资源、管理入口或产品导航出现。\n- **FR-014**: activity timeline、面向调用方的事件 projection、事件 ID 与事件 collection\n  MUST 保持 deferred；本功能不得顺便固化其产品合同。\n- **FR-015**: canonical API MUST 提供 Task、Task 下 Session、单个 Session 与 Runner\n  的创建/读取/列表及现有必要操作；不得保留 `/api/jobs` 或 Run 资源入口。\n- **FR-016**: runner protocol MUST claim、观察、完成和取消 Session，并使用稳定\n  `runnerId`；不得出现 jobId、runId 或 runnerSessionId。\n- **FR-017**: MCP MUST 只暴露 Task、Session 与 Runner 工具；旧 Job/Run 工具名称和\n  payload MUST 删除。\n- **FR-018**: CLI MUST 只暴露 `tasks`、`sessions` 与 `runners`；旧 `runs` 命令、\n  Job 脚本、输出 label 与兼容 alias MUST 删除。\n- **FR-019**: Web MUST 将现有 Task 页面改为真实 Task 资源，并提供其 Session 列表；\n  Session inspection MUST 使用 Session 语言，Runner 页面 MUST 使用稳定 Runner。\n- **FR-020**: `025-webui` 的目标导航 MUST 使用 `New Task` 与\n  `Recent Sessions`；不得在新 UI 文案中保留旧业务名词。\n- **FR-021**: 持久化 MUST 使用 Task、Session、Runner 及内部 Session event 语义；\n  旧 jobs、runs、runner_sessions、run_events schema 不得继续存在。\n- **FR-022**: 本地开发数据迁移 MUST 采用精确目标识别后的破坏性重建；不得为了\n  兼容旧数据保留双 schema、双读、双写或 adapter。\n- **FR-023**: 活动 TypeScript/Zod 合同、API 路径、MCP、CLI、runner protocol、Web、\n  测试、脚本和耐久项目文档中 MUST 不存在 Job/Run/RunnerSession/RunEvent 业务命名。\n- **FR-024**: 关闭的历史 Spec-Kit artifacts 与历史 evidence MAY 保留原始术语，\n  但 MUST 清楚标记为 superseded，且不得被活动代码、测试或耐久边界引用为当前合同。\n- **FR-025**: Review、preview、test/build evidence 与 `waiting_for_review` MUST 归属于\n  Session；Task 只通过 Session 引用访问这些结果。\n- **FR-026**: Task 没有隐式执行 state machine；管理面 MAY 提供 sessionCount、\n  activeSessionCount 或 latestSession 摘要，但这些只是 projection，不是 Task 状态。\n- **FR-027**: 迁移 MUST 保持 GitHub/Linear Integration、remote Repository snapshot、\n  Docker sandbox、Agent adapter、secret hygiene 与 Review delivery 的现有产品边界。\n\n### Key Entities\n\n- **Task**: 长期业务工作容器。拥有 Project、来源/Issue、高层目标、冻结 Repository\n  与 metadata；可以独立存在，不拥有执行状态机。\n- **Session**: Task 下的独立子任务与 Agent 执行单元。拥有自己的目标、Agent、branch、\n  runtime、state、Runner assignment、result 与 Review evidence。\n- **Runner**: 稳定的执行资源。拥有身份、能力、容量、eligibility 和健康投影；连接凭据\n  与 heartbeat/lease 是内部属性。\n- **SessionEvent**: Session 执行中的内部事实记录。它支持状态转换和诊断，但不是业务\n  资源；本功能不定义 activity timeline 或公开事件合同。\n- **TaskSessionSummary**: 可选管理投影，提供 Session 数量或最新 Session 摘要，\n  不形成 Task 状态机。\n\n## Assumptions\n\n- Task 固定一个 Project 和 Repository context；不同 repository 的工作使用不同 Task。\n- Session 的 branch 与 Review artifact 独立，因此同 Task 多 Session 可以形成不同 PR。\n- 本次不增加 retry API；未来所谓 retry 仍表现为显式创建新 Session。\n- Task 的 completion/cancel/archive 产品语义暂不新增；现有取消动作迁移为取消 Session。\n- 现有本地数据库是开发数据，可在精确确认文件后重建；不承诺历史数据迁移。\n- UI 不新增 activity timeline；038 的 prototype 只验证对象层级和命名，不确定视觉方向。\n\n## Explicitly Out of Scope\n\n- activity timeline、事件详情页面、事件查询 API、事件 ID 稳定性或事件 retention 产品合同。\n- Task 自动拆解 Session、自动调度、父子 Session、依赖图、workflow graph 或 standing order。\n- Task 自动汇总多个 Session 结果、自动选择最佳结果或自动 merge 多个 PR。\n- 新 retry API、quality-gate fix loop、callback、logs API 或 hosted multi-tenancy。\n- 兼容旧 Job/Run payload、数据库记录、API、CLI、MCP tool、route 或文档 alias。\n\n## Success Criteria\n\n### Measurable Outcomes\n\n- **SC-001**: 一个 Task 可在无 Session 时创建和读取，并可追加至少 10 个相互独立的\n  Session，任一 Session 状态变化不会改变兄弟 Session。\n- **SC-002**: 同一 Runner 在重新注册和心跳后保持一个稳定业务 ID，管理列表中不会因\n  进程重启出现重复 Runner。\n- **SC-003**: 从全新数据库完成一次真实 Issue → Task → Session → Runner → Review\n  路径，最终 Session 进入 `waiting_for_review` 并返回 preview 与 PR evidence。\n- **SC-004**: 活动代码、API、MCP、CLI、runner protocol、Web、测试和耐久边界文档的\n  精确审计中，Job、Run、RunnerSession、RunEvent 及其 ID/route/alias 结果为零。\n- **SC-005**: 旧 API、CLI 和 MCP 入口均不可用；不存在兼容重定向、alias、双读或双写。\n- **SC-006**: 旧开发数据库只在命中精确 Mystra legacy schema 时重建；验证不会删除\n  repository、workspace 或非目标数据库文件。\n- **SC-007**: API、CLI、MCP 与 Web 对同一 Task、Session 和 Runner 的关键字段一致，\n  所有 focused/full tests、lint、typecheck、build 与 Spec-Kit 检查通过。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：Task / Session 业务模型迁移\n\n## 摘要\n\nMystra 将长期工作目标建模为 Task，将每次独立子任务和 Agent 执行建模为 Session。\n一个 Task 可以没有 Session，也可以由人或 Agent 创建多个 Session。Runner 是稳定资源；\n连接 lease 与执行事件只是内部运行记录。\n\n## 功能地图\n\n- Task：Project、Issue/来源、高层目标、冻结 Repository context。\n- Session：Task 下的子任务、Agent、branch、runtime、执行状态和 Review evidence。\n- Runner：稳定身份、能力、容量、eligibility 与健康状态。\n- 管理面：API 为 canonical；MCP、CLI 与 Web 只使用 Task/Session/Runner。\n- runner protocol：claim 和完成 Session，不再消费 Job/Run。\n\n## 边界\n\n- 不保留 Job/Run API、payload、CLI、MCP、schema 或 alias。\n- 不迁移旧开发数据；只允许精确识别目标后的 schema 重建。\n- 不把 Session event 或 runner lease 提升为业务对象。\n- 不决定 activity timeline、事件查询或事件 retention。\n- 不引入 Task orchestration、Session graph 或自动 retry。\n\n## 分阶段能力图\n\n1. 冻结 Task、Session、Runner 与内部记录的合同边界。\n2. 迁移 shared contracts、RDB 与 SQLite schema。\n3. 迁移 API、runner protocol、MCP、CLI 和 Web。\n4. 对齐 025 UI、耐久文档和历史 superseded 标记。\n5. 完成静态、合同、持久化、runtime 与真实 Review 路径验证。\n\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：Task / Session 业务模型迁移\n\n## Owner 评审\n\n- [x] 一个 Task 可以创建多个 Session 承载不同子任务。\n- [x] Task 与 Session 是松散一对多，不形成 workflow orchestration。\n- [x] 不保留 Job/Run 兼容性，旧开发数据库允许重建。\n- [x] Runner 是一等业务对象。\n- [x] RunnerSession 与 RunEvent 不是业务对象。\n- [x] activity timeline 暂缓决策。\n\n## Spec 就绪度\n\n- [x] Task、Session、Runner 的对象职责与归属明确。\n- [x] API、MCP、CLI、runner、Web、schema 和文档迁移范围明确。\n- [x] clean break 与精确重建安全边界明确。\n- [x] 需求质量得分达到 97/100。\n- [x] 可进入技术计划与工程评审。\n\n## 后续插件检查\n\n- [ ] activity timeline 与公开 Session event projection。\n- [ ] Task completion/archive 产品语义。\n- [ ] 多 Session 结果聚合或协作策略。\n- [ ] 显式 retry 产品能力。\n\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype：Task / Session 对象层级\n\n## 入口\n\n- [独立 HTML 原型](./mockups/index.html)\n\n## 覆盖范围\n\n- Task 可独立存在，并在详情中列出多个 Session。\n- Session 作为独立执行与 Review 对象。\n- Runner 使用稳定身份，不展示 RunnerSession。\n- 025 shell 的目标文案使用 `New Task` / `Recent Sessions`。\n\n## 使用方式\n\n直接在浏览器打开 `mockups/index.html`。该原型只验证对象层级、命名和导航归属，\n不作为视觉风格或最终布局依据。\n\n## 当前限制\n\n- 不展示 activity timeline、事件 ID 或事件查询入口。\n- 不设计 Task completion/archive。\n- 不展示多 Session orchestration；Session 由人或调用 Agent 显式创建。\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1785754259037"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Task / Session 业务模型迁移\n\n**Branch**: `038-task-session-model` | **Date**: 2026-08-03 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/038-task-session-model/spec.md`\n\n## Summary\n\n将 Mystra 的活动业务模型一次性切换为 `Task`、`Session`、`Runner`：Task 是可独立存在且没有执行状态机的长期工作容器，Session 是 Task 下可由人或 Agent 显式创建的独立子任务/执行单元，Runner 是稳定资源。迁移复用现有 Issue intake、repository snapshot、runtime resolution、sandbox、Agent adapter、review delivery 和 SQLite provider 边界，但替换 shared contracts、RDB schema/provider、HTTP API、runner protocol、MCP、CLI、Web 与耐久文档。旧本地开发数据库仅在精确识别 legacy Mystra schema 后，在单个事务内删除已知旧表并建立新 schema；不保留 alias、双读、双写或历史数据迁移。\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9, Node.js 24.14.0  \n**Primary Dependencies**: Next.js 16 Route Handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, Node `child_process`, existing provider/adapters  \n**Storage**: SQLite through `RdbProvider`; schema remains dialect-neutral at the provider contract  \n**Testing**: Vitest unit/contract/integration tests, focused route/SQLite/runner tests, TypeScript typecheck, ESLint, Next.js build, Spec-Kit doctor/analyze  \n**Target Platform**: Local-first macOS/Linux control plane and outbound runner daemon; Docker single-machine sandbox path  \n**Project Type**: pnpm monorepo with shared TypeScript contracts, Next.js control plane (including MCP route), root operator CLI script and runner-daemon application  \n**Performance Goals**: Claim one eligible queued Session atomically without N+1 reads; list/detail projections remain bounded by existing local MVP load; Task detail with ten Sessions completes in one provider read path  \n**Constraints**: Fully breaking migration; exact legacy DB reset only; no public event/timeline contract; no retry API; no hosted RDB implementation; Runner credentials must not enter public projections  \n**Scale/Scope**: One local control plane, multiple stable Runners, dozens of Projects, Tasks with 0..N Sessions; broad contract migration across shared, control-plane, runner, CLI, MCP and 5xP/spec documents\n\n## Constitution Check\n\n*GATE: Passed before Phase 0 and re-checked after Phase 1 design.*\n\n- **Specification owns boundaries**: PASS. `spec.md` explicitly defers activity timeline, public events, retry, callbacks, logs, workflow graphs and hosted multi-tenancy.\n- **Typed service contracts**: PASS. All Task, Session, Runner, management, runner-protocol, CLI and MCP payloads use shared TypeScript/Zod schemas.\n- **Replaceable providers**: PASS. The migration changes `RdbProvider` semantics but retains the provider seam and does not leak SQLite SQL into public contracts.\n- **Runner isolation and secret hygiene**: PASS. Runner credentials remain internal; Session execution reuses the existing outbound runner and sandbox isolation model.\n- **Verification and documentation**: PASS. The plan includes contract, persistence, route, protocol, adapter, UI, destructive-reset and terminology audit tests plus 5xP/Spec-Kit reconciliation.\n- **Required amendment**: The constitution and 5xP files still name the superseded model and shell labels. They are included in the same change because the feature explicitly amends the product boundary; this is reconciliation, not an incidental scope expansion.\n\n## Architecture\n\n### Business ownership\n\n```text\nProject ──────── 1 ──────── * Task ──────── 1 ──────── * Session\n   │                               │                         │\n   │ immutable repository          │ issue/source identity   │ goal + agent + branch\n   │ runtime policy                │ high-level objective     │ state + runtime + result\n   │                               │ no execution state       │ optional Runner assignment\n   │                               │                         │\n   └──────────────────────── inherited context ──────────────┘\n\nRunner ───── 0..capacity ───── active Session assignments\n  stable identity\n  internal credential + heartbeat\n\nSessionEvent ── internal implementation record only\n  no public resource, route, collection, navigation or stable product contract\n```\n\n### Canonical issue dispatch\n\n```text\nIssue dispatch request\n       │ validate integration + Project + frozen Repository\n       ▼\nBEGIN IMMEDIATE / provider transaction\n       │\n       ├─ find Task by unique dispatchKey\n       │      ├─ exists: validate immutable source identity\n       │      └─ absent: create Task\n       │\n       ├─ find/create exactly one initial Session by initialDispatchKey\n       ├─ append internal creation facts\n       └─ commit Task + Session atomically\n       ▼\nreturn { task, session }\n```\n\n### Runner execution\n\n```text\nregister stable Runner ── heartbeat ── claim queued Session atomically\n                                                │\n                                                ▼\n                                    resolved runtime + Task context\n                                                │\n                                                ▼\n                           sandbox → Agent → tests/build → preview/review\n                                                │\n                                                ▼\n                            internal events + terminal Session result\n```\n\n### Destructive local schema reset\n\n```text\nopen configured SQLite file\n       │\n       ├─ no business tables: create current schema\n       ├─ exact current schema marker: verify and continue\n       ├─ exact legacy Mystra table fingerprint:\n       │      disable FK outside transaction → BEGIN IMMEDIATE\n       │      drop only enumerated legacy child/parent tables\n       │      create current schema + marker → foreign_key_check → commit\n       └─ unknown/mixed schema: fail closed with actionable error\n```\n\nThe reset never deletes a database file or directory. It does not use `writable_schema`, and it does not interpret a partial name match as authorization to drop tables.\n\n## Design Decisions\n\n1. **Task has no lifecycle state.** List/detail responses may contain `sessionCount`, `activeSessionCount` and `latestSession`, explicitly typed as projections.\n2. **Session is not an execution attempt.** Explicit rerun creates a new Session with a new ID and immutable prior evidence; there is no `attempt` field.\n3. **Task owns Project, Issue/source and frozen Repository.** Session owns its child objective, Agent, branch, resolved runtime, state, Runner assignment and result. Session creation cannot override Project/Repository.\n4. **Runner identity is stable by unique `runnerName`.** Registration first validates the existing shared runner-registration secret, then upserts the same Runner and rotates its internal credential. A stale prior credential immediately stops authenticating.\n5. **Claim is a write transaction.** Eligibility/capacity selection and assignment occur in one provider transaction to prevent two runners claiming the same Session. `SQLITE_BUSY` is surfaced as a retryable internal runner response, never as duplicate assignment.\n6. **Internal facts are atomic with state changes.** Provider methods update Session state and append their corresponding internal fact in one transaction. No public timeline schema is created.\n7. **Issue dispatch owns idempotency.** Task `dispatchKey` and initial Session `initialDispatchKey` are unique. Repeated identical dispatch returns the same pair; mismatched immutable content returns a stable conflict.\n8. **Branch is Session-owned and must be explicit after default resolution.** Two Sessions under one Task may not silently target the same branch if both are active; a unique partial index/transactional conflict protects active branch ownership within a repository.\n9. **Task creation and Session creation are separate canonical operations.** Manual Task creation may stop with zero Sessions; Issue dispatch is the only operation that atomically creates the initial pair.\n10. **The public object graph stops at Runner.** Credential, lease, heartbeat samples and internal event row IDs are implementation fields, not separate managed resources.\n\n## Implementation Phases\n\n### Phase A: Contracts and persistence foundation\n\n- Replace shared schemas and types with Task, Session, Runner, SessionResult, SessionState, cancellation and summary contracts.\n- Define explicit API/protocol error codes such as `TASK_NOT_FOUND`, `SESSION_NOT_FOUND`, `SESSION_CANCEL_CONFLICT`, `RUNNER_NOT_FOUND` and dispatch conflict.\n- Replace SQLite tables and `RdbProvider` methods; implement exact legacy fingerprint/reset and current schema marker.\n- Add transaction-level invariants for Task/Session ownership, idempotent dispatch, claim, internal facts, terminal completion and stale Runner handling.\n\n### Phase B: Canonical HTTP and integrations\n\n- Replace management routes with `/api/tasks`, `/api/tasks/:id`, `/api/tasks/:id/sessions`, `/api/sessions/:id`, `/api/sessions/:id/cancel`, `/api/sessions/:id/summary`, `/api/runners` and `/api/runners/:id`.\n- Replace internal runner routes with `/api/runner/sessions` and `/api/runner/sessions/:id/{events,result}` while retaining `/api/runner/register` and `/api/runner/heartbeat` under stable Runner semantics.\n- Update GitHub/Linear Issue dispatch to return an idempotent Task/initial Session pair.\n- Remove old route directories rather than leaving redirect handlers.\n\n### Phase C: Runner, MCP, CLI and Web adapters\n\n- Migrate runner polling/execution/result submission to Session payloads and stable `runnerId`.\n- Expose MCP tools only for Task, Session, Runner and health operations.\n- Expose CLI groups only as `tasks`, `sessions` and `runners`; cancellation/result/failure belong to Session.\n- Rebind current Task pages to real Task responses, add child Session list/creation and Session inspection, and render stable Runner projections.\n- Reconcile 025 shell labels and exploration artifacts to `New Task` and `Recent Sessions` without inventing the deferred timeline.\n\n### Phase D: Durable naming cleanup and verification\n\n- Update constitution, PRODUCT, PLATFORM, PROCESS/README/module docs and active specs to the new current contract; mark closed historical specs as superseded where they retain historical terminology.\n- Remove old identifiers from active code, routes, tests, fixtures, scripts, package exports and generated documentation.\n- Run focused tests after each slice, then full typecheck, test, lint, build, Spec-Kit doctor/analyze and an explicit terminology audit.\n\n## Test Strategy\n\n```text\nCONTRACT\n├─ Task can exist with zero Sessions\n├─ Session always belongs to exactly one Task\n├─ Session rejects Project/Repository override\n├─ Runner public view excludes credential/internal lease\n└─ old payload and command names fail validation / do not exist\n\nPERSISTENCE\n├─ fresh schema creation\n├─ exact legacy schema reset succeeds\n├─ unknown or mixed schema fails closed\n├─ duplicate Issue dispatch returns same Task + initial Session\n├─ 10 sibling Sessions remain lifecycle-independent\n├─ concurrent claim yields exactly one assignment\n├─ state change + internal fact commit or roll back together\n├─ stable Runner re-registration rotates credential without duplicate identity\n└─ stale Runner affects only its active Sessions\n\nSURFACES\n├─ HTTP Task/Session/Runner route contract tests\n├─ Issue → Task → Session integration test\n├─ runner protocol execution/result test\n├─ MCP and CLI parity tests\n├─ Web object page and empty/error state tests\n└─ old routes/tools/commands return absent behavior\n\nSYSTEM\n├─ fresh DB Issue → Task → Session → Runner → Review path\n├─ pnpm typecheck / test / lint / build\n├─ git diff --check + Spec-Kit doctor/analyze\n└─ active-surface terminology audit with explicit historical exclusions\n```\n\n## Failure Modes and Handling\n\n| Code path | Production failure | Handling | Required test |\n|---|---|---|---|\n| Manual Task create | archived/missing Project | fail with typed error, no partial Task | route + provider transaction test |\n| Session create | Task missing or repository snapshot malformed | fail closed, no Session/event | contract + persistence test |\n| Issue dispatch | concurrent duplicate dispatch | unique key + transaction returns existing identical pair | concurrent idempotency integration test |\n| Runner register | anonymous process tries to take over an existing name | require shared registration secret, upsert identity, rotate credential, reject old credential | authentication test |\n| Session claim | two runners race or DB is busy | one assignment; retryable busy response | concurrency test |\n| Session completion | result valid but event insert fails | full transaction rollback | fault-injection persistence test |\n| Runner stale | completed Session still assigned historically | update only active state set | stale-boundary test |\n| Legacy reset | unrelated/partial schema resembles Mystra | fail closed; list detected tables | destructive-safety test |\n| Web list/detail | Task has no Sessions or API fails | explicit empty/error state | component/route test |\n\nNo planned path is allowed to fail silently without both error handling and a test.\n\n## Performance and Concurrency\n\n- Add indexes for `sessions(task_id, created_at)`, claimable Session selection, active Runner assignments, unique dispatch keys and Task/session detail lookup.\n- Task list uses aggregate projections in one SQL query or a bounded secondary query, never one query per Task.\n- Runner claim uses one immediate write transaction. SQLite permits only one concurrent writer, so the critical section remains short and performs no network/runtime work.\n- Internal Session facts remain append-only but are not fetched by Task/Session management endpoints in this feature.\n- No new cache is introduced; current local MVP scale does not justify a second source of truth.\n\n## What Already Exists\n\n- `RdbProvider` and `SqliteRdbProvider`: reuse the provider seam and transaction helpers; replace the business contract and schema.\n- GitHub/Linear Integration and Issue snapshots: reuse resolution and read-only intake; move identity ownership to Task.\n- Remote Repository snapshots: reuse immutable Project repository identity and inheritance.\n- Runtime resolution, sandbox providers and Agent adapters: reuse behavior; consume Session instead of the old execution snapshot.\n- Review/preview/artifact delivery: reuse evidence generation; persist it on Session.\n- Current Task/Runner object pages: reuse page structure and loading/error patterns; replace data contracts.\n- Existing Vitest route, provider, runner, CLI and MCP tests: rewrite fixtures and assertions rather than create a parallel suite.\n\n## NOT in Scope\n\n- Activity timeline, public event collection, event IDs, event retention or event detail UI, deferred by explicit user decision.\n- Automatic Task decomposition, ordering, dependency graph, orchestration, retry or result aggregation, incompatible with loose one-to-many ownership.\n- Hosted Postgres/Supabase provider implementation, multi-tenant auth, callbacks, logs API or quality-fix loops, outside MVP.\n- Migration or export of old local Job/Run data, explicitly rejected in favor of precise rebuild.\n- Redesign of the full 025 visual system, only terminology and object-contract reconciliation are included.\n- New artifact distribution pipeline, this feature changes existing monorepo applications/packages and creates no new distributable artifact type.\n\n## Project Structure\n\n### Documentation (this feature)\n\n```text\nspecs/038-task-session-model/\n├── spec.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   ├── http-api.md\n│   ├── runner-protocol.md\n│   └── mcp-cli.md\n├── checklists/\n│   ├── requirements.md\n│   └── engineering-review.md\n└── tasks.md\n```\n\n### Source Code (repository root)\n\n```text\npackages/shared/src/                 # canonical Zod/domain/protocol contracts\nscripts/operator-cli.mjs             # Task/Session/Runner operator CLI adapter\napps/control-plane/src/lib/db/       # RdbProvider + SQLite implementation/migrations\napps/control-plane/src/lib/integrations/\napps/control-plane/app/api/          # management, integration, MCP and runner routes\napps/control-plane/app/tasks/        # Task list/detail\napps/control-plane/app/sessions/     # Session detail\napps/control-plane/app/runners/      # stable Runner views\napps/runner/src/                     # Session claim and execution daemon\ntests and colocated *.test.ts        # contract/integration/component evidence\n```\n\n**Structure Decision**: Keep the existing monorepo and provider/adaptor boundaries. This migration introduces no new service or package; it changes the canonical types once in `@mystra/shared`, then updates each existing adapter.\n\n## Worktree Parallelization Strategy\n\nSequential implementation is preferred for the foundation because all downstream work depends on shared contracts and `RdbProvider`. After Phase A is green, adapters can be split.\n\n| Step | Modules touched | Depends on |\n|---|---|---|\n| A. Contracts + persistence | `packages/shared/`, `apps/control-plane/src/lib/db/` | — |\n| B. HTTP + integrations | `apps/control-plane/app/api/`, `apps/control-plane/src/lib/integrations/` | A |\n| C1. Runner | `apps/runner/` | A, B runner routes |\n| C2. MCP + CLI | `apps/control-plane/app/api/mcp/`, `scripts/` | A, B management routes |\n| C3. Web + 025 | `apps/control-plane/app/`, `specs/025-webui/` | A, B management routes |\n| D. Durable docs + audit | 5xP, constitution, module docs, active specs | A-C |\n\n- **Lane A**: contracts/persistence → HTTP/integrations, sequential because they share canonical contracts.\n- **Lane B**: runner, after runner HTTP contracts exist.\n- **Lane C**: MCP + CLI, after management contracts exist.\n- **Lane D**: Web + 025, after management contracts exist.\n- Launch B, C and D in parallel only after A/B contract freeze; merge them before the final documentation audit. Since this goal is being executed in one shared worktree without delegated agents, the actual run remains sequential to avoid cross-module contract drift.\n\n## Complexity Tracking\n\n| Violation | Why Needed | Simpler Alternative Rejected Because |\n|---|---|---|\n| More than eight files change | The old business nouns are embedded in every public adapter and persistence boundary; leaving any adapter unchanged would preserve a prohibited compatibility surface | A small rename limited to UI or aliases would fail the explicit no-compatibility requirement and keep two mental models |\n| Destructive schema reset | Task/Session ownership and stable Runner identity cannot be represented safely by the current jobs/runs/runner_sessions schema without retaining the rejected model | In-place data conversion adds migration logic for disposable local development data and would preserve attempt/connection semantics the user explicitly removed |\n\n## Post-Design Constitution Re-check\n\nPASS. The resulting design keeps the existing provider architecture, runner isolation and secret boundaries; introduces no excluded MVP capability; preserves API as canonical with CLI/MCP adapters; and explicitly schedules the required constitution/5xP amendment and full verification. No `NEEDS CLARIFICATION` remains.\n\n## GSTACK REVIEW REPORT\n\n| Review | Trigger | Why | Runs | Status | Findings |\n|---|---|---|---:|---|---|\n| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |\n| Codex Review | `/codex review` | Independent second opinion | 0 | — | — |\n| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 17 findings/gaps resolved, 0 critical gaps |\n| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |\n| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |\n\n**UNRESOLVED**: 0  \n**VERDICT**: ENG CLEARED — ready for task decomposition. Local gstack review-log/dashboard binaries were unavailable; the durable review evidence is [checklists/engineering-review.md](./checklists/engineering-review.md).\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Task / Session 业务模型迁移\n\n**Input**: Design documents from `/specs/038-task-session-model/`  \n**Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`, `checklists/engineering-review.md`\n\n**Tests**: 本功能要求测试先行。每组 contract/provider/route/adapter 测试必须先写并确认针对旧实现失败，再完成对应实现。\n\n**Organization**: 任务按四个 P1 User Story 分组。共享 schema 与持久化属于阻塞基础；其后 Task、Session、Runner 和完整表面迁移分别形成可验证切片。\n\n## Format: `[ID] [P?] [Story] Description`\n\n- **[P]**: 在前置任务完成后可与不同文件/模块任务并行\n- **[Story]**: 对应 `spec.md` 的 User Story\n- 当前 Goal 在一个共享 worktree 中顺序执行；`[P]` 仅记录逻辑并行性，不授权创建 sub-agent\n\n---\n\n## Phase 1: Setup and Audit Baseline\n\n**Purpose**: 冻结迁移范围、风险与可重复审计入口，不修改产品行为。\n\n- [x] T001 记录关键 symbol/API 的 GitNexus impact 与 CRITICAL blast radius 到 `specs/038-task-session-model/checklists/implementation-impact.md`\n- [x] T002 在 `scripts/audit-task-session-terminology.mjs` 建立活动代码/路由/测试/脚本/耐久当前合同的术语审计及显式历史 spec 排除规则\n- [x] T003 在 `package.json` 增加 Task/Session 术语审计脚本，不提前移除尚未被 T052 替换的现有入口\n\n**Checkpoint**: 审计范围可重复执行；未触碰运行时逻辑。\n\n---\n\n## Phase 2: Foundational Contracts and Persistence\n\n**Purpose**: 建立所有 User Story 共同依赖的 Task/Session/Runner shared contracts、SQLite schema 与 provider 事务不变量。\n\n**⚠️ CRITICAL**: 此阶段完成并通过 focused tests 前，不得迁移 HTTP、runner、MCP、CLI 或 Web。\n\n- [x] T004 [P] 先在 `packages/shared/src/schemas.test.ts` 添加 Task create、Session create、继承限制与旧 payload 拒绝的失败测试\n- [x] T005 [P] 先在 `packages/shared/src/management.test.ts` 添加 Task/Session/Runner management projection、typed errors 与内部事实不公开的失败测试\n- [x] T006 [P] 先在 `packages/shared/src/state.test.ts` 和 `packages/shared/src/result.test.ts` 添加 SessionState/SessionResult 生命周期与 terminal evidence 失败测试\n- [x] T007 在 `packages/shared/src/schemas.ts`、`packages/shared/src/state.ts`、`packages/shared/src/result.ts` 和 `packages/shared/src/management.ts` 实现 Task/Session/Runner canonical Zod/TypeScript contracts\n- [x] T008 在 `packages/shared/src/events.ts` 和 `packages/shared/src/index.ts` 将执行事实收缩为内部 Session 语义并删除公开旧类型导出\n- [x] T009 运行 shared focused tests 并将通过证据记录到 `specs/038-task-session-model/checklists/verification.md`\n- [ ] T010 [P] 先在 `apps/control-plane/src/lib/db/sqlite-provider.test.ts` 添加 fresh/current/exact-legacy/unknown-mixed schema reset 与非目标数据保留失败测试\n- [ ] T011 在 `apps/control-plane/src/lib/db/migrations.ts` 实现 current schema marker、精确 legacy fingerprint、allowlisted destructive reset 和 `foreign_key_check`\n- [ ] T012 先在 `apps/control-plane/src/lib/db/sqlite-provider.test.ts` 添加空 Task、十个 sibling Sessions、immutable ownership、dispatch idempotency、claim race、fact rollback、stable Runner 与 stale 边界失败测试\n- [ ] T013 在 `apps/control-plane/src/lib/db/rdb-provider.ts` 定义独立 TaskRecord、SessionRecord、Runner 与 provider 方法，删除旧 snapshot/connection/event 业务接口\n- [ ] T014 在 `apps/control-plane/src/lib/db/sqlite-provider.ts` 实现 Task create/get/list/dispatch-key 与单查询 Session summary projection\n- [ ] T015 在 `apps/control-plane/src/lib/db/sqlite-provider.ts` 实现 Session create/list/get/cancel/summary、原子 claim、内部 fact 与 terminal completion 事务\n- [ ] T016 在 `apps/control-plane/src/lib/db/sqlite-provider.ts` 实现 stable Runner registration-secret upsert、credential rotation、heartbeat、capacity 和 stale handling\n- [ ] T017 在 `apps/control-plane/src/lib/db/index.ts` 和 `apps/control-plane/src/lib/db/README.md` 接入新 provider contract、精确 reset 行为与配置说明\n- [ ] T018 运行 SQLite focused tests、检查无 N+1 Task projection，并把证据追加到 `specs/038-task-session-model/checklists/verification.md`\n\n**Checkpoint**: Shared contracts 和 SQLite provider 只暴露 Task、Session、Runner；fresh/reset/idempotency/concurrency/security tests 全部通过。\n\n---\n\n## Phase 3: User Story 1 - 以 Task 组织长期工作目标 (Priority: P1)\n\n**Goal**: 人或 Agent 可以创建、列出和读取没有 Session 的 Task；Issue dispatch 原子创建或复用 Task 与 initial Session。\n\n**Independent Test**: 创建空 Task 并通过 HTTP/Web 读取；重复 dispatch 同一 Issue 两次得到相同 Task/initial Session ID，Task 中没有执行 state/result/Runner 字段。\n\n### Tests for User Story 1\n\n- [ ] T019 [P] [US1] 先在 `apps/control-plane/app/api/routes.test.ts` 添加 Task create/list/detail contract 与旧 Task payload 拒绝的失败测试\n- [ ] T020 [P] [US1] 先在 `apps/control-plane/src/lib/integrations/github.test.ts` 和 `apps/control-plane/src/lib/integrations/linear.test.ts` 添加 Issue dispatch 原子幂等 pair 与 conflict 失败测试\n- [ ] T021 [P] [US1] 先在 `apps/control-plane/app/api/object-pages.test.ts` 添加零 Session Task list/detail/empty/error state 失败测试\n\n### Implementation for User Story 1\n\n- [ ] T022 [US1] 实现 `apps/control-plane/app/api/tasks/route.ts` 和 `apps/control-plane/app/api/tasks/[id]/route.ts` 的 canonical Task management endpoints\n- [ ] T023 [US1] 在 `apps/control-plane/src/lib/integrations/dispatch.ts` 与 `apps/control-plane/app/api/integrations/[integration]/issues/[identifier]/dispatch/route.ts` 返回原子 Task/initial Session pair\n- [ ] T024 [US1] 在 `apps/control-plane/src/lib/integrations/types.ts`、`apps/control-plane/src/lib/integrations/errors.ts` 和 `apps/control-plane/src/lib/integrations/README.md` 统一 Task source/dispatch contracts\n- [ ] T025 [US1] 将 `apps/control-plane/app/tasks/page.tsx` 和 `apps/control-plane/app/tasks/[id]/page.tsx` 绑定真实 Task resource、Session summary 与零子项状态\n- [ ] T026 [US1] 运行 Task route、integration 和 object-page focused tests，并把证据追加到 `specs/038-task-session-model/checklists/verification.md`\n\n**Checkpoint**: User Story 1 可独立工作；Task 可为空，Issue dispatch 幂等且没有旧兼容字段。\n\n---\n\n## Phase 4: User Story 2 - 在 Task 下创建独立 Session (Priority: P1)\n\n**Goal**: 一个 Task 可显式创建多个独立 Session，每个拥有子目标、Agent、branch、runtime、state 与 review evidence，兄弟生命周期不联动。\n\n**Independent Test**: 为一个 Task 创建三个不同 Session，执行/取消其中一个，另外两个不变；显式再次执行会创建新 Session 而非覆盖或增加 attempt。\n\n### Tests for User Story 2\n\n- [ ] T027 [P] [US2] 先在 `apps/control-plane/app/api/routes.test.ts` 添加 Session create/list/detail/cancel/summary、inheritance rejection 与 sibling independence 失败测试\n- [ ] T028 [P] [US2] 先在 `packages/shared/src/coordination-session-summary.test.ts` 添加 Session coordination summary、result unavailable 与无 event projection 的失败测试\n- [ ] T029 [P] [US2] 先在 `apps/control-plane/app/api/object-pages.test.ts` 添加 Session loading/error/terminal/review 页面和 Task child creation 失败测试\n\n### Implementation for User Story 2\n\n- [ ] T030 [US2] 实现 `apps/control-plane/app/api/tasks/[id]/sessions/route.ts` 与 `apps/control-plane/app/api/sessions/[id]/route.ts` 的 Session create/list/detail endpoints\n- [ ] T031 [US2] 实现 `apps/control-plane/app/api/sessions/[id]/cancel/route.ts` 与 `apps/control-plane/app/api/sessions/[id]/summary/route.ts` 的 Session-only operations\n- [ ] T032 [US2] 将 `packages/shared/src/coordination-session-summary.ts` 和 `apps/control-plane/src/lib/coordination-session-summary.ts` 迁移为 compact Session summary，不暴露内部 facts\n- [ ] T033 [US2] 新增 `apps/control-plane/app/sessions/[id]/page.tsx` 并扩展 `apps/control-plane/app/tasks/[id]/page.tsx` 的 child Session create/list/inspect 交互\n- [ ] T034 [US2] 在 `apps/control-plane/app/_lib/types.ts`、`apps/control-plane/app/_lib/format.ts` 和 `apps/control-plane/app/_components/status-badge.tsx` 统一 Session 类型、时间和状态显示\n- [ ] T035 [US2] 运行 Session route、summary 和 object-page focused tests，并把证据追加到 `specs/038-task-session-model/checklists/verification.md`\n\n**Checkpoint**: User Story 2 可独立工作；Task 下 0..N Session 与 sibling independence 得到测试证明。\n\n---\n\n## Phase 5: User Story 3 - 将 Runner 作为稳定业务对象 (Priority: P1)\n\n**Goal**: Runner 注册、心跳、重启与 claim 使用稳定 Runner ID；credential/heartbeat/lease 不形成业务对象。\n\n**Independent Test**: 用共享 registration secret 注册同名 Runner 两次，ID 不变、旧 credential 失效；管理 API/Web 只展示稳定 Runner 和 Session assignment。\n\n### Tests for User Story 3\n\n- [ ] T036 [P] [US3] 先在 `apps/control-plane/app/api/routes.test.ts` 添加 registration-secret、same-name upsert、credential rotation、heartbeat、Runner list/detail 与 claim Session 失败测试\n- [ ] T037 [P] [US3] 先在 `apps/runner-daemon/src/registration.test.ts` 添加 enrollment credential、stable runnerId 和 Session capability payload 失败测试\n- [ ] T038 [P] [US3] 先在 `apps/control-plane/app/api/object-pages.test.ts` 添加稳定 Runner health/capacity/current Session projection 失败测试\n\n### Implementation for User Story 3\n\n- [ ] T039 [US3] 将 `apps/control-plane/app/api/runner/register/route.ts` 与 `apps/control-plane/app/api/runner/heartbeat/route.ts` 迁移为 registration-secret 验证和 stable Runner protocol\n- [ ] T040 [US3] 实现 `apps/control-plane/app/api/runner/sessions/route.ts`、`apps/control-plane/app/api/runner/sessions/[id]/route.ts`、`events/route.ts` 与 `result/route.ts`\n- [ ] T041 [US3] 将 `apps/control-plane/app/api/runners/route.ts` 和 `apps/control-plane/app/api/runners/[id]/route.ts` 迁移为稳定 Runner management views\n- [ ] T042 [US3] 将 `apps/runner-daemon/src/registration.ts` 和 `apps/runner-daemon/src/index.ts` 迁移为 enrollment secret、runnerId、Task context 与 Session claim/completion\n- [ ] T043 [US3] 将 `apps/runner-daemon/src/direct-execution.ts` 与 `apps/runner-daemon/src/review-projections.ts` 的执行/result envelope 迁移为 Session\n- [ ] T044 [US3] 更新 `apps/control-plane/app/runners/page.tsx` 与 `apps/control-plane/app/runners/[id]/page.tsx` 的稳定身份、健康、容量和 Task/Session assignments\n- [ ] T045 [US3] 更新 `apps/runner-daemon/README.md` 与 `docs/RUNNER-ENVIRONMENT.md` 的 registration secret、stable Runner 和 Session protocol 文档\n- [ ] T046 [US3] 运行 runner route/daemon/provider/object-page focused tests，并把证据追加到 `specs/038-task-session-model/checklists/verification.md`\n\n**Checkpoint**: User Story 3 可独立工作；Runner 重启不产生新业务对象，匿名接管与旧 credential 均被拒绝。\n\n---\n\n## Phase 6: User Story 4 - 完成无兼容层的统一迁移 (Priority: P1)\n\n**Goal**: HTTP、MCP、CLI、runner protocol、Web、脚本、schema 和耐久当前合同只使用 Task、Session、Runner，并完成真实 Issue → Review 路径。\n\n**Independent Test**: 对 fresh DB 执行 Issue → Task → Session → Runner → Review；旧路由/命令/MCP tool 不存在；活动术语审计结果为零。\n\n### Tests for User Story 4\n\n- [ ] T047 [P] [US4] 先在 `apps/control-plane/app/api/routes.test.ts` 添加 MCP Task/Session/Runner tool discovery/call parity 与旧 tool 缺失失败测试\n- [ ] T048 [P] [US4] 先在 `apps/control-plane/src/lib/operator-cli.test.ts` 和 `apps/control-plane/src/lib/operator-object-cli.test.ts` 添加 tasks/sessions/runners CLI 与旧 command 缺失失败测试\n- [ ] T049 [P] [US4] 先在 `apps/runner-daemon/src/direct-execution.test.ts` 添加 Task context → Session result/review end-to-end envelope 失败测试\n\n### Implementation for User Story 4\n\n- [ ] T050 [US4] 将 `apps/control-plane/app/api/mcp/route.ts` 收敛为 shared Task/Session/Runner tools，并删除公开内部 fact/event tool contract\n- [ ] T051 [US4] 将 `scripts/operator-cli.mjs` 迁移为 tasks/sessions/runners 命令组、canonical JSON schemas 与 Session polling/result/failure\n- [ ] T052 [US4] 删除旧独立业务脚本及 `package.json` 入口，统一通过 `scripts/operator-cli.mjs` 的 Task/Session 命令且不保留 alias\n- [ ] T053 [US4] 删除 `apps/control-plane/app/api/jobs/` 与 `apps/control-plane/app/api/runner/jobs/`，并验证请求不会被 redirect 或 compatibility handler 接收\n- [ ] T054 [US4] 更新 `apps/control-plane/app/api/control-plane/route.ts`、`apps/control-plane/app/page.tsx` 与 `apps/control-plane/app/_components/app-shell.tsx` 的 Task/Session/Runner 导航与健康摘要\n- [ ] T055 [US4] 更新 `.specify/memory/constitution.md`、`PRODUCT.md`、`PLATFORM.md`、`PROCESS.md` 和 `README.md` 的当前 MVP boundary 与 amendment notes\n- [ ] T056 [US4] 更新 `specs/025-webui/spec.md`、`specs/025-webui/plan.md`、`specs/025-webui/contracts/shell-contract.md`、`specs/025-webui/features.md` 和 `specs/025-webui/tasks.md` 为 New Task/Recent Sessions\n- [ ] T057 [US4] 更新 `specs/025-webui/prototype.md`、`specs/025-webui/README.md`、`specs/025-webui/page-designs/new-work.md`、`specs/025-webui/page-designs/overview-analytics.md` 和 `specs/025-webui/mockups/index.html` 的活动 UI 文案与 Session detail 语义\n- [ ] T058 [US4] 在 `specs/spec-status.md` 记录 038 supersedes 当前业务模型、历史 spec 排除边界，并确保 5xP/活动代码不引用其旧合同\n- [ ] T059 [US4] 运行 MCP、CLI、runner direct-execution、route absence 与 025 render focused tests，并把证据追加到 `specs/038-task-session-model/checklists/verification.md`\n\n**Checkpoint**: User Story 4 完整；所有活动入口只提供 Task、Session、Runner，不存在兼容层。\n\n---\n\n## Phase 7: Polish and Cross-Cutting Verification\n\n**Purpose**: 清除残留、验证整个 monorepo、更新索引并形成可审计的本地提交。\n\n- [ ] T060 [P] 更新 `docs/SPEC.md`、`docs/IMPLEMENTATION-PLAN.md`、`docs/ADR-0002-hosted-supabase-control-plane-mcp.md` 和 `docs/ADR-0003-platform-capabilities-vs-project-state.md` 的 current/superseded 说明\n- [ ] T061 [P] 更新 `apps/control-plane/src/lib/db/README.md`、`apps/control-plane/src/lib/integrations/README.md` 和 `apps/runner-daemon/README.md` 的最终命令、配置与不变量\n- [ ] T062 运行 `pnpm audit:task-session-terminology` 并修复 `scripts/audit-task-session-terminology.mjs` 报告的全部活动残留\n- [ ] T063 运行 `pnpm typecheck`、`pnpm test`、`pnpm lint` 与 `pnpm build`，将命令和结果记录到 `specs/038-task-session-model/checklists/verification.md`\n- [ ] T064 运行 Spec-Kit doctor/analyze、render、`git diff --check` 与 quickstart 验证，并更新 `specs/038-task-session-model/checklists/verification.md`\n- [ ] T065 刷新 GitNexus index 并运行 `gitnexus_detect_changes()`，将受影响 symbols/processes 与预期范围对照写入 `specs/038-task-session-model/checklists/implementation-impact.md`\n- [ ] T066 检查并保留用户原有 `AGENTS.md`、`CLAUDE.md` 和 `apps/control-plane/next-env.d.ts` 未提交差异，只暂存 038 授权改动\n- [ ] T067 在本地创建 038 feature commit，确认未执行 push，并将 commit/evidence 记录到 `specs/038-task-session-model/checklists/verification.md`\n\n**Final Checkpoint**: 所有规格验收、测试、构建、术语审计、GitNexus scope 与本地提交完成；远端未推送。\n\n---\n\n## Dependencies & Execution Order\n\n### Phase Dependencies\n\n- **Phase 1**: 无依赖，先冻结审计范围。\n- **Phase 2**: 依赖 Phase 1，阻塞全部 User Story。\n- **US1 / Phase 3**: 依赖 Phase 2，建立 Task 与 Issue intake。\n- **US2 / Phase 4**: 依赖 Phase 2 与 US1 Task HTTP/detail，建立 child Session surface。\n- **US3 / Phase 5**: 依赖 Phase 2 与 US2 Session provider/protocol contract，建立 stable Runner execution。\n- **US4 / Phase 6**: 依赖 US1-US3，迁移所有薄适配器并删除旧表面。\n- **Phase 7**: 依赖所有 User Story，执行全量清理、验证和本地提交。\n\n### User Story Dependency Graph\n\n```text\nSetup/Audit\n    │\nShared contracts + SQLite provider\n    │\n    ├── US1 Task + Issue dispatch\n    │       │\n    │       └── US2 child Session management\n    │               │\n    │               └── US3 stable Runner execution\n    │                       │\n    │                       └── US4 MCP/CLI/Web/docs cutover\n    │\n    └──────────────────────────────> Final audit/verification/commit\n```\n\n### Within Each User Story\n\n1. 先运行 GitNexus impact（若涉及新 symbol 则对被替换的旧 symbol/route 执行）。\n2. 写测试并确认针对旧实现失败。\n3. 实现最小完整切片。\n4. 运行 focused tests 并记录证据。\n5. 通过 checkpoint 后再进入下一 Story。\n\n### Parallel Opportunities\n\n- T004-T006 可并行编写 shared tests。\n- T019-T021、T027-T029、T036-T038、T047-T049 各 Story 内的测试可在合同冻结后并行。\n- US3 完成后，MCP、CLI、025/docs 可逻辑并行，但它们共享命名审计和部分 route types；合并前必须运行全量 parity tests。\n- 本 Goal 未获 sub-agent 授权，实际执行顺序保持单 worktree 串行。\n\n---\n\n## Parallel Examples\n\n### User Story 1\n\n```text\nT019 Task route contract tests\nT020 Integration dispatch tests\nT021 Task object-page tests\n```\n\n### User Story 2\n\n```text\nT027 Session route tests\nT028 Session summary tests\nT029 Session object-page tests\n```\n\n### User Story 3\n\n```text\nT036 Runner route/security tests\nT037 Runner daemon registration tests\nT038 Runner object-page tests\n```\n\n### User Story 4\n\n```text\nT047 MCP parity tests\nT048 CLI parity tests\nT049 Runner end-to-end envelope tests\n```\n\n---\n\n## Implementation Strategy\n\n### Foundation First\n\n1. T001-T003 建立审计边界。\n2. T004-T009 冻结 shared contracts。\n3. T010-T018 完成 destructive reset 与 provider 事务不变量。\n4. **STOP AND VALIDATE**: shared/SQLite focused tests 必须全绿；否则不迁移 adapter。\n\n### Complete Vertical Cutover\n\n1. US1 交付独立 Task 与 Issue dispatch。\n2. US2 交付 0..N child Sessions。\n3. US3 交付 stable Runner 与 Session execution。\n4. US4 同步迁移 MCP/CLI/Web/docs 并删除旧表面。\n5. Final Phase 证明不存在旧兼容面，而不是仅证明新路径可用。\n\n### Recovery Rule\n\n- 任一 checkpoint 失败时停留在当前 Phase 修复，不通过 alias、双写或临时 adapter 绕过。\n- destructive reset 测试若不能证明 unknown schema 保留，则不得对真实本地开发 DB 启动新版本。\n- 如 GitNexus 报告新的 HIGH/CRITICAL 未纳入 `implementation-impact.md`，先更新影响与测试计划，再继续编辑。\n\n---\n\n## Notes\n\n- `[P]` 表示逻辑并行，不代表已授权多 Agent。\n- 每个任务包含明确文件路径与可由 checkpoint 验证的结果。\n- 旧业务词可在迁移规格、负向测试和 superseded 历史说明中作为被删除对象出现；不得出现在活动产品合同或兼容入口。\n- activity timeline/public event projection 没有实现任务；它仍需未来独立规格。\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

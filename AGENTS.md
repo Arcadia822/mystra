@@ -168,10 +168,16 @@ MCP, or the secondary Web client. Mystra starts the selected Agent directly in
 the sandbox, performs bounded test/build/preview/review delivery, and returns a
 GitHub PR plus durable `waiting_for_review` evidence.
 
-The unfinished MVP UI target is `025-webui`: primary navigation contains only
-`Overview`, `Inbox`, `New Job`, and `Projects`; `Settings` is a shell
-action/modal and `Recent Jobs` is a secondary route. Preserve the completed
-Control Plane, Task, Runner, and Project object pages while migrating the shell.
+The active MVP UI exposes Control Plane, Tasks, Runners, and Projects. Task
+detail creates and lists child Sessions; Session detail owns lifecycle and
+review evidence. Web remains secondary to API, MCP, and CLI.
+
+Task is durable intent and has no execution state. A Task may have zero or many
+independent child Sessions for distinct subtasks. Session owns objective, Agent,
+branch, runtime resolution, lifecycle, cancellation, and result. Runner is a
+stable first-class business object. Runner protocol bookkeeping and internal
+execution facts are not business objects, and a public activity timeline is
+explicitly deferred.
 
 The north-star model is a hosted **Mystra platform** serving many independent
 **Teams**. Each Team may contain multiple projects with their own
@@ -180,7 +186,7 @@ criteria, while sharing platform-owned provider pools such as sandbox capacity.
 Use this as the architectural direction when designing extensible interfaces,
 even though the current MVP proves one private, single-node deployment path.
 
-Reserve **workspace** for the run-scoped working directory and execution-context
+Reserve **workspace** for the Session-scoped working directory and execution-context
 delivery surface, not for tenancy.
 
 The intended long-term experience is similar in spirit to **Stripe Minion**:
@@ -263,7 +269,11 @@ This project is indexed by GitNexus as **mystra** (4079 symbols, 6480 relationsh
 - TypeScript 5.9 with Node.js 24 runtime assumptions; Open Agents upstream currently serves as the source-authoritative architecture/code baseline rather than a direct Mystra runtime dependency or packaged SDK + Next.js 16 route handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, existing Mystra monorepo packages, and the upstream `vercel-labs/open-agents` repository as the architecture/code reference (004-open-agents-framework, 005-open-agents-source-baseline)
 - Mystra persists state through `RdbProvider` with SQLite first; Open Agents upstream assumes hosted Postgres/KV-style managed services that Mystra must classify as reused concept, replaced seam, or excluded (004-open-agents-framework)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Vitest 4、`better-sqlite3`、Node `child_process`、Linear GraphQL HTTP API、Docker Engine CLI、GitHub REST API、Copilot CLI `1.0.69-0` (033-issue-agent-execution)
-- 现有 `SqliteRdbProvider`；Issue snapshot 进入既有 Job 持久记录，Run result 保存 review handoff，不新增第二套数据库；旧开发数据库允许精确清空并以新 schema 重建 (033-issue-agent-execution)
+- 038 replaces the obsolete 033 execution-object contract with Task intent,
+  loose one-to-many Sessions, stable Runners, and exact destructive local schema
+  rebuild without compatibility aliases.
+- TypeScript 5.9, Node.js 24.14.0 + Next.js 16 Route Handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, Node `child_process`, existing provider/adapters (038-task-session-model)
+- SQLite through `RdbProvider`; schema remains dialect-neutral at the provider contract (038-task-session-model)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

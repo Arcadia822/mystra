@@ -31,7 +31,7 @@ describe("runner sandbox providers", () => {
           async launch(input) {
             return {
               provider: "stub",
-              sessionId: input.runId,
+              sessionId: input.sessionId,
               status: "running",
               startedAt: "2026-05-14T00:00:00.000Z",
               retained: false,
@@ -89,7 +89,7 @@ describe("runner sandbox providers", () => {
           async launch(input) {
             return {
               provider: "docker",
-              sessionId: input.runId,
+              sessionId: input.sessionId,
               status: "running",
               startedAt: "2026-05-14T00:00:00.000Z",
               retained: false,
@@ -130,7 +130,7 @@ describe("runner sandbox providers", () => {
           async launch(input) {
             return {
               provider: "docker",
-              sessionId: input.runId,
+              sessionId: input.sessionId,
               status: "running",
               startedAt: "2026-05-14T00:00:00.000Z",
               retained: false,

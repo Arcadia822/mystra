@@ -23,8 +23,8 @@ http://127.0.0.1:3000
 
 ## 验证 Shell Taxonomy
 
-1. 确认 primary navigation 严格包含：`Overview`、`Inbox`、`New Job`、`Projects`。
-2. 确认 `Settings` 通过 shell action 打开 modal，`Recent Jobs` 作为 secondary route 可直接访问。
+1. 确认 primary navigation 严格包含：`Overview`、`Inbox`、`New Task`、`Projects`。
+2. 确认 `Settings` 通过 shell action 打开 modal，`Recent Sessions` 作为 secondary route 可直接访问。
 3. 确认每个 route 都可以被选择。
 4. 确认没有对应实现切片的 route 会渲染 placeholder 或 read-only framing，而不是伪造已完成的页面行为。
 

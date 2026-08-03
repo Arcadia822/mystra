@@ -2,17 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   agentNameSchema,
-  cancelJobOutcomeSchema,
+  cancelSessionOutcomeSchema,
   cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
   executionSpecArtifactSchema,
   executionSpecBundleSlug,
   executionSpecMountPath,
   contextBundleSchema,
-  jobInlineContextBundlePayloadSchema,
-  jobSubmissionSchema,
-  jobSpecSchema,
-  jobRuntimeOverrideSchema,
+  sessionCreateRequestSchema,
+  sessionCreateSchema,
+  sessionInlineContextBundlePayloadSchema,
+  sessionRuntimeOverrideSchema,
+  taskCreateRequestSchema,
+  taskCreateSchema,
   platformCapabilitiesSchema,
   platformDefaultsSchema,
   projectCreateSchema,
@@ -41,17 +43,13 @@ const remoteRepository = {
   fetchedAt: "2026-07-26T00:00:00.000Z",
 } as const;
 
-describe("jobSpecSchema", () => {
-  it("accepts an Issue-driven job only with an immutable snapshot and dispatch key", () => {
-    const parsed = jobSpecSchema.parse({
-      taskId: "ENG-123",
+describe("Task and Session schemas", () => {
+  it("accepts an Issue-driven Task only with an immutable snapshot and dispatch key", () => {
+    const parsed = taskCreateSchema.parse({
       source: "issue",
       projectId: "00000000-0000-4000-8000-000000000001",
       repository: remoteRepository,
-      baseBranch: "main",
-      branchName: "codex/eng-123",
-      agent: "copilot",
-      prompt: "Implement the frozen Linear Issue",
+      objective: "Implement the frozen Linear Issue",
       issue: {
         reference: {
           integration: "linear",
@@ -76,65 +74,64 @@ describe("jobSpecSchema", () => {
     expect(parsed.source).toBe("issue");
     expect(parsed.issue?.reference.identifier).toBe("ENG-123");
     expect(parsed.dispatchKey).toBe("linear:issue-id:project-id:codex/eng-123");
-    expect(() => jobSpecSchema.parse({
+    expect(() => taskCreateSchema.parse({
       ...parsed,
       issue: undefined,
-    })).toThrow(/Issue-driven jobs/);
+    })).toThrow(/Issue-driven Tasks/);
   });
 
-  it("accepts a minimal API job with projectId and a task-provided branch name", () => {
-    const parsed = jobSubmissionSchema.parse({
-      taskId: "task-1",
+  it("accepts a minimal manual Task without execution ownership", () => {
+    const parsed = taskCreateRequestSchema.parse({
       source: "api",
       projectId: "00000000-0000-4000-8000-000000000001",
-      branchName: "feature/mystra-task-1",
-      prompt: "Update the README",
+      objective: "Update the README",
     });
 
     expect(parsed.projectId).toBe("00000000-0000-4000-8000-000000000001");
-    expect("baseBranch" in parsed).toBe(false);
-    expect(parsed.agent).toBeUndefined();
     expect(parsed.metadata).toEqual({});
-    expect(parsed.branchName).toBe("feature/mystra-task-1");
+    expect("agent" in parsed).toBe(false);
+    expect("branch" in parsed).toBe(false);
+    expect("repository" in parsed).toBe(false);
   });
 
-  it("does not sanitize task-provided branch names", () => {
-    const parsed = jobSpecSchema.parse({
-      taskId: "task-2",
-      source: "mcp",
-      projectId: "00000000-0000-4000-8000-000000000002",
-      repository: remoteRepository,
-      baseBranch: "develop",
-      branchName: "UPPER/space allowed by task",
+  it("accepts a Session that owns its execution choices", () => {
+    const parsed = sessionCreateSchema.parse({
+      taskId: "00000000-0000-4000-8000-000000000002",
+      title: "Implement API slice",
+      objective: "Make the requested change",
+      branch: "UPPER/space allowed by task",
       agent: "copilot",
-      prompt: "Make the requested change",
     });
 
-    expect(parsed.branchName).toBe("UPPER/space allowed by task");
-    expect(parsed.baseBranch).toBe("develop");
+    expect(parsed.branch).toBe("UPPER/space allowed by task");
     expect(parsed.agent).toBe("copilot");
   });
 
-  it("rejects jobs without a branch name", () => {
-    expect(() =>
-      jobSubmissionSchema.parse({
-        taskId: "task-3",
-        source: "api",
-        projectId: "00000000-0000-4000-8000-000000000003",
-        prompt: "Update the README",
-      }),
-    ).toThrow();
+  it("accepts a public Session request before defaults are resolved", () => {
+    const parsed = sessionCreateRequestSchema.parse({
+      title: "Investigate failing test",
+      objective: "Find the root cause",
+    });
+
+    expect(parsed.agent).toBeUndefined();
+    expect(parsed.branch).toBeUndefined();
+    expect(parsed.metadata).toEqual({});
   });
 
-  it("rejects jobs without a projectId", () => {
+  it("rejects Task-owned execution fields and Session-owned project context", () => {
     expect(() =>
-      jobSubmissionSchema.parse({
-        taskId: "task-missing-project",
+      taskCreateRequestSchema.parse({
         source: "api",
-        branchName: "feature/missing-project",
-        prompt: "Update the README",
+        projectId: "00000000-0000-4000-8000-000000000003",
+        objective: "Update the README",
+        branch: "feature/forbidden",
       }),
     ).toThrow();
+    expect(() => sessionCreateRequestSchema.parse({
+      title: "Bad Session",
+      objective: "Do work",
+      projectId: "00000000-0000-4000-8000-000000000003",
+    })).toThrow();
   });
 
   it("rejects agents outside the MVP adapter set", () => {
@@ -144,12 +141,9 @@ describe("jobSpecSchema", () => {
 
   it("rejects callback URLs because callbacks are not in the MVP contract", () => {
     expect(() =>
-      jobSpecSchema.parse({
-        taskId: "task-4",
-        source: "api",
-        projectId: "00000000-0000-4000-8000-000000000004",
-        branchName: "feature/task-4",
-        prompt: "Update the README",
+      sessionCreateRequestSchema.parse({
+        title: "Forbidden callback",
+        objective: "Update the README",
         callbackUrl: "https://example.com/callback",
       }),
     ).toThrow();
@@ -265,12 +259,12 @@ describe("runtime schemas", () => {
     expect(parsed.mounts[0]?.owner).toBe("project");
   });
 
-  it("accepts only constrained job runtime overrides", () => {
-    const parsed = jobRuntimeOverrideSchema.parse({
+  it("accepts only constrained Session runtime overrides", () => {
+    const parsed = sessionRuntimeOverrideSchema.parse({
       runtimeProfile: "frontend-dev",
       provider: "docker",
       image: "registry.example.com/castrel/frontend:latest",
-      contextBundleRefs: [{ slug: "issue-context", accessMode: "job-scoped" }],
+      contextBundleRefs: [{ slug: "issue-context", accessMode: "session-scoped" }],
       metadata: { reason: "smoke-test" },
     });
 
@@ -278,16 +272,16 @@ describe("runtime schemas", () => {
     expect(parsed.contextBundleRefs?.[0]?.required).toBe(true);
   });
 
-  it("rejects job runtime overrides for mount, secret, cache, or port mutation", () => {
+  it("rejects Session runtime overrides for mount, secret, cache, or port mutation", () => {
     const base = {
       provider: "docker",
       image: "registry.example.com/castrel/runtime:latest",
     };
 
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, mounts: [] })).toThrow();
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, secretRefs: [] })).toThrow();
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, cache: { entries: [] } })).toThrow();
-    expect(() => jobRuntimeOverrideSchema.parse({ ...base, exposedPorts: [] })).toThrow();
+    expect(() => sessionRuntimeOverrideSchema.parse({ ...base, mounts: [] })).toThrow();
+    expect(() => sessionRuntimeOverrideSchema.parse({ ...base, secretRefs: [] })).toThrow();
+    expect(() => sessionRuntimeOverrideSchema.parse({ ...base, cache: { entries: [] } })).toThrow();
+    expect(() => sessionRuntimeOverrideSchema.parse({ ...base, exposedPorts: [] })).toThrow();
   });
 
   it("rejects forbidden runtime mounts", () => {
@@ -318,7 +312,7 @@ describe("runtime schemas", () => {
       executionContract: {
         kind: "execution-spec",
         artifactId: "00000000-0000-4000-8000-000000000080",
-        uri: "mystra://runs/run-1/artifacts/execution-spec.json",
+        uri: "mystra://sessions/session-1/artifacts/execution-spec.json",
         bundleSlug: "execution-spec",
         mountPath: "/mystra/context/execution-spec",
         filePath: "/mystra/context/execution-spec/execution-spec.json",
@@ -363,7 +357,7 @@ describe("runtime schemas", () => {
       source: { kind: "local-template", ref: "agent-skills" },
       accessMode: "read-only",
       mountPath: "/mystra/skills",
-      failureMode: "fail-run",
+      failureMode: "fail-session",
     });
 
     expect(created.archivedAt).toBeNull();
@@ -387,7 +381,7 @@ describe("runtime schemas", () => {
         source: { kind: "local-template", ref: "bad-home" },
         accessMode: "read-only",
         mountPath: "/root/.codex",
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow();
 
@@ -398,36 +392,35 @@ describe("runtime schemas", () => {
         source: { kind: "local-template", ref: "bad-docker" },
         accessMode: "read-only",
         mountPath: "/var/run/docker.sock",
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow();
   });
 
   it("accepts execution-spec artifacts and safe inline bundle payloads", () => {
-    const payload = jobInlineContextBundlePayloadSchema.parse({
+    const payload = sessionInlineContextBundlePayloadSchema.parse({
       files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
     });
     expect(payload.files[0]?.path).toBe("execution-spec.json");
 
     const artifact = executionSpecArtifactSchema.parse({
-      version: 2,
+      version: 3,
       kind: "execution-spec",
-      jobId: "00000000-0000-4000-8000-000000000091",
-      runId: "00000000-0000-4000-8000-000000000092",
-      taskId: "task-1",
+      taskId: "00000000-0000-4000-8000-000000000091",
+      sessionId: "00000000-0000-4000-8000-000000000092",
       source: "api",
       projectId: "00000000-0000-4000-8000-000000000093",
       repository: remoteRepository,
       baseBranch: "main",
-      branchName: "feature/execution-spec",
+      branch: "feature/execution-spec",
       agent: "codex",
-      prompt: "Implement the approved spec",
+      objective: "Implement the approved spec",
       metadata: { sourceRevision: "spec-v1" },
       frozenAt: "2026-05-18T00:00:00.000Z",
       executionContract: {
         kind: "execution-spec",
         artifactId: "00000000-0000-4000-8000-000000000094",
-        uri: "mystra://runs/00000000-0000-4000-8000-000000000092/artifacts/execution-spec.json",
+        uri: "mystra://sessions/00000000-0000-4000-8000-000000000092/artifacts/execution-spec.json",
         bundleSlug: "execution-spec",
         mountPath: "/mystra/context/execution-spec",
         filePath: "/mystra/context/execution-spec/execution-spec.json",
@@ -437,42 +430,42 @@ describe("runtime schemas", () => {
     expect(artifact.executionContract.filePath).toContain("execution-spec.json");
     expect(() => executionSpecArtifactSchema.parse({
       ...artifact,
-      version: 1,
+      version: 2,
     })).toThrow();
   });
 
   it("rejects unsafe inline bundle file paths", () => {
     expect(() =>
-      jobInlineContextBundlePayloadSchema.parse({
+      sessionInlineContextBundlePayloadSchema.parse({
         files: [{ path: "../execution-spec.json", content: "{}" }],
       }),
     ).toThrow();
 
     expect(() =>
-      jobInlineContextBundlePayloadSchema.parse({
+      sessionInlineContextBundlePayloadSchema.parse({
         files: [{ path: ".", content: "{}" }],
       }),
     ).toThrow(/safe relative paths/);
   });
 
-  it("validates job-inline bundle payloads at create time", () => {
+  it("validates session-inline bundle payloads at create time", () => {
     const created = contextBundleCreateSchema.parse({
       slug: "inline-execution-plan",
       displayName: "Inline Execution Plan",
       source: {
-        kind: "job-inline",
+        kind: "session-inline",
         metadata: {
-          jobInline: {
+          sessionInline: {
             files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
           },
         },
       },
-      accessMode: "job-scoped",
+      accessMode: "session-scoped",
       mountPath: "/mystra/context/inline-plan",
-      failureMode: "fail-run",
+      failureMode: "fail-session",
     });
 
-    expect(created.source.metadata.jobInline).toEqual({
+    expect(created.source.metadata.sessionInline).toEqual({
       files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
     });
 
@@ -481,16 +474,16 @@ describe("runtime schemas", () => {
         slug: "bad-inline-plan",
         displayName: "Bad Inline Execution Plan",
         source: {
-          kind: "job-inline",
+          kind: "session-inline",
           metadata: {
-            jobInline: {
+            sessionInline: {
               files: [{ path: ".", content: "{}" }],
             },
           },
         },
-        accessMode: "job-scoped",
+        accessMode: "session-scoped",
         mountPath: "/mystra/context/bad-inline-plan",
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow(/safe relative paths/);
   });
@@ -502,7 +495,7 @@ describe("runtime schemas", () => {
         displayName: "Conflicting Execution Spec",
         source: { kind: "local-template", ref: "conflicting-execution-spec" },
         accessMode: "read-only",
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow(/reserved/);
 
@@ -513,7 +506,7 @@ describe("runtime schemas", () => {
         source: { kind: "local-template", ref: "project-context" },
         accessMode: "read-only",
         mountPath: executionSpecMountPath,
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow(/reserved/);
   });
@@ -525,7 +518,7 @@ describe("runtime schemas", () => {
         displayName: "Nested Slug",
         source: { kind: "local-template", ref: "templates/agent-skills" },
         accessMode: "read-only",
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow(/single safe path segment/);
 
@@ -535,7 +528,7 @@ describe("runtime schemas", () => {
         displayName: "Absolute Source",
         source: { kind: "local-template", ref: "/tmp/agent-skills" },
         accessMode: "read-only",
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow(/safe relative paths/);
 
@@ -545,7 +538,7 @@ describe("runtime schemas", () => {
         displayName: "Traversal Source",
         source: { kind: "external-artifact", ref: "../artifacts/spec.json" },
         accessMode: "read-only",
-        failureMode: "fail-run",
+        failureMode: "fail-session",
       }),
     ).toThrow(/safe relative paths/);
   });
@@ -557,7 +550,7 @@ describe("platformDefaultsSchema", () => {
 
     expect(parsed).toEqual({
       maxConcurrency: 1,
-      runTimeoutSeconds: 3600,
+      sessionTimeoutSeconds: 3600,
       heartbeatExpirySeconds: 90,
       longPollTimeoutSeconds: 25,
       containerCpuQuota: 4,
@@ -801,19 +794,19 @@ describe("runnerLocalConfigSchema", () => {
   });
 });
 
-describe("cancelJobOutcomeSchema", () => {
+describe("cancelSessionOutcomeSchema", () => {
   it("accepts immediate canceled outcome for queued work", () => {
-    const parsed = cancelJobOutcomeSchema.parse({ kind: "canceled" });
+    const parsed = cancelSessionOutcomeSchema.parse({ kind: "canceled" });
     expect(parsed.kind).toBe("canceled");
   });
 
   it("accepts cancellation_requested outcome for runner-owned work", () => {
-    const parsed = cancelJobOutcomeSchema.parse({ kind: "cancellation_requested" });
+    const parsed = cancelSessionOutcomeSchema.parse({ kind: "cancellation_requested" });
     expect(parsed.kind).toBe("cancellation_requested");
   });
 
   it("rejects unknown outcome kinds", () => {
-    expect(() => cancelJobOutcomeSchema.parse({ kind: "retried" })).toThrow();
+    expect(() => cancelSessionOutcomeSchema.parse({ kind: "retried" })).toThrow();
   });
 });
 
@@ -826,34 +819,34 @@ describe("runnerObservationSchema", () => {
     expect(parsed.type).toBe("cleanup.started");
   });
 
-  it("accepts run.canceled observation", () => {
+  it("accepts session.canceled observation", () => {
     const parsed = runnerObservationSchema.parse({
-      type: "run.canceled",
+      type: "session.canceled",
       summary: "Runner observed cancellation and stopped execution",
     });
-    expect(parsed.type).toBe("run.canceled");
+    expect(parsed.type).toBe("session.canceled");
   });
 
-  it("accepts run.timed_out observation", () => {
+  it("accepts session.timed_out observation", () => {
     const parsed = runnerObservationSchema.parse({
-      type: "run.timed_out",
+      type: "session.timed_out",
       summary: "Execution exceeded timeout",
     });
-    expect(parsed.type).toBe("run.timed_out");
+    expect(parsed.type).toBe("session.timed_out");
   });
 
-  it("accepts run.cleanup_failed observation", () => {
+  it("accepts session.cleanup_failed observation", () => {
     const parsed = runnerObservationSchema.parse({
-      type: "run.cleanup_failed",
+      type: "session.cleanup_failed",
       summary: "Container stop failed",
     });
-    expect(parsed.type).toBe("run.cleanup_failed");
+    expect(parsed.type).toBe("session.cleanup_failed");
   });
 
   it("rejects unknown observation types", () => {
     expect(() =>
       runnerObservationSchema.parse({
-        type: "run.retried",
+        type: "session.retried",
         summary: "Should not exist",
       }),
     ).toThrow();
@@ -861,20 +854,20 @@ describe("runnerObservationSchema", () => {
 });
 
 describe("staleMarkingResultSchema", () => {
-  it("accepts stale marking result with run ids", () => {
+  it("accepts stale marking result with Session ids", () => {
     const parsed = staleMarkingResultSchema.parse({
-      runnerSessionId: "00000000-0000-4000-8000-000000000001",
-      staleRunIds: ["00000000-0000-4000-8000-000000000010"],
+      runnerId: "00000000-0000-4000-8000-000000000001",
+      staleSessionIds: ["00000000-0000-4000-8000-000000000010"],
     });
-    expect(parsed.staleRunIds).toHaveLength(1);
+    expect(parsed.staleSessionIds).toHaveLength(1);
   });
 
-  it("accepts stale marking result with no active runs", () => {
+  it("accepts stale marking result with no active Sessions", () => {
     const parsed = staleMarkingResultSchema.parse({
-      runnerSessionId: "00000000-0000-4000-8000-000000000002",
-      staleRunIds: [],
+      runnerId: "00000000-0000-4000-8000-000000000002",
+      staleSessionIds: [],
     });
-    expect(parsed.staleRunIds).toEqual([]);
+    expect(parsed.staleSessionIds).toEqual([]);
   });
 });
 

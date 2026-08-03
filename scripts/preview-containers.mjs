@@ -119,14 +119,14 @@ function stop(nameOrAll) {
 
   for (const container of selected) {
     runDocker(["rm", "-f", container.id], { stdio: "inherit" });
-    cleanupRunContextBundles(container.name);
+    cleanupSessionContextBundles(container.name);
     console.error(`stopped ${container.name}`);
   }
 }
 
-function cleanupRunContextBundles(containerName) {
-  const runId = containerName.startsWith("mystra-") ? containerName.slice("mystra-".length) : null;
-  if (!runId) {
+function cleanupSessionContextBundles(containerName) {
+  const sessionId = containerName.startsWith("mystra-") ? containerName.slice("mystra-".length) : null;
+  if (!sessionId) {
     return;
   }
 
@@ -140,7 +140,7 @@ function cleanupRunContextBundles(containerName) {
   }
 
   for (const entry of entries) {
-    if (!entry.isDirectory() || !entry.name.endsWith(`-${runId}`)) {
+    if (!entry.isDirectory() || !entry.name.endsWith(`-${sessionId}`)) {
       continue;
     }
     rmSync(path.join(bundleRoot, entry.name), { recursive: true, force: true });

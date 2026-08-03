@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mystra Task / Session Contract Prototype</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      body { margin: 0; background: #0a0d12; color: #eef2f7; }
+      header { display: flex; gap: 24px; align-items: center; padding: 18px 28px; border-bottom: 1px solid #29313d; }
+      header strong { letter-spacing: .08em; }
+      nav { display: flex; gap: 18px; color: #9facbc; font-size: 14px; }
+      nav b { color: #eef2f7; }
+      main { max-width: 1100px; margin: 0 auto; padding: 36px 24px 64px; }
+      .eyebrow { color: #7dd3fc; text-transform: uppercase; font-size: 12px; letter-spacing: .12em; }
+      h1 { margin: 8px 0 10px; font-size: 34px; }
+      .muted { color: #9facbc; }
+      .grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 18px; margin-top: 28px; }
+      .card { border: 1px solid #29313d; border-radius: 14px; background: #111722; padding: 20px; }
+      .card h2 { margin: 0 0 14px; font-size: 17px; }
+      .session { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 14px 0; border-top: 1px solid #29313d; }
+      .session:first-of-type { border-top: 0; }
+      .pill { align-self: start; border-radius: 999px; padding: 4px 9px; background: #19354a; color: #7dd3fc; font-size: 12px; }
+      .runner { display: grid; gap: 8px; }
+      .facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 14px; }
+      .facts dt { color: #9facbc; }
+      .facts dd { margin: 0; }
+      .notice { margin-top: 18px; padding: 14px 16px; border-left: 3px solid #f0b45d; background: #241d13; color: #e8d3af; }
+      @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } nav { display: none; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>MYSTRA</strong>
+      <nav><b>Overview</b><span>Inbox</span><span>New Task</span><span>Projects</span><span>Recent Tasks</span></nav>
+    </header>
+    <main>
+      <div class="eyebrow">Task detail</div>
+      <h1>Implement remote repository intake</h1>
+      <p class="muted">Task T-038 · Project mystra · GitHub Issue #42 · 3 Sessions</p>
+      <div class="grid">
+        <section class="card">
+          <h2>Sessions</h2>
+          <div class="session"><div><strong>Repository contract migration</strong><div class="muted">Copilot · branch task/repository-contract</div></div><span class="pill">waiting for review</span></div>
+          <div class="session"><div><strong>API and CLI parity verification</strong><div class="muted">Codex · branch task/api-parity</div></div><span class="pill">running</span></div>
+          <div class="session"><div><strong>Documentation audit</strong><div class="muted">Codex · not started</div></div><span class="pill">queued</span></div>
+        </section>
+        <aside class="card runner">
+          <h2>Assigned Runner</h2>
+          <dl class="facts"><dt>Name</dt><dd>runner-dev-01</dd><dt>Runner ID</dt><dd>runner_01</dd><dt>Health</dt><dd>online</dd><dt>Capacity</dt><dd>1 / 2 active</dd><dt>Session</dt><dd>API and CLI parity verification</dd></dl>
+          <div class="notice">Runner credential、heartbeat 与 lease 是内部状态，不形成 RunnerSession 页面。</div>
+        </aside>
+      </div>
+      <div class="notice">Activity timeline 暂缓。本原型不展示事件 collection，也不定义公开事件合同。</div>
+    </main>
+  </body>
+</html>

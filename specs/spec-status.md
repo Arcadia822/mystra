@@ -1,5 +1,18 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=062d60ed1879dacd7655afa414e7bfc495b8d5f2 updated=2026-08-03T10:30:57Z -->
+<!-- spec-status: project=mystra commit=e0949381a63a096377b86111945b5179e82196b0 updated=2026-08-03T12:45:26Z -->
+
+## Current business-model authority
+
+`038-task-session-model` supersedes the active business-contract portions of
+001, 003, 007, 008, 014, 017, 018, 019, 033, and 035. Those completed feature
+directories remain immutable implementation history; their superseded
+terminology is not a current contract and is deliberately excluded from the
+active audit. Feature 025 has been updated in place because it is still an
+unimplemented active UI specification.
+
+The current model is Task intent, zero or more independently created Sessions,
+and stable Runners. Internal execution facts are transport/persistence details;
+public activity timeline and event-collection contracts remain deferred.
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -32,6 +45,7 @@
 | 035-control-plane-object-pages     | ✓     | ✓  | ✓   | ✓ Complete |
 | 036-project-object-pages           | ✓     | ✓  | ✓   | ✓ Complete |
 | 037-remote-repository-integrations | ✓     | ✓  | ✓   | ✓ Complete |
+| 038-task-session-model             | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -62,3 +76,4 @@
 <!-- feature: 035-control-plane-object-pages has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=20 tasks_completed=20 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 036-project-object-pages has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=11 tasks_completed=11 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 037-remote-repository-integrations has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=34 tasks_completed=34 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 038-task-session-model has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=67 tasks_completed=67 checklist_files=engineering-review.md,implementation-impact.md,requirements.md,verification.md -->

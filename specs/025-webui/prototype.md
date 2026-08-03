@@ -10,11 +10,11 @@
 
 - `Overview`：单个 `dashboardLayout` 页面级 placeholder。
 - `Inbox`：单个 `readLayout` 页面级 placeholder。
-- `New Job`：单个 `chatLayout` 页面级 placeholder。
+- `New Task`：单个 `chatLayout` 页面级 placeholder。
 - `Settings`：左下角入口打开 modal 组件，不再作为 route 页面。
 - `Projects`：primary navigation 中的项目入口，复用已完成的 Project object pages。
-- `Recent Jobs`：保留为可直接访问的非主菜单 route，用于验证 secondary route 兼容性。
-- 左侧 sidebar 保留 `Projects` 分组与 project 下的 job 列表；导航行不展示 layout 类型说明。
+- `Recent Sessions`：保留为可直接访问的非主菜单 route，用于验证 secondary route 兼容性。
+- 左侧 sidebar 保留 `Projects` 分组与 project 下的 task 列表；导航行不展示 layout 类型说明。
 
 ## 使用方式
 

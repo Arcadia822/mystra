@@ -9,15 +9,15 @@ const issueContextBundle = {
   slug: "issue-context",
   displayName: "Issue Context",
   source: {
-    kind: "job-inline" as const,
+    kind: "session-inline" as const,
     metadata: {
       prompt: "Use the supplied issue context.",
     },
   },
-  accessMode: "job-scoped" as const,
+  accessMode: "session-scoped" as const,
   mountPath: "/mystra/context/issue",
   freshness: {},
-  failureMode: "fail-run" as const,
+  failureMode: "fail-session" as const,
   metadata: {},
   archivedAt: null,
   createdAt: timestamp,
@@ -117,7 +117,7 @@ describe("resolveRuntimeContract", () => {
       resolveRuntimeContract({
         project,
         override: {
-          contextBundleRefs: [{ slug: "issue-context", required: true, accessMode: "job-scoped" }],
+          contextBundleRefs: [{ slug: "issue-context", required: true, accessMode: "session-scoped" }],
         },
       }),
     ).toThrow(/RUNTIME_CONTEXT_BUNDLE_OVERRIDE_NOT_ALLOWED/);
@@ -135,13 +135,13 @@ describe("resolveRuntimeContract", () => {
         },
       },
       override: {
-        contextBundleRefs: [{ slug: "issue-context", required: true, accessMode: "job-scoped" }],
+        contextBundleRefs: [{ slug: "issue-context", required: true, accessMode: "session-scoped" }],
       },
       contextBundles: [issueContextBundle],
     });
 
     expect(runtime.contextBundles.map((bundle) => bundle.slug)).toEqual(["issue-context"]);
-    expect(runtime.contextBundles[0]?.source.kind).toBe("job-inline");
+    expect(runtime.contextBundles[0]?.source.kind).toBe("session-inline");
     expect(runtime.mounts).toContainEqual({
       kind: "contextBundle",
       owner: "project",

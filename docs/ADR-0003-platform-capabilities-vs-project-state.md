@@ -6,12 +6,12 @@ Accepted
 
 ## Context
 
-Mystra previously treated several important concepts as loosely related fields spread across `JobSpec`, runner registration payloads, and informal documentation. Platform-scoped concerns such as executor type or runner image identity were easy to blur with project-scoped concerns such as repository branch selection or task prompt.
+Mystra previously treated several concepts as loosely related fields spread across execution submissions, Runner registration payloads, and informal documentation. Platform-scoped concerns such as executor type were easy to blur with Project defaults and Session-owned execution choices.
 
 This made the boundary hard to reason about:
 
 - Runner registration accepted an untyped `Record<string, unknown>` capability bag.
-- `JobSpec.metadata` could become a dumping ground for first-class platform concerns.
+- execution metadata could become a dumping ground for first-class platform concerns.
 - MVP default runtime limits existed in prose, but not as a typed contract.
 
 Mystra needs an explicit, additive model that the current MVP can actually use without overbuilding a registry or multi-tenant configuration system.
@@ -26,13 +26,13 @@ Introduce explicit shared schemas:
 
 2. `PlatformDefaults`
    - Platform-level runtime defaults.
-   - Current fields: `maxConcurrency`, `runTimeoutSeconds`, `heartbeatExpirySeconds`, `longPollTimeoutSeconds`, `containerCpuQuota`, `containerMemoryGb`.
+   - Current fields include concurrency, timeout, heartbeat, polling, CPU, and memory defaults.
 
 3. `Project`
    - Durable project-scoped parent configuration.
    - Current fields: `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`, `image`, `prewarmConfig`, and `metadata`.
 
-`JobSpec` remains the current task identity layer plus `projectId`, task branch, prompt, optional merge-request metadata, and optional repo/baseBranch/agent overrides. Platform concerns do not move into `JobSpec`.
+Task remains durable intent and immutable Project/Repository context. Session owns branch, Agent, runtime resolution, lifecycle, and review metadata. Platform concerns do not move into either object.
 
 Runner registration must use typed `PlatformCapabilities` instead of an arbitrary capability record.
 

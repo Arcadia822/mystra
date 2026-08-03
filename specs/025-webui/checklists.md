@@ -2,7 +2,7 @@
 
 ## Owner 评审
 
-- [ ] 确认 primary navigation 严格为 `Overview`、`Inbox`、`New Job`、`Projects`，并确认 `Settings` modal 与 `Recent Jobs` secondary route 的可达性。
+- [ ] 确认 primary navigation 严格为 `Overview`、`Inbox`、`New Task`、`Projects`，并确认 `Settings` modal 与 `Recent Sessions` secondary route 的可达性。
 - [ ] 确认 025 只负责 shell/framework 范围，不吞并页面级业务行为。
 - [ ] 确认并入 025 的页面探索材料仍与已实现行为分离，后续按独立实现切片推进。
 - [ ] 确认 Web UI shell 仍低于 API、Skill/MCP 和 CLI 等管理事实来源。

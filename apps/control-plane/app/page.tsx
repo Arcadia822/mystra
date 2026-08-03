@@ -28,10 +28,10 @@ export default function Page() {
       </div>
 
       <section aria-label="Control plane summary" className="metricGrid">
-        <article className="metric"><span>Active tasks</span><strong>{controlPlane.tasks.active}</strong><small>{controlPlane.tasks.queued} queued</small></article>
-        <article className="metric"><span>Waiting review</span><strong>{controlPlane.tasks.waitingForReview}</strong><small>{controlPlane.tasks.succeeded} succeeded</small></article>
-        <article className="metric"><span>Runner capacity</span><strong>{controlPlane.runners.availableCapacity}</strong><small>{controlPlane.runners.activeRuns} / {controlPlane.runners.maxConcurrency} active</small></article>
-        <article className="metric"><span>Failed tasks</span><strong>{controlPlane.tasks.failed}</strong><small>{controlPlane.tasks.total} total</small></article>
+        <article className="metric"><span>Tasks</span><strong>{controlPlane.tasks.total}</strong><small>{controlPlane.tasks.withoutSessions} without Sessions</small></article>
+        <article className="metric"><span>Active Sessions</span><strong>{controlPlane.sessions.active}</strong><small>{controlPlane.sessions.queued} queued</small></article>
+        <article className="metric"><span>Runner capacity</span><strong>{controlPlane.runners.availableCapacity}</strong><small>{controlPlane.runners.activeSessions} / {controlPlane.runners.maxConcurrency} active</small></article>
+        <article className="metric"><span>Review / failed</span><strong>{controlPlane.sessions.waitingForReview}</strong><small>{controlPlane.sessions.failed} failed</small></article>
       </section>
 
       <div className="dashboardGrid">
@@ -41,15 +41,15 @@ export default function Page() {
             <div className="panelEmpty">No tasks have been submitted.</div>
           ) : (
             <div className="dataList">
-              {controlPlane.recentTasks.map((snapshot) => (
-                <Link className="dataRow taskRow" href={`/tasks/${snapshot.job.id}`} key={snapshot.job.id}>
+              {controlPlane.recentTasks.map((task) => (
+                <Link className="dataRow taskRow" href={`/tasks/${task.id}`} key={task.id}>
                   <span className="primaryCell">
-                    <strong>{taskLabel(snapshot.job.spec.taskId, snapshot.job.spec.issue?.reference.identifier)}</strong>
-                    <small>{snapshot.job.spec.issue?.title ?? snapshot.run.result?.summary ?? snapshot.job.spec.branchName}</small>
+                    <strong>{taskLabel(task.id, task.issue?.reference.identifier)}</strong>
+                    <small>{task.issue?.title ?? task.objective}</small>
                   </span>
-                  <StatusBadge state={snapshot.run.state} />
-                  <span className="quietCell">{snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? "unassigned"}</span>
-                  <time>{relativeTime(snapshot.run.updatedAt)}</time>
+                  {task.latestSession ? <StatusBadge state={task.latestSession.state} /> : <span>No Sessions</span>}
+                  <span className="quietCell">{task.sessionCount} Sessions</span>
+                  <time>{relativeTime(task.updatedAt)}</time>
                 </Link>
               ))}
             </div>
@@ -61,7 +61,7 @@ export default function Page() {
           <dl className="definitionList">
             <div><dt>Online</dt><dd>{controlPlane.runners.online}</dd></div>
             <div><dt>Stale</dt><dd>{controlPlane.runners.stale}</dd></div>
-            <div><dt>Active runs</dt><dd>{controlPlane.runners.activeRuns}</dd></div>
+            <div><dt>Active Sessions</dt><dd>{controlPlane.runners.activeSessions}</dd></div>
             <div><dt>Max concurrency</dt><dd>{controlPlane.runners.maxConcurrency}</dd></div>
           </dl>
         </section>

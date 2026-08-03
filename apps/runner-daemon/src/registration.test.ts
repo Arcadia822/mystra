@@ -16,6 +16,7 @@ describe("buildRunnerRegistrationPayload", () => {
     expect(payload.capabilities.agents).toEqual(["codex"]);
     expect(payload.capabilities.executor).toBe("fake");
     expect(payload.capabilities.providers).toEqual(["docker"]);
+    expect(payload.capabilities.contextBundleModes).toEqual([]);
   });
 
   it("preserves registered docker agents for docker executor registration", () => {

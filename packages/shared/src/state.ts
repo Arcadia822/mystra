@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const runStateSchema = z.enum([
+export const sessionStateSchema = z.enum([
   "queued",
   "dispatching",
   "assigned",
@@ -12,19 +12,19 @@ export const runStateSchema = z.enum([
   "timed_out",
   "waiting_for_review",
 ]);
-export type RunState = z.infer<typeof runStateSchema>;
+export type SessionState = z.infer<typeof sessionStateSchema>;
 
-export const terminalRunStates = [
+export const terminalSessionStates = [
   "succeeded",
   "failed",
   "canceled",
   "timed_out",
   "waiting_for_review",
-] as const satisfies readonly RunState[];
+] as const satisfies readonly SessionState[];
 
-const terminalRunStateSet = new Set<RunState>(terminalRunStates);
+const terminalSessionStateSet = new Set<SessionState>(terminalSessionStates);
 
-const allowedRunStateTransitions = {
+const allowedSessionStateTransitions = {
   queued: ["dispatching", "assigned", "canceled", "timed_out"],
   dispatching: ["assigned", "canceled", "timed_out", "failed"],
   assigned: ["starting", "canceled", "timed_out", "failed"],
@@ -35,54 +35,41 @@ const allowedRunStateTransitions = {
   canceled: [],
   timed_out: [],
   waiting_for_review: [],
-} as const satisfies Record<RunState, readonly RunState[]>;
+} as const satisfies Record<SessionState, readonly SessionState[]>;
 
-export function isTerminalRunState(state: RunState): boolean {
-  return terminalRunStateSet.has(state);
+export function isTerminalSessionState(state: SessionState): boolean {
+  return terminalSessionStateSet.has(state);
 }
 
-export function canTransitionRunState(from: RunState, to: RunState): boolean {
+export function canTransitionSessionState(from: SessionState, to: SessionState): boolean {
   if (from === to) {
     return true;
   }
 
-  const allowedTargets: readonly RunState[] = allowedRunStateTransitions[from];
+  const allowedTargets: readonly SessionState[] = allowedSessionStateTransitions[from];
   return allowedTargets.includes(to);
 }
 
-export function assertRunStateTransition(from: RunState, to: RunState): void {
-  if (!canTransitionRunState(from, to)) {
-    throw new Error(`Invalid run state transition: ${from} -> ${to}`);
+export function assertSessionStateTransition(from: SessionState, to: SessionState): void {
+  if (!canTransitionSessionState(from, to)) {
+    throw new Error(`Invalid Session state transition: ${from} -> ${to}`);
   }
 }
 
-// --- 003-config-first-runner-durability: State set predicates ---
-
-export const activeRunStates = [
+export const activeSessionStates = [
   "queued",
   "dispatching",
   "assigned",
   "starting",
   "running",
-] as const satisfies readonly RunState[];
+] as const satisfies readonly SessionState[];
 
-const activeRunStateSet = new Set<RunState>(activeRunStates);
+const activeSessionStateSet = new Set<SessionState>(activeSessionStates);
 
-/**
- * Returns true if the run state is an active (non-terminal) state.
- * Cancellation requests, cleanup progress, and stale evaluation are NOT
- * first-class run states; they are represented by events, desired-state
- * metadata, and runner observations on existing active/terminal states.
- */
-export function isActiveRunState(state: RunState): boolean {
-  return activeRunStateSet.has(state);
+export function isActiveSessionState(state: SessionState): boolean {
+  return activeSessionStateSet.has(state);
 }
 
-/**
- * Returns true if a runner session owns this run (assigned, starting, or running).
- * These are the states where cancellation should be recorded as desired-state
- * metadata rather than an immediate terminal transition.
- */
-export function isRunnerOwnedRunState(state: RunState): boolean {
+export function isRunnerOwnedSessionState(state: SessionState): boolean {
   return state === "assigned" || state === "starting" || state === "running";
 }

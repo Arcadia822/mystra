@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 import {
-  jobRuntimeOverrideSchema,
+  agentNameSchema,
   mergeRequestSpecSchema,
+  sessionRuntimeOverrideSchema,
 } from "./schemas.js";
 
 export * from "./issue-core.js";
@@ -13,10 +14,11 @@ const safeBranchNamePattern =
 export const issueDispatchRequestSchema = z
   .object({
     projectId: z.string().uuid(),
-    agent: z.literal("copilot"),
-    branchName: z.string().min(1).max(255).regex(safeBranchNamePattern),
+    agent: agentNameSchema,
+    branch: z.string().min(1).max(255).regex(safeBranchNamePattern),
+    sessionObjective: z.string().min(1).optional(),
     mergeRequest: mergeRequestSpecSchema.optional(),
-    runtime: jobRuntimeOverrideSchema.optional(),
+    runtime: sessionRuntimeOverrideSchema.optional(),
   })
   .strict();
 export type IssueDispatchRequest = z.infer<typeof issueDispatchRequestSchema>;

@@ -15,7 +15,7 @@ MVP shell 中已批准的 route 或 shell action。
 
 字段：
 
-- `id`：稳定 surface id，例如 `overview`、`inbox`、`new-job`、`projects`、`settings` 或 `recent-jobs`。
+- `id`：稳定 surface id，例如 `overview`、`inbox`、`new-task`、`projects`、`settings` 或 `recent-sessions`。
 - `label`：框架拥有的展示标签。
 - `placement`：`primary`、`secondary` 或 `shell-action`。
 - `layout`：已批准的布局范式之一。

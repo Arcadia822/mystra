@@ -1,35 +1,30 @@
 # Control Plane DB Provider
 
-This module owns Mystra's `RdbProvider` boundary for the control plane.
+This module owns Mystra's `RdbProvider` boundary.
 
-## Rules
+## Invariants
 
-- Routes and MCP handlers depend on `RdbProvider`, not on SQLite APIs.
-- `SqliteRdbProvider` may use `better-sqlite3`, but exported provider methods return domain types only.
-- JSON columns are parsed and stringified at this boundary.
-- JSON parse failures must include the field name and record id to make corrupt local state diagnosable.
-- Issue-driven jobs persist an immutable normalized `issue_snapshot` and a
-  unique `dispatch_key`; provider-native payloads and credentials never enter
-  the database.
-- Projects persist one provider-resolved `repository_snapshot`. Job creation
-  freezes that snapshot; later Project changes cannot mutate an existing Job.
-- Public Project requests never persist selectors, paths, or arbitrary clone
-  URLs. Resolution completes before the atomic create/update call.
-- The active local schema is clean-rebuild only. Historical orchestration rows
-  are not migrated or dual-read. A legacy Project/Job `repo` schema is removed
-  and rebuilt once at startup; no historical repository data is retained.
-- SQLite WAL mode is enabled during provider initialization.
-- Runner-owned cancellation is stored as desired-state metadata plus a
-  `cancellation.requested` event; it does not create a new run state.
-- Runner cleanup, timeout, canceled, failed, succeeded, and
-  `waiting_for_review` observations are
-  stored as events plus existing terminal run states.
-- `waiting_for_review` releases runner capacity, has no failure reason, and
-  stores the structured Issue, quality, preview, sandbox, Agent, commit, and PR
-  handoff in the canonical Run result.
-- Stale evaluation marks active runner-owned work `failed` with stale reason
-  metadata and a `run.stale_marked` event. It does not retry, requeue, or
-  reassign the work.
+- Routes and MCP handlers depend on `RdbProvider`, never SQLite APIs.
+- Task stores durable intent, Project ownership, an immutable Repository
+  snapshot, and optional immutable Issue snapshot. It has no execution state.
+- Session is an independently created child of exactly one Task. It owns its
+  objective, Agent, branch, runtime resolution, lifecycle, cancellation, and
+  review evidence. Sibling Sessions do not share lifecycle transitions.
+- Runner has a stable identity. Registration by name rotates credentials while
+  retaining the Runner ID; management responses expose health, capacity, and
+  current Task/Session assignments only.
+- Execution facts are internal persistence details. They are not exposed as a
+  business collection or public identifiers.
+- Issue dispatch atomically creates or reuses one Task and its initial Session
+  using a unique dispatch key.
+- The local schema is clean-rebuild only. Fresh schema is created directly;
+  precisely recognized obsolete schemas are destroyed and rebuilt in one
+  transaction; unknown or mixed schemas fail closed and preserve data.
+- SQLite WAL and foreign-key enforcement are enabled during initialization.
+- Terminal completion persists result, lifecycle transition, internal facts,
+  and released Runner capacity transactionally.
+- Stale evaluation fails active assigned Sessions without retry, requeue, or
+  reassignment.
 
 ## Commands
 
@@ -38,6 +33,5 @@ pnpm --filter @mystra/control-plane test
 pnpm --filter @mystra/control-plane typecheck
 ```
 
-## Configuration
-
-`getDb()` reads `MYSTRA_DB_PATH`. If unset, local development uses `./data/mystra.db`.
+`getDb()` reads `MYSTRA_DB_PATH`; local development defaults to
+`./data/mystra.db`.

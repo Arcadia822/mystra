@@ -60,7 +60,7 @@ for var_name in MYSTRA_EXECUTOR MYSTRA_GITLAB_HTTP_BASE_URL MYSTRA_CACHE_ROOT MY
   fi
 done
 
-for secret_name in MYSTRA_GITLAB_TOKEN COPILOT_GITHUB_TOKEN; do
+for secret_name in MYSTRA_RUNNER_REGISTRATION_SECRET MYSTRA_GITLAB_TOKEN COPILOT_GITHUB_TOKEN; do
   if [ -n "${!secret_name:-}" ]; then
     ok "$secret_name=<set>"
   else
@@ -74,7 +74,7 @@ if curl --noproxy '*' -fsS "$CONTROL_PLANE_URL/api/runners" >/tmp/mystra-runners
 const fs = require("fs");
 const data = JSON.parse(fs.readFileSync("/tmp/mystra-runners.json", "utf8"));
 for (const runner of data.runners ?? []) {
-  console.log(`ok   runner ${runner.runnerName} executor=${runner.capabilities?.executor ?? "unknown"} active=${runner.activeRunCount}`);
+  console.log(`ok   runner ${runner.name} executor=${runner.capabilities?.executor ?? "unknown"} active=${runner.activeSessionCount}`);
 }
 if (!data.runners?.length) {
   console.log("warn no runners registered");

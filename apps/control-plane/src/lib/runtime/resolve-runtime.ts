@@ -1,5 +1,5 @@
 import {
-  jobRuntimeOverrideSchema,
+  sessionRuntimeOverrideSchema,
   resolvedRuntimeContractSchema,
   type ContextBundle,
   type Project,
@@ -12,7 +12,7 @@ export function resolveRuntimeContract(input: {
   contextBundles?: ContextBundle[];
 }): ResolvedRuntimeContract {
   const projectRuntime = input.project.runtime;
-  const override = input.override ? jobRuntimeOverrideSchema.parse(input.override) : undefined;
+  const override = input.override ? sessionRuntimeOverrideSchema.parse(input.override) : undefined;
 
   if (override?.runtimeProfile) {
     throw new Error(`RUNTIME_PROFILE_NOT_SUPPORTED: ${override.runtimeProfile}`);
@@ -67,7 +67,7 @@ export function resolveRuntimeContract(input: {
       accessMode,
       ...(bundle.mountPath ? { mountPath: bundle.mountPath } : {}),
       source: bundle.source,
-      failureMode: required ? "fail-run" : bundle.failureMode,
+      failureMode: required ? "fail-session" : bundle.failureMode,
     });
     if (bundle.mountPath) {
       contextBundleMounts.push({

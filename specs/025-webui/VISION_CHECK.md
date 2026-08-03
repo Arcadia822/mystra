@@ -37,17 +37,17 @@
 - Team / workspace 不作为 Overview 页面筛选；它属于页面之上的产品壳层逻辑。
 - 时间范围只保留 `Today`、`7 days`、`30 days` 三个预设；`Custom` 只到日期，不提供小时/分钟粒度。
 - 底部 5 个主题数字卡改为 4 个 Toplist：Project workload、Failure reasons、Model cost drivers、Runner queue pressure。
-- 原 Bottleneck 改为 `Time composition`，只展示所选范围内 terminal runs 的阶段总用时占比。
-- 不做深入 analytic 仪表盘；下钻只带条件跳转到 Runs 列表页。
+- 原 Bottleneck 改为 `Time composition`，只展示所选范围内 terminal sessions 的阶段总用时占比。
+- 不做深入 analytic 仪表盘；下钻只带条件跳转到 Sessions 列表页。
 - 图表内部不放角标或解释性标题，依靠 panel 标题、hover 和下方简短数值说明。
 
 ## 第四轮产品反馈修正
 
 - Toplist 改为带条形图的列表，不再只是纯数字排序。
-- `Jobs` 与 `Run time composition` 面板高度固定对齐。
+- `Tasks` 与 `Session time composition` 面板高度固定对齐。
 - 右上角筛选控件收缩为两个按钮：`Time` 与 `Project`。
 - 筛选控件从 header 挪到主内容区顶部，单独占一行。
-- Overview 文案回收到 021 术语：`project`、`task`、`run`、`artifact`、`runner`，减少自造标签。
+- Overview 文案回收到 021 术语：`project`、`task`、`session`、`artifact`、`runner`，减少自造标签。
 
 ## 复查结论
 

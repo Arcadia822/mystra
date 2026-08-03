@@ -124,7 +124,7 @@ describe("docker sandbox projections", () => {
     mockSpawnExit(0, "container-123\n");
 
     const session = await dockerSandboxProvider.launch({
-      runId: "00000000-0000-4000-8000-000000000501",
+      sessionId: "00000000-0000-4000-8000-000000000501",
       runtime: {
         provider: "docker",
         environment: {

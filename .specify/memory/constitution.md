@@ -8,7 +8,7 @@ Mystra changes must preserve the documented MVP boundary unless the boundary is 
 
 ### II. Typed Contracts at Service Boundaries
 
-Control-plane APIs, CLI payloads, runner protocol payloads, MCP tools, Integration capabilities and persisted run results must use explicit TypeScript and Zod contracts. Platform capabilities, platform defaults, project configuration, external Issue identity and Job identity remain separate concepts.
+Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools, Integration capabilities and persisted Session results must use explicit TypeScript and Zod contracts. Task intent, Session execution, stable Runner identity, Project configuration, and external Issue identity remain separate concepts.
 
 ### III. Providers Are Replaceable Boundaries
 
@@ -37,11 +37,12 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   repository inputs.
 - Mystra remote MCP is the primary submission path for other agents and skills.
 - Web API is the canonical management implementation; CLI and MCP are thin adapters over the same contracts.
-- Web UI is a secondary client. The MVP shell uses `Overview`, `Inbox`,
-  `New Job`, and `Projects` as primary navigation; `Settings` is a shell
-  action/modal and `Recent Jobs` is a secondary route.
-- Runner output may influence structured events and final results, but stdout/stderr log storage is out of scope.
-- Branch names and PR titles/bodies come from task/repository context in the MVP.
+- Web UI is a secondary client. Its current object navigation exposes Control
+  Plane, Tasks, Runners, and Projects; Task detail creates child Sessions and
+  Session detail owns lifecycle and review evidence.
+- Runner output may influence internal execution facts and final Session
+  results, but public activity timelines and stdout/stderr storage are out of scope.
+- Branch names and review titles/bodies belong to Session execution context.
 - Runner caches improve performance only and must never be treated as source-of-truth state.
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
 
@@ -53,7 +54,13 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   provider-resolved, GitLab remains delivery-only, and the 025 shell is the
   sole unfinished MVP UI scope. Removed workflow/standing-order specs require
   no runtime migration because platform-owned orchestration is already absent.
-- 2026-07-23: Removed the WorkflowProvider/blueprint/node model from the product core. Mystra now owns Issue intake, durable Job/Run state, sandbox allocation, direct Agent execution, repository delivery and Review handoff. Agent-specific automation may return later through optional Agent plugin/hooks. Existing workflow specs remain historical records; active code, contracts, events and projections must migrate to the direct execution model.
+- 2026-08-03: Replaced the former coupled execution model with Task intent,
+  loose one-to-many child Sessions, and stable Runner identity. Compatibility
+  aliases are intentionally absent; recognized local development schemas are
+  rebuilt destructively. Public activity-timeline semantics remain undecided.
+- 2026-07-23: Removed the WorkflowProvider/blueprint/node model from the product
+  core. Mystra owns Issue intake, durable Task/Session state, sandbox allocation,
+  direct Agent execution, repository delivery, and Review handoff.
 
 ## Development Workflow
 
@@ -71,4 +78,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.1.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-03
+**Version**: 2.2.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-03

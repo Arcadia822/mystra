@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 
 import type { AgentProcessResult } from "@mystra/agent-adapters";
 import {
-  jobInlineContextBundlePayloadSchema,
+  sessionInlineContextBundlePayloadSchema,
   type BranchDeliveryReceipt,
   type CleanupOutcome,
   type IssueReference,
@@ -13,7 +13,7 @@ import {
   type RepoProviderKind,
   type RepositorySnapshot,
   type ResolvedRuntimeContract,
-  type RunResult,
+  type SessionResult,
   type SandboxObservation,
   type SandboxOutcome,
   type SandboxSession,
@@ -37,6 +37,7 @@ import { captureException, flushSentry, initSentry } from "./sentry.js";
 
 interface RunnerConfig {
   controlPlaneUrl: string;
+  registrationSecret: string;
   runnerName: string;
   concurrency: number;
   pollIntervalSeconds: number;
@@ -60,42 +61,45 @@ interface RunnerConfig {
 }
 
 interface RegisterResponse {
-  runnerSessionId: string;
-  runnerToken: string;
+  runner: {
+    id: string;
+    name: string;
+  };
+  credential: string;
+  heartbeatIntervalSeconds: number;
 }
 
-interface ClaimedJobResponse {
-  job: {
+interface ClaimedSessionResponse {
+  task: {
     id: string;
-    spec: {
-      taskId: string;
-      repository: RepositorySnapshot;
-      baseBranch: string;
-      branchName: string;
-      agent: string;
-      prompt: string;
-      issue?: {
-        reference: IssueReference;
-      };
-      mergeRequest?: {
-        title?: string;
-        body?: string;
-      };
+    projectId: string;
+    objective: string;
+    repository: RepositorySnapshot;
+    issue?: {
+      reference: IssueReference;
     };
-  } | null;
-  run: {
+  };
+  session: {
     id: string;
-    state?: string;
+    taskId: string;
+    title: string;
+    objective: string;
+    branch: string;
+    agent: string;
+    mergeRequest?: {
+      title?: string;
+      body?: string;
+    };
     cancellationRequest?: {
       requestedAt: string;
     } | null;
-  } | null;
+  };
   project: {
     id: string;
     slug: string;
     prewarmConfig: Record<string, unknown>;
-  } | null;
-  runtime: ResolvedRuntimeContract | null;
+  };
+  runtime: ResolvedRuntimeContract;
 }
 
 interface ClonePhaseOutput {
@@ -152,6 +156,7 @@ function csvEnv(name: string): string[] | undefined {
 function readConfig(): RunnerConfig {
   return {
     controlPlaneUrl: process.env.MYSTRA_CONTROL_PLANE_URL ?? "http://localhost:3000",
+    registrationSecret: requiredEnv("MYSTRA_RUNNER_REGISTRATION_SECRET"),
     runnerName: process.env.MYSTRA_RUNNER_NAME ?? "local-runner",
     concurrency: positiveIntEnv("MYSTRA_RUNNER_CONCURRENCY", 1),
     pollIntervalSeconds: positiveIntEnv("MYSTRA_RUNNER_POLL_INTERVAL_SECONDS", 5),
@@ -224,6 +229,26 @@ async function getJson<T>(url: string, token: string): Promise<T> {
   return await response.json() as T;
 }
 
+async function claimAvailableSession(
+  config: RunnerConfig,
+  runnerId: string,
+  credential: string,
+): Promise<ClaimedSessionResponse | undefined> {
+  const response = await fetch(apiUrl(config, "/api/runner/sessions"), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${credential}`,
+    },
+    body: JSON.stringify({ runnerId, maxSessions: 1 }),
+  });
+  if (response.status === 204) return undefined;
+  if (!response.ok) {
+    throw new Error(`Session claim failed: ${response.status} ${await response.text()}`);
+  }
+  return await response.json() as ClaimedSessionResponse;
+}
+
 async function register(
   config: RunnerConfig,
   registeredAgents: string[] = [],
@@ -234,7 +259,7 @@ async function register(
       executor: config.executor,
       agents: config.executor === "docker" ? registeredAgents : [],
       providers: config.executor === "docker" ? ["docker"] : [],
-      contextBundleModes: config.executor === "docker" ? ["read-only", "job-scoped"] : [],
+      contextBundleModes: config.executor === "docker" ? ["read-only", "session-scoped"] : [],
       mountKinds: config.executor === "docker"
         ? ["workspace", "cache", "contextBundle", "secret"]
         : [],
@@ -247,18 +272,18 @@ async function register(
     staleAfterSeconds: config.staleAfterSeconds,
     eligibleProjectIds: config.eligibleProjectIds,
     eligibleRuntimeProviders: config.eligibleRuntimeProviders,
-  });
+  }, config.registrationSecret);
 }
 
 async function emitEvent(
   config: RunnerConfig,
   token: string,
-  runId: string,
+  sessionId: string,
   type: string,
   data: Record<string, unknown> = {},
   severity: "debug" | "info" | "warn" | "error" = "info",
 ): Promise<void> {
-  await postJson(apiUrl(config, `/api/runner/jobs/${runId}/events`), {
+  await postJson(apiUrl(config, `/api/runner/sessions/${sessionId}/events`), {
     type,
     severity,
     data,
@@ -426,11 +451,11 @@ async function materializeContextBundle(
   if (!bundle) {
     throw new Error(`No context bundle resolves mount ${target}`);
   }
-  if (bundle.source.kind !== "job-inline") {
+  if (bundle.source.kind !== "session-inline") {
     throw new Error(`Context bundle source ${bundle.source.kind} is unsupported`);
   }
-  const payload = jobInlineContextBundlePayloadSchema.parse(
-    bundle.source.metadata.jobInline,
+  const payload = sessionInlineContextBundlePayloadSchema.parse(
+    bundle.source.metadata.sessionInline,
   );
   const destination = path.join(config.cacheRoot, "context-bundles", sourceRef);
   await rm(destination, { recursive: true, force: true });
@@ -499,7 +524,7 @@ function appendRuntimePorts(
 async function pollCancellationRequest(
   config: RunnerConfig,
   token: string,
-  runId: string,
+  sessionId: string,
   stopSignal: AbortSignal,
   isActive: () => boolean,
   requestCancel: () => void,
@@ -510,11 +535,11 @@ async function pollCancellationRequest(
       return;
     }
     try {
-      const snapshot = await getJson<ClaimedJobResponse>(
-        apiUrl(config, `/api/runner/jobs/${runId}`),
+      const claim = await getJson<ClaimedSessionResponse>(
+        apiUrl(config, `/api/runner/sessions/${sessionId}`),
         token,
       );
-      if (snapshot.run?.cancellationRequest) {
+      if (claim.session.cancellationRequest) {
         requestCancel();
         return;
       }
@@ -527,14 +552,11 @@ async function pollCancellationRequest(
   }
 }
 
-function repositoryTarget(claim: ClaimedJobResponse) {
-  if (!claim.job || !claim.project) {
-    throw new Error("Claim is missing repository metadata");
-  }
+function repositoryTarget(claim: ClaimedSessionResponse) {
   return {
     projectId: claim.project.id,
-    repository: claim.job.spec.repository,
-    defaultBaseBranch: claim.job.spec.baseBranch,
+    repository: claim.task.repository,
+    defaultBaseBranch: claim.task.repository.defaultBranch,
   } as const;
 }
 
@@ -560,45 +582,39 @@ function buildAgentPrompt(
   ].join("\n");
 }
 
-async function executeFakeJob(
+async function executeFakeSession(
   config: RunnerConfig,
   token: string,
-  claim: ClaimedJobResponse,
+  claim: ClaimedSessionResponse,
 ): Promise<void> {
-  if (!claim.job || !claim.run) {
-    return;
-  }
-  await emitEvent(config, token, claim.run.id, "execution.started", {
+  await emitEvent(config, token, claim.session.id, "execution.started", {
     executor: "fake",
   });
-  await postJson(apiUrl(config, `/api/runner/jobs/${claim.run.id}/result`), {
+  await postJson(apiUrl(config, `/api/runner/sessions/${claim.session.id}/result`), {
     status: "succeeded",
-    summary: `Fake runner completed task ${claim.job.spec.taskId}`,
-    branch: claim.job.spec.branchName,
+    summary: `Fake Runner completed Session ${claim.session.id}`,
+    branch: claim.session.branch,
   }, token);
 }
 
-async function executeDockerJob(
+async function executeDockerSession(
   config: RunnerConfig,
   token: string,
-  claim: ClaimedJobResponse,
+  claim: ClaimedSessionResponse,
   agentRegistry: RunnerAgentAdapterRegistry,
   repoRegistry: RunnerRepoProviderRegistry,
   sandboxRegistry: RunnerSandboxProviderRegistry,
 ): Promise<void> {
-  if (!claim.job || !claim.run || !claim.project) {
-    return;
+  const { task, session, project, runtime } = claim;
+  if (runtime.provider !== "docker") {
+    throw new Error(`Claimed Session ${session.id} has no supported Docker runtime`);
   }
-  const { job, run, project, runtime } = claim;
-  if (!runtime || runtime.provider !== "docker") {
-    throw new Error(`Claimed job ${job.id} has no supported Docker runtime`);
+  if (!task.issue) {
+    throw new Error(`Claimed Task ${task.id} has no immutable Issue snapshot`);
   }
-  if (!job.spec.issue) {
-    throw new Error(`Claimed job ${job.id} has no immutable issue snapshot`);
-  }
-  if (job.spec.agent !== "copilot") {
+  if (session.agent !== "copilot") {
     throw new Error(
-      `Direct Issue execution supports only the Copilot adapter, received ${job.spec.agent}`,
+      `Direct Issue execution supports only the Copilot adapter, received ${session.agent}`,
     );
   }
 
@@ -613,8 +629,8 @@ async function executeDockerJob(
   if (!sandboxProvider) {
     throw new Error("Docker sandbox provider is not registered");
   }
-  const adapter = agentRegistry.get(job.spec.agent);
-  const prompt = buildAgentPrompt(runtime, job.spec.prompt);
+  const adapter = agentRegistry.get(session.agent);
+  const prompt = buildAgentPrompt(runtime, session.objective);
   const promptFilePath = Buffer.byteLength(prompt, "utf8") > MAX_INLINE_AGENT_PROMPT_BYTES
     ? "/mystra/workspace/agent-prompt.txt"
     : undefined;
@@ -634,7 +650,7 @@ async function executeDockerJob(
     port.name === "frontend" || port.containerPort === 3000
   )?.containerPort ?? ports[0]?.containerPort ?? 3000;
   await mkdir(config.workspaceRoot, { recursive: true });
-  const workspace = await mkdtemp(path.join(config.workspaceRoot, `${run.id}-`));
+  const workspace = await mkdtemp(path.join(config.workspaceRoot, `${session.id}-`));
   const scriptPath = path.join(workspace, "task.sh");
   await writeFile(scriptPath, await dockerTaskScript(), { mode: 0o755 });
   await writeFile(path.join(workspace, "prompt.txt"), prompt);
@@ -642,23 +658,25 @@ async function executeDockerJob(
     await writeFile(path.join(workspace, "agent-prompt.txt"), prompt);
   }
 
-  const containerName = `mystra-${run.id}`;
+  const containerName = `mystra-${session.id}`;
   const image = runtime.environment.image;
-  const reviewTitle = job.spec.mergeRequest?.title ?? `Mystra task ${job.spec.taskId}`;
-  const commitMessage = `Update #${job.spec.taskId} ${reviewTitle}`;
+  const reviewTitle = session.mergeRequest?.title ?? session.title;
+  const commitMessage = `Update Task ${task.id} ${reviewTitle}`;
   const dockerArgs = [
     "run",
     "-d",
     "--name",
     containerName,
     "-e",
-    `MYSTRA_TASK_ID=${job.spec.taskId}`,
+    `MYSTRA_TASK_ID=${task.id}`,
+    "--env",
+    `MYSTRA_SESSION_ID=${session.id}`,
     "-e",
-    `MYSTRA_REPO=${job.spec.repository.cloneUrl}`,
+    `MYSTRA_REPO=${task.repository.cloneUrl}`,
     "-e",
-    `MYSTRA_BASE_BRANCH=${job.spec.baseBranch}`,
+    `MYSTRA_BASE_BRANCH=${task.repository.defaultBranch}`,
     "-e",
-    `MYSTRA_BRANCH_NAME=${job.spec.branchName}`,
+    `MYSTRA_BRANCH_NAME=${session.branch}`,
     "-e",
     `MYSTRA_AGENT_COMMAND_JSON=${JSON.stringify(agentCommand)}`,
     "-e",
@@ -698,14 +716,14 @@ async function executeDockerJob(
   const cancellationPoll = pollCancellationRequest(
     config,
     token,
-    run.id,
+    session.id,
     pollStop.signal,
     () => executionActive,
     () => {
       executionAbort.abort();
     },
   );
-  if (run.cancellationRequest) {
+  if (session.cancellationRequest) {
     executionAbort.abort();
   }
 
@@ -726,17 +744,17 @@ async function executeDockerJob(
       maxAutopilotContinues: MAX_AUTOPILOT_CONTINUES,
       dependencies: {
         emit: async (type, data, severity) => {
-          await emitEvent(config, token, run.id, type, data, severity);
+          await emitEvent(config, token, session.id, type, data, severity);
         },
         launchSandbox: async ({ environment }) => {
-          await emitEvent(config, token, run.id, "container.starting", {
+          await emitEvent(config, token, session.id, "container.starting", {
             image,
             projectSlug: project.slug,
             sandboxProvider: sandboxProvider.providerName,
             repositoryProvider: repoProvider.providerName,
           });
           sandboxSession = await sandboxProvider.launch({
-            runId: run.id,
+            sessionId: session.id,
             runtime,
             workspacePath: workspace,
             retentionPolicy: "retain_for_preview",
@@ -749,7 +767,7 @@ async function executeDockerJob(
             runtimePorts: ports,
             previewHost: config.previewHost,
           });
-          await emitEvent(config, token, run.id, "container.started", {
+          await emitEvent(config, token, session.id, "container.started", {
             image,
             containerName,
             containerId: sandboxSession.sessionId,
@@ -815,7 +833,7 @@ async function executeDockerJob(
     if (executionAbort.signal.aborted) {
       const reason = executionTimedOut ? "timeout" : "cancel";
       if (sandboxSession) {
-        await emitEvent(config, token, run.id, "cleanup.started", { reason }, "warn");
+        await emitEvent(config, token, session.id, "cleanup.started", { reason }, "warn");
         cleanupOutcome = await sandboxProvider.stop(sandboxSession, reason, {
           cleanupTimeoutSeconds: config.cleanupTimeoutSeconds,
         });
@@ -829,15 +847,15 @@ async function executeDockerJob(
             retained: cleanupOutcome?.status === "failed",
           })
         : undefined;
-      const result: RunResult = {
+      const result: SessionResult = {
         status: executionTimedOut ? "timed_out" : "canceled",
         summary: executionTimedOut
           ? `Docker task exceeded ${config.defaultExecutionTimeoutSeconds}s`
           : "Docker task was canceled",
-        branch: job.spec.branchName,
+        branch: session.branch,
         ...(sandboxOutcome ? { sandboxOutcome } : {}),
       };
-      await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
+      await postJson(apiUrl(config, `/api/runner/sessions/${session.id}/result`), result, token);
       return;
     }
 
@@ -850,17 +868,17 @@ async function executeDockerJob(
             retained: true,
           })
         : undefined;
-      const result: RunResult = {
+      const result: SessionResult = {
         status: "failed",
         summary: direct.summary,
-        branch: job.spec.branchName,
+        branch: session.branch,
         errorCode: direct.errorCode,
         errorMessage: direct.summary,
         ...(direct.agentExecution ? { agentExecution: direct.agentExecution } : {}),
         ...(direct.quality ? { quality: direct.quality } : {}),
         ...(sandboxOutcome ? { sandboxOutcome } : {}),
       };
-      await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
+      await postJson(apiUrl(config, `/api/runner/sessions/${session.id}/result`), result, token);
       return;
     }
 
@@ -887,7 +905,7 @@ async function executeDockerJob(
       throw new Error("Sandbox provider did not expose a preview URL");
     }
     const probeCount = await probePreview(previewUrl, executionAbort.signal);
-    await emitEvent(config, token, run.id, "preview.ready", {
+    await emitEvent(config, token, session.id, "preview.ready", {
       url: previewUrl,
       containerName,
       probeCount,
@@ -903,7 +921,7 @@ async function executeDockerJob(
     const branchReceipt: BranchDeliveryReceipt = await repoProvider.pushBranch({
       target,
       branchName: commit.branchName,
-      baseBranch: job.spec.baseBranch,
+      baseBranch: task.repository.defaultBranch,
       commitMessage,
       auth,
       metadata: {
@@ -914,7 +932,7 @@ async function executeDockerJob(
     if (branchReceipt.status !== "pushed") {
       throw new Error(branchReceipt.errorMessage ?? "Branch delivery failed");
     }
-    await emitEvent(config, token, run.id, "git.push_succeeded", {
+    await emitEvent(config, token, session.id, "git.push_succeeded", {
       branchName: branchReceipt.branchName,
       commitSha: branchReceipt.commitSha ?? commit.commitSha,
     });
@@ -924,7 +942,7 @@ async function executeDockerJob(
       auth,
       branch: branchReceipt,
       title: reviewTitle,
-      body: job.spec.mergeRequest?.body ?? job.spec.prompt,
+      body: session.mergeRequest?.body ?? session.objective,
       metadata: {
         frontendPreviewUrl: previewUrl,
         previewContainer: containerName,
@@ -939,7 +957,7 @@ async function executeDockerJob(
     if (reviewResult.status !== "review_created" || !reviewResult.review) {
       throw new Error(reviewResult.errorMessage ?? "Review creation failed");
     }
-    await emitEvent(config, token, run.id, "review.created", {
+    await emitEvent(config, token, session.id, "review.created", {
       provider: reviewResult.review.provider,
       url: reviewResult.review.url,
       number: reviewResult.review.number,
@@ -954,15 +972,13 @@ async function executeDockerJob(
         retained: true,
       },
     );
-    const result: RunResult = {
+    const result: SessionResult = {
       status: "waiting_for_review",
-      summary: `Issue ${job.spec.issue.reference.identifier} is ready for review`,
-      issue: job.spec.issue.reference,
+      summary: `Issue ${task.issue.reference.identifier} is ready for review`,
+      issue: task.issue.reference,
       branch: branchReceipt.branchName,
       commitSha: branchReceipt.commitSha ?? commit.commitSha,
       reviewResult,
-      mrUrl: reviewResult.review.url,
-      mrIid: reviewResult.review.number,
       quality: direct.quality,
       preview: {
         url: previewUrl,
@@ -972,8 +988,8 @@ async function executeDockerJob(
       sandboxOutcome,
       agentExecution: direct.agentExecution,
     };
-    await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
-    console.log(`[mystra-runner] run=${run.id} waiting_for_review`);
+    await postJson(apiUrl(config, `/api/runner/sessions/${session.id}/result`), result, token);
+    console.log(`[mystra-runner] session=${session.id} waiting_for_review`);
   } catch (error) {
     captureException(error);
     const summary = error instanceof Error ? error.message : String(error);
@@ -986,15 +1002,15 @@ async function executeDockerJob(
         retained: true,
       });
     }
-    const result: RunResult = {
+    const result: SessionResult = {
       status: "failed",
       summary: "Direct Docker execution failed",
-      branch: job.spec.branchName,
+      branch: session.branch,
       errorCode: "direct_execution_failed",
       errorMessage: summary,
       ...(sandboxOutcome ? { sandboxOutcome } : {}),
     };
-    await postJson(apiUrl(config, `/api/runner/jobs/${run.id}/result`), result, token);
+    await postJson(apiUrl(config, `/api/runner/sessions/${session.id}/result`), result, token);
   } finally {
     executionActive = false;
     pollStop.abort();
@@ -1003,10 +1019,10 @@ async function executeDockerJob(
   }
 }
 
-async function executeJob(
+async function executeSession(
   config: RunnerConfig,
   token: string,
-  claim: ClaimedJobResponse,
+  claim: ClaimedSessionResponse,
   agentRegistry?: RunnerAgentAdapterRegistry,
   repoRegistry?: RunnerRepoProviderRegistry,
   sandboxRegistry?: RunnerSandboxProviderRegistry,
@@ -1015,7 +1031,7 @@ async function executeJob(
     if (!agentRegistry || !repoRegistry || !sandboxRegistry) {
       throw new Error("Agent, repository, and sandbox registries must be initialized");
     }
-    await executeDockerJob(
+    await executeDockerSession(
       config,
       token,
       claim,
@@ -1025,7 +1041,7 @@ async function executeJob(
     );
     return;
   }
-  await executeFakeJob(config, token, claim);
+  await executeFakeSession(config, token, claim);
 }
 
 async function main(): Promise<void> {
@@ -1052,28 +1068,28 @@ async function main(): Promise<void> {
     config,
     agentRegistryBundle?.agentNames.filter((agentName) => agentName === "copilot"),
   );
-  const activeJobs = new Set<Promise<void>>();
-  let stopAfterActiveJobs = false;
+  const activeSessions = new Map<string, Promise<void>>();
+  let stopAfterActiveSessions = false;
 
   console.log(
-    `[mystra-runner] registered ${config.runnerName} session=${registration.runnerSessionId} executor=${config.executor}`,
+    `[mystra-runner] registered ${registration.runner.name} id=${registration.runner.id} executor=${config.executor}`,
   );
 
   while (true) {
-    await postJson(apiUrl(config, "/api/runner/heartbeat"), {}, registration.runnerToken);
+    await postJson(apiUrl(config, "/api/runner/heartbeat"), {
+      runnerId: registration.runner.id,
+      activeSessionIds: [...activeSessions.keys()],
+    }, registration.credential);
     let claimedAny = false;
-    while (!stopAfterActiveJobs && activeJobs.size < config.concurrency) {
-      const claim = await getJson<ClaimedJobResponse>(
-        apiUrl(config, "/api/runner/jobs"),
-        registration.runnerToken,
-      );
-      if (!claim.job || !claim.run) {
+    while (!stopAfterActiveSessions && activeSessions.size < config.concurrency) {
+      const claim = await claimAvailableSession(config, registration.runner.id, registration.credential);
+      if (!claim) {
         break;
       }
       claimedAny = true;
-      const activeJob = executeJob(
+      const activeSession = executeSession(
         config,
-        registration.runnerToken,
+        registration.credential,
         claim,
         agentRegistry,
         repoRegistryBundle?.registry,
@@ -1084,24 +1100,24 @@ async function main(): Promise<void> {
           console.error(error);
         })
         .finally(() => {
-          activeJobs.delete(activeJob);
+          activeSessions.delete(claim.session.id);
         });
-      activeJobs.add(activeJob);
+      activeSessions.set(claim.session.id, activeSession);
       if (config.once) {
-        stopAfterActiveJobs = true;
+        stopAfterActiveSessions = true;
       }
     }
 
-    if (config.once && !claimedAny && activeJobs.size === 0) {
-      console.log("[mystra-runner] no queued job found");
+    if (config.once && !claimedAny && activeSessions.size === 0) {
+      console.log("[mystra-runner] no queued Session found");
       return;
     }
-    if (stopAfterActiveJobs && activeJobs.size === 0) {
+    if (stopAfterActiveSessions && activeSessions.size === 0) {
       return;
     }
-    if (activeJobs.size > 0) {
+    if (activeSessions.size > 0) {
       await Promise.race([
-        ...activeJobs,
+        ...activeSessions.values(),
         sleep(config.pollIntervalSeconds * 1000),
       ]);
       continue;

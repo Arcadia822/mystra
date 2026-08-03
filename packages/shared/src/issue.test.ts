@@ -141,24 +141,24 @@ describe("Issue contracts", () => {
     expect(issueDispatchRequestSchema.parse({
       projectId: "550e8400-e29b-41d4-a716-446655440000",
       agent: "copilot",
-      branchName: "codex/eng-123",
+      branch: "codex/eng-123",
     })).toEqual({
       projectId: "550e8400-e29b-41d4-a716-446655440000",
       agent: "copilot",
-      branchName: "codex/eng-123",
+      branch: "codex/eng-123",
     });
 
     expect(() => issueDispatchRequestSchema.parse({
       projectId: "550e8400-e29b-41d4-a716-446655440000",
       agent: "copilot",
-      branchName: "--upload-pack=malicious",
+      branch: "--upload-pack=malicious",
     })).toThrow();
 
-    expect(() => issueDispatchRequestSchema.parse({
+    expect(issueDispatchRequestSchema.parse({
       projectId: "550e8400-e29b-41d4-a716-446655440000",
       agent: "codex",
-      branchName: "codex/eng-123",
-    })).toThrow();
+      branch: "codex/eng-123",
+    }).agent).toBe("codex");
   });
 
   it("exports stable integration errors without raw upstream details", () => {

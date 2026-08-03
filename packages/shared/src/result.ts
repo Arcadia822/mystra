@@ -4,14 +4,14 @@ import { issueReferenceSchema } from "./issue.js";
 import { reviewResultSchema } from "./repository.js";
 import { sandboxOutcomeSchema } from "./sandbox.js";
 
-export const runResultStatusSchema = z.enum([
+export const sessionResultStatusSchema = z.enum([
   "succeeded",
   "failed",
   "canceled",
   "timed_out",
   "waiting_for_review",
 ]);
-export type RunResultStatus = z.infer<typeof runResultStatusSchema>;
+export type SessionResultStatus = z.infer<typeof sessionResultStatusSchema>;
 
 export const qualityPhaseResultSchema = z
   .object({
@@ -102,13 +102,11 @@ export const reviewHandoffSchema = z
   });
 export type ReviewHandoff = z.infer<typeof reviewHandoffSchema>;
 
-const runResultBaseSchema = z
+const sessionResultBaseSchema = z
   .object({
-    status: runResultStatusSchema,
+    status: sessionResultStatusSchema,
     summary: z.string().min(1),
     branch: z.string().min(1).optional(),
-    mrUrl: z.string().url().optional(),
-    mrIid: z.number().int().positive().optional(),
     reviewResult: reviewResultSchema.optional(),
     sandboxOutcome: sandboxOutcomeSchema.optional(),
     issue: issueReferenceSchema.optional(),
@@ -122,7 +120,7 @@ const runResultBaseSchema = z
   })
   .strict();
 
-export const runResultSchema = runResultBaseSchema.superRefine((result, ctx) => {
+export const sessionResultSchema = sessionResultBaseSchema.superRefine((result, ctx) => {
   if (result.status !== "waiting_for_review") {
     return;
   }
@@ -147,4 +145,4 @@ export const runResultSchema = runResultBaseSchema.superRefine((result, ctx) => 
     }
   }
 });
-export type RunResult = z.infer<typeof runResultSchema>;
+export type SessionResult = z.infer<typeof sessionResultSchema>;

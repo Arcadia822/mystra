@@ -2,6 +2,28 @@
 
 These notes document the current preparation done on the development runner host (`$MYSTRA_DEV_HOST`). Use this as input when building the future runner image and provisioning scripts.
 
+## Runner Enrollment And Session Protocol
+
+The control plane and Runner daemon must receive the same
+`MYSTRA_RUNNER_REGISTRATION_SECRET`. A Runner enrolls with its stable name and
+capabilities; registering the same name preserves the Runner ID and rotates the
+issued credential. Only that credential may send heartbeats, claim Sessions, or
+complete Session results.
+
+Runner protocol endpoints are internal execution transport. They carry Task
+context into a claimed Session and accept internal execution facts plus the
+terminal result, but they do not make those facts separate business resources.
+The management model exposes only Task, Session, and stable Runner projections.
+
+Example daemon configuration:
+
+```sh
+MYSTRA_CONTROL_PLANE_URL=http://127.0.0.1:3000 \
+MYSTRA_RUNNER_REGISTRATION_SECRET=shared-enrollment-secret \
+MYSTRA_RUNNER_NAME=runner-debian-01 \
+pnpm --filter @mystra/runner-daemon start
+```
+
 ## Host
 
 - Host: `$MYSTRA_DEV_HOST`
@@ -305,7 +327,7 @@ Runner-local prewarm caches:
 - Maintain a pnpm store cache in a dedicated runner cache directory.
 - Maintain a uv cache in a dedicated runner cache directory.
 - Treat all caches as disposable performance hints; fall back to cold clone/install on cache miss or corruption.
-- Do not share `node_modules` between runs.
+- Do not share `node_modules` between Session workspaces.
 
 Container networking:
 

@@ -8,7 +8,7 @@ export async function GET(
 ) {
   const { id } = await context.params;
   const db = getDb();
-  const runner = db.listRunners().find((candidate) => candidate.id === id);
+  const runner = db.getRunner(id);
 
   if (!runner) {
     return NextResponse.json(
@@ -22,9 +22,5 @@ export async function GET(
     );
   }
 
-  const assignedTasks = db
-    .listJobs()
-    .filter((snapshot) => snapshot.run.assignedRunnerSessionId === runner.id);
-
-  return NextResponse.json({ runner, assignedTasks });
+  return NextResponse.json({ runner });
 }

@@ -27,6 +27,7 @@ function isActive(pathname: string, href: string) {
 function routeTitle(pathname: string): string {
   if (pathname.startsWith("/runners/")) return "Runner detail";
   if (pathname === "/runners") return "Runners";
+  if (pathname.startsWith("/sessions/")) return "Session detail";
   if (pathname.startsWith("/tasks/")) return "Task detail";
   if (pathname === "/tasks") return "Tasks";
   if (pathname.startsWith("/projects/")) return "Project detail";

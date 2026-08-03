@@ -23,12 +23,13 @@
   "interface": {
     "displayName": "Mystra",
     "shortDescription": "Operate Mystra tasks and open its Web UI in the Codex browser.",
-    "longDescription": "Use Mystra from Codex through its local MCP endpoint, inspect tasks and runners, and open the Control Plane, Runner detail, or Task detail in the Codex internal browser.",
+    "longDescription": "Use Mystra through its local MCP endpoint, inspect Tasks, Sessions, and Runners, and open their operator pages in the internal browser.",
     "developerName": "Mystra",
     "category": "Developer",
     "capabilities": [
       "MCP",
       "Task Operations",
+      "Session Operations",
       "Control Plane",
       "Browser Handoff"
     ],
@@ -36,7 +37,7 @@
     "defaultPrompt": [
       "Open the Mystra control plane.",
       "Open this Mystra task in the Web UI.",
-      "Check the status of an existing Mystra task."
+      "Check the status of an existing Mystra Session."
     ],
     "brandColor": "#4F46E5",
     "composerIcon": "./assets/icon.svg",

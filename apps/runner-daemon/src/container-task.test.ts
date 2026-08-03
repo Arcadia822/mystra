@@ -101,10 +101,10 @@ describe("container task direct execution", () => {
     expect(runner).not.toContain('dockerArgs.push("-e", "COPILOT_GITHUB_TOKEN")');
   });
 
-  it("runs bounded Copilot autopilot with a pinned CLI version", () => {
+  it("executes bounded Copilot autopilot with a pinned CLI version", () => {
     expect(runner).toContain('COPILOT_CLI_VERSION = "1.0.69-0"');
     expect(runner).toContain("MAX_AUTOPILOT_CONTINUES = 10");
-    expect(runner).toContain('job.spec.agent !== "copilot"');
+    expect(runner).toContain('session.agent !== "copilot"');
     expect(runner).toContain('agentName === "copilot"');
     expect(agentAdapters).toContain("new CopilotAdapter");
     expect(directExecution).toContain('mode: "autopilot"');
@@ -127,7 +127,7 @@ describe("container task direct execution", () => {
     expect(runner).toContain("repoProvider.pushBranch");
     expect(runner).toContain("repoProvider.createReview");
     expect(runner).toContain('status: "waiting_for_review"');
-    expect(runner).toContain("issue: job.spec.issue.reference");
+    expect(runner).toContain("issue: task.issue.reference");
     expect(runner).toContain("reviewResult");
     expect(runner).toContain("agentExecution: direct.agentExecution");
   });
@@ -147,8 +147,8 @@ describe("container task direct execution", () => {
   });
 
   it("supports bounded concurrency and configured polling", () => {
-    expect(runner).toContain("const activeJobs = new Set<Promise<void>>()");
-    expect(runner).toContain("activeJobs.size < config.concurrency");
+    expect(runner).toContain("const activeSessions = new Map<string, Promise<void>>()");
+    expect(runner).toContain("activeSessions.size < config.concurrency");
     expect(runner).toContain("await Promise.race");
     expect(runner).toContain("config.pollIntervalSeconds * 1000");
   });

@@ -36,7 +36,7 @@ depend on a WorkflowProvider, workflow blueprint or workflow node graph.
    - `specs/<feature>/`
 4. Update 5xP files only when a durable project rule changes.
    - A durable rule now in force: treat Open Agents as a source-authoritative framework baseline and reference architecture, not as a packaged SDK with complete extension interfaces for Mystra surfaces.
-   - Another durable rule now in force: prefer neutral platform language such as `Mystra platform`, `Team`, and `project`, and reserve `workspace` for the run-scoped working directory / execution-context surface rather than using it as a tenancy synonym.
+   - Another durable rule now in force: prefer neutral platform language such as `Mystra platform`, `Team`, and `project`, and reserve `workspace` for the Session-scoped working directory / execution-context surface rather than using it as a tenancy synonym.
    - Another durable rule now in force: avoid overfitting 5xP to one example deployment shape; prefer platform-contract language over environment-specific examples such as bare-metal host descriptions.
    - Another durable rule now in force: prioritize management surfaces in the order `API -> skill/MCP -> CLI -> UI`; UI is secondary to agent- and operator-facing programmable interfaces.
    - Another durable rule now in force: API owns Integration, Repository,
@@ -69,7 +69,7 @@ Recommended flow for new work:
 speckit.specify -> speckit.clarify -> speckit.plan -> plan-eng-review -> speckit.tasks -> speckit.analyze -> implementation -> focused tests -> broader validation -> code-review-and-quality -> merge
 ```
 
-Run `plan-eng-review` after `speckit.plan` and before `speckit.tasks` for
+Execute `plan-eng-review` after `speckit.plan` and before `speckit.tasks` for
 non-trivial architecture, API/MCP, persistence, runner, sandbox/provider, or
 cross-package contract work. If the review is skipped, record the owner
 acceptance and reason in the feature directory.
@@ -90,7 +90,7 @@ acceptance and reason in the feature directory.
   flows. Treat UI primarily as an observation surface or secondary operator
   control path unless the requirement explicitly centers on human visual
   interaction.
-- Run the narrowest relevant test first, then broader checks when the touched surface justifies it.
+- Execute the narrowest relevant test first, then broader checks when the touched surface justifies it.
 - For broad changes, run `pnpm typecheck` and `pnpm test`.
 - Before merge, run the project-local `code-review-and-quality` review gate. Treat review findings as part of delivery, not optional cleanup.
 - Do not introduce MVP-excluded behavior unless the product boundary is explicitly amended first.

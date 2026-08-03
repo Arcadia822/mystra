@@ -3,7 +3,7 @@ import {
   type IssueDispatchRequest,
 } from "@mystra/shared";
 
-import type { RdbProvider, JobSnapshot } from "../db/rdb-provider";
+import type { IssueDispatchResult, RdbProvider } from "../db/rdb-provider";
 import { IntegrationFailure } from "./errors";
 import type { IntegrationRegistry } from "./registry";
 
@@ -13,7 +13,7 @@ export async function dispatchIssue(input: {
   request: IssueDispatchRequest;
   registry: IntegrationRegistry;
   db: RdbProvider;
-}): Promise<JobSnapshot> {
+}): Promise<IssueDispatchResult> {
   const request = issueDispatchRequestSchema.parse(input.request);
   const provider = input.registry.requireIssueProvider(input.integrationName);
   const project = input.db.getProjectById(request.projectId);
@@ -41,10 +41,9 @@ export async function dispatchIssue(input: {
     input.integrationName,
     issue.reference.externalId,
     project.id,
-    request.branchName,
   ].join(":");
   const description = issue.description?.trim() || "No additional description was provided.";
-  const prompt = [
+  const objective = request.sessionObjective ?? [
     `Issue ${issue.reference.identifier}: ${issue.title}`,
     "",
     description,
@@ -58,28 +57,33 @@ export async function dispatchIssue(input: {
   };
 
   try {
-    return input.db.createJob({
-      taskId: issue.reference.identifier,
-      source: "issue",
-      projectId: project.id,
-      branchName: request.branchName,
-      agent: request.agent,
-      prompt,
-      issue,
-      dispatchKey,
-      mergeRequest,
-      ...(request.runtime ? { runtime: request.runtime } : {}),
-      metadata: {
-        integration: input.integrationName,
+    return input.db.dispatchIssue({
+      task: {
+        source: "issue",
+        projectId: project.id,
+        objective: issue.title,
+        issue,
+        dispatchKey,
+        repository: project.repository,
+        metadata: { integration: input.integrationName },
+      },
+      session: {
+        title: `Implement ${issue.reference.identifier}`,
+        objective,
+        branch: request.branch,
+        agent: request.agent,
+        mergeRequest,
+        ...(request.runtime ? { runtime: request.runtime } : {}),
+        metadata: { integration: input.integrationName },
       },
     });
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("DISPATCH_CONFLICT")) {
-      const existing = input.db.getJobByDispatchKey(dispatchKey);
+      const existing = input.db.getTaskByDispatchKey(dispatchKey);
       throw new IntegrationFailure({
         code: "DISPATCH_CONFLICT",
         message: `Issue dispatch already exists: ${issue.reference.identifier}`,
-        ...(existing ? { details: { existingJobId: existing.job.id } } : {}),
+        ...(existing ? { details: { existingTaskId: existing.id } } : {}),
       });
     }
     throw error;

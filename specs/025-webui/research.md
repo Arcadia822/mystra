@@ -11,7 +11,7 @@
 
 ## 决策：025 中页面行为保持占位或只读
 
-**理由**：025 应先建立稳定导航、路由承载、布局范式、主题、本地化和占位行为。并入本目录的页面材料是实现输入，不自动成为已交付的 `Overview`、`Inbox`、`New Job`、`Projects`、`Settings` 或 `Recent Jobs` 行为。
+**理由**：025 应先建立稳定导航、路由承载、布局范式、主题、本地化和占位行为。并入本目录的页面材料是实现输入，不自动成为已交付的 `Overview`、`Inbox`、`New Task`、`Projects`、`Settings` 或 `Recent Sessions` 行为。
 
 **备选方案**：
 

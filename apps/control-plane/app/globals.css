@@ -641,6 +641,39 @@ select {
   padding: 5px 8px;
 }
 
+.formStack {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.formStack label {
+  display: grid;
+  gap: 5px;
+  color: var(--text2);
+  font-size: 12px;
+}
+
+.formStack input,
+.formStack select,
+.formStack textarea {
+  width: 100%;
+  border: 1px solid var(--border-visible);
+  border-radius: 6px;
+  background: var(--surface2);
+  padding: 7px 8px;
+  color: var(--text1);
+}
+
+.formStack textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.formStack .primaryButton {
+  justify-self: start;
+}
+
 .formNotice {
   color: var(--text2);
   font-size: 12px;

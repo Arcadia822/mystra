@@ -8,10 +8,10 @@ MVP shell 使用以下 route 与 shell action taxonomy：
 | --- | --- | --- | --- | --- |
 | `overview` | `Overview` | primary navigation | `dashboardLayout` | placeholder/inspection |
 | `inbox` | `Inbox` | primary navigation | `readLayout` | placeholder |
-| `new-job` | `New Job` | primary navigation | `chatLayout` | placeholder/inspection |
+| `new-task` | `New Task` | primary navigation | `chatLayout` | placeholder/inspection |
 | `projects` | `Projects` | primary navigation | `readLayout` | current object pages + shell migration |
 | `settings` | `Settings` | shell action/modal | `readLayout` | placeholder/inspection |
-| `recent-jobs` | `Recent Jobs` | secondary route | `dashboardLayout` | placeholder/inspection |
+| `recent-sessions` | `Recent Sessions` | secondary route | `dashboardLayout` | placeholder/inspection |
 
 本功能不得新增其他 primary route。已完成 035/036 中的 `Tasks`、`Runners` 和 Project object pages 在迁移期间保持可访问；025 实施必须明确决定其 secondary placement，不得静默删除对象页能力。
 

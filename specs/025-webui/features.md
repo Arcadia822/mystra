@@ -4,13 +4,13 @@
 
 025 定义 Mystra MVP 操作 Web UI 的框架层能力。它提供面向人类操作者的稳定 shell：统一导航、侧边栏、路由承载、布局范式、基础组件期望、主题与本地化脚手架、响应式行为，以及未来 Electron 宿主兼容边界。
 
-本功能刻意不把页面探索材料等同于已实现业务行为。`Overview`、`Inbox`、`New Job`、`Projects`、`Settings` 和 `Recent Jobs` 的业务语义、数据解释与操作动作，将作为 025 内独立实现切片接入这个 shell。
+本功能刻意不把页面探索材料等同于已实现业务行为。`Overview`、`Inbox`、`New Task`、`Projects`、`Settings` 和 `Recent Sessions` 的业务语义、数据解释与操作动作，将作为 025 内独立实现切片接入这个 shell。
 
 ## 功能地图
 
 - 建立 Mystra MVP 的操作型 Web UI shell。
-- 固定 primary navigation：`Overview`、`Inbox`、`New Job`、`Projects`。
-- 固定 secondary surfaces：`Settings` shell modal 与可直接访问的 `Recent Jobs` route。
+- 固定 primary navigation：`Overview`、`Inbox`、`New Task`、`Projects`。
+- 固定 secondary surfaces：`Settings` shell modal 与可直接访问的 `Recent Sessions` route。
 - 为已批准页面提供共享侧边栏与路由框架。
 - 定义共享布局范式：`chatLayout`、`dashboardLayout`、`readLayout`。
 - 建立 shell 基础组件层，供后续页面复用。
@@ -22,7 +22,7 @@
 - API 仍是管理能力的事实来源。
 - Skill/MCP 与 CLI 仍是优先的可编程管理界面。
 - 具体页面行为按 025 内独立实现切片承担，不能由 shell 重构顺带臆造。
-- `workspace` 仍表示 run-scoped 执行上下文，不表示租户或产品组织。
+- `workspace` 仍表示 session-scoped 执行上下文，不表示租户或产品组织。
 - MVP 排除项继续排除：caller auth、logs API、retry API、公开 SaaS 租户管理、Kubernetes sandbox 以及相关平台能力。
 
 ## 分阶段能力图

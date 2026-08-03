@@ -2,8 +2,8 @@ import type {
   AgentExecutionMetadata,
   QualityPhaseResult,
   QualityResult,
-  RunEventSeverity,
-  RunEventType,
+  SessionEventSeverity,
+  SessionEventType,
 } from "@mystra/shared";
 
 type PhaseEnvironment = {
@@ -23,9 +23,9 @@ type AgentPhaseResult = {
 
 export interface DirectExecutionDependencies {
   emit(
-    type: RunEventType,
+    type: SessionEventType,
     data?: Record<string, unknown>,
-    severity?: RunEventSeverity,
+    severity?: SessionEventSeverity,
   ): Promise<void>;
   launchSandbox(input: PhaseEnvironment): Promise<void>;
   clone(input: PhaseEnvironment): Promise<{ baseCommit: string }>;

@@ -1,19 +1,27 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  canonicalRunSnapshotSchema,
+  cancelSessionResponseSchema,
   contextBundleCreateResponseSchema,
   contextBundleListResponseSchema,
   executionContextViewSchema,
   laneInspectionViewSchema,
   managementErrorResponseSchema,
   managementErrorSchema,
-  publicRunnerSessionSchema,
+  publicRunnerSchema,
   projectCreateResponseSchema,
-  projectSelectionViewSchema,
-  runnerListResponseSchema,
-  submittedLaneSnapshotSchema,
   projectListResponseSchema,
+  projectSelectionViewSchema,
+  runnerDetailResponseSchema,
+  runnerListResponseSchema,
+  sessionDetailResponseSchema,
+  sessionListResponseSchema,
+  sessionRecordSchema,
+  submittedLaneSnapshotSchema,
+  taskCreateResponseSchema,
+  taskDetailResponseSchema,
+  taskListResponseSchema,
+  taskRecordSchema,
 } from "./management.js";
 
 const remoteRepository = {
@@ -29,439 +37,262 @@ const remoteRepository = {
   fetchedAt: "2026-07-26T00:00:00.000Z",
 } as const;
 
-describe("managementErrorSchema", () => {
-  it("accepts shared machine-readable errors", () => {
-    const parsed = managementErrorSchema.parse({
-      code: "PROJECT_NOT_FOUND",
-      message: "Project not found: mystra",
-      details: { slug: "mystra" },
-    });
+const projectRuntime = {
+  provider: "docker",
+  image: "ghcr.io/arcadia/mystra-runner:latest",
+  contextBundleRefs: [],
+  mounts: [],
+  exposedPorts: [],
+  cache: { coldStartAllowed: true, entries: [] },
+  secretRefs: [],
+  overridePolicy: {
+    allowImageOverride: false,
+    allowContextBundleAdditions: false,
+    allowedContextBundleSlugs: [],
+  },
+  metadata: {},
+} as const;
 
-    expect(parsed.code).toBe("PROJECT_NOT_FOUND");
-    expect(parsed.details).toEqual({ slug: "mystra" });
+const task = {
+  id: "00000000-0000-4000-8000-000000000010",
+  projectId: "00000000-0000-4000-8000-000000000001",
+  source: "api",
+  objective: "Improve repository onboarding",
+  repository: remoteRepository,
+  metadata: {},
+  createdAt: "2026-05-15T00:00:00.000Z",
+  updatedAt: "2026-05-15T00:00:00.000Z",
+} as const;
+
+const session = {
+  id: "00000000-0000-4000-8000-000000000011",
+  taskId: task.id,
+  title: "Implement API slice",
+  objective: "Add the management resources",
+  agent: "copilot",
+  branch: "mystra/task-session-api",
+  state: "succeeded",
+  result: {
+    status: "succeeded",
+    summary: "Created the requested resources",
+    branch: "mystra/task-session-api",
+  },
+  metadata: {},
+  createdAt: "2026-05-15T00:00:00.000Z",
+  updatedAt: "2026-05-15T00:02:00.000Z",
+  startedAt: "2026-05-15T00:00:10.000Z",
+  finishedAt: "2026-05-15T00:02:00.000Z",
+} as const;
+
+describe("management errors", () => {
+  it("accepts shared Task and Session errors", () => {
+    expect(managementErrorSchema.parse({
+      code: "TASK_NOT_FOUND",
+      message: "Task not found",
+      details: { taskId: task.id },
+    }).code).toBe("TASK_NOT_FOUND");
+    expect(managementErrorResponseSchema.parse({
+      error: { code: "SESSION_BRANCH_CONFLICT", message: "Branch is already active" },
+    }).error.code).toBe("SESSION_BRANCH_CONFLICT");
   });
 
-  it("rejects unknown error codes", () => {
-    expect(() =>
-      managementErrorSchema.parse({
-        code: "SOMETHING_ELSE",
-        message: "unknown",
-      }),
-    ).toThrow();
-  });
-
-  it("wraps errors in the canonical error response shape", () => {
-    const parsed = managementErrorResponseSchema.parse({
-      error: {
-        code: "INVALID_SUBMISSION",
-        message: "projectId is required",
-      },
-    });
-
-    expect(parsed.error.code).toBe("INVALID_SUBMISSION");
+  it("rejects removed compatibility error codes", () => {
+    // legacy-term-audit: allow -- negative compatibility assertion only.
+    expect(() => managementErrorSchema.parse({ code: "JOB_NOT_FOUND", message: "removed" })).toThrow();
+    // legacy-term-audit: allow -- negative compatibility assertion only.
+    expect(() => managementErrorSchema.parse({ code: "RUN_NOT_FOUND", message: "removed" })).toThrow();
   });
 });
 
-describe("project selection views", () => {
-  it("accepts the minimal project identity needed for lane selection", () => {
-    const parsed = projectSelectionViewSchema.parse({
-      id: "00000000-0000-4000-8000-000000000001",
-      name: "Mystra",
-      slug: "mystra",
-      repository: remoteRepository,
-      baseBranch: "main",
-      defaultAgent: "copilot",
-      archivedAt: null,
-      createdAt: "2026-05-15T00:00:00.000Z",
-      updatedAt: "2026-05-15T00:00:00.000Z",
-    });
+describe("Project management views", () => {
+  const projectSelection = {
+    id: task.projectId,
+    name: "Mystra",
+    slug: "mystra",
+    repository: remoteRepository,
+    baseBranch: "main",
+    defaultAgent: "copilot",
+    archivedAt: null,
+    createdAt: "2026-05-15T00:00:00.000Z",
+    updatedAt: "2026-05-15T00:00:00.000Z",
+  } as const;
 
-    expect(parsed.slug).toBe("mystra");
-    expect(parsed.repository.fullName).toBe("Arcadia822/mystra-remote-e2e");
-  });
+  it("retains explicit Project selection and execution context projections", () => {
+    expect(projectSelectionViewSchema.parse(projectSelection).slug).toBe("mystra");
+    expect(projectListResponseSchema.parse({ projects: [projectSelection] }).projects).toHaveLength(1);
 
-  it("accepts project list payloads with explicit success field names", () => {
-    const parsed = projectListResponseSchema.parse({
-      projects: [
-        {
-          id: "00000000-0000-4000-8000-000000000001",
-          name: "Mystra",
-          slug: "mystra",
-          repository: remoteRepository,
-          baseBranch: "main",
-          defaultAgent: "copilot",
-          archivedAt: null,
-          createdAt: "2026-05-15T00:00:00.000Z",
-          updatedAt: "2026-05-15T00:00:00.000Z",
-        },
-      ],
-    });
-
-    expect(parsed.projects).toHaveLength(1);
-  });
-
-  it("accepts project-card execution context views without invented workflow fields", () => {
-    const parsed = executionContextViewSchema.parse({
-      id: "00000000-0000-4000-8000-000000000001",
-      name: "Mystra",
-      slug: "mystra",
-      repository: remoteRepository,
-      baseBranch: "main",
-      defaultAgent: "copilot",
-      runtime: {
-        provider: "docker",
-        image: "ghcr.io/arcadia/mystra-runner:latest",
-        contextBundleRefs: [],
-        mounts: [],
-        exposedPorts: [],
-        cache: { coldStartAllowed: true, entries: [] },
-        secretRefs: [],
-        overridePolicy: {
-          allowImageOverride: false,
-          allowContextBundleAdditions: false,
-          allowedContextBundleSlugs: [],
-        },
-        metadata: {},
-      },
+    const context = executionContextViewSchema.parse({
+      ...projectSelection,
+      runtime: projectRuntime,
       prewarmConfig: { manager: "pnpm" },
       metadata: { projectLane: "mystra" },
       lane: {
         repository: remoteRepository,
         baseBranch: "main",
         defaultAgent: "copilot",
-        runtime: {
-          provider: "docker",
-          image: "ghcr.io/arcadia/mystra-runner:latest",
-          contextBundleRefs: [],
-          mounts: [],
-          exposedPorts: [],
-          cache: { coldStartAllowed: true, entries: [] },
-          secretRefs: [],
-          overridePolicy: {
-            allowImageOverride: false,
-            allowContextBundleAdditions: false,
-            allowedContextBundleSlugs: [],
-          },
-          metadata: {},
-        },
+        runtime: projectRuntime,
         contextBundleRefs: [],
         prewarmConfig: { manager: "pnpm" },
         metadata: { projectLane: "mystra" },
       },
-      archivedAt: null,
-      createdAt: "2026-05-15T00:00:00.000Z",
-      updatedAt: "2026-05-15T00:00:00.000Z",
     });
 
-    expect(parsed.runtime.image).toBe("ghcr.io/arcadia/mystra-runner:latest");
-    expect(parsed.metadata).toEqual({ projectLane: "mystra" });
-    expect("workflow" in parsed.lane).toBe(false);
+    expect(context.runtime.image).toBe(projectRuntime.image);
+    expect("workflow" in context.lane).toBe(false);
   });
 
-  it("accepts project create payloads with explicit success field names", () => {
-    const parsed = projectCreateResponseSchema.parse({
+  it("retains strict Project create and lane payloads", () => {
+    const created = projectCreateResponseSchema.parse({
       project: {
-        id: "00000000-0000-4000-8000-000000000001",
-        name: "Mystra",
-        slug: "mystra",
-        repository: remoteRepository,
-        baseBranch: "main",
-        defaultAgent: "copilot",
-        runtime: {
-          provider: "docker",
-          image: "ghcr.io/arcadia/mystra-runner:latest",
-          contextBundleRefs: [],
-          mounts: [],
-          exposedPorts: [],
-          cache: { coldStartAllowed: true, entries: [] },
-          secretRefs: [],
-          overridePolicy: {
-            allowImageOverride: false,
-            allowContextBundleAdditions: false,
-            allowedContextBundleSlugs: [],
-          },
-          metadata: {},
-        },
-        prewarmConfig: { manager: "pnpm" },
+        ...projectSelection,
+        runtime: projectRuntime,
+        prewarmConfig: {},
         metadata: {},
-        archivedAt: null,
-        createdAt: "2026-05-15T00:00:00.000Z",
-        updatedAt: "2026-05-15T00:00:00.000Z",
       },
     });
+    expect(created.project.slug).toBe("mystra");
 
-    expect(parsed.project.slug).toBe("mystra");
-    expect(parsed.project.runtime.image).toBe("ghcr.io/arcadia/mystra-runner:latest");
+    const lane = laneInspectionViewSchema.parse({
+      repository: remoteRepository,
+      baseBranch: "develop",
+      defaultAgent: "copilot",
+      runtime: projectRuntime,
+      contextBundleRefs: [],
+    });
+    expect(() => laneInspectionViewSchema.parse({ ...lane, workflow: {} })).toThrow();
   });
 
-  it("accepts wrapped context bundle payloads with explicit success field names", () => {
+  it("retains wrapped context bundle payloads with Session language", () => {
     const created = contextBundleCreateResponseSchema.parse({
       contextBundle: {
         id: "00000000-0000-4000-8000-000000000002",
         slug: "agent-skills",
         displayName: "Agent Skills",
-        source: {
-          kind: "local-template",
-          ref: "/tmp/mystra-skills",
-          metadata: { prompt: "load skills" },
-        },
+        source: { kind: "local-template", ref: "mystra-skills", metadata: {} },
         accessMode: "read-only",
         mountPath: "/mystra/skills",
         freshness: {},
-        failureMode: "fail-run",
+        failureMode: "fail-session",
         metadata: {},
         archivedAt: null,
         createdAt: "2026-05-15T00:00:00.000Z",
         updatedAt: "2026-05-15T00:00:00.000Z",
       },
     });
-    const listed = contextBundleListResponseSchema.parse({
+    expect(contextBundleListResponseSchema.parse({
       contextBundles: [created.contextBundle],
-    });
-
-    expect(created.contextBundle.slug).toBe("agent-skills");
-    expect(listed.contextBundles).toHaveLength(1);
+    }).contextBundles).toHaveLength(1);
   });
 
-  it("accepts public runner session payloads with explicit success field names", () => {
-    const session = publicRunnerSessionSchema.parse({
-      id: "00000000-0000-4000-8000-000000000003",
-      runnerName: "runner-a",
-      capabilities: {
-        agents: ["codex"],
-        executor: "docker",
-      },
-      maxConcurrency: 2,
-      activeRunCount: 0,
-      staleAfterSeconds: 60,
-      eligibleProjectIds: ["00000000-0000-4000-8000-000000000001"],
-      eligibleRuntimeProviders: ["docker"],
-      lastHeartbeatAt: "2026-05-15T00:00:00.000Z",
-      createdAt: "2026-05-15T00:00:00.000Z",
-      updatedAt: "2026-05-15T00:00:00.000Z",
-    });
-    const listed = runnerListResponseSchema.parse({
-      runners: [session],
-    });
-
-    expect(listed.runners[0]?.runnerName).toBe("runner-a");
-    expect(listed.runners[0]?.capabilities.executor).toBe("docker");
-  });
-
-  it("accepts explicit lane inspection views and rejects workflow hints", () => {
-    const lane = {
-      repository: remoteRepository,
-      baseBranch: "develop",
-      defaultAgent: "copilot",
-      runtime: {
-        provider: "docker",
-        image: "ghcr.io/arcadia/skrya-runner:latest",
-        contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
-        mounts: [],
-        exposedPorts: [],
-        cache: { coldStartAllowed: true, entries: [] },
-        secretRefs: [],
-        overridePolicy: {
-          allowImageOverride: false,
-          allowContextBundleAdditions: false,
-          allowedContextBundleSlugs: [],
-        },
-        metadata: {},
-      },
-      contextBundleRefs: [{ slug: "agent-skills", required: true, accessMode: "read-only" }],
-      prewarmConfig: { manager: "pnpm" },
-      metadata: { projectLane: "skrya" },
-    };
-    const parsed = laneInspectionViewSchema.parse(lane);
-
-    expect("workflow" in parsed).toBe(false);
-    expect(parsed.contextBundleRefs[0]?.slug).toBe("agent-skills");
-    expect(() => laneInspectionViewSchema.parse({
-      ...lane,
-      workflow: {
-        blueprintName: "mvp.coding",
-      },
-    })).toThrow();
-  });
-});
-
-describe("canonicalRunSnapshotSchema", () => {
-  it("keeps terminal results nested at run.result", () => {
-    const parsed = canonicalRunSnapshotSchema.parse({
-      job: {
-        id: "00000000-0000-4000-8000-000000000010",
-        spec: {
-          taskId: "task-10",
-          source: "api",
-          projectId: "00000000-0000-4000-8000-000000000001",
-          repository: remoteRepository,
-          baseBranch: "main",
-          agent: "copilot",
-          branchName: "mystra/task-10",
-          prompt: "Implement the requested change",
-          metadata: {},
-        },
-        createdAt: "2026-05-15T00:00:00.000Z",
-        updatedAt: "2026-05-15T00:00:00.000Z",
-      },
-      run: {
-        id: "00000000-0000-4000-8000-000000000011",
-        jobId: "00000000-0000-4000-8000-000000000010",
-        state: "succeeded",
-        attempt: 1,
-        result: {
-          status: "succeeded",
-          summary: "Created the requested review",
-          branch: "mystra/task-10",
-        },
-        createdAt: "2026-05-15T00:00:00.000Z",
-        updatedAt: "2026-05-15T00:02:00.000Z",
-        startedAt: "2026-05-15T00:00:10.000Z",
-        finishedAt: "2026-05-15T00:02:00.000Z",
-      },
-      events: [
-        {
-          runId: "00000000-0000-4000-8000-000000000011",
-          jobId: "00000000-0000-4000-8000-000000000010",
-          type: "job.created",
-          timestamp: "2026-05-15T00:00:00.000Z",
-          severity: "info",
-          data: {},
-        },
-      ],
-      project: {
-        id: "00000000-0000-4000-8000-000000000001",
-        name: "Mystra",
-        slug: "mystra",
-        repository: remoteRepository,
-        baseBranch: "main",
-        defaultAgent: "copilot",
-        runtime: {
-          provider: "docker",
-          image: "ghcr.io/arcadia/mystra-runner:latest",
-          contextBundleRefs: [],
-          mounts: [],
-          exposedPorts: [],
-          cache: { coldStartAllowed: true, entries: [] },
-          secretRefs: [],
-          overridePolicy: {
-            allowImageOverride: false,
-            allowContextBundleAdditions: false,
-            allowedContextBundleSlugs: [],
-          },
-          metadata: {},
-        },
-        prewarmConfig: { manager: "pnpm" },
-        lane: {
-          repository: remoteRepository,
-          baseBranch: "main",
-          defaultAgent: "copilot",
-          runtime: {
-            provider: "docker",
-            image: "ghcr.io/arcadia/mystra-runner:latest",
-            contextBundleRefs: [],
-            mounts: [],
-            exposedPorts: [],
-            cache: { coldStartAllowed: true, entries: [] },
-            secretRefs: [],
-            overridePolicy: {
-              allowImageOverride: false,
-              allowContextBundleAdditions: false,
-              allowedContextBundleSlugs: [],
-            },
-            metadata: {},
-          },
-          contextBundleRefs: [],
-          prewarmConfig: { manager: "pnpm" },
-          metadata: { projectLane: "mystra" },
-        },
-        archivedAt: null,
-        createdAt: "2026-05-15T00:00:00.000Z",
-        updatedAt: "2026-05-15T00:00:00.000Z",
-      },
-      lane: {
-        projectId: "00000000-0000-4000-8000-000000000001",
-        projectSlug: "mystra",
-        repository: remoteRepository,
-        baseBranch: "main",
-        defaultAgent: "copilot",
-        runtime: {
-          provider: "docker",
-          environment: {
-            image: "ghcr.io/arcadia/mystra-runner:latest",
-            metadata: {},
-          },
-          contextBundles: [],
-          mounts: [],
-          exposedPorts: [],
-          cache: { coldStartAllowed: true, entries: [] },
-          secrets: [],
-        },
-        contextBundleRefs: [],
-        prewarmConfig: { manager: "pnpm" },
-        metadata: { projectLane: "mystra" },
-        submittedAt: "2026-05-15T00:00:00.000Z",
-      },
-    });
-
-    expect(parsed.run.result?.status).toBe("succeeded");
-    expect(parsed.project?.slug).toBe("mystra");
-    expect(parsed.lane?.projectSlug).toBe("mystra");
-    expect(() => canonicalRunSnapshotSchema.parse({
-      ...parsed,
-      workflow: {
-        provider: "local",
-        blueprintName: "mvp.coding",
-        blueprintVersion: "1.0.0",
-        nodeExecutions: [],
-      },
-    })).toThrow();
-  });
-
-  it("accepts submitted lane snapshots as additive historical attribution", () => {
+  it("accepts submitted lane snapshots without exposing execution facts", () => {
     const parsed = submittedLaneSnapshotSchema.parse({
-      projectId: "00000000-0000-4000-8000-000000000001",
-      projectSlug: "skrya",
+      projectId: task.projectId,
+      projectSlug: "mystra",
       repository: remoteRepository,
-      baseBranch: "develop",
+      baseBranch: "main",
       defaultAgent: "copilot",
       runtime: {
         provider: "docker",
-        environment: {
-          image: "ghcr.io/arcadia/skrya-runner:latest",
-          metadata: {},
-        },
-        contextBundles: [
-          {
-            slug: "issue-context",
-            required: true,
-            accessMode: "job-scoped",
-            mountPath: "/mystra/context/issue",
-            source: {
-              kind: "job-inline",
-              metadata: {},
-            },
-            failureMode: "fail-run",
-          },
-        ],
+        environment: { image: projectRuntime.image, metadata: {} },
+        contextBundles: [{
+          slug: "issue-context",
+          required: true,
+          accessMode: "session-scoped",
+          source: { kind: "session-inline", metadata: { sessionInline: { files: [{ path: "context.md", content: "fixture" }] } } },
+          failureMode: "fail-session",
+        }],
         mounts: [],
         exposedPorts: [],
         cache: { coldStartAllowed: true, entries: [] },
         secrets: [],
       },
-      contextBundleRefs: [{ slug: "issue-context", required: true, accessMode: "job-scoped" }],
-      prewarmConfig: { manager: "pnpm" },
-      metadata: { projectLane: "skrya" },
+      contextBundleRefs: [{ slug: "issue-context", required: true, accessMode: "session-scoped" }],
       submittedAt: "2026-05-15T00:00:00.000Z",
     });
+    expect(parsed.runtime.contextBundles[0]?.accessMode).toBe("session-scoped");
+  });
+});
 
-    expect(parsed.projectSlug).toBe("skrya");
-    expect(parsed.runtime.environment.image).toBe("ghcr.io/arcadia/skrya-runner:latest");
-    expect(() => submittedLaneSnapshotSchema.parse({
-      ...parsed,
-      workflow: {
-        blueprintName: "mvp.coding",
-      },
+describe("Task and Session management views", () => {
+  it("allows a Task to exist with zero Sessions and no lifecycle state", () => {
+    expect(taskRecordSchema.parse(task).objective).toBe(task.objective);
+    const detail = taskDetailResponseSchema.parse({
+      task,
+      sessionSummary: { sessionCount: 0, activeSessionCount: 0 },
+    });
+    expect(detail.sessionSummary.sessionCount).toBe(0);
+    expect("state" in detail.task).toBe(false);
+    expect("result" in detail.task).toBe(false);
+    expect(taskCreateResponseSchema.parse({ task }).task.id).toBe(task.id);
+  });
+
+  it("returns Session projections without making them Task state", () => {
+    const latestSession = {
+      id: session.id,
+      taskId: task.id,
+      title: session.title,
+      state: session.state,
+      agent: session.agent,
+      branch: session.branch,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      startedAt: session.startedAt,
+      finishedAt: session.finishedAt,
+    };
+    const listed = taskListResponseSchema.parse({
+      tasks: [{ ...task, sessionCount: 1, activeSessionCount: 0, latestSession }],
+    });
+    expect(listed.tasks[0]?.latestSession?.id).toBe(session.id);
+    expect("state" in (listed.tasks[0] ?? {})).toBe(false);
+  });
+
+  it("keeps result and lifecycle evidence on Session only", () => {
+    expect(sessionRecordSchema.parse(session).result?.status).toBe("succeeded");
+    expect(sessionListResponseSchema.parse({ taskId: task.id, sessions: [session] }).sessions).toHaveLength(1);
+    const detail = sessionDetailResponseSchema.parse({ session, task });
+    expect(detail.session.taskId).toBe(task.id);
+    expect("events" in detail).toBe(false);
+  });
+
+  it("returns cancellation outcome with the Session", () => {
+    const parsed = cancelSessionResponseSchema.parse({ outcome: "canceled", session });
+    expect(parsed.session.id).toBe(session.id);
+  });
+
+  it("rejects embedded execution facts as a public collection", () => {
+    expect(() => sessionDetailResponseSchema.parse({
+      session,
+      task,
+      events: [{ type: "session.succeeded" }],
     })).toThrow();
+  });
+});
+
+describe("Runner management views", () => {
+  const runner = {
+    id: "00000000-0000-4000-8000-000000000003",
+    name: "runner-a",
+    capabilities: { agents: ["codex"], executor: "docker" },
+    maxConcurrency: 2,
+    activeSessionCount: 1,
+    health: "healthy",
+    staleAfterSeconds: 60,
+    eligibleProjectIds: [task.projectId],
+    eligibleRuntimeProviders: ["docker"],
+    currentAssignments: [{ taskId: task.id, sessionId: session.id }],
+    lastHeartbeatAt: "2026-05-15T00:00:00.000Z",
+    createdAt: "2026-05-15T00:00:00.000Z",
+    updatedAt: "2026-05-15T00:00:00.000Z",
+  } as const;
+
+  it("uses one stable Runner resource with capacity and assignments", () => {
+    expect(publicRunnerSchema.parse(runner).name).toBe("runner-a");
+    expect(runnerListResponseSchema.parse({ runners: [runner] }).runners).toHaveLength(1);
+    expect(runnerDetailResponseSchema.parse({ runner }).runner.currentAssignments[0]?.sessionId).toBe(session.id);
+  });
+
+  it("rejects credentials and internal connection wrappers", () => {
+    expect(() => publicRunnerSchema.parse({ ...runner, credentialHash: "secret" })).toThrow();
+    expect(() => publicRunnerSchema.parse({ ...runner, activeSessionCount: 2 })).toThrow();
   });
 });

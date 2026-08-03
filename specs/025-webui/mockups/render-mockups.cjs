@@ -3,17 +3,16 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 
 const ROOT = path.resolve(__dirname, "..");
-const SPECS_ROOT = path.resolve(ROOT, "..");
 const WIDTH = 1990;
 const HEIGHT = 1248;
 
 const nav = [
   ["overview", "Overview", "Overview"],
   ["inbox", "Inbox", "Inbox"],
-  ["intake", "New Job", "New Job"],
+  ["intake", "New Task", "New Task"],
   ["projects", "Project", "Project"],
   ["settings", "Settings", "Settings"],
-  ["runs", "Recent Jobs", "Recent Jobs"],
+  ["sessions", "Recent Sessions", "Recent Sessions"],
 ];
 
 function css() {
@@ -462,7 +461,7 @@ function css() {
     .sideList { border-right: 1px solid var(--line); }
     .detailMain { padding-top: 32px; }
     .rightPane { border-left: 1px solid var(--line); padding: 32px 26px; background: rgba(226,228,234,.64); }
-    .runCard {
+    .sessionCard {
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 14px;
@@ -471,7 +470,7 @@ function css() {
       gap: 8px;
       margin-bottom: 10px;
     }
-    .runCard.active { background: #e1e4eb; }
+    .sessionCard.active { background: #e1e4eb; }
     .timeline { display: grid; gap: 12px; margin-top: 18px; }
     .step {
       display: grid;
@@ -592,7 +591,7 @@ function rail(active) {
     <div class="navItem ${active === key ? "active" : ""}">
       <span class="ico ${index % 2 === 0 ? "round" : "line"}"></span>
       <span>${label}</span>
-      ${key === "runs" ? '<span class="badgeMini">3</span>' : ""}
+      ${key === "sessions" ? '<span class="badgeMini">3</span>' : ""}
     </div>
   `).join("");
   return `
@@ -656,9 +655,9 @@ function overviewDashboard() {
       </div>
       <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
         <div class="panel">
-          <div class="muted">Jobs</div>
+          <div class="muted">Tasks</div>
           <div class="metricValue">128</div>
-          <div class="delta">104 terminal runs</div>
+          <div class="delta">104 terminal sessions</div>
           <div class="spark"><span style="height:38%"></span><span style="height:45%"></span><span class="good" style="height:52%"></span><span style="height:41%"></span><span class="good" style="height:70%"></span><span style="height:62%"></span><span class="good" style="height:82%"></span></div>
         </div>
         <div class="panel">
@@ -670,7 +669,7 @@ function overviewDashboard() {
         <div class="panel">
           <div class="muted">Time to artifact</div>
           <div class="metricValue">43m</div>
-          <div class="delta">91 reviewable runs</div>
+          <div class="delta">91 reviewable sessions</div>
           <div class="spark"><span style="height:80%"></span><span style="height:68%"></span><span style="height:62%"></span><span class="good" style="height:50%"></span><span class="good" style="height:45%"></span><span style="height:58%"></span><span class="good" style="height:42%"></span></div>
         </div>
         <div class="panel">
@@ -683,13 +682,13 @@ function overviewDashboard() {
 
       <div class="grid" style="grid-template-columns: 1.6fr 1fr; margin-top:12px;">
         <div class="panel trendPanel">
-          <div class="panelHeader"><div><h3>Jobs</h3></div></div>
+          <div class="panelHeader"><div><h3>Tasks</h3></div></div>
           <div class="chartBars">
             ${[44,58,40,65,82,76,92,70,84,60,88,96,74,86].map((h, i) => `<div class="barStack" style="--h:${h}%;--s:${55 + (i % 4) * 6}%;--f:${12 + (i % 3) * 5}%"><span class="s"></span><span class="f"></span><span class="q"></span></div>`).join("")}
           </div>
         </div>
         <div class="panel compositionPanel">
-          <div class="panelHeader"><div><h3>Run time composition</h3></div></div>
+          <div class="panelHeader"><div><h3>Session time composition</h3></div></div>
           <div class="compositionBody">
             <div class="durationStack"><span class="queue"></span><span class="execution"></span><span class="delivery"></span><span class="final"></span></div>
             <div>
@@ -703,8 +702,8 @@ function overviewDashboard() {
       </div>
 
       <div class="toplistGrid">
-        ${toplist("Projects", [["mystra", "74 jobs", 100], ["skrya", "38 jobs", 51], ["managed-skills", "16 jobs", 22]], "green")}
-        ${toplist("Failures", [["runtime", "6 runs", 100], ["artifact delivery", "4 runs", 67], ["timeout", "3 runs", 50]], "rose")}
+        ${toplist("Projects", [["mystra", "74 tasks", 100], ["skrya", "38 tasks", 51], ["managed-skills", "16 tasks", 22]], "green")}
+        ${toplist("Failures", [["runtime", "6 sessions", 100], ["artifact delivery", "4 sessions", 67], ["timeout", "3 sessions", 50]], "rose")}
         ${toplist("Models", [["gpt-5.4", "$11.20", 100], ["gpt-5.5", "$5.60", 50], ["local", "$1.60", 14]], "blue")}
         ${toplist("Runners", [["debian-01", "42m", 100], ["local-fake", "9m", 21], ["debian-02", "0m", 4]], "slate")}
       </div>
@@ -725,40 +724,35 @@ function intake() {
     <div class="overlayDim"></div>
     <div class="modal">
       <div class="panelHeader">
-        <div><h2>新建 Mystra 工作</h2><p class="muted">提交前先解析项目、上下文和 runtime。此过程几乎像成年人会做的事。</p></div>
+        <div><h2>New Task</h2><p class="muted">先保存长期目标；执行由后续显式 Session 承担。</p></div>
         <span class="pill">private ops</span>
       </div>
       <div class="modalBody">
         <section>
-          <div class="tabs"><span class="tab active">实现请求</span><span class="tab">用户旅程</span></div>
           <div class="grid two">
-            <div class="field"><label>Project lane</label><strong>mystra / main</strong></div>
-            <div class="field"><label>Agent</label><strong>codex</strong></div>
-            <div class="field"><label>Branch</label><strong>mystra/compact-summary-ui</strong></div>
-            <div class="field"><label>Workflow</label><strong>mvp.coding@1.0</strong></div>
+            <div class="field"><label>Project</label><strong>mystra</strong></div>
+            <div class="field"><label>Repository</label><strong>Arcadia822/mystra</strong></div>
           </div>
           <div style="height:12px"></div>
           <div class="textarea">
-            Spec: specs/018-coordination-run-summaries<br />
-            Scope: expose the compact run summary in the operator UI.<br />
-            Acceptance: show phase, milestone, terminal result, branch and review link.
+            Objective: migrate the operator experience to Task and Session.<br />
+            Acceptance: Task remains valid without execution; child Sessions are independent.
           </div>
         </section>
         <aside class="panel">
-          <div class="panelHeader"><div><h3>执行预检</h3><p class="muted">Resolved contract preview</p></div><span class="pill green">ready</span></div>
-          <div class="kv"><span>runtime</span><strong>docker / ghcr.io/arcadia/mystra-runner</strong></div>
-          <div class="kv"><span>context</span><strong>agent-skills, repo-instructions</strong></div>
-          <div class="kv"><span>runner</span><strong>runner-debian-01 eligible</strong></div>
-          <div class="kv"><span>repo provider</span><strong>GitHub review delivery</strong></div>
-          <div class="kv"><span>blocked</span><strong>logs API, retry API, caller auth</strong></div>
+          <div class="panelHeader"><div><h3>Task contract</h3><p class="muted">Durable intent only</p></div><span class="pill green">ready</span></div>
+          <div class="kv"><span>Project</span><strong>inherited context</strong></div>
+          <div class="kv"><span>Sessions</span><strong>0 initially</strong></div>
+          <div class="kv"><span>Agent / branch</span><strong>selected per Session</strong></div>
+          <div class="kv"><span>Task state</span><strong>none</strong></div>
         </aside>
       </div>
       <div class="modalFooter">
         <div class="leftTools"><span class="pill">HTTP API truth</span><span class="pill blue">MCP wrapper available</span></div>
-        <div class="rightTools"><button class="textButton">取消</button><button class="blackButton">创建 job</button></div>
+        <div class="rightTools"><button class="textButton">取消</button><button class="blackButton">Create Task</button></div>
       </div>
     </div>
-  `, '<button class="blackButton">创建 job</button>');
+  `, '<button class="blackButton">Create Task</button>');
 }
 
 function commandBackdrop() {
@@ -774,28 +768,27 @@ function commandBackdrop() {
     </div>`;
 }
 
-function runDetail() {
-  return shell("runs", "运行 > job_81f2 compact-summary", `
+function sessionDetail() {
+  return shell("sessions", "Session > task_81f2 / session_4ad9", `
     <div class="detailLayout">
       <aside class="sideList">
-        <h2 class="inspectorTitle">运行队列</h2>
-        <div class="runCard active"><div class="rowTop"><strong>compact-summary-ui</strong><span class="pill blue">running</span></div><p class="muted">mystra / codex / runner-debian-01</p></div>
-        <div class="runCard"><div class="rowTop"><strong>skill-status-polish</strong><span class="pill green">succeeded</span></div><p class="muted">mystra / codex</p></div>
-        <div class="runCard"><div class="rowTop"><strong>skrya eval digest</strong><span class="pill">queued</span></div><p class="muted">skrya / codex</p></div>
+        <h2 class="inspectorTitle">Recent Sessions</h2>
+        <div class="sessionCard active"><div class="rowTop"><strong>compact-summary-ui</strong><span class="pill blue">running</span></div><p class="muted">mystra / codex / runner-debian-01</p></div>
+        <div class="sessionCard"><div class="rowTop"><strong>skill-status-polish</strong><span class="pill green">succeeded</span></div><p class="muted">mystra / codex</p></div>
+        <div class="sessionCard"><div class="rowTop"><strong>skrya eval digest</strong><span class="pill">queued</span></div><p class="muted">skrya / codex</p></div>
       </aside>
       <section class="detailMain">
-        <h1 class="pageTitle left">Compact run summary UI</h1>
-        <p class="subhead">当前 phase: workflow running。下一步预计生成 review artifact。</p>
+        <h1 class="pageTitle left">Implement Task / Session UI</h1>
+        <p class="subhead">This Session owns its objective, Agent, branch, lifecycle, and result.</p>
         <div class="grid three">
-          <div class="panel"><span class="muted">Job</span><h3 class="mono">job_81f2</h3></div>
-          <div class="panel"><span class="muted">Run</span><h3 class="mono">run_4ad9</h3></div>
+          <div class="panel"><span class="muted">Task</span><h3 class="mono">task_81f2</h3></div>
+          <div class="panel"><span class="muted">Session</span><h3 class="mono">session_4ad9</h3></div>
           <div class="panel"><span class="muted">Updated</span><h3>1 分钟前</h3></div>
         </div>
-        <div class="timeline">
-          <div class="step"><span class="node"></span><div><h4>Queued</h4><p class="muted">Job accepted by management API.</p></div><span class="pill green">done</span></div>
-          <div class="step"><span class="node"></span><div><h4>Runner assigned</h4><p class="muted">runner-debian-01 claimed resolved runtime contract.</p></div><span class="pill green">done</span></div>
-          <div class="step"><span class="node current"></span><div><h4>Workflow running</h4><p class="muted">Implementation node executing with context bundles mounted read-only.</p></div><span class="pill blue">current</span></div>
-          <div class="step"><span class="node wait"></span><div><h4>Review artifact</h4><p class="muted">Branch and PR link will appear when repository provider finishes delivery.</p></div><span class="pill">pending</span></div>
+        <div class="panel" style="margin-top:18px">
+          <div class="panelHeader"><div><h3>Result</h3><p class="muted">No public activity timeline is defined.</p></div><span class="pill blue">running</span></div>
+          <div class="kv"><span>Summary</span><strong>Result not ready</strong></div>
+          <div class="kv"><span>Review</span><strong>pending</strong></div>
         </div>
       </section>
       <aside class="rightPane">
@@ -803,7 +796,8 @@ function runDetail() {
         <div class="kv"><span>Project</span><strong>mystra</strong></div>
         <div class="kv"><span>Runtime</span><strong>docker / mystra-runner:local</strong></div>
         <div class="kv"><span>Context</span><strong>agent-skills, issue-brief</strong></div>
-        <div class="kv"><span>Workflow</span><strong>mvp.coding@1.0</strong></div>
+        <div class="kv"><span>Agent</span><strong>codex</strong></div>
+        <div class="kv"><span>Branch</span><strong>codex/task-session-ui</strong></div>
         <div class="kv"><span>Terminal</span><strong>not ready</strong></div>
         <div style="height:18px"></div>
         <div class="panel">
@@ -813,7 +807,7 @@ function runDetail() {
         </div>
       </aside>
     </div>
-  `, '<button class="iconButton">Ⅱ</button><button class="iconButton">⌫</button><button class="blackButton">取消运行</button>');
+  `, '<button class="iconButton">Ⅱ</button><button class="iconButton">⌫</button><button class="blackButton">Cancel Session</button>');
 }
 
 function projectConfig() {
@@ -827,7 +821,7 @@ function projectConfig() {
       </nav>
       <section>
         <h1 class="pageTitle left">mystra project lane</h1>
-        <p class="subhead">Project owns repository identity, runtime defaults, context bundles and workflow hints.</p>
+        <p class="subhead">Project owns repository identity, runtime defaults, and context bundles.</p>
         <div class="formGrid">
           <div class="panel">
             <div class="panelHeader"><div><h3>Repository</h3><p class="muted">Selection view for API, MCP, CLI and UI.</p></div><span class="pill green">active</span></div>
@@ -850,7 +844,7 @@ function projectConfig() {
       </section>
       <aside class="rightPane" style="border-left:0">
         <h2 class="inspectorTitle">验证</h2>
-        <div class="row"><div class="rowTop"><strong>Lane isolation</strong><span class="pill green">ok</span></div><p class="muted">Runs remain attributable to mystra.</p></div>
+        <div class="row"><div class="rowTop"><strong>Lane isolation</strong><span class="pill green">ok</span></div><p class="muted">Sessions remain attributable to mystra.</p></div>
         <div class="row"><div class="rowTop"><strong>Secret refs</strong><span class="pill">refs only</span></div><p class="muted">Values are injected at runtime; no UI reveal.</p></div>
         <div class="row"><div class="rowTop"><strong>Runner eligibility</strong><span class="pill blue">docker</span></div><p class="muted">runner-debian-01 advertises compatible provider.</p></div>
       </aside>
@@ -866,14 +860,14 @@ function skillsMcp() {
         <div class="ghostInput">搜索技能、MCP tool 或 transport</div>
         <div class="rightTools"><span class="pill">Built by Mystra</span><span class="pill">全部</span></div>
       </div>
-      <div class="skillHero"><div class="heroPill">mystra-submit-implementation-request 将 spec/task 包装成 job</div></div>
+      <div class="skillHero"><div class="heroPill">mystra-submit-implementation-request 将 spec/task 包装成 task</div></div>
       <div class="section">
         <h2>Featured</h2>
         <div class="hairline"></div>
         <div class="grid two">
           ${skillRow("IR", "mystra-submit-implementation-request", "Submit spec, plan and task scope through MCP.", "已启用")}
           ${skillRow("UJ", "mystra-submit-user-journey", "Package actor, goal and acceptance criteria.", "+")}
-          ${skillRow("JS", "mystra-check-job-status", "Retrieve compact human-readable job status.", "已启用")}
+          ${skillRow("JS", "mystra-check-task-status", "Retrieve compact human-readable task status.", "已启用")}
           ${skillRow("MCP", "Mystra MCP endpoint", "/api/mcp streamable HTTP tools/list.", "复制")}
         </div>
       </div>
@@ -882,7 +876,7 @@ function skillsMcp() {
       <h2 class="inspectorTitle">Endpoint</h2>
       <div class="kv"><span>Transport</span><strong>streamable-http</strong></div>
       <div class="kv"><span>Path</span><strong>/api/mcp</strong></div>
-      <div class="kv"><span>Tools</span><strong>create_job, get_job, list_projects, health</strong></div>
+      <div class="kv"><span>Tools</span><strong>mystra_create_task, mystra_create_session, mystra_get_session, mystra_list_runners</strong></div>
       <div style="height:18px"></div>
       <div class="panel"><div class="panelHeader"><div><h3>Skill policy</h3><p class="muted">Skills package intent. API remains truth.</p></div></div><span class="pill blue">API -> MCP -> CLI -> UI</span></div>
     </aside>
@@ -938,7 +932,7 @@ function platformSettings() {
       <aside class="rightPane" style="border-left:0">
         <h2 class="inspectorTitle">边界</h2>
         <div class="row"><div class="rowTop"><strong>Private ops</strong><span class="pill amber">MVP</span></div><p class="muted">Caller auth is explicitly out of scope.</p></div>
-        <div class="row"><div class="rowTop"><strong>No logs API</strong><span class="pill">by design</span></div><p class="muted">Use structured events and terminal result summaries.</p></div>
+        <div class="row"><div class="rowTop"><strong>No logs API</strong><span class="pill">by design</span></div><p class="muted">Use the Session result and review evidence.</p></div>
         <div class="row"><div class="rowTop"><strong>No retry API</strong><span class="pill">deferred</span></div><p class="muted">Avoid hidden quality-gate fix loops in MVP.</p></div>
       </aside>
     </div>
@@ -946,16 +940,21 @@ function platformSettings() {
 }
 
 const pages = [
-  ["Overview", overviewDashboard(), path.join(SPECS_ROOT, "026-overview-dashboard/screenshots/01-overview.png")],
-  ["New Job", intake(), path.join(SPECS_ROOT, "028-new-job/screenshots/02-new-work-intake.png")],
-  ["Recent Jobs", runDetail(), path.join(SPECS_ROOT, "031-recent-jobs/screenshots/03-run-detail.png")],
-  ["Project", projectConfig(), path.join(SPECS_ROOT, "029-project/screenshots/04-project-config.png")],
-  ["Settings / Skills MCP", skillsMcp(), path.join(SPECS_ROOT, "030-settings/screenshots/05-skills-mcp.png")],
-  ["Settings / Platform", platformSettings(), path.join(SPECS_ROOT, "030-settings/screenshots/06-platform-settings.png")],
+  ["Overview", overviewDashboard(), path.join(ROOT, "page-designs/screenshots/01-overview.png")],
+  ["New Task", intake(), path.join(ROOT, "page-designs/screenshots/02-new-work-intake.png")],
+  ["Recent Sessions", sessionDetail(), path.join(ROOT, "page-designs/screenshots/03-session-detail.png")],
+  ["Project", projectConfig(), path.join(ROOT, "page-designs/screenshots/04-project-config.png")],
+  ["Settings / Skills MCP", skillsMcp(), path.join(ROOT, "page-designs/screenshots/05-skills-mcp.png")],
+  ["Settings / Platform", platformSettings(), path.join(ROOT, "page-designs/screenshots/06-platform-settings.png")],
 ];
 
 async function main() {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    ...(process.env.CHROME_EXECUTABLE_PATH
+      ? { executablePath: process.env.CHROME_EXECUTABLE_PATH }
+      : {}),
+  });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 });
 
   const indexParts = [];
@@ -970,7 +969,7 @@ async function main() {
   await browser.close();
   const indexHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#e6e7eb;margin:0;padding:24px}section{margin:0 0 28px}img{width:100%;max-width:995px;border:1px solid #c4c7cf;border-radius:8px}</style></head><body>${indexParts.join("")}</body></html>`;
   await fs.writeFile(path.join(__dirname, "index.html"), indexHtml);
-  console.log(`Rendered ${pages.length} screenshots to page spec directories under ${SPECS_ROOT}`);
+  console.log(`Rendered ${pages.length} screenshots to page spec directories under ${ROOT}`);
 }
 
 main().catch((error) => {

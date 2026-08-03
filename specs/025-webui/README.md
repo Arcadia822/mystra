@@ -10,8 +10,8 @@
 
 本规划基于当前仓库能力与已实现/规划中的 Spec-Kit 事实：
 
-- `PRODUCT.md`: Mystra 是 self-use coding-agent orchestration platform；核心路径是提交任务、分配 runner、执行 workflow、返回可审查仓库 artifact。
-- `PLATFORM.md`: 当前形态是 Next.js control plane、SQLite RDB、pull-based runner daemon、单机 sandbox、agent/repo/workflow provider 边界。
+- `PRODUCT.md`: Mystra 的核心路径是 Task intent、独立 child Session、稳定 Runner 和可审查仓库 artifact。
+- `PLATFORM.md`: 当前形态是 Next.js control plane、SQLite RDB、pull-based Runner daemon、单机 sandbox，以及 Agent/Repository/Sandbox provider 边界。
 - `specs/006-control-plane-ui`: 已有原型覆盖健康概览、任务列表、任务详情、任务提交、MCP 信息和技能发现。
 - `specs/007-mcp-server` / `specs/008-mcp-skills`: MCP 提交、查询、取消、项目/上下文管理，以及 companion skills 已经是 MVP 可解释的入口。
 - `specs/013` 到 `018`: 产品重心是 agent-first 管理面，HTTP API 为真相，MCP/skill/CLI 是主要操作面，UI 只负责解释和辅助。
@@ -25,7 +25,7 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 
 1. 选择一个项目 lane，例如 `mystra` 或 `skrya`。
 2. 在新工作页选择 project，并像新对话一样描述要交给 Mystra 的工作。
-3. Mystra 基于 project 默认配置解析 workflow、agent、repo、base branch、runtime 和 runner 能力。
+3. Mystra 为显式创建的 Session 解析 Agent、branch、runtime 和 Runner eligibility。
 4. runner 执行工作流，UI 显示紧凑进度和关键里程碑。
 5. 完成后返回 branch / PR / MR / summary，可直接进入审查。
 6. 配置页面说明系统不是一次性脚本，而是可扩展的控制平面。
@@ -36,10 +36,10 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 | --- | --- | --- |
 | Overview | [`page-designs/overview-analytics.md`](page-designs/overview-analytics.md), [`01-overview.png`](page-designs/screenshots/01-overview.png) | 探索材料 |
 | Inbox | 无 | placeholder |
-| New Job | [`page-designs/new-work.md`](page-designs/new-work.md), [`02-new-work-intake.png`](page-designs/screenshots/02-new-work-intake.png) | 探索材料 |
+| New Task | [`page-designs/new-work.md`](page-designs/new-work.md), [`02-new-work-intake.png`](page-designs/screenshots/02-new-work-intake.png) | 探索材料 |
 | Projects | [`04-project-config.png`](page-designs/screenshots/04-project-config.png) | 已有对象页，截图为演示输入 |
 | Settings | [`05-skills-mcp.png`](page-designs/screenshots/05-skills-mcp.png), [`06-platform-settings.png`](page-designs/screenshots/06-platform-settings.png) | 探索材料 |
-| Recent Jobs | [`03-run-detail.png`](page-designs/screenshots/03-run-detail.png) | 探索材料 |
+| Recent Sessions | [`03-session-detail.png`](page-designs/screenshots/03-session-detail.png) | 探索材料 |
 
 ## 页面能力
 
@@ -50,8 +50,8 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 ## 演示顺序
 
 1. 打开 Overview，说明 Mystra 当前的 Agent 开发效率、质量、成本和容量状态。
-2. 点击 New Job，选择 project，并输入一段自然语言工作描述。
-3. 切到 Recent Jobs，解释 compact summary 如何让协调 agent 轮询。
+2. 点击 New Task，选择 project，并输入一段自然语言工作描述。
+3. 切到 Recent Sessions，解释 compact summary 如何让协调 agent 轮询。
 4. 打开交付 artifact 区，说明输出是 branch / PR / MR / summary。
 5. 进入项目配置，展示 runtime/context 是可配置合同，不是硬编码脚本。
 6. 进入 Settings 中的技能与 MCP 材料，说明 Codex/Copilot/其他 agent 如何接入。
@@ -73,7 +73,7 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 
 - [`page-designs/screenshots/01-overview.png`](page-designs/screenshots/01-overview.png)
 - [`page-designs/screenshots/02-new-work-intake.png`](page-designs/screenshots/02-new-work-intake.png)
-- [`page-designs/screenshots/03-run-detail.png`](page-designs/screenshots/03-run-detail.png)
+- [`page-designs/screenshots/03-session-detail.png`](page-designs/screenshots/03-session-detail.png)
 - [`page-designs/screenshots/04-project-config.png`](page-designs/screenshots/04-project-config.png)
 - [`page-designs/screenshots/05-skills-mcp.png`](page-designs/screenshots/05-skills-mcp.png)
 - [`page-designs/screenshots/06-platform-settings.png`](page-designs/screenshots/06-platform-settings.png)
@@ -81,6 +81,7 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 可复现渲染脚本位于 [mockups/render-mockups.cjs](mockups/render-mockups.cjs)。生成命令：
 
 ```sh
+CHROME_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
 NODE_PATH=/Users/arcadia/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules \
 /Users/arcadia/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node \
 specs/025-webui/mockups/render-mockups.cjs

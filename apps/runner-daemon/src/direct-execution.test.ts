@@ -59,7 +59,7 @@ function fixture(overrides: Overrides = {}) {
 }
 
 describe("executeDirectExecution", () => {
-  it("runs the explicit launch → clone → Agent → test → build phases and events", async () => {
+  it("executes the explicit launch → clone → Agent → test → build phases and internal facts", async () => {
     const { calls, dependencies } = fixture();
 
     const result = await executeDirectExecution({

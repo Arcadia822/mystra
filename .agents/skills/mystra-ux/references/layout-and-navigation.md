@@ -43,7 +43,7 @@
   without showing hover fills or visible heat-zone chrome.
 - Framework-level header actions should stay icon-only when the action is a
   shell chrome toggle. Avoid exposing prototype-only actions such as theme
-  switchers, run buttons, or layout meta labels in the shared shell header.
+  switchers, execution buttons, or layout meta labels in the shared shell header.
 
 ## Sidebar
 
@@ -52,13 +52,13 @@
 - Group labels may use 12px muted text.
 - Selected state uses token-derived selected background plus primary text/icon.
 - Framework shell menus should only list primary routes. Secondary routes such
-  as project detail and recent jobs remain addressable but do not have to appear
+  as Project and Session detail remain addressable but do not have to appear
   in the main menu.
 - Sidebar menu rows should not use right-side microcopy to explain the route
   layout type. Keep layout taxonomy in the spec/prototype docs, not inside the
   operational navigation rows.
 - Project grouping remains visible below the primary route list when the shell
-  needs project context. Project entries and their job list use ordinary menu
+  needs Project context. Project entries and their Task list use ordinary menu
   rows, without layout metadata badges.
 
 ## Route Layouts

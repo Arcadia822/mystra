@@ -1,14 +1,14 @@
 import { z } from "zod";
 
-export const runEventSeveritySchema = z.enum(["debug", "info", "warn", "error"]);
-export type RunEventSeverity = z.infer<typeof runEventSeveritySchema>;
+export const sessionEventSeveritySchema = z.enum(["debug", "info", "warn", "error"]);
+export type SessionEventSeverity = z.infer<typeof sessionEventSeveritySchema>;
 
-export const runEventTypeSchema = z.enum([
-  "job.created",
-  "run.queued",
+export const sessionEventTypeSchema = z.enum([
+  "task.created",
+  "session.queued",
   "runner.registered",
   "runner.heartbeat",
-  "run.assigned",
+  "session.assigned",
   "execution.started",
   "container.starting",
   "container.started",
@@ -31,41 +31,45 @@ export const runEventTypeSchema = z.enum([
   "git.push_succeeded",
   "review.created",
   "review.reused",
-  "run.succeeded",
-  "run.failed",
-  "run.canceled",
-  "run.timed_out",
-  "run.waiting_for_review",
+  "session.succeeded",
+  "session.failed",
+  "session.canceled",
+  "session.timed_out",
+  "session.waiting_for_review",
   "artifact.created",
   "cancellation.requested",
   "cleanup.started",
-  "run.cleanup_failed",
-  "run.stale_marked",
+  "session.cleanup_failed",
+  "session.stale_marked",
 ]);
-export type RunEventType = z.infer<typeof runEventTypeSchema>;
+export type SessionEventType = z.infer<typeof sessionEventTypeSchema>;
 
-export const controlPlaneLifecycleHandoffEventTypes = [
-  "job.created",
-  "run.queued",
-  "run.assigned",
-] as const satisfies readonly RunEventType[];
+export const controlPlaneSessionHandoffEventTypes = [
+  "task.created",
+  "session.queued",
+  "session.assigned",
+] as const satisfies readonly SessionEventType[];
 
-export const terminalRunEventTypes = [
-  "run.succeeded",
-  "run.failed",
-  "run.canceled",
-  "run.timed_out",
-  "run.waiting_for_review",
-] as const satisfies readonly RunEventType[];
+export const terminalSessionEventTypes = [
+  "session.succeeded",
+  "session.failed",
+  "session.canceled",
+  "session.timed_out",
+  "session.waiting_for_review",
+] as const satisfies readonly SessionEventType[];
 
-export const runEventSchema = z
+/**
+ * Internal execution fact. This schema is shared with the authenticated Runner
+ * protocol but is intentionally absent from management Task/Session responses.
+ */
+export const sessionEventSchema = z
   .object({
-    runId: z.string().uuid(),
-    jobId: z.string().uuid(),
+    sessionId: z.string().uuid(),
+    taskId: z.string().uuid(),
     timestamp: z.string().datetime(),
-    type: runEventTypeSchema,
-    severity: runEventSeveritySchema.default("info"),
+    type: sessionEventTypeSchema,
+    severity: sessionEventSeveritySchema.default("info"),
     data: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
-export type RunEvent = z.infer<typeof runEventSchema>;
+export type SessionEvent = z.infer<typeof sessionEventSchema>;

@@ -1,71 +1,46 @@
 import type {
-  CancelJobOutcome,
   CancellationRequestMetadata,
-  CoordinationRunSummary,
+  CoordinationSessionSummary,
   ContextBundle,
   ContextBundleCreate,
-  JobSpec,
   PlatformCapabilities,
   Project,
   ProjectCreate,
   ProjectUpdate,
+  PublicRunner,
   ResolvedRuntimeContract,
-  RunEvent,
-  RunResult,
-  RunState,
+  SessionCreateRequest,
+  SessionEvent,
+  SessionRecord,
+  SessionResult,
   StaleMarkingResult,
+  TaskCreate,
+  TaskCreateRequest,
+  TaskListItem,
+  TaskRecord,
+  TaskSessionSummary,
 } from "@mystra/shared";
 
-export type JobRecord = {
-  id: string;
-  spec: JobSpec;
-  createdAt: string;
-  updatedAt: string;
+export type ProjectClaim = Pick<Project, "id" | "slug" | "runtime" | "prewarmConfig">;
+
+export type SessionClaim = {
+  task: TaskRecord;
+  session: SessionRecord;
+  project: ProjectClaim;
+  runtime: ResolvedRuntimeContract;
 };
 
-export type RunRecord = {
+export type RunnerRecord = {
   id: string;
-  jobId: string;
-  state: RunState;
-  attempt: number;
-  assignedRunnerSessionId?: string;
-  resolvedRuntime?: ResolvedRuntimeContract;
-  result?: RunResult;
-  failureReason?: string;
-  cancellationRequest?: CancellationRequestMetadata;
-  staleReason?: string;
-  staleMarkedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  startedAt?: string;
-  finishedAt?: string;
-};
-
-export type RunnerSession = {
-  id: string;
-  token: string;
-  runnerName: string;
+  name: string;
   capabilities: PlatformCapabilities;
   maxConcurrency: number;
-  activeRunCount: number;
   staleAfterSeconds: number;
   eligibleProjectIds?: string[];
   eligibleRuntimeProviders?: string[];
   lastHeartbeatAt: string;
   createdAt: string;
   updatedAt: string;
-};
-
-export type PublicRunnerSession = Omit<RunnerSession, "token">;
-
-export type ProjectClaim = Pick<Project, "id" | "slug" | "runtime" | "prewarmConfig">;
-
-export type JobSnapshot = {
-  job: JobRecord;
-  run: RunRecord;
-  events: RunEvent[];
-  project?: ProjectClaim;
-  runtime?: ResolvedRuntimeContract;
 };
 
 export type RegisterRunnerInput = {
@@ -75,6 +50,22 @@ export type RegisterRunnerInput = {
   staleAfterSeconds?: number;
   eligibleProjectIds?: string[] | undefined;
   eligibleRuntimeProviders?: string[] | undefined;
+};
+
+export type RunnerRegistrationResult = {
+  runner: RunnerRecord;
+  credential: string;
+};
+
+export type IssueDispatchInput = {
+  task: TaskCreate;
+  session: SessionCreateRequest;
+};
+
+export type IssueDispatchResult = {
+  task: TaskRecord;
+  session: SessionRecord;
+  created: boolean;
 };
 
 export interface RdbProvider {
@@ -91,21 +82,34 @@ export interface RdbProvider {
   getContextBundleBySlug(slug: string): ContextBundle | undefined;
   listContextBundles(options?: { includeArchived?: boolean }): ContextBundle[];
 
-  createJob(input: unknown): JobSnapshot;
-  getJob(id: string): JobSnapshot | undefined;
-  getJobByDispatchKey(dispatchKey: string): JobSnapshot | undefined;
-  getJobSummary(id: string): CoordinationRunSummary | undefined;
-  getJobByRunId(runId: string): JobSnapshot | undefined;
-  listJobs(): JobSnapshot[];
-  cancelJob(id: string): CancelJobOutcome & { snapshot: JobSnapshot };
+  createTask(input: TaskCreateRequest): TaskRecord;
+  dispatchIssue(input: IssueDispatchInput): IssueDispatchResult;
+  getTask(id: string): TaskRecord | undefined;
+  getTaskByDispatchKey(dispatchKey: string): TaskRecord | undefined;
+  listTasks(): TaskListItem[];
+  getTaskSessionSummary(id: string): TaskSessionSummary | undefined;
 
-  registerRunner(input: RegisterRunnerInput): RunnerSession;
-  authenticateRunner(token: string | null): RunnerSession | undefined;
-  heartbeatRunner(runnerId: string): RunnerSession;
-  listRunners(): PublicRunnerSession[];
-  claimNextRun(runnerId: string): JobSnapshot | undefined;
-  appendRunEvent(runnerId: string, runId: string, input: unknown): RunEvent;
-  completeRun(runnerId: string, runId: string, input: unknown): JobSnapshot;
+  createSession(taskId: string, input: SessionCreateRequest): SessionRecord;
+  getSession(id: string): SessionRecord | undefined;
+  listSessions(taskId: string): SessionRecord[];
+  getSessionSummary(id: string): CoordinationSessionSummary | undefined;
+  cancelSession(id: string, request?: Partial<CancellationRequestMetadata>): {
+    outcome: "canceled" | "cancellation_requested";
+    session: SessionRecord;
+  };
+
+  registerRunner(input: RegisterRunnerInput): RunnerRegistrationResult;
+  authenticateRunner(credential: string | null): RunnerRecord | undefined;
+  heartbeatRunner(runnerId: string, activeSessionIds?: string[]): RunnerRecord;
+  getRunner(runnerId: string): PublicRunner | undefined;
+  listRunners(): PublicRunner[];
+  claimNextSession(runnerId: string): SessionClaim | undefined;
+  getSessionClaim(runnerId: string, sessionId: string): SessionClaim | undefined;
+  appendSessionEvent(runnerId: string, sessionId: string, input: unknown): SessionEvent;
+  completeSession(runnerId: string, sessionId: string, input: unknown): SessionRecord;
+  listInternalSessionEvents(sessionId: string): SessionEvent[];
 
   markStaleRunners(): StaleMarkingResult[];
 }
+
+export type { SessionResult };

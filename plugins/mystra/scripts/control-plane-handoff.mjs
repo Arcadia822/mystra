@@ -18,7 +18,7 @@ for (let index = 0; index < args.length; index += 1) {
   }
 }
 
-if (!["overview", "runner", "task"].includes(target)) {
+if (!["overview", "runner", "task", "session"].includes(target)) {
   process.stderr.write(`Unsupported target: ${target}\n`);
   process.exit(2);
 }
@@ -35,7 +35,9 @@ const path = target === "overview"
   ? "/"
   : target === "runner"
     ? `/runners/${encodeURIComponent(id)}`
-    : `/tasks/${encodeURIComponent(id)}`;
+    : target === "session"
+      ? `/sessions/${encodeURIComponent(id)}`
+      : `/tasks/${encodeURIComponent(id)}`;
 const targetUrl = new URL(path, baseUrl);
 
 try {

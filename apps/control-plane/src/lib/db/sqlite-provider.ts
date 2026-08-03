@@ -1,67 +1,74 @@
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+
 import Database from "better-sqlite3";
 import {
-  agentNameSchema,
-  assertRunStateTransition,
+  assertSessionStateTransition,
   contextBundleCreateSchema,
   contextBundleSchema,
   executionContractReferenceSchema,
   executionSpecArtifactSchema,
   issueSnapshotSchema,
-  jobSubmissionSchema,
-  jobSpecSchema,
-  jobInlineContextBundlePayloadSchema,
   platformCapabilitiesSchema,
   projectCreateSchema,
   projectRuntimeConfigSchema,
   projectSchema,
   projectUpdateSchema,
+  publicRunnerSchema,
   resolvedRuntimeContractSchema,
-  runEventSchema,
-  runResultSchema,
-  type CancelJobOutcome,
-  type CancellationRequestMetadata,
-  type ContextBundle,
-  type ContextBundleCreate,
+  sessionCreateRequestSchema,
+  sessionCreateSchema,
+  sessionEventSchema,
+  sessionInlineContextBundlePayloadSchema,
+  sessionRecordSchema,
+  sessionResultSchema,
+  taskCreateRequestSchema,
+  taskCreateSchema,
+  taskListItemSchema,
+  taskRecordSchema,
+  taskSessionSummarySchema,
   type AgentName,
-  type JobSpec,
+  type ContextBundle,
+  type CoordinationSessionSummary,
+  type ContextBundleCreate,
   type PlatformCapabilities,
   type Project,
   type ProjectCreate,
   type ProjectUpdate,
+  type PublicRunner,
   type ResolvedRuntimeContract,
-  type RunEvent,
-  type RunEventSeverity,
-  type RunEventType,
-  type RunResult,
-  type RunState,
+  type SessionCreate,
+  type SessionCreateRequest,
+  type SessionEvent,
+  type SessionEventSeverity,
+  type SessionEventType,
+  type SessionRecord,
+  type SessionState,
   type StaleMarkingResult,
+  type TaskCreate,
+  type TaskCreateRequest,
+  type TaskListItem,
+  type TaskRecord,
+  type TaskSessionSummary,
 } from "@mystra/shared";
 
-import { sqliteMigrations } from "./migrations";
-import { projectCoordinationRunSummary } from "../coordination-run-summary";
+import { ensureCurrentSchema } from "./migrations";
 import { resolveRuntimeContract } from "../runtime/resolve-runtime";
+import { projectCoordinationSessionSummary } from "../coordination-session-summary";
 import type {
-  JobRecord,
-  JobSnapshot,
+  IssueDispatchInput,
+  IssueDispatchResult,
   ProjectClaim,
-  PublicRunnerSession,
   RdbProvider,
   RegisterRunnerInput,
-  RunRecord,
-  RunnerSession,
+  RunnerRecord,
+  RunnerRegistrationResult,
+  SessionClaim,
 } from "./rdb-provider";
 
 type Row = Record<string, unknown>;
+type Clock = { now(): string };
 
-const activeStates = new Set<RunState>([
-  "queued",
-  "dispatching",
-  "assigned",
-  "starting",
-  "running",
-]);
-
-const terminalStates = new Set<RunState>([
+const terminalStates = new Set<SessionState>([
   "succeeded",
   "failed",
   "canceled",
@@ -72,179 +79,6 @@ const terminalStates = new Set<RunState>([
 const EXECUTION_SPEC_BUNDLE_SLUG = "execution-spec";
 const EXECUTION_SPEC_FILE_NAME = "execution-spec.json";
 const EXECUTION_SPEC_MOUNT_PATH = "/mystra/context/execution-spec";
-
-function executionSpecArtifactUri(runId: string): string {
-  return `mystra://runs/${runId}/artifacts/${EXECUTION_SPEC_FILE_NAME}`;
-}
-
-function executionSpecMaterializationRef(runId: string): string {
-  return `${EXECUTION_SPEC_BUNDLE_SLUG}-${runId}`;
-}
-
-function runtimeContextBundleMaterializationRef(slug: string, runId: string): string {
-  return `${slug}-${runId}`;
-}
-
-function buildExecutionContractReference(input: {
-  artifactId: string;
-  uri: string;
-  frozenAt: string;
-}) {
-  return executionContractReferenceSchema.parse({
-    kind: "execution-spec",
-    artifactId: input.artifactId,
-    uri: input.uri,
-    bundleSlug: EXECUTION_SPEC_BUNDLE_SLUG,
-    mountPath: EXECUTION_SPEC_MOUNT_PATH,
-    filePath: `${EXECUTION_SPEC_MOUNT_PATH}/${EXECUTION_SPEC_FILE_NAME}`,
-    frozenAt: input.frozenAt,
-  });
-}
-
-function attachExecutionSpecBundle(
-  runtime: ResolvedRuntimeContract,
-  input: {
-    runId: string;
-    artifactUri: string;
-    frozenAt: string;
-    executionContract: ReturnType<typeof buildExecutionContractReference>;
-    payload: ReturnType<typeof executionSpecArtifactSchema.parse>;
-  },
-): ResolvedRuntimeContract {
-  const materializationRef = executionSpecMaterializationRef(input.runId);
-  const bundle = contextBundleSchema.parse({
-    id: id(),
-    slug: EXECUTION_SPEC_BUNDLE_SLUG,
-    displayName: "Frozen Execution Spec",
-    source: {
-      kind: "job-inline",
-      ref: input.artifactUri,
-      metadata: {
-        prompt: `Primary execution contract. Read ${input.executionContract.filePath} before making changes.`,
-        materializationRef,
-        jobInline: jobInlineContextBundlePayloadSchema.parse({
-          files: [{ path: EXECUTION_SPEC_FILE_NAME, content: JSON.stringify(input.payload, null, 2) }],
-        }),
-        executionContract: input.executionContract,
-      },
-    },
-    accessMode: "job-scoped",
-    mountPath: EXECUTION_SPEC_MOUNT_PATH,
-    freshness: {
-      frozenAt: input.frozenAt,
-    },
-    failureMode: "fail-run",
-    metadata: {
-      artifactId: input.executionContract.artifactId,
-      artifactUri: input.artifactUri,
-      contractKind: input.executionContract.kind,
-    },
-    archivedAt: null,
-    createdAt: input.frozenAt,
-    updatedAt: input.frozenAt,
-  });
-
-  return resolvedRuntimeContractSchema.parse({
-    ...runtime,
-    contextBundles: [
-      ...runtime.contextBundles.filter((candidate) => candidate.slug !== EXECUTION_SPEC_BUNDLE_SLUG),
-      {
-        slug: bundle.slug,
-        required: true,
-        accessMode: bundle.accessMode,
-        mountPath: bundle.mountPath,
-        source: bundle.source,
-        failureMode: bundle.failureMode,
-      },
-    ],
-    executionContract: input.executionContract,
-    mounts: [
-      ...runtime.mounts.filter((mount) => !(mount.kind === "contextBundle" && mount.target === EXECUTION_SPEC_MOUNT_PATH)),
-      {
-        kind: "contextBundle",
-        owner: "runtime",
-        target: EXECUTION_SPEC_MOUNT_PATH,
-        sourceRef: materializationRef,
-        readOnly: true,
-      },
-    ],
-  });
-}
-
-function scopeRuntimeContextBundles(
-  runtime: ResolvedRuntimeContract,
-  runId: string,
-): ResolvedRuntimeContract {
-  const refsBySlug = new Map(
-    runtime.contextBundles.map((bundle) => [bundle.slug, runtimeContextBundleMaterializationRef(bundle.slug, runId)]),
-  );
-
-  return resolvedRuntimeContractSchema.parse({
-    ...runtime,
-    contextBundles: runtime.contextBundles.map((bundle) => ({
-      ...bundle,
-      source: {
-        ...bundle.source,
-        metadata: {
-          ...bundle.source.metadata,
-          materializationRef: refsBySlug.get(bundle.slug),
-        },
-      },
-    })),
-    mounts: runtime.mounts.map((mount) => {
-      if (mount.kind !== "contextBundle") {
-        return mount;
-      }
-
-      const matchingBundle = runtime.contextBundles.find((bundle) => bundle.mountPath === mount.target);
-      if (matchingBundle) {
-        return { ...mount, sourceRef: refsBySlug.get(matchingBundle.slug) };
-      }
-
-      const bySourceRef = mount.sourceRef ? refsBySlug.get(mount.sourceRef) : undefined;
-      if (bySourceRef) {
-        return { ...mount, sourceRef: bySourceRef };
-      }
-
-      return mount;
-    }),
-  });
-}
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function id(): string {
-  return crypto.randomUUID();
-}
-
-function resetLegacyRepositorySchema(db: Database.Database): void {
-  const projectTable = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'projects'",
-  ).get() as { name: string } | undefined;
-  if (!projectTable) {
-    return;
-  }
-  const columns = db.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
-  if (!columns.some((column) => column.name === "repo")) {
-    return;
-  }
-
-  db.pragma("foreign_keys = OFF");
-  for (const table of [
-    "artifacts",
-    "run_events",
-    "runs",
-    "jobs",
-    "runner_sessions",
-    "context_bundles",
-    "projects",
-  ]) {
-    db.exec(`DROP TABLE IF EXISTS ${table}`);
-  }
-  db.pragma("foreign_keys = ON");
-}
 
 function stringField(row: Row, field: string): string {
   const value = row[field];
@@ -277,63 +111,39 @@ function jsonStringify(value: unknown): string {
   return JSON.stringify(value ?? {});
 }
 
-function parseJsonObject(row: Row, field: string, recordId: string): Record<string, unknown> {
+function parseJson(row: Row, field: string, recordId: string): unknown {
   const raw = stringField(row, field);
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error("value is not an object");
-    }
-    return parsed as Record<string, unknown>;
+    return JSON.parse(raw) as unknown;
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown parse error";
     throw new Error(`Invalid JSON in ${field} for record ${recordId}: ${detail}`);
   }
 }
 
-function parseIssueSnapshot(raw: string, recordId: string) {
-  try {
-    return issueSnapshotSchema.parse(JSON.parse(raw) as unknown);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown parse error";
-    throw new Error(`Invalid JSON in issue_snapshot for record ${recordId}: ${detail}`);
-  }
-}
-
-function parseJsonResult(row: Row, field: string, recordId: string): RunResult | undefined {
+function parseOptionalJson(row: Row, field: string, recordId: string): unknown | undefined {
   const raw = nullableStringField(row, field);
   if (!raw) {
     return undefined;
   }
   try {
-    return runResultSchema.parse(JSON.parse(raw) as unknown);
+    return JSON.parse(raw) as unknown;
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown parse error";
     throw new Error(`Invalid JSON in ${field} for record ${recordId}: ${detail}`);
   }
 }
 
-function parseResolvedRuntime(row: Row, field: string, recordId: string): ResolvedRuntimeContract | undefined {
-  const raw = nullableStringField(row, field);
-  if (!raw) {
-    return undefined;
-  }
-  try {
-    return resolvedRuntimeContractSchema.parse(JSON.parse(raw) as unknown);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown parse error";
-    throw new Error(`Invalid JSON in ${field} for record ${recordId}: ${detail}`);
-  }
+function credentialHash(credential: string): string {
+  return createHash("sha256").update(credential).digest("hex");
 }
 
-function parseContextBundleSource(row: Row, field: string, recordId: string): ContextBundle["source"] {
-  const raw = stringField(row, field);
-  try {
-    return contextBundleSchema.shape.source.parse(JSON.parse(raw) as unknown);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown parse error";
-    throw new Error(`Invalid JSON in ${field} for record ${recordId}: ${detail}`);
-  }
+function newCredential(): string {
+  return `mystra_runner_${randomBytes(32).toString("base64url")}`;
+}
+
+function repositoryKey(task: Pick<TaskRecord, "repository">): string {
+  return `${task.repository.integration}:${task.repository.externalId}`;
 }
 
 function normalizeRunnerCapabilities(input: unknown): PlatformCapabilities {
@@ -343,13 +153,12 @@ function normalizeRunnerCapabilities(input: unknown): PlatformCapabilities {
   if (parsed.executor !== "docker") {
     return parsed;
   }
-
-  return {
+  return platformCapabilitiesSchema.parse({
     ...parsed,
     providers: parsed.providers.length > 0 ? parsed.providers : ["docker"],
     contextBundleModes: parsed.contextBundleModes.length > 0
       ? parsed.contextBundleModes
-      : ["read-only", "job-scoped"],
+      : ["read-only", "session-scoped"],
     mountKinds: parsed.mountKinds.length > 0
       ? parsed.mountKinds
       : ["workspace", "gitMirror", "cache", "contextBundle", "secret"],
@@ -359,79 +168,66 @@ function normalizeRunnerCapabilities(input: unknown): PlatformCapabilities {
     secretInjectionModes: parsed.secretInjectionModes.length > 0
       ? parsed.secretInjectionModes
       : ["env"],
-  };
+  });
 }
 
 function runnerSupportsRuntime(
-  capabilities: PlatformCapabilities,
+  runner: RunnerRecord,
+  projectId: string,
   agent: AgentName,
-  runtime: ResolvedRuntimeContract | undefined,
+  runtime: ResolvedRuntimeContract,
 ): boolean {
-  if (!runtime || !capabilities.agents.includes(agent)) {
+  if (runner.eligibleProjectIds && !runner.eligibleProjectIds.includes(projectId)) {
     return false;
   }
-  if (runtime.provider === "docker" && capabilities.executor !== "docker") {
+  if (runner.eligibleRuntimeProviders && !runner.eligibleRuntimeProviders.includes(runtime.provider)) {
     return false;
   }
-  if (!capabilities.providers.includes(runtime.provider)) {
-    return false;
-  }
-  if (runtime.contextBundles.some((bundle) => !capabilities.contextBundleModes.includes(bundle.accessMode))) {
-    return false;
-  }
-  if (runtime.mounts.some((mount) => !capabilities.mountKinds.includes(mount.kind))) {
-    return false;
-  }
-  if (runtime.exposedPorts.length > 0 && !capabilities.portExposure.supportsDynamicHostPorts) {
-    return false;
-  }
-  if (runtime.secrets.some((secret) => !capabilities.secretInjectionModes.includes(secret.mode))) {
-    return false;
-  }
-  return true;
-}
-
-function publicRunner(runner: RunnerSession): PublicRunnerSession {
-  const { token: _token, ...publicSession } = runner;
-  void _token;
-  return publicSession;
+  const capabilities = runner.capabilities;
+  return capabilities.agents.includes(agent)
+    && (runtime.provider !== "docker" || capabilities.executor === "docker")
+    && capabilities.providers.includes(runtime.provider)
+    && runtime.contextBundles.every((bundle) => capabilities.contextBundleModes.includes(bundle.accessMode))
+    && runtime.mounts.every((mount) => capabilities.mountKinds.includes(mount.kind))
+    && (runtime.exposedPorts.length === 0 || capabilities.portExposure.supportsDynamicHostPorts)
+    && runtime.secrets.every((secret) => capabilities.secretInjectionModes.includes(secret.mode));
 }
 
 export class SqliteRdbProvider implements RdbProvider {
   private readonly db: Database.Database;
+  private readonly clock: Clock;
 
-  constructor(dbPath = ":memory:") {
+  constructor(dbPath = ":memory:", clock: Clock = { now: () => new Date().toISOString() }) {
+    this.clock = clock;
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
-    resetLegacyRepositorySchema(this.db);
-    this.db.exec(sqliteMigrations);
+    ensureCurrentSchema(this.db);
   }
 
   close(): void {
-    this.db.close();
+    if (this.db.open) {
+      this.db.close();
+    }
   }
 
   createProject(input: ProjectCreate): Project {
     const parsed = projectCreateSchema.parse(input);
-    const timestamp = now();
-    const runtime = projectRuntimeConfigSchema.parse(parsed.runtime);
-    const project: Project = projectSchema.parse({
-      id: id(),
+    const timestamp = this.now();
+    const project = projectSchema.parse({
+      id: randomUUID(),
       ...parsed,
-      runtime,
+      runtime: projectRuntimeConfigSchema.parse(parsed.runtime),
       archivedAt: null,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-
     try {
       this.db.prepare(`
         INSERT INTO projects (
           id, name, slug, repository_snapshot, base_branch, default_agent, runtime,
           prewarm_config, metadata, archived_at, created_at, updated_at
-        )
-        VALUES (
+        ) VALUES (
           @id, @name, @slug, @repositorySnapshot, @baseBranch, @defaultAgent, @runtime,
           @prewarmConfig, @metadata, @archivedAt, @createdAt, @updatedAt
         )
@@ -455,21 +251,18 @@ export class SqliteRdbProvider implements RdbProvider {
       }
       throw error;
     }
-
     return project;
   }
 
   listProjects(options: { includeArchived?: boolean } = {}): Project[] {
-    const rows = this.db.prepare(
-      options.includeArchived
-        ? "SELECT * FROM projects ORDER BY created_at DESC"
-        : "SELECT * FROM projects WHERE archived_at IS NULL ORDER BY created_at DESC",
-    ).all() as Row[];
+    const rows = this.db.prepare(options.includeArchived
+      ? "SELECT * FROM projects ORDER BY created_at DESC, id DESC"
+      : "SELECT * FROM projects WHERE archived_at IS NULL ORDER BY created_at DESC, id DESC").all() as Row[];
     return rows.map((row) => this.projectFromRow(row));
   }
 
-  getProjectById(projectId: string): Project | undefined {
-    const row = this.db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId) as Row | undefined;
+  getProjectById(id: string): Project | undefined {
+    const row = this.db.prepare("SELECT * FROM projects WHERE id = ?").get(id) as Row | undefined;
     return row ? this.projectFromRow(row) : undefined;
   }
 
@@ -483,30 +276,21 @@ export class SqliteRdbProvider implements RdbProvider {
     if (!current) {
       return undefined;
     }
-
     const update = projectUpdateSchema.parse(input);
-    const nextRuntime = projectRuntimeConfigSchema.parse(update.runtime ?? current.runtime);
-    const next: Project = projectSchema.parse({
+    const next = projectSchema.parse({
       ...current,
       ...update,
-      runtime: nextRuntime,
-      updatedAt: now(),
+      runtime: projectRuntimeConfigSchema.parse(update.runtime ?? current.runtime),
+      updatedAt: this.now(),
     });
-
     try {
       this.db.prepare(`
-        UPDATE projects
-        SET name = @name,
-            slug = @slug,
-            repository_snapshot = @repositorySnapshot,
-            base_branch = @baseBranch,
-            default_agent = @defaultAgent,
-            runtime = @runtime,
-            prewarm_config = @prewarmConfig,
-            metadata = @metadata,
-            archived_at = @archivedAt,
-            updated_at = @updatedAt
-        WHERE id = @id
+        UPDATE projects SET
+          name=@name, slug=@slug, repository_snapshot=@repositorySnapshot,
+          base_branch=@baseBranch, default_agent=@defaultAgent, runtime=@runtime,
+          prewarm_config=@prewarmConfig, metadata=@metadata, archived_at=@archivedAt,
+          updated_at=@updatedAt
+        WHERE id=@id
       `).run({
         id: next.id,
         name: next.name,
@@ -526,33 +310,25 @@ export class SqliteRdbProvider implements RdbProvider {
       }
       throw error;
     }
-
     return this.getProjectById(next.id);
   }
 
   archiveProject(slug: string): Project | undefined {
-    return this.updateProject(slug, { archivedAt: now() });
+    return this.updateProject(slug, { archivedAt: this.now() });
   }
 
   createContextBundle(input: ContextBundleCreate): ContextBundle {
     const parsed = contextBundleCreateSchema.parse(input);
-    const timestamp = now();
-    const bundle = contextBundleSchema.parse({
-      id: id(),
-      ...parsed,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    });
-
+    const timestamp = this.now();
+    const bundle = contextBundleSchema.parse({ id: randomUUID(), ...parsed, createdAt: timestamp, updatedAt: timestamp });
     try {
       this.db.prepare(`
         INSERT INTO context_bundles (
-          id, slug, display_name, source, access_mode, mount_path,
-          freshness, failure_mode, metadata, archived_at, created_at, updated_at
-        )
-        VALUES (
-          @id, @slug, @displayName, @source, @accessMode, @mountPath,
-          @freshness, @failureMode, @metadata, @archivedAt, @createdAt, @updatedAt
+          id, slug, display_name, source, access_mode, mount_path, freshness,
+          failure_mode, metadata, archived_at, created_at, updated_at
+        ) VALUES (
+          @id, @slug, @displayName, @source, @accessMode, @mountPath, @freshness,
+          @failureMode, @metadata, @archivedAt, @createdAt, @updatedAt
         )
       `).run({
         id: bundle.id,
@@ -574,7 +350,6 @@ export class SqliteRdbProvider implements RdbProvider {
       }
       throw error;
     }
-
     return bundle;
   }
 
@@ -584,505 +359,622 @@ export class SqliteRdbProvider implements RdbProvider {
   }
 
   listContextBundles(options: { includeArchived?: boolean } = {}): ContextBundle[] {
-    const rows = this.db.prepare(
-      options.includeArchived
-        ? "SELECT * FROM context_bundles ORDER BY created_at DESC"
-        : "SELECT * FROM context_bundles WHERE archived_at IS NULL ORDER BY created_at DESC",
-    ).all() as Row[];
+    const rows = this.db.prepare(options.includeArchived
+      ? "SELECT * FROM context_bundles ORDER BY created_at DESC, id DESC"
+      : "SELECT * FROM context_bundles WHERE archived_at IS NULL ORDER BY created_at DESC, id DESC").all() as Row[];
     return rows.map((row) => this.contextBundleFromRow(row));
   }
 
-  createJob(input: unknown): JobSnapshot {
-    const parsed = jobSubmissionSchema.parse(input);
-    const project = this.getProjectById(parsed.projectId);
+  createTask(input: TaskCreateRequest): TaskRecord {
+    const parsed = taskCreateRequestSchema.parse(input);
+    const project = this.requireActiveProject(parsed.projectId);
+    return this.insertTask(taskCreateSchema.parse({ ...parsed, repository: project.repository }));
+  }
+
+  dispatchIssue(input: IssueDispatchInput): IssueDispatchResult {
+    const parsedTask = taskCreateSchema.parse(input.task);
+    if (parsedTask.source !== "issue" || !parsedTask.dispatchKey) {
+      throw new Error("INVALID_TASK: Issue dispatch requires an Issue Task and dispatchKey");
+    }
+    const parsedSession = sessionCreateRequestSchema.parse(input.session);
+    const transact = this.db.transaction(() => {
+      const existing = this.getTaskByDispatchKey(parsedTask.dispatchKey!);
+      if (existing) {
+        if (
+          existing.projectId !== parsedTask.projectId
+          || existing.repository.externalId !== parsedTask.repository.externalId
+          || existing.issue?.reference.externalId !== parsedTask.issue?.reference.externalId
+        ) {
+          throw new Error("DISPATCH_CONFLICT: dispatch key refers to contradictory immutable identity");
+        }
+        const sessionRow = this.db.prepare("SELECT * FROM sessions WHERE initial_dispatch_key = ?").get(parsedTask.dispatchKey) as Row | undefined;
+        if (!sessionRow) {
+          throw new Error("DISPATCH_CONFLICT: initial Session is missing");
+        }
+        const existingSession = this.sessionFromRow(sessionRow);
+        if (
+          existingSession.branch !== parsedSession.branch
+          || (parsedSession.agent && existingSession.agent !== parsedSession.agent)
+          || existingSession.objective !== parsedSession.objective
+        ) {
+          throw new Error("DISPATCH_CONFLICT: dispatch key refers to contradictory initial Session");
+        }
+        return { task: existing, session: existingSession, created: false };
+      }
+      const project = this.requireActiveProject(parsedTask.projectId);
+      if (jsonStringify(project.repository) !== jsonStringify(parsedTask.repository)) {
+        throw new Error("DISPATCH_CONFLICT: Task repository does not match Project");
+      }
+      const task = this.insertTask(parsedTask);
+      const session = this.insertSession(task, parsedSession, parsedTask.dispatchKey);
+      return { task, session, created: true };
+    });
+    return transact.immediate();
+  }
+
+  getTask(id: string): TaskRecord | undefined {
+    const row = this.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Row | undefined;
+    return row ? this.taskFromRow(row) : undefined;
+  }
+
+  getTaskByDispatchKey(dispatchKey: string): TaskRecord | undefined {
+    const row = this.db.prepare("SELECT * FROM tasks WHERE dispatch_key = ?").get(dispatchKey) as Row | undefined;
+    return row ? this.taskFromRow(row) : undefined;
+  }
+
+  listTasks(): TaskListItem[] {
+    const rows = this.db.prepare(`
+      SELECT tasks.*,
+        COUNT(sessions.id) AS session_count,
+        COALESCE(SUM(CASE WHEN sessions.state IN ('queued','dispatching','assigned','starting','running') THEN 1 ELSE 0 END), 0) AS active_session_count
+      FROM tasks
+      LEFT JOIN sessions ON sessions.task_id = tasks.id
+      GROUP BY tasks.id
+      ORDER BY tasks.created_at DESC, tasks.id DESC
+    `).all() as Row[];
+    return rows.map((row) => taskListItemSchema.parse({
+      ...this.taskFromRow(row),
+      sessionCount: numberField(row, "session_count"),
+      activeSessionCount: numberField(row, "active_session_count"),
+    }));
+  }
+
+  getTaskSessionSummary(id: string): TaskSessionSummary | undefined {
+    if (!this.getTask(id)) {
+      return undefined;
+    }
+    const counts = this.db.prepare(`
+      SELECT COUNT(*) AS session_count,
+        COALESCE(SUM(CASE WHEN state IN ('queued','dispatching','assigned','starting','running') THEN 1 ELSE 0 END), 0) AS active_session_count
+      FROM sessions WHERE task_id = ?
+    `).get(id) as Row;
+    const latestRow = this.db.prepare(
+      "SELECT * FROM sessions WHERE task_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+    ).get(id) as Row | undefined;
+    return taskSessionSummarySchema.parse({
+      sessionCount: numberField(counts, "session_count"),
+      activeSessionCount: numberField(counts, "active_session_count"),
+      ...(latestRow ? { latestSession: this.sessionSummary(this.sessionFromRow(latestRow)) } : {}),
+    });
+  }
+
+  createSession(taskId: string, input: SessionCreateRequest): SessionRecord {
+    const task = this.getTask(taskId);
+    if (!task) {
+      throw new Error(`TASK_NOT_FOUND: Task not found: ${taskId}`);
+    }
+    return this.insertSession(task, sessionCreateRequestSchema.parse(input));
+  }
+
+  getSession(id: string): SessionRecord | undefined {
+    const row = this.db.prepare("SELECT * FROM sessions WHERE id = ?").get(id) as Row | undefined;
+    return row ? this.sessionFromRow(row) : undefined;
+  }
+
+  listSessions(taskId: string): SessionRecord[] {
+    if (!this.getTask(taskId)) {
+      throw new Error(`TASK_NOT_FOUND: Task not found: ${taskId}`);
+    }
+    return (this.db.prepare(
+      "SELECT * FROM sessions WHERE task_id = ? ORDER BY created_at ASC, id ASC",
+    ).all(taskId) as Row[]).map((row) => this.sessionFromRow(row));
+  }
+
+  getSessionSummary(id: string): CoordinationSessionSummary | undefined {
+    const session = this.getSession(id);
+    if (!session) {
+      return undefined;
+    }
+    const task = this.requireTask(session.taskId);
+    const project = this.getProjectById(task.projectId);
+    return projectCoordinationSessionSummary({
+      task,
+      session,
+      ...(project ? { projectSlug: project.slug } : {}),
+      recentEvents: this.listInternalSessionEvents(session.id),
+    });
+  }
+
+  cancelSession(id: string, request: { requestedAt?: string; requestedBy?: string; reason?: string } = {}): {
+    outcome: "canceled" | "cancellation_requested";
+    session: SessionRecord;
+  } {
+    const transact = this.db.transaction(() => {
+      const session = this.requireSession(id);
+      if (terminalStates.has(session.state)) {
+        throw new Error(`SESSION_CANCEL_CONFLICT: Session is terminal: ${session.state}`);
+      }
+      const timestamp = request.requestedAt ?? this.now();
+      if (session.state === "queued" || session.state === "dispatching") {
+        assertSessionStateTransition(session.state, "canceled");
+        this.db.prepare(`
+          UPDATE sessions SET state='canceled', cancellation_request=?, finished_at=?, updated_at=? WHERE id=?
+        `).run(jsonStringify({ requestedAt: timestamp, ...(request.requestedBy ? { requestedBy: request.requestedBy } : {}), ...(request.reason ? { reason: request.reason } : {}) }), timestamp, timestamp, id);
+        this.insertSessionEvent(session.taskId, id, "session.canceled", "info", {}, timestamp);
+        return { outcome: "canceled" as const, session: this.requireSession(id) };
+      }
+      this.db.prepare("UPDATE sessions SET cancellation_request=?, updated_at=? WHERE id=?").run(
+        jsonStringify({ requestedAt: timestamp, ...(request.requestedBy ? { requestedBy: request.requestedBy } : {}), ...(request.reason ? { reason: request.reason } : {}) }),
+        timestamp,
+        id,
+      );
+      this.insertSessionEvent(session.taskId, id, "cancellation.requested", "warn", {}, timestamp);
+      return { outcome: "cancellation_requested" as const, session: this.requireSession(id) };
+    });
+    return transact.immediate();
+  }
+
+  registerRunner(input: RegisterRunnerInput): RunnerRegistrationResult {
+    const capabilities = normalizeRunnerCapabilities(input.capabilities);
+    const credential = newCredential();
+    const hash = credentialHash(credential);
+    const timestamp = this.now();
+    const transact = this.db.transaction(() => {
+      const existing = this.db.prepare("SELECT * FROM runners WHERE name = ?").get(input.runnerName) as Row | undefined;
+      if (existing) {
+        const runnerId = stringField(existing, "id");
+        this.db.prepare(`
+          UPDATE runners SET credential_hash=?, capabilities=?, max_concurrency=?, stale_after_seconds=?,
+            eligible_project_ids=?, eligible_runtime_providers=?, last_heartbeat_at=?, updated_at=?
+          WHERE id=?
+        `).run(
+          hash,
+          jsonStringify(capabilities),
+          input.maxConcurrency ?? 1,
+          input.staleAfterSeconds ?? 90,
+          input.eligibleProjectIds ? jsonStringify(input.eligibleProjectIds) : null,
+          input.eligibleRuntimeProviders ? jsonStringify(input.eligibleRuntimeProviders) : null,
+          timestamp,
+          timestamp,
+          runnerId,
+        );
+        return { runner: this.requireRunner(runnerId), credential };
+      }
+      const runnerId = randomUUID();
+      this.db.prepare(`
+        INSERT INTO runners (
+          id, name, credential_hash, capabilities, max_concurrency, stale_after_seconds,
+          eligible_project_ids, eligible_runtime_providers, last_heartbeat_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        runnerId,
+        input.runnerName,
+        hash,
+        jsonStringify(capabilities),
+        input.maxConcurrency ?? 1,
+        input.staleAfterSeconds ?? 90,
+        input.eligibleProjectIds ? jsonStringify(input.eligibleProjectIds) : null,
+        input.eligibleRuntimeProviders ? jsonStringify(input.eligibleRuntimeProviders) : null,
+        timestamp,
+        timestamp,
+        timestamp,
+      );
+      return { runner: this.requireRunner(runnerId), credential };
+    });
+    return transact.immediate();
+  }
+
+  authenticateRunner(credential: string | null): RunnerRecord | undefined {
+    if (!credential) {
+      return undefined;
+    }
+    const row = this.db.prepare("SELECT * FROM runners WHERE credential_hash = ?").get(credentialHash(credential)) as Row | undefined;
+    return row ? this.runnerFromRow(row) : undefined;
+  }
+
+  heartbeatRunner(runnerId: string, activeSessionIds: string[] = []): RunnerRecord {
+    for (const sessionId of activeSessionIds) {
+      const session = this.getSession(sessionId);
+      if (!session || session.assignedRunnerId !== runnerId || !["assigned", "starting", "running"].includes(session.state)) {
+        throw new Error(`SESSION_ASSIGNMENT_MISMATCH: ${sessionId}`);
+      }
+    }
+    const timestamp = this.now();
+    const result = this.db.prepare("UPDATE runners SET last_heartbeat_at=?, updated_at=? WHERE id=?").run(timestamp, timestamp, runnerId);
+    if (result.changes === 0) {
+      throw new Error(`RUNNER_NOT_FOUND: Runner not found: ${runnerId}`);
+    }
+    return this.requireRunner(runnerId);
+  }
+
+  getRunner(runnerId: string): PublicRunner | undefined {
+    const runner = this.runnerById(runnerId);
+    if (!runner) {
+      return undefined;
+    }
+    return this.publicRunner(runner, this.assignmentsByRunner().get(runnerId) ?? []);
+  }
+
+  listRunners(): PublicRunner[] {
+    const assignments = this.assignmentsByRunner();
+    return (this.db.prepare("SELECT * FROM runners ORDER BY created_at ASC, id ASC").all() as Row[])
+      .map((row) => this.runnerFromRow(row))
+      .map((runner) => this.publicRunner(runner, assignments.get(runner.id) ?? []));
+  }
+
+  claimNextSession(runnerId: string): SessionClaim | undefined {
+    const transact = this.db.transaction(() => {
+      const runner = this.requireRunner(runnerId);
+      const activeCount = numberField(this.db.prepare(`
+        SELECT COUNT(*) AS count FROM sessions WHERE assigned_runner_id=? AND state IN ('assigned','starting','running')
+      `).get(runnerId) as Row, "count");
+      if (activeCount >= runner.maxConcurrency) {
+        return undefined;
+      }
+      const candidates = this.db.prepare(`
+        SELECT sessions.* FROM sessions
+        JOIN tasks ON tasks.id = sessions.task_id
+        WHERE sessions.state = 'queued'
+        ORDER BY sessions.created_at ASC, sessions.id ASC
+      `).all() as Row[];
+      for (const row of candidates) {
+        const session = this.sessionFromRow(row);
+        const task = this.requireTask(session.taskId);
+        const project = this.requireActiveProject(task.projectId);
+        const runtime = this.resolveSessionRuntime(task, session, project);
+        if (!runnerSupportsRuntime(runner, project.id, session.agent, runtime)) {
+          continue;
+        }
+        const timestamp = this.now();
+        assertSessionStateTransition(session.state, "assigned");
+        const result = this.db.prepare(`
+          UPDATE sessions SET state='assigned', assigned_runner_id=?, resolved_runtime=?, updated_at=?
+          WHERE id=? AND state='queued'
+        `).run(runnerId, jsonStringify(runtime), timestamp, session.id);
+        if (result.changes !== 1) {
+          continue;
+        }
+        this.insertSessionEvent(task.id, session.id, "session.assigned", "info", { runnerId }, timestamp);
+        return {
+          task,
+          session: this.requireSession(session.id),
+          project: this.projectClaim(project),
+          runtime,
+        };
+      }
+      return undefined;
+    });
+    return transact.immediate();
+  }
+
+  getSessionClaim(runnerId: string, sessionId: string): SessionClaim | undefined {
+    const session = this.getSession(sessionId);
+    if (!session || session.assignedRunnerId !== runnerId || !session.resolvedRuntime) {
+      return undefined;
+    }
+    const task = this.requireTask(session.taskId);
+    const project = this.requireActiveProject(task.projectId);
+    return { task, session, project: this.projectClaim(project), runtime: session.resolvedRuntime };
+  }
+
+  appendSessionEvent(runnerId: string, sessionId: string, input: unknown): SessionEvent {
+    const parsedInput = sessionEventSchema
+      .omit({ sessionId: true, taskId: true, timestamp: true })
+      .parse(input);
+    if (parsedInput.type.startsWith("session.") && terminalStates.has(parsedInput.type.replace("session.", "") as SessionState)) {
+      throw new Error("INVALID_SESSION_EVENT: terminal facts must be written by completeSession");
+    }
+    const transact = this.db.transaction(() => {
+      const session = this.requireOwnedSession(runnerId, sessionId);
+      const timestamp = this.now();
+      if (parsedInput.type === "container.starting" && session.state === "assigned") {
+        this.transitionSession(session, "starting", timestamp);
+      }
+      if (parsedInput.type === "execution.started") {
+        let current = this.requireSession(sessionId);
+        if (current.state === "assigned") {
+          this.transitionSession(current, "starting", timestamp);
+          current = this.requireSession(sessionId);
+        }
+        if (current.state === "starting") {
+          this.transitionSession(current, "running", timestamp);
+        }
+      }
+      return this.insertSessionEvent(
+        session.taskId,
+        sessionId,
+        parsedInput.type,
+        parsedInput.severity,
+        parsedInput.data,
+        timestamp,
+      );
+    });
+    return transact.immediate();
+  }
+
+  completeSession(runnerId: string, sessionId: string, input: unknown): SessionRecord {
+    const result = sessionResultSchema.parse(input);
+    const nextState = result.status as SessionState;
+    const transact = this.db.transaction(() => {
+      let session = this.requireOwnedSession(runnerId, sessionId);
+      const timestamp = this.now();
+      if ((nextState === "succeeded" || nextState === "waiting_for_review") && session.state === "assigned") {
+        this.transitionSession(session, "starting", timestamp);
+        session = this.requireSession(sessionId);
+        this.transitionSession(session, "running", timestamp);
+        session = this.requireSession(sessionId);
+      }
+      assertSessionStateTransition(session.state, nextState);
+      this.db.prepare(`
+        UPDATE sessions SET state=?, result=?, failure_reason=?, finished_at=?, updated_at=? WHERE id=?
+      `).run(
+        nextState,
+        jsonStringify(result),
+        result.status === "succeeded" || result.status === "waiting_for_review"
+          ? null
+          : result.errorMessage ?? result.summary,
+        timestamp,
+        timestamp,
+        sessionId,
+      );
+      this.insertSessionEvent(
+        session.taskId,
+        sessionId,
+        `session.${nextState}` as SessionEventType,
+        nextState === "failed" ? "error" : "info",
+        { summary: result.summary },
+        timestamp,
+      );
+      return this.requireSession(sessionId);
+    });
+    return transact.immediate();
+  }
+
+  listInternalSessionEvents(sessionId: string): SessionEvent[] {
+    return (this.db.prepare(
+      "SELECT * FROM session_events WHERE session_id=? ORDER BY created_at ASC, id ASC",
+    ).all(sessionId) as Row[]).map((row) => this.sessionEventFromRow(row));
+  }
+
+  markStaleRunners(): StaleMarkingResult[] {
+    const timestamp = this.now();
+    const transact = this.db.transaction(() => {
+      const results: StaleMarkingResult[] = [];
+      for (const row of this.db.prepare("SELECT * FROM runners ORDER BY id ASC").all() as Row[]) {
+        const runner = this.runnerFromRow(row);
+        const staleBefore = new Date(new Date(timestamp).getTime() - runner.staleAfterSeconds * 1000).toISOString();
+        if (runner.lastHeartbeatAt >= staleBefore) {
+          continue;
+        }
+        const sessionRows = this.db.prepare(`
+          SELECT * FROM sessions WHERE assigned_runner_id=? AND state IN ('assigned','starting','running') ORDER BY id ASC
+        `).all(runner.id) as Row[];
+        const staleSessionIds: string[] = [];
+        for (const sessionRow of sessionRows) {
+          const session = this.sessionFromRow(sessionRow);
+          assertSessionStateTransition(session.state, "failed");
+          this.db.prepare(`
+            UPDATE sessions SET state='failed', stale_reason='runner_stale', stale_marked_at=?,
+              failure_reason='Runner stopped reporting heartbeats', finished_at=?, updated_at=? WHERE id=?
+          `).run(timestamp, timestamp, timestamp, session.id);
+          this.insertSessionEvent(session.taskId, session.id, "session.stale_marked", "error", { runnerId: runner.id }, timestamp);
+          staleSessionIds.push(session.id);
+        }
+        if (staleSessionIds.length > 0) {
+          results.push({ runnerId: runner.id, staleSessionIds });
+        }
+      }
+      return results;
+    });
+    return transact.immediate();
+  }
+
+  private now(): string {
+    return this.clock.now();
+  }
+
+  private requireActiveProject(projectId: string): Project {
+    const project = this.getProjectById(projectId);
     if (!project) {
-      throw new Error(`PROJECT_NOT_FOUND: Project not found: ${parsed.projectId}`);
+      throw new Error(`PROJECT_NOT_FOUND: Project not found: ${projectId}`);
     }
     if (project.archivedAt) {
       throw new Error(`PROJECT_ARCHIVED: Project is archived: ${project.slug}`);
     }
+    return project;
+  }
 
-    const resolved: JobSpec = {
-      taskId: parsed.taskId,
-      source: parsed.source,
-      projectId: parsed.projectId,
-      repository: project.repository,
-      baseBranch: project.baseBranch,
-      branchName: parsed.branchName,
-      agent: parsed.agent ?? project.defaultAgent,
-      prompt: parsed.prompt,
-      ...(parsed.issue ? { issue: parsed.issue } : {}),
-      ...(parsed.dispatchKey ? { dispatchKey: parsed.dispatchKey } : {}),
-      ...(parsed.mergeRequest ? { mergeRequest: parsed.mergeRequest } : {}),
-      ...(parsed.runtime ? { runtime: parsed.runtime } : {}),
-      metadata: parsed.metadata,
-    };
-    const contextBundleSlugs = new Set([
-      ...project.runtime.contextBundleRefs.map((bundleRef) => bundleRef.slug),
-      ...(parsed.runtime?.contextBundleRefs ?? []).map((bundleRef) => bundleRef.slug),
-    ]);
-    const contextBundles = [...contextBundleSlugs]
-      .map((slug) => this.getContextBundleBySlug(slug))
-      .filter((bundle): bundle is ContextBundle => Boolean(bundle));
-    const timestamp = now();
-    const jobId = id();
-    const runId = id();
-    const artifactId = id();
-    const artifactUri = executionSpecArtifactUri(runId);
-    const executionContract = buildExecutionContractReference({
-      artifactId,
-      uri: artifactUri,
-      frozenAt: timestamp,
-    });
-    const executionSpecArtifact = executionSpecArtifactSchema.parse({
-      version: 2,
-      kind: "execution-spec",
-      jobId,
-      runId,
-      taskId: resolved.taskId,
-      source: resolved.source,
-      projectId: resolved.projectId,
-      repository: resolved.repository,
-      baseBranch: resolved.baseBranch,
-      branchName: resolved.branchName,
-      agent: resolved.agent,
-      prompt: resolved.prompt,
-      ...(resolved.issue ? { issue: resolved.issue } : {}),
-      ...(resolved.dispatchKey ? { dispatchKey: resolved.dispatchKey } : {}),
-      ...(resolved.mergeRequest ? { mergeRequest: resolved.mergeRequest } : {}),
-      metadata: resolved.metadata,
-      frozenAt: timestamp,
-      executionContract,
-    });
-    const resolvedRuntime = attachExecutionSpecBundle(
-      scopeRuntimeContextBundles(resolveRuntimeContract({
-        project,
-        ...(parsed.runtime ? { override: parsed.runtime } : {}),
-        contextBundles,
-      }), runId),
-      {
-        runId,
-        artifactUri,
-        frozenAt: timestamp,
-        executionContract,
-        payload: executionSpecArtifact,
-      },
-    );
-
-    const create = this.db.transaction(() => {
-      this.db.prepare(`
-        INSERT INTO jobs (
-          id, project_id, task_id, source, repository_snapshot, base_branch, branch_name,
-          agent, prompt, issue_snapshot, dispatch_key, mr_title, mr_body,
-          runtime_override, metadata, created_at, updated_at
-        )
-        VALUES (
-          @id, @projectId, @taskId, @source, @repositorySnapshot, @baseBranch, @branchName,
-          @agent, @prompt, @issueSnapshot, @dispatchKey, @mrTitle, @mrBody,
-          @runtimeOverride, @metadata, @createdAt, @updatedAt
-        )
-      `).run({
-        id: jobId,
-        projectId: resolved.projectId,
-        taskId: resolved.taskId,
-        source: resolved.source,
-        repositorySnapshot: jsonStringify(resolved.repository),
-        baseBranch: resolved.baseBranch,
-        branchName: resolved.branchName,
-        agent: resolved.agent,
-        prompt: resolved.prompt,
-        issueSnapshot: resolved.issue ? jsonStringify(resolved.issue) : null,
-        dispatchKey: resolved.dispatchKey ?? null,
-        mrTitle: resolved.mergeRequest?.title ?? null,
-        mrBody: resolved.mergeRequest?.body ?? null,
-        runtimeOverride: resolved.runtime ? jsonStringify(resolved.runtime) : null,
-        metadata: jsonStringify(resolved.metadata),
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
-      this.db.prepare(`
-        INSERT INTO runs (id, job_id, state, attempt, resolved_runtime, created_at, updated_at)
-        VALUES (?, ?, 'queued', 1, ?, ?, ?)
-      `).run(runId, jobId, jsonStringify(resolvedRuntime), timestamp, timestamp);
-      this.db.prepare(`
-        INSERT INTO artifacts (id, run_id, job_id, kind, name, uri, metadata, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        artifactId,
-        runId,
-        jobId,
-        executionSpecArtifact.kind,
-        EXECUTION_SPEC_FILE_NAME,
-        artifactUri,
-        jsonStringify({
-          payload: executionSpecArtifact,
-          executionContract,
-          bundle: {
-            slug: EXECUTION_SPEC_BUNDLE_SLUG,
-            mountPath: EXECUTION_SPEC_MOUNT_PATH,
-            materializationRef: executionSpecMaterializationRef(runId),
-          },
-        }),
-        timestamp,
-      );
-      this.insertEvent(runId, jobId, "job.created", "info", { taskId: resolved.taskId }, timestamp);
-      this.insertEvent(runId, jobId, "artifact.created", "info", {
-        artifactId,
-        kind: executionSpecArtifact.kind,
-        uri: artifactUri,
-      }, timestamp);
-      this.insertEvent(runId, jobId, "run.queued", "info", {}, timestamp);
-      return jobId;
-    });
-
-    let createdJobId: string;
+  private insertTask(input: TaskCreate): TaskRecord {
+    const parsed = taskCreateSchema.parse(input);
+    const timestamp = this.now();
+    const task = taskRecordSchema.parse({ id: randomUUID(), ...parsed, createdAt: timestamp, updatedAt: timestamp });
     try {
-      createdJobId = create();
+      this.db.prepare(`
+        INSERT INTO tasks (
+          id, project_id, source, objective, issue_snapshot, dispatch_key,
+          repository_snapshot, metadata, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        task.id,
+        task.projectId,
+        task.source,
+        task.objective,
+        task.issue ? jsonStringify(task.issue) : null,
+        task.dispatchKey ?? null,
+        jsonStringify(task.repository),
+        jsonStringify(task.metadata),
+        task.createdAt,
+        task.updatedAt,
+      );
     } catch (error) {
-      if (
-        resolved.dispatchKey
-        && error instanceof Error
-        && error.message.includes("UNIQUE constraint failed: jobs.dispatch_key")
-      ) {
-        throw new Error(`DISPATCH_CONFLICT: Issue dispatch already exists: ${resolved.dispatchKey}`);
+      if (error instanceof Error && error.message.includes("dispatch_key")) {
+        throw new Error("DISPATCH_CONFLICT: dispatch key already exists");
       }
       throw error;
     }
-
-    const snapshot = this.getJob(createdJobId);
-    if (!snapshot) {
-      throw new Error("Created job has no snapshot");
-    }
-    return snapshot;
+    return task;
   }
 
-  getJob(jobId: string): JobSnapshot | undefined {
-    const row = this.db.prepare("SELECT * FROM jobs WHERE id = ?").get(jobId) as Row | undefined;
-    if (!row) {
-      return undefined;
-    }
-    return this.snapshotFromJobRow(row);
-  }
-
-  getJobByDispatchKey(dispatchKey: string): JobSnapshot | undefined {
-    const row = this.db.prepare("SELECT * FROM jobs WHERE dispatch_key = ?").get(dispatchKey) as Row | undefined;
-    return row ? this.snapshotFromJobRow(row) : undefined;
-  }
-
-  getJobSummary(jobId: string) {
-    const snapshot = this.getJob(jobId);
-    if (!snapshot) {
-      return undefined;
-    }
-
-    return projectCoordinationRunSummary({
-      job: snapshot.job,
-      run: snapshot.run,
-      recentEvents: snapshot.events,
-      ...(snapshot.project?.slug ? { projectSlug: snapshot.project.slug } : {}),
-    });
-  }
-
-  getJobByRunId(runId: string): JobSnapshot | undefined {
-    const run = this.runById(runId);
-    return run ? this.getJob(run.jobId) : undefined;
-  }
-
-  listJobs(): JobSnapshot[] {
-    const rows = this.db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all() as Row[];
-    return rows.map((row) => this.snapshotFromJobRow(row));
-  }
-
-  cancelJob(jobId: string): CancelJobOutcome & { snapshot: JobSnapshot } {
-    const snapshot = this.getJob(jobId);
-    if (!snapshot) {
-      throw new Error(`JOB_NOT_FOUND: Job not found: ${jobId}`);
-    }
-    const timestamp = now();
-
-    if (activeStates.has(snapshot.run.state) && snapshot.run.state !== "queued" && snapshot.run.state !== "dispatching") {
-      // Runner-owned work: record cancellation request metadata, don't terminalize
-      const cancellationRequest: CancellationRequestMetadata = {
-        requestedAt: timestamp,
-      };
-      this.db.prepare(`
-        UPDATE runs
-        SET cancellation_request = ?,
-            updated_at = ?
-        WHERE id = ?
-      `).run(jsonStringify(cancellationRequest), timestamp, snapshot.run.id);
-      this.insertEvent(snapshot.run.id, jobId, "cancellation.requested", "warn", { requestedAt: timestamp }, timestamp);
-      const updated = this.getJob(jobId);
-      if (!updated) {
-        throw new Error("Job snapshot lost after cancellation request");
-      }
-      return { kind: "cancellation_requested", snapshot: updated };
-    }
-
-    // Queued/dispatching work: terminalize immediately
-    this.transitionRun(snapshot.run.id, "canceled", timestamp);
-    if (snapshot.run.assignedRunnerSessionId) {
-      this.decrementRunner(snapshot.run.assignedRunnerSessionId);
-    }
-    this.insertEvent(snapshot.run.id, jobId, "run.canceled", "warn", {}, timestamp);
-    const updated = this.getJob(jobId);
-    if (!updated) {
-      throw new Error("Job snapshot lost after cancellation");
-    }
-    return { kind: "canceled", snapshot: updated };
-  }
-
-  registerRunner(input: RegisterRunnerInput): RunnerSession {
-    const timestamp = now();
-    const capabilities = normalizeRunnerCapabilities(input.capabilities);
-    const session: RunnerSession = {
-      id: id(),
-      token: id(),
-      runnerName: input.runnerName,
-      capabilities,
-      maxConcurrency: input.maxConcurrency ?? 1,
-      activeRunCount: 0,
-      staleAfterSeconds: input.staleAfterSeconds ?? 90,
-      ...(input.eligibleProjectIds ? { eligibleProjectIds: input.eligibleProjectIds } : {}),
-      ...(input.eligibleRuntimeProviders ? { eligibleRuntimeProviders: input.eligibleRuntimeProviders } : {}),
-      lastHeartbeatAt: timestamp,
+  private insertSession(task: TaskRecord, input: SessionCreateRequest, initialDispatchKey?: string): SessionRecord {
+    const project = this.requireActiveProject(task.projectId);
+    const sessionId = randomUUID();
+    const resolvedInput: SessionCreate = {
+      ...sessionCreateRequestSchema.parse(input),
+      taskId: task.id,
+      agent: input.agent ?? project.defaultAgent,
+      branch: input.branch ?? `mystra/${task.id.slice(0, 8)}/${sessionId.slice(0, 8)}`,
+    };
+    const parsed = sessionCreateSchema.parse(resolvedInput);
+    const timestamp = this.now();
+    const session = sessionRecordSchema.parse({
+      id: sessionId,
+      taskId: task.id,
+      ...(initialDispatchKey ? { initialDispatchKey } : {}),
+      title: parsed.title,
+      objective: parsed.objective,
+      agent: parsed.agent,
+      branch: parsed.branch,
+      ...(parsed.mergeRequest ? { mergeRequest: parsed.mergeRequest } : {}),
+      ...(parsed.runtime ? { runtimeOverride: parsed.runtime } : {}),
+      state: "queued",
+      metadata: parsed.metadata,
       createdAt: timestamp,
       updatedAt: timestamp,
-    };
-    this.db.prepare(`
-      INSERT INTO runner_sessions (
-        id, runner_name, token, capabilities, max_concurrency, active_run_count,
-        stale_after_seconds, eligible_project_ids, eligible_runtime_providers,
-        last_heartbeat_at, created_at, updated_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      session.id,
-      session.runnerName,
-      session.token,
-      jsonStringify(session.capabilities),
-      session.maxConcurrency,
-      session.activeRunCount,
-      session.staleAfterSeconds,
-      session.eligibleProjectIds ? jsonStringify(session.eligibleProjectIds) : null,
-      session.eligibleRuntimeProviders ? jsonStringify(session.eligibleRuntimeProviders) : null,
-      session.lastHeartbeatAt,
-      session.createdAt,
-      session.updatedAt,
-    );
+    });
+    try {
+      this.db.prepare(`
+        INSERT INTO sessions (
+          id, task_id, initial_dispatch_key, title, objective, agent, branch,
+          repository_key, merge_request, runtime_override, state, metadata, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?)
+      `).run(
+        session.id,
+        session.taskId,
+        session.initialDispatchKey ?? null,
+        session.title,
+        session.objective,
+        session.agent,
+        session.branch,
+        repositoryKey(task),
+        session.mergeRequest ? jsonStringify(session.mergeRequest) : null,
+        session.runtimeOverride ? jsonStringify(session.runtimeOverride) : null,
+        jsonStringify(session.metadata),
+        session.createdAt,
+        session.updatedAt,
+      );
+    } catch (error) {
+      if (error instanceof Error && (
+        error.message.includes("idx_sessions_active_repository_branch")
+        || error.message.includes("sessions.repository_key, sessions.branch")
+      )) {
+        throw new Error(`SESSION_BRANCH_CONFLICT: active branch already exists: ${session.branch}`);
+      }
+      throw error;
+    }
+    this.insertSessionEvent(task.id, session.id, "session.queued", "info", {}, timestamp);
     return session;
   }
 
-  authenticateRunner(token: string | null): RunnerSession | undefined {
-    if (!token) {
-      return undefined;
-    }
-    const row = this.db.prepare("SELECT * FROM runner_sessions WHERE token = ?").get(token) as Row | undefined;
-    return row ? this.runnerFromRow(row) : undefined;
-  }
-
-  heartbeatRunner(runnerId: string): RunnerSession {
-    const timestamp = now();
-    this.db.prepare("UPDATE runner_sessions SET last_heartbeat_at = ?, updated_at = ? WHERE id = ?")
-      .run(timestamp, timestamp, runnerId);
-    const row = this.db.prepare("SELECT * FROM runner_sessions WHERE id = ?").get(runnerId) as Row | undefined;
-    if (!row) {
-      throw new Error(`RUNNER_NOT_FOUND: Runner not found: ${runnerId}`);
-    }
-    return this.runnerFromRow(row);
-  }
-
-  listRunners(): PublicRunnerSession[] {
-    const rows = this.db.prepare("SELECT * FROM runner_sessions ORDER BY last_heartbeat_at DESC").all() as Row[];
-    return rows.map((row) => publicRunner(this.runnerFromRow(row)));
-  }
-
-  claimNextRun(runnerId: string): JobSnapshot | undefined {
-    const claim = this.db.transaction(() => {
-      const runner = this.runnerById(runnerId);
-      if (!runner) {
-        throw new Error(`RUNNER_NOT_FOUND: Runner not found: ${runnerId}`);
-      }
-
-      // Calculate active work from durable active runs, not activeRunCount
-      const activeRuns = this.db.prepare(`
-        SELECT COUNT(*) AS count FROM runs
-        WHERE assigned_runner_session_id = ?
-          AND state IN ('assigned', 'starting', 'running')
-      `).get(runnerId) as Row;
-      const activeCount = numberField(activeRuns, "count");
-      if (activeCount >= runner.maxConcurrency) {
-        return undefined;
-      }
-
-      // Build eligibility filter for projects
-      const eligibleProjectIds = runner.eligibleProjectIds;
-      const eligibleRuntimeProviders = runner.eligibleRuntimeProviders;
-
-      const rows = this.db.prepare(`
-        SELECT runs.*, jobs.agent AS job_agent, jobs.project_id AS job_project_id
-        FROM runs
-        JOIN jobs ON jobs.id = runs.job_id
-        WHERE state = 'queued'
-        ORDER BY runs.created_at ASC
-      `).all() as Row[];
-      const row = rows.find((candidate) => {
-        const runtime = parseResolvedRuntime(candidate, "resolved_runtime", stringField(candidate, "id"));
-        const agent = agentNameSchema.parse(stringField(candidate, "job_agent"));
-        if (!runnerSupportsRuntime(runner.capabilities, agent, runtime)) {
-          return false;
-        }
-        // Check project eligibility
-        if (eligibleProjectIds && eligibleProjectIds.length > 0) {
-          const projectId = nullableStringField(candidate, "job_project_id");
-          if (!projectId || !eligibleProjectIds.includes(projectId)) {
-            return false;
-          }
-        }
-        // Check runtime provider eligibility
-        if (eligibleRuntimeProviders && eligibleRuntimeProviders.length > 0 && runtime) {
-          if (!eligibleRuntimeProviders.includes(runtime.provider)) {
-            return false;
-          }
-        }
-        return true;
-      });
-      if (!row) {
-        return undefined;
-      }
-      const runId = stringField(row, "id");
-      const jobId = stringField(row, "job_id");
-      const timestamp = now();
-      this.db.prepare(`
-        UPDATE runs
-        SET state = 'assigned',
-            assigned_runner_session_id = ?,
-            updated_at = ?
-        WHERE id = ?
-      `).run(runnerId, timestamp, runId);
-      this.db.prepare(`
-        UPDATE runner_sessions
-        SET active_run_count = active_run_count + 1,
-            updated_at = ?
-        WHERE id = ?
-      `).run(timestamp, runnerId);
-      this.insertEvent(runId, jobId, "run.assigned", "info", { runnerSessionId: runnerId }, timestamp);
-      return jobId;
+  private resolveSessionRuntime(task: TaskRecord, session: SessionRecord, project: Project): ResolvedRuntimeContract {
+    const runtime = resolveRuntimeContract({
+      project,
+      override: session.runtimeOverride,
+      contextBundles: this.listContextBundles(),
     });
-
-    const jobId = claim();
-    return jobId ? this.getJob(jobId) : undefined;
-  }
-
-  appendRunEvent(runnerId: string, runId: string, input: unknown): RunEvent {
-    const run = this.runById(runId);
-    if (!run || run.assignedRunnerSessionId !== runnerId) {
-      throw new Error("Run is not assigned to this runner");
-    }
-
-    const timestamp = now();
-    const event = runEventSchema.parse({
-      ...(input as Record<string, unknown>),
-      runId,
-      jobId: run.jobId,
-      timestamp,
+    const frozenAt = this.now();
+    const artifactId = randomUUID();
+    const uri = `mystra://sessions/${session.id}/artifacts/${EXECUTION_SPEC_FILE_NAME}`;
+    const executionContract = executionContractReferenceSchema.parse({
+      kind: "execution-spec",
+      artifactId,
+      uri,
+      bundleSlug: EXECUTION_SPEC_BUNDLE_SLUG,
+      mountPath: EXECUTION_SPEC_MOUNT_PATH,
+      filePath: `${EXECUTION_SPEC_MOUNT_PATH}/${EXECUTION_SPEC_FILE_NAME}`,
+      frozenAt,
     });
-    this.insertEvent(runId, run.jobId, event.type, event.severity, event.data, timestamp);
-
-    if (event.type === "container.started" && run.state === "assigned") {
-      this.transitionRun(run.id, "starting", timestamp);
-    }
-    if (event.type === "agent.started" && ["assigned", "starting"].includes(run.state)) {
-      this.transitionRun(run.id, "running", timestamp);
-    }
-
-    return event;
-  }
-
-  completeRun(runnerId: string, runId: string, input: unknown): JobSnapshot {
-    const run = this.runById(runId);
-    if (!run || run.assignedRunnerSessionId !== runnerId) {
-      throw new Error("Run is not assigned to this runner");
-    }
-
-    const result = runResultSchema.parse(input);
-    const timestamp = now();
-    this.transitionRun(runId, result.status, timestamp, result);
-    this.decrementRunner(runnerId);
-    const severity = result.status === "succeeded" || result.status === "waiting_for_review" ? "info" : "error";
-    this.insertEvent(runId, run.jobId, `run.${result.status}` as RunEventType, severity, {
-      summary: result.summary,
-    }, timestamp);
-
-    const snapshot = this.getJob(run.jobId);
-    if (!snapshot) {
-      throw new Error("Completed run has no job snapshot");
-    }
-    return snapshot;
-  }
-
-  markStaleRunners(): StaleMarkingResult[] {
-    const timestamp = now();
-    const results: StaleMarkingResult[] = [];
-
-    const runners = this.db.prepare("SELECT * FROM runner_sessions").all() as Row[];
-    for (const row of runners) {
-      const runnerId = stringField(row, "id");
-      const staleAfterSeconds = numberField(row, "stale_after_seconds");
-      const lastHeartbeatAt = stringField(row, "last_heartbeat_at");
-      const heartbeatAgeMs = new Date(timestamp).getTime() - new Date(lastHeartbeatAt).getTime();
-      if (heartbeatAgeMs <= staleAfterSeconds * 1000) {
-        continue;
-      }
-
-      // Mark active runs as failed with stale reason
-      const staleRuns = this.db.prepare(`
-        SELECT id FROM runs
-        WHERE assigned_runner_session_id = ?
-          AND state IN ('assigned', 'starting', 'running')
-      `).all(runnerId) as Row[];
-
-      const staleRunIds: string[] = [];
-      for (const runRow of staleRuns) {
-        const runId = stringField(runRow, "id");
-        staleRunIds.push(runId);
-        this.db.prepare(`
-          UPDATE runs
-          SET state = 'failed',
-              stale_reason = 'runner_stale',
-              stale_marked_at = ?,
-              failure_reason = 'Runner session stopped reporting heartbeats',
-              finished_at = ?,
-              updated_at = ?
-          WHERE id = ?
-        `).run(timestamp, timestamp, timestamp, runId);
-        this.insertEvent(runId, this.runById(runId)?.jobId ?? "", "run.stale_marked", "error", {
-          reason: "runner_stale",
-          runnerSessionId: runnerId,
-        }, timestamp);
-        this.decrementRunner(runnerId);
-      }
-
-      if (staleRunIds.length > 0) {
-        results.push({ runnerSessionId: runnerId, staleRunIds });
-      }
-    }
-
-    return results;
+    const payload = executionSpecArtifactSchema.parse({
+      version: 3,
+      kind: "execution-spec",
+      taskId: task.id,
+      sessionId: session.id,
+      source: task.source,
+      projectId: task.projectId,
+      repository: task.repository,
+      baseBranch: project.baseBranch,
+      branch: session.branch,
+      agent: session.agent,
+      objective: session.objective,
+      ...(task.issue ? { issue: task.issue } : {}),
+      ...(task.dispatchKey ? { dispatchKey: task.dispatchKey } : {}),
+      metadata: { taskObjective: task.objective, sessionTitle: session.title },
+      frozenAt,
+      executionContract,
+    });
+    const materializationRef = `${EXECUTION_SPEC_BUNDLE_SLUG}-${session.id}`;
+    const scoped = resolvedRuntimeContractSchema.parse({
+      ...runtime,
+      contextBundles: [
+        ...runtime.contextBundles,
+        {
+          slug: EXECUTION_SPEC_BUNDLE_SLUG,
+          required: true,
+          accessMode: "session-scoped",
+          mountPath: EXECUTION_SPEC_MOUNT_PATH,
+          source: {
+            kind: "session-inline",
+            metadata: {
+              materializationRef,
+              sessionInline: sessionInlineContextBundlePayloadSchema.parse({
+                files: [{ path: EXECUTION_SPEC_FILE_NAME, content: JSON.stringify(payload, null, 2) }],
+              }),
+              executionContract,
+            },
+          },
+          failureMode: "fail-session",
+        },
+      ],
+      executionContract,
+      mounts: [
+        ...runtime.mounts,
+        {
+          kind: "contextBundle",
+          owner: "runtime",
+          target: EXECUTION_SPEC_MOUNT_PATH,
+          sourceRef: materializationRef,
+          readOnly: true,
+        },
+      ],
+    });
+    this.db.prepare(`
+      INSERT OR IGNORE INTO artifacts (id, session_id, task_id, kind, name, uri, metadata, created_at)
+      VALUES (?, ?, ?, 'execution-spec', ?, ?, ?, ?)
+    `).run(artifactId, session.id, task.id, EXECUTION_SPEC_FILE_NAME, uri, jsonStringify({ executionContract, payload }), frozenAt);
+    return scoped;
   }
 
   private projectFromRow(row: Row): Project {
-    const projectId = stringField(row, "id");
+    const id = stringField(row, "id");
     return projectSchema.parse({
-      id: projectId,
+      id,
       name: stringField(row, "name"),
       slug: stringField(row, "slug"),
-      repository: parseJsonObject(row, "repository_snapshot", projectId),
+      repository: parseJson(row, "repository_snapshot", id),
       baseBranch: stringField(row, "base_branch"),
       defaultAgent: stringField(row, "default_agent"),
-      runtime: projectRuntimeConfigSchema.parse(parseJsonObject(row, "runtime", projectId)),
-      prewarmConfig: parseJsonObject(row, "prewarm_config", projectId),
-      metadata: parseJsonObject(row, "metadata", projectId),
+      runtime: parseJson(row, "runtime", id),
+      prewarmConfig: parseJson(row, "prewarm_config", id),
+      metadata: parseJson(row, "metadata", id),
       archivedAt: nullableStringField(row, "archived_at") ?? null,
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
@@ -1090,231 +982,205 @@ export class SqliteRdbProvider implements RdbProvider {
   }
 
   private contextBundleFromRow(row: Row): ContextBundle {
-    const bundleId = stringField(row, "id");
+    const id = stringField(row, "id");
     return contextBundleSchema.parse({
-      id: bundleId,
+      id,
       slug: stringField(row, "slug"),
       displayName: stringField(row, "display_name"),
-      source: parseContextBundleSource(row, "source", bundleId),
+      source: parseJson(row, "source", id),
       accessMode: stringField(row, "access_mode"),
       mountPath: nullableStringField(row, "mount_path"),
-      freshness: parseJsonObject(row, "freshness", bundleId),
+      freshness: parseJson(row, "freshness", id),
       failureMode: stringField(row, "failure_mode"),
-      metadata: parseJsonObject(row, "metadata", bundleId),
+      metadata: parseJson(row, "metadata", id),
       archivedAt: nullableStringField(row, "archived_at") ?? null,
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
     });
   }
 
-  private jobFromRow(row: Row): JobRecord {
-    const projectId = nullableStringField(row, "project_id");
-    if (!projectId) {
-      throw new Error(`Job ${stringField(row, "id")} has no project_id`);
-    }
-    const mergeTitle = nullableStringField(row, "mr_title");
-    const mergeBody = nullableStringField(row, "mr_body");
-    const runtimeOverride = nullableStringField(row, "runtime_override");
-    const issueSnapshot = nullableStringField(row, "issue_snapshot");
-    const dispatchKey = nullableStringField(row, "dispatch_key");
-    const jobId = stringField(row, "id");
-    const spec: JobSpec = jobSpecSchema.parse({
-      taskId: stringField(row, "task_id"),
+  private taskFromRow(row: Row): TaskRecord {
+    const id = stringField(row, "id");
+    const issue = parseOptionalJson(row, "issue_snapshot", id);
+    return taskRecordSchema.parse({
+      id,
+      projectId: stringField(row, "project_id"),
       source: stringField(row, "source"),
-      projectId,
-      repository: parseJsonObject(row, "repository_snapshot", jobId),
-      baseBranch: stringField(row, "base_branch"),
-      branchName: stringField(row, "branch_name"),
-      agent: stringField(row, "agent"),
-      prompt: stringField(row, "prompt"),
-      ...(issueSnapshot ? { issue: parseIssueSnapshot(issueSnapshot, jobId) } : {}),
-      ...(dispatchKey ? { dispatchKey } : {}),
-      ...(mergeTitle || mergeBody ? { mergeRequest: { ...(mergeTitle ? { title: mergeTitle } : {}), ...(mergeBody ? { body: mergeBody } : {}) } } : {}),
-      ...(runtimeOverride ? { runtime: JSON.parse(runtimeOverride) as unknown } : {}),
-      metadata: parseJsonObject(row, "metadata", jobId),
+      objective: stringField(row, "objective"),
+      ...(issue ? { issue: issueSnapshotSchema.parse(issue) } : {}),
+      ...(nullableStringField(row, "dispatch_key") ? { dispatchKey: nullableStringField(row, "dispatch_key") } : {}),
+      repository: parseJson(row, "repository_snapshot", id),
+      metadata: parseJson(row, "metadata", id),
+      createdAt: stringField(row, "created_at"),
+      updatedAt: stringField(row, "updated_at"),
     });
-    return {
-      id: jobId,
-      spec,
-      createdAt: stringField(row, "created_at"),
-      updatedAt: stringField(row, "updated_at"),
-    };
   }
 
-  private runFromRow(row: Row): RunRecord {
-    const runId = stringField(row, "id");
-    const assignedRunnerSessionId = nullableStringField(row, "assigned_runner_session_id");
-    const result = parseJsonResult(row, "result", runId);
-    const resolvedRuntime = parseResolvedRuntime(row, "resolved_runtime", runId);
-    const failureReason = nullableStringField(row, "failure_reason");
-    const startedAt = nullableStringField(row, "started_at");
-    const finishedAt = nullableStringField(row, "finished_at");
-    const cancellationRequestRaw = nullableStringField(row, "cancellation_request");
-    const staleReason = nullableStringField(row, "stale_reason");
-    const staleMarkedAt = nullableStringField(row, "stale_marked_at");
-    let cancellationRequest: CancellationRequestMetadata | undefined;
-    if (cancellationRequestRaw) {
-      try {
-        cancellationRequest = JSON.parse(cancellationRequestRaw) as CancellationRequestMetadata;
-      } catch {
-        cancellationRequest = undefined;
-      }
-    }
-    return {
-      id: runId,
-      jobId: stringField(row, "job_id"),
-      state: stringField(row, "state") as RunState,
-      attempt: numberField(row, "attempt"),
-      ...(assignedRunnerSessionId ? { assignedRunnerSessionId } : {}),
+  private sessionFromRow(row: Row): SessionRecord {
+    const id = stringField(row, "id");
+    const cancellationRequest = parseOptionalJson(row, "cancellation_request", id);
+    const mergeRequest = parseOptionalJson(row, "merge_request", id);
+    const runtimeOverride = parseOptionalJson(row, "runtime_override", id);
+    const resolvedRuntime = parseOptionalJson(row, "resolved_runtime", id);
+    const result = parseOptionalJson(row, "result", id);
+    return sessionRecordSchema.parse({
+      id,
+      taskId: stringField(row, "task_id"),
+      ...(nullableStringField(row, "initial_dispatch_key") ? { initialDispatchKey: nullableStringField(row, "initial_dispatch_key") } : {}),
+      title: stringField(row, "title"),
+      objective: stringField(row, "objective"),
+      agent: stringField(row, "agent"),
+      branch: stringField(row, "branch"),
+      ...(mergeRequest ? { mergeRequest } : {}),
+      ...(runtimeOverride ? { runtimeOverride } : {}),
+      state: stringField(row, "state"),
+      ...(nullableStringField(row, "assigned_runner_id") ? { assignedRunnerId: nullableStringField(row, "assigned_runner_id") } : {}),
       ...(resolvedRuntime ? { resolvedRuntime } : {}),
-      ...(result ? { result } : {}),
-      ...(failureReason ? { failureReason } : {}),
+      ...(result ? { result: sessionResultSchema.parse(result) } : {}),
+      ...(nullableStringField(row, "failure_reason") ? { failureReason: nullableStringField(row, "failure_reason") } : {}),
       ...(cancellationRequest ? { cancellationRequest } : {}),
-      ...(staleReason ? { staleReason } : {}),
-      ...(staleMarkedAt ? { staleMarkedAt } : {}),
+      ...(nullableStringField(row, "stale_reason") ? { staleReason: nullableStringField(row, "stale_reason") } : {}),
+      ...(nullableStringField(row, "stale_marked_at") ? { staleMarkedAt: nullableStringField(row, "stale_marked_at") } : {}),
+      metadata: parseJson(row, "metadata", id),
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
-      ...(startedAt ? { startedAt } : {}),
-      ...(finishedAt ? { finishedAt } : {}),
+      ...(nullableStringField(row, "started_at") ? { startedAt: nullableStringField(row, "started_at") } : {}),
+      ...(nullableStringField(row, "finished_at") ? { finishedAt: nullableStringField(row, "finished_at") } : {}),
+    });
+  }
+
+  private sessionSummary(session: SessionRecord) {
+    return {
+      id: session.id,
+      taskId: session.taskId,
+      title: session.title,
+      state: session.state,
+      agent: session.agent,
+      branch: session.branch,
+      ...(session.assignedRunnerId ? { assignedRunnerId: session.assignedRunnerId } : {}),
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      ...(session.startedAt ? { startedAt: session.startedAt } : {}),
+      ...(session.finishedAt ? { finishedAt: session.finishedAt } : {}),
     };
   }
 
-  private runnerFromRow(row: Row): RunnerSession {
-    const runnerId = stringField(row, "id");
-    const eligibleProjectIdsRaw = nullableStringField(row, "eligible_project_ids");
-    const eligibleRuntimeProvidersRaw = nullableStringField(row, "eligible_runtime_providers");
-    let eligibleProjectIds: string[] | undefined;
-    if (eligibleProjectIdsRaw) {
-      try {
-        eligibleProjectIds = JSON.parse(eligibleProjectIdsRaw) as string[];
-      } catch {
-        eligibleProjectIds = undefined;
-      }
-    }
-    let eligibleRuntimeProviders: string[] | undefined;
-    if (eligibleRuntimeProvidersRaw) {
-      try {
-        eligibleRuntimeProviders = JSON.parse(eligibleRuntimeProvidersRaw) as string[];
-      } catch {
-        eligibleRuntimeProviders = undefined;
-      }
-    }
+  private runnerFromRow(row: Row): RunnerRecord {
+    const id = stringField(row, "id");
+    const projectIds = parseOptionalJson(row, "eligible_project_ids", id);
+    const providers = parseOptionalJson(row, "eligible_runtime_providers", id);
     return {
-      id: runnerId,
-      token: stringField(row, "token"),
-      runnerName: stringField(row, "runner_name"),
-      capabilities: platformCapabilitiesSchema.parse(parseJsonObject(row, "capabilities", runnerId)),
+      id,
+      name: stringField(row, "name"),
+      capabilities: platformCapabilitiesSchema.parse(parseJson(row, "capabilities", id)),
       maxConcurrency: numberField(row, "max_concurrency"),
-      activeRunCount: numberField(row, "active_run_count"),
       staleAfterSeconds: numberField(row, "stale_after_seconds"),
-      ...(eligibleProjectIds ? { eligibleProjectIds } : {}),
-      ...(eligibleRuntimeProviders ? { eligibleRuntimeProviders } : {}),
+      ...(projectIds ? { eligibleProjectIds: projectIds as string[] } : {}),
+      ...(providers ? { eligibleRuntimeProviders: providers as string[] } : {}),
       lastHeartbeatAt: stringField(row, "last_heartbeat_at"),
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
     };
   }
 
-  private eventFromRow(row: Row): RunEvent {
-    return runEventSchema.parse({
-      runId: stringField(row, "run_id"),
-      jobId: stringField(row, "job_id"),
+  private sessionEventFromRow(row: Row): SessionEvent {
+    return sessionEventSchema.parse({
+      sessionId: stringField(row, "session_id"),
+      taskId: stringField(row, "task_id"),
       timestamp: stringField(row, "created_at"),
       type: stringField(row, "type"),
       severity: stringField(row, "severity"),
-      data: parseJsonObject(row, "data", stringField(row, "id")),
+      data: parseJson(row, "data", stringField(row, "id")),
     });
   }
 
-  private projectClaim(projectId: string): ProjectClaim {
-    const project = this.getProjectById(projectId);
-    if (!project) {
-      throw new Error(`PROJECT_NOT_FOUND: Project not found: ${projectId}`);
+  private requireTask(id: string): TaskRecord {
+    const task = this.getTask(id);
+    if (!task) {
+      throw new Error(`TASK_NOT_FOUND: Task not found: ${id}`);
     }
-    return {
-      id: project.id,
-      slug: project.slug,
-      runtime: project.runtime,
-      prewarmConfig: project.prewarmConfig,
-    };
+    return task;
   }
 
-  private snapshotFromJobRow(row: Row): JobSnapshot {
-    const job = this.jobFromRow(row);
-    const runRow = this.db.prepare("SELECT * FROM runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1").get(job.id) as Row | undefined;
-    if (!runRow) {
-      throw new Error(`Job ${job.id} has no run`);
+  private requireSession(id: string): SessionRecord {
+    const session = this.getSession(id);
+    if (!session) {
+      throw new Error(`SESSION_NOT_FOUND: Session not found: ${id}`);
     }
-    const run = this.runFromRow(runRow);
-    const eventRows = this.db.prepare("SELECT * FROM run_events WHERE job_id = ? ORDER BY created_at ASC").all(job.id) as Row[];
-    const events = eventRows.map((eventRow) => this.eventFromRow(eventRow));
-    return {
-      job,
-      run,
-      events,
-      project: this.projectClaim(job.spec.projectId),
-      ...(run.resolvedRuntime ? { runtime: run.resolvedRuntime } : {}),
-    };
+    return session;
   }
 
-  private runnerById(runnerId: string): RunnerSession | undefined {
-    const row = this.db.prepare("SELECT * FROM runner_sessions WHERE id = ?").get(runnerId) as Row | undefined;
+  private requireOwnedSession(runnerId: string, sessionId: string): SessionRecord {
+    const session = this.requireSession(sessionId);
+    if (session.assignedRunnerId !== runnerId) {
+      throw new Error("SESSION_ASSIGNMENT_CONFLICT: Session is not assigned to this Runner");
+    }
+    return session;
+  }
+
+  private runnerById(id: string): RunnerRecord | undefined {
+    const row = this.db.prepare("SELECT * FROM runners WHERE id=?").get(id) as Row | undefined;
     return row ? this.runnerFromRow(row) : undefined;
   }
 
-  private runById(runId: string): RunRecord | undefined {
-    const row = this.db.prepare("SELECT * FROM runs WHERE id = ?").get(runId) as Row | undefined;
-    return row ? this.runFromRow(row) : undefined;
-  }
-
-  private insertEvent(
-    runId: string,
-    jobId: string,
-    type: RunEventType,
-    severity: RunEventSeverity,
-    data: Record<string, unknown>,
-    timestamp = now(),
-  ): void {
-    this.db.prepare(`
-      INSERT INTO run_events (id, run_id, job_id, type, severity, data, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id(), runId, jobId, type, severity, jsonStringify(data), timestamp);
-  }
-
-  private transitionRun(runId: string, nextState: RunState, timestamp: string, result?: RunResult): void {
-    const run = this.runById(runId);
-    if (!run) {
-      throw new Error(`RUN_NOT_FOUND: Run not found: ${runId}`);
+  private requireRunner(id: string): RunnerRecord {
+    const runner = this.runnerById(id);
+    if (!runner) {
+      throw new Error(`RUNNER_NOT_FOUND: Runner not found: ${id}`);
     }
-    assertRunStateTransition(run.state, nextState);
-    this.db.prepare(`
-      UPDATE runs
-      SET state = ?,
-          updated_at = ?,
-          started_at = COALESCE(started_at, ?),
-          finished_at = ?,
-          result = COALESCE(?, result),
-          failure_reason = COALESCE(?, failure_reason)
-      WHERE id = ?
-    `).run(
-      nextState,
-      timestamp,
-      nextState === "running" ? timestamp : null,
-      terminalStates.has(nextState) ? timestamp : run.finishedAt ?? null,
-      result ? jsonStringify(result) : null,
-      result && !["succeeded", "waiting_for_review"].includes(result.status)
-        ? result.errorMessage ?? result.summary
-        : null,
-      runId,
-    );
+    return runner;
   }
 
-  private decrementRunner(runnerId: string): void {
+  private projectClaim(project: Project): ProjectClaim {
+    return { id: project.id, slug: project.slug, runtime: project.runtime, prewarmConfig: project.prewarmConfig };
+  }
+
+  private insertSessionEvent(
+    taskId: string,
+    sessionId: string,
+    type: SessionEventType,
+    severity: SessionEventSeverity,
+    data: Record<string, unknown>,
+    timestamp: string,
+  ): SessionEvent {
+    const event = sessionEventSchema.parse({ taskId, sessionId, type, severity, data, timestamp });
     this.db.prepare(`
-      UPDATE runner_sessions
-      SET active_run_count = CASE WHEN active_run_count > 0 THEN active_run_count - 1 ELSE 0 END,
-          updated_at = ?
-      WHERE id = ?
-    `).run(now(), runnerId);
+      INSERT INTO session_events (id, session_id, task_id, type, severity, data, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), event.sessionId, event.taskId, event.type, event.severity, jsonStringify(event.data), event.timestamp);
+    return event;
+  }
+
+  private transitionSession(session: SessionRecord, nextState: SessionState, timestamp: string): void {
+    assertSessionStateTransition(session.state, nextState);
+    this.db.prepare(`
+      UPDATE sessions SET state=?, started_at=COALESCE(started_at, ?), updated_at=? WHERE id=?
+    `).run(nextState, nextState === "running" ? timestamp : null, timestamp, session.id);
+  }
+
+  private assignmentsByRunner(): Map<string, Array<{ taskId: string; sessionId: string }>> {
+    const map = new Map<string, Array<{ taskId: string; sessionId: string }>>();
+    const rows = this.db.prepare(`
+      SELECT assigned_runner_id, task_id, id FROM sessions
+      WHERE assigned_runner_id IS NOT NULL AND state IN ('assigned','starting','running')
+      ORDER BY created_at ASC, id ASC
+    `).all() as Row[];
+    for (const row of rows) {
+      const runnerId = stringField(row, "assigned_runner_id");
+      const list = map.get(runnerId) ?? [];
+      list.push({ taskId: stringField(row, "task_id"), sessionId: stringField(row, "id") });
+      map.set(runnerId, list);
+    }
+    return map;
+  }
+
+  private publicRunner(runner: RunnerRecord, currentAssignments: Array<{ taskId: string; sessionId: string }>): PublicRunner {
+    const staleAt = new Date(new Date(this.now()).getTime() - runner.staleAfterSeconds * 1000).toISOString();
+    return publicRunnerSchema.parse({
+      ...runner,
+      activeSessionCount: currentAssignments.length,
+      health: runner.lastHeartbeatAt < staleAt ? "stale" : "healthy",
+      currentAssignments,
+    });
   }
 }

@@ -4,15 +4,18 @@ export interface RunnerCapabilities {
   image?: string;
 }
 
-export interface RunnerSession {
+export interface Runner {
   id: string;
-  runnerName: string;
+  name: string;
   capabilities: RunnerCapabilities;
   maxConcurrency: number;
-  activeRunCount: number;
+  activeSessionCount: number;
+  health: "healthy" | "stale";
   staleAfterSeconds: number;
+  currentAssignments: Array<{ taskId: string; sessionId: string }>;
   lastHeartbeatAt: string;
   createdAt: string;
+  updatedAt: string;
   eligibleProjectIds?: string[];
   eligibleRuntimeProviders?: string[];
 }
@@ -26,87 +29,32 @@ export interface IssueSnapshot {
   };
   title: string;
   description?: string | null;
-  state: {
-    name: string;
-    type?: string;
-  };
+  state: { name: string; type?: string };
   fetchedAt?: string;
 }
 
-export interface JobSnapshot {
-  job: {
-    id: string;
-    spec: {
-      taskId: string;
-      source: string;
-      projectId?: string;
-      repository?: {
-        integration: string;
-        provider: string;
-        externalId: string;
-        fullName: string;
-        url: string;
-        cloneUrl: string;
-        defaultBranch: string;
-        visibility: string;
-        isArchived: boolean;
-        fetchedAt: string;
-      };
-      baseBranch?: string;
-      branchName: string;
-      agent?: string;
-      prompt: string;
-      issue?: IssueSnapshot;
-      metadata?: Record<string, unknown>;
-    };
-    createdAt: string;
-    updatedAt: string;
-  };
-  run: {
-    id: string;
-    jobId?: string;
-    state: string;
-    attempt: number;
-    assignedRunnerSessionId?: string;
-    result?: RunResult;
-    createdAt: string;
-    updatedAt: string;
-    startedAt?: string;
-    finishedAt?: string;
-  };
-  events: Array<{
-    timestamp: string;
-    type: string;
-    severity: string;
-    data: Record<string, unknown>;
-  }>;
-  project?: {
-    id: string;
-    name: string;
-    slug: string;
-    baseBranch: string;
-    defaultAgent: string;
-    runtime: {
-      provider: string;
-      image: string;
-    };
-  };
-  lane?: {
-    projectSlug?: string;
-  };
-  runtime?: {
-    environment?: {
-      provider?: string;
-      image?: string;
-    };
-  };
+export interface Task {
+  id: string;
+  projectId: string;
+  source: string;
+  objective: string;
+  issue?: IssueSnapshot;
+  repository: { fullName: string; defaultBranch?: string };
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface RunResult {
+export interface TaskListItem extends Task {
+  sessionCount: number;
+  activeSessionCount: number;
+  latestSession?: SessionSummary;
+}
+
+export interface SessionResult {
   status: string;
   summary: string;
   branch?: string;
-  mrUrl?: string;
   errorCode?: string;
   errorMessage?: string;
   preview?: { url?: string; status?: string };
@@ -114,16 +62,8 @@ export interface RunResult {
     test?: { status?: string; command?: string; summary?: string };
     build?: { status?: string; command?: string; summary?: string };
   };
-  reviewResult?: {
-    review?: { url?: string; provider?: string };
-  };
-  sandboxOutcome?: {
-    session?: {
-      provider?: string;
-      sessionId?: string;
-      status?: string;
-    };
-  };
+  reviewResult?: { review?: { url?: string; provider?: string } };
+  sandboxOutcome?: { session?: { provider?: string; sessionId?: string; status?: string } };
   agentExecution?: {
     agent?: string;
     cliVersion?: string;
@@ -133,11 +73,33 @@ export interface RunResult {
   metadata?: Record<string, unknown>;
 }
 
+export interface SessionSummary {
+  id: string;
+  taskId: string;
+  title: string;
+  state: string;
+  agent: string;
+  branch: string;
+  assignedRunnerId?: string;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
+export interface Session extends SessionSummary {
+  objective: string;
+  result?: SessionResult;
+  failureReason?: string;
+  resolvedRuntime?: { environment?: { provider?: string; image?: string } };
+}
+
 export interface ControlPlanePayload {
   controlPlane: {
     checkedAt: string;
     status: "ready" | "degraded";
-    tasks: {
+    tasks: { total: number; withoutSessions: number };
+    sessions: {
       total: number;
       queued: number;
       active: number;
@@ -149,10 +111,10 @@ export interface ControlPlanePayload {
       total: number;
       online: number;
       stale: number;
-      activeRuns: number;
+      activeSessions: number;
       maxConcurrency: number;
       availableCapacity: number;
     };
-    recentTasks: JobSnapshot[];
+    recentTasks: TaskListItem[];
   };
 }

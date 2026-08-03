@@ -24,7 +24,7 @@ Today the repository is focused on proving a local-first path with:
 - GitHub `RepoProvider` + repository-scoped `IssueProvider`, and read-only
   Linear `IssueProvider`, behind composable Integrations
 - a pull-based runner daemon
-- direct Job/Run → Sandbox → Agent execution
+- Task intent with independent child Session → Sandbox → Agent execution
 - repository delivery for GitLab and GitHub
 - agent execution through current provider adapters
 - canonical API with CLI, remote MCP, and Web clients
@@ -48,11 +48,11 @@ Mystra is designed for teams that want a platform-shaped way to run coding agent
 
 The architecture should remain **headless by default**: Mystra should have a first-class single-node shape, and later grow into a **shared-nothing clustered architecture** without redefining the product model. The same control-plane and runner contracts should survive the move from one local machine to remote hosts and pooled execution.
 
-This makes Mystra closer to a **control-plane-and-runner system** in the Jenkins / Salt / Nomad family than to a pure file-driven local tool. Declarative project or template configuration may grow over time, but Mystra still needs durable execution truth for jobs, runs, and repository artifacts.
+This makes Mystra closer to a **control-plane-and-runner system** in the Jenkins / Salt / Nomad family than to a pure file-driven local tool. Declarative configuration may grow over time, but Mystra still needs durable Task, Session, Runner, result, and repository-artifact truth.
 
 The long-term direction is a hosted **Mystra platform** that serves many **Teams**
 and projects, each with its own runtime and agent configuration, while sharing
-platform-owned provider pools. A workspace is run-scoped execution storage, not
+platform-owned provider pools. A workspace is Session-scoped execution storage, not
 tenancy.
 
 ## Architecture at a glance
@@ -138,15 +138,15 @@ For a full local protocol walk, MCP examples, restart-durability checks, and dev
 | Command | Description |
 |---|---|
 | `pnpm build` | Build all packages/apps |
-| `pnpm typecheck` | Run TypeScript checks across the repo |
-| `pnpm lint` | Run repo lint/type lint commands |
-| `pnpm test` | Run the test suite |
-| `pnpm doctor` | Run local preflight checks |
+| `pnpm typecheck` | Execute TypeScript checks across the repo |
+| `pnpm lint` | Execute repo lint/type lint commands |
+| `pnpm test` | Execute the test suite |
+| `pnpm doctor` | Execute local preflight checks |
 | `pnpm dev:control-plane` | Start the control plane |
 | `pnpm dev:runner` | Start the local runner |
 | `pnpm lsp:typescript` | Start the repo-local TypeScript language server |
 | `pnpm run deploy:dev` | Deploy to the configured development machine |
-| `pnpm job:submit -- ...` | Submit a project-backed job |
+| `pnpm operator:cli -- tasks list` | Inspect canonical Task resources |
 | `pnpm preview -- list` | Inspect retained preview environments |
 
 ## Code navigation
@@ -166,14 +166,14 @@ For a full local protocol walk, MCP examples, restart-durability checks, and dev
 - GitHub remote repositories and repository-scoped Issues, plus read-only
   Linear Issues, behind composable Integrations
 - immutable provider-resolved remote repository snapshots for every Project
-- pull-based runner registration and job claim loop
-- structured lifecycle events and final results
+- stable pull-based Runner registration, credential rotation, and Session claim
+- internal execution facts and final Session results
 - project-scoped runtime configuration
 - direct Docker sandbox and Agent execution with test/build/preview evidence
 - GitHub PR review delivery and durable `waiting_for_review` handoff
 - thin CLI, remote MCP, and secondary Web clients over the canonical API
-- the `025-webui` shell target: `Overview`, `Inbox`, `New Job`, and `Projects`
-  primary navigation; `Settings` action/modal; `Recent Jobs` secondary route
+- Control Plane, Task, Session, Runner, and Project object pages as the
+  secondary operator Web client
 - provider seams that keep local-first and future hosted implementations replaceable
 
 ### Out of scope
@@ -223,7 +223,7 @@ In short:
 1. Fork the repository.
 2. Create a branch from `main`.
 3. Make a focused change.
-4. Run `pnpm typecheck && pnpm test`.
+4. Execute `pnpm typecheck && pnpm test`.
 5. Open a pull request that explains the motivation and scope.
 
 ## License

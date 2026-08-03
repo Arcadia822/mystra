@@ -4,7 +4,7 @@ import {
   agentExecutionMetadataSchema,
   qualityResultSchema,
   reviewHandoffSchema,
-  runResultSchema,
+  sessionResultSchema,
 } from "./result.js";
 
 const waitingForReviewHandoff = {
@@ -86,7 +86,7 @@ const waitingForReviewHandoff = {
   },
 };
 
-describe("runResultSchema", () => {
+describe("sessionResultSchema", () => {
   it("accepts structured quality and bounded Agent execution metadata", () => {
     expect(qualityResultSchema.parse(waitingForReviewHandoff.quality).build?.status).toBe("passed");
     expect(agentExecutionMetadataSchema.parse(waitingForReviewHandoff.agentExecution)).toEqual(
@@ -103,7 +103,7 @@ describe("runResultSchema", () => {
   });
 
   it("requires the full handoff for waiting_for_review", () => {
-    const parsed = runResultSchema.parse({
+    const parsed = sessionResultSchema.parse({
       status: "waiting_for_review",
       summary: "Ready for human review",
       ...waitingForReviewHandoff,
@@ -112,27 +112,25 @@ describe("runResultSchema", () => {
     expect(parsed.status).toBe("waiting_for_review");
     expect(parsed.issue?.identifier).toBe("ENG-123");
 
-    expect(() => runResultSchema.parse({
+    expect(() => sessionResultSchema.parse({
       status: "waiting_for_review",
       summary: "Claims review readiness without evidence",
     })).toThrow();
   });
 
-  it("accepts successful GitLab MR metadata", () => {
-    const parsed = runResultSchema.parse({
+  it("rejects transitional merge-request aliases", () => {
+    // legacy-term-audit: allow -- negative compatibility assertion only.
+    expect(() => sessionResultSchema.parse({
       status: "succeeded",
       summary: "Created the requested MR",
       branch: "feature/task-1",
       mrUrl: "https://gitlab.example.com/group/project/-/merge_requests/7",
       mrIid: 7,
-    });
-
-    expect(parsed.status).toBe("succeeded");
-    expect(parsed.mrIid).toBe(7);
+    })).toThrow();
   });
 
   it("accepts structured failures", () => {
-    const parsed = runResultSchema.parse({
+    const parsed = sessionResultSchema.parse({
       status: "failed",
       summary: "Push rejected",
       errorCode: "git_push_rejected",
@@ -143,7 +141,7 @@ describe("runResultSchema", () => {
   });
 
   it("accepts quality-gate failure metadata without requiring logs persistence", () => {
-    const parsed = runResultSchema.parse({
+    const parsed = sessionResultSchema.parse({
       status: "failed",
       summary: "Quality gate failed during test -> build. See quality-gate.log in the retained workspace.",
       branch: "mystra/task-1",
@@ -165,13 +163,11 @@ describe("runResultSchema", () => {
     });
   });
 
-  it("accepts normalized review and sandbox outcomes beside transitional GitLab fields", () => {
-    const parsed = runResultSchema.parse({
+  it("accepts normalized review and sandbox outcomes", () => {
+    const parsed = sessionResultSchema.parse({
       status: "succeeded",
       summary: "Created the requested review and kept the preview container alive",
       branch: "feature/task-2",
-      mrUrl: "https://gitlab.example.com/group/project/-/merge_requests/9",
-      mrIid: 9,
       reviewResult: {
         status: "review_created",
         branch: {
@@ -218,13 +214,11 @@ describe("runResultSchema", () => {
     expect(parsed.sandboxOutcome?.session.status).toBe("retained");
   });
 
-  it("accepts normalized GitHub review results beside transitional mrUrl and mrIid compatibility fields", () => {
-    const parsed = runResultSchema.parse({
+  it("accepts normalized GitHub review results without aliases", () => {
+    const parsed = sessionResultSchema.parse({
       status: "succeeded",
       summary: "Created the requested pull request",
       branch: "mystra/task-12",
-      mrUrl: "https://github.com/acme/project/pull/12",
-      mrIid: 12,
       reviewResult: {
         status: "review_created",
         branch: {
@@ -245,8 +239,6 @@ describe("runResultSchema", () => {
       },
     });
 
-    expect(parsed.mrUrl).toBe("https://github.com/acme/project/pull/12");
-    expect(parsed.mrIid).toBe(12);
     expect(parsed.reviewResult?.review).toEqual({
       provider: "github",
       url: "https://github.com/acme/project/pull/12",

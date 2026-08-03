@@ -7,56 +7,50 @@ const FAILED_STATES = new Set(["failed", "canceled", "timed_out"]);
 
 export async function GET() {
   const checkedAt = new Date().toISOString();
-  const checkedAtMs = new Date(checkedAt).getTime();
-  const jobs = getDb().listJobs();
+  const tasks = getDb().listTasks();
   const runners = getDb().listRunners();
 
-  const taskSummary = {
-    total: jobs.length,
-    queued: 0,
-    active: 0,
-    waitingForReview: 0,
-    succeeded: 0,
-    failed: 0,
+  const sessions = tasks.flatMap((task) => getDb().listSessions(task.id));
+  const sessionSummary = {
+    total: sessions.length,
+    queued: sessions.filter((session) => session.state === "queued").length,
+    active: sessions.filter((session) => ACTIVE_STATES.has(session.state)).length,
+    waitingForReview: sessions.filter((session) => session.state === "waiting_for_review").length,
+    succeeded: sessions.filter((session) => session.state === "succeeded").length,
+    failed: sessions.filter((session) => FAILED_STATES.has(session.state)).length,
   };
-
-  for (const snapshot of jobs) {
-    const state = snapshot.run.state;
-    if (state === "queued") taskSummary.queued += 1;
-    else if (ACTIVE_STATES.has(state)) taskSummary.active += 1;
-    else if (state === "waiting_for_review") taskSummary.waitingForReview += 1;
-    else if (state === "succeeded") taskSummary.succeeded += 1;
-    else if (FAILED_STATES.has(state)) taskSummary.failed += 1;
-  }
 
   let online = 0;
   let stale = 0;
-  let activeRuns = 0;
+  let activeSessions = 0;
   let maxConcurrency = 0;
   for (const runner of runners) {
-    const heartbeatAgeMs = checkedAtMs - new Date(runner.lastHeartbeatAt).getTime();
-    if (heartbeatAgeMs <= runner.staleAfterSeconds * 1_000) online += 1;
+    if (runner.health === "healthy") online += 1;
     else stale += 1;
-    activeRuns += runner.activeRunCount;
+    activeSessions += runner.activeSessionCount;
     maxConcurrency += runner.maxConcurrency;
   }
 
-  const recentTasks = [...jobs]
-    .sort((left, right) => right.run.updatedAt.localeCompare(left.run.updatedAt))
+  const recentTasks = [...tasks]
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .slice(0, 5);
 
   return NextResponse.json({
     controlPlane: {
       checkedAt,
-      status: stale > 0 || (taskSummary.queued > 0 && online === 0) ? "degraded" : "ready",
-      tasks: taskSummary,
+      status: stale > 0 || (sessionSummary.queued > 0 && online === 0) ? "degraded" : "ready",
+      tasks: {
+        total: tasks.length,
+        withoutSessions: tasks.filter((task) => task.sessionCount === 0).length,
+      },
+      sessions: sessionSummary,
       runners: {
         total: runners.length,
         online,
         stale,
-        activeRuns,
+        activeSessions,
         maxConcurrency,
-        availableCapacity: Math.max(0, maxConcurrency - activeRuns),
+        availableCapacity: Math.max(0, maxConcurrency - activeSessions),
       },
       recentTasks,
     },

@@ -9,8 +9,8 @@ import {
 export const agentNameSchema = z.enum(["codex", "copilot"]);
 export type AgentName = z.infer<typeof agentNameSchema>;
 
-export const jobSourceSchema = z.enum(["mcp", "api", "issue"]);
-export type JobSource = z.infer<typeof jobSourceSchema>;
+export const taskSourceSchema = z.enum(["mcp", "api", "issue"]);
+export type TaskSource = z.infer<typeof taskSourceSchema>;
 
 export const mergeRequestSpecSchema = z
   .object({
@@ -26,10 +26,10 @@ export type RunnerExecutor = z.infer<typeof runnerExecutorSchema>;
 export const sandboxProviderSchema = z.enum(["docker"]);
 export type SandboxProvider = z.infer<typeof sandboxProviderSchema>;
 
-export const contextBundleAccessModeSchema = z.enum(["read-only", "job-scoped"]);
+export const contextBundleAccessModeSchema = z.enum(["read-only", "session-scoped"]);
 export type ContextBundleAccessMode = z.infer<typeof contextBundleAccessModeSchema>;
 
-export const contextBundleFailureModeSchema = z.enum(["fail-run", "warn"]);
+export const contextBundleFailureModeSchema = z.enum(["fail-session", "warn"]);
 export type ContextBundleFailureMode = z.infer<typeof contextBundleFailureModeSchema>;
 
 const safePathSegmentPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -43,10 +43,10 @@ function isSafePathSegment(value: string): boolean {
 }
 
 function requireContextBundleSourceRef(
-  source: { kind: "local-template" | "external-artifact" | "job-inline"; ref?: string | undefined },
+  source: { kind: "local-template" | "external-artifact" | "session-inline"; ref?: string | undefined },
   ctx: z.RefinementCtx,
 ): void {
-  if (source.kind === "job-inline") {
+  if (source.kind === "session-inline") {
     return;
   }
 
@@ -61,10 +61,10 @@ function requireContextBundleSourceRef(
 }
 
 function rejectUnsafeContextBundleSourceRef(
-  source: { kind: "local-template" | "external-artifact" | "job-inline"; ref?: string | undefined },
+  source: { kind: "local-template" | "external-artifact" | "session-inline"; ref?: string | undefined },
   ctx: z.RefinementCtx,
 ): void {
-  if (source.kind === "job-inline" || !source.ref) {
+  if (source.kind === "session-inline" || !source.ref) {
     return;
   }
 
@@ -84,7 +84,7 @@ function rejectUnsafeContextBundleSourceRef(
 
 const contextBundleSourceBaseSchema = z
   .object({
-    kind: z.enum(["local-template", "external-artifact", "job-inline"]),
+    kind: z.enum(["local-template", "external-artifact", "session-inline"]),
     ref: z.string().min(1).optional(),
     metadata: z.record(z.string(), z.unknown()).default({}),
   })
@@ -94,13 +94,13 @@ export const contextBundleSourceSchema = contextBundleSourceBaseSchema.superRefi
 export const contextBundleCreateSourceSchema = contextBundleSourceBaseSchema.superRefine((source, ctx) => {
   requireContextBundleSourceRef(source, ctx);
   rejectUnsafeContextBundleSourceRef(source, ctx);
-  if (source.kind === "job-inline") {
-    const parsed = jobInlineContextBundlePayloadSchema.safeParse(source.metadata.jobInline);
+  if (source.kind === "session-inline") {
+    const parsed = sessionInlineContextBundlePayloadSchema.safeParse(source.metadata.sessionInline);
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
         ctx.addIssue({
           ...issue,
-          path: ["metadata", "jobInline", ...issue.path],
+          path: ["metadata", "sessionInline", ...issue.path],
         });
       }
     }
@@ -130,12 +130,12 @@ export const contextBundleInlineFileSchema = z
   .superRefine(rejectUnsafeBundleFilePath);
 export type ContextBundleInlineFile = z.infer<typeof contextBundleInlineFileSchema>;
 
-export const jobInlineContextBundlePayloadSchema = z
+export const sessionInlineContextBundlePayloadSchema = z
   .object({
     files: z.array(contextBundleInlineFileSchema).min(1),
   })
   .strict();
-export type JobInlineContextBundlePayload = z.infer<typeof jobInlineContextBundlePayloadSchema>;
+export type SessionInlineContextBundlePayload = z.infer<typeof sessionInlineContextBundlePayloadSchema>;
 
 export const runtimeSecretRefSchema = z
   .object({
@@ -361,7 +361,7 @@ export const projectRuntimeConfigInputSchema = z
   })
   .strict();
 
-export const jobRuntimeOverrideSchema = z
+export const sessionRuntimeOverrideSchema = z
   .object({
     runtimeProfile: z.string().min(1).optional(),
     provider: sandboxProviderSchema.optional(),
@@ -370,7 +370,7 @@ export const jobRuntimeOverrideSchema = z
     metadata: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
-export type JobRuntimeOverride = z.infer<typeof jobRuntimeOverrideSchema>;
+export type SessionRuntimeOverride = z.infer<typeof sessionRuntimeOverrideSchema>;
 
 export const executionContractReferenceSchema = z
   .object({
@@ -387,18 +387,17 @@ export type ExecutionContractReference = z.infer<typeof executionContractReferen
 
 export const executionSpecArtifactSchema = z
   .object({
-    version: z.literal(2),
+    version: z.literal(3),
     kind: z.literal("execution-spec"),
-    jobId: z.string().uuid(),
-    runId: z.string().uuid(),
-    taskId: z.string().min(1),
-    source: jobSourceSchema,
+    taskId: z.string().uuid(),
+    sessionId: z.string().uuid(),
+    source: taskSourceSchema,
     projectId: z.string().uuid(),
     repository: repositorySnapshotSchema,
     baseBranch: z.string().min(1),
-    branchName: z.string().min(1),
+    branch: z.string().min(1),
     agent: agentNameSchema,
-    prompt: z.string().min(1),
+    objective: z.string().min(1),
     issue: issueSnapshotSchema.optional(),
     dispatchKey: z.string().min(1).max(1_000).optional(),
     mergeRequest: mergeRequestSpecSchema.optional(),
@@ -450,7 +449,7 @@ export const resolvedRuntimeContractSchema = z
     }).strict().default({ coldStartAllowed: true, entries: [] }),
     secrets: z.array(runtimeSecretRefSchema).default([]),
     limits: z.object({
-      runTimeoutSeconds: z.number().int().positive().optional(),
+      sessionTimeoutSeconds: z.number().int().positive().optional(),
       containerCpuQuota: z.number().int().positive().optional(),
       containerMemoryGb: z.number().int().positive().optional(),
     }).strict().optional(),
@@ -477,7 +476,7 @@ export type PlatformCapabilities = z.infer<typeof platformCapabilitiesSchema>;
 export const platformDefaultsSchema = z
   .object({
     maxConcurrency: z.number().int().positive().default(1),
-    runTimeoutSeconds: z.number().int().positive().default(3600),
+    sessionTimeoutSeconds: z.number().int().positive().default(3600),
     heartbeatExpirySeconds: z.number().int().positive().default(90),
     longPollTimeoutSeconds: z.number().int().positive().default(25),
     containerCpuQuota: z.number().int().positive().default(4),
@@ -564,58 +563,76 @@ export const projectUpdateRequestSchema = z
   .strict();
 export type ProjectUpdateRequest = z.input<typeof projectUpdateRequestSchema>;
 
-const jobSubmissionBaseSchema = z
+const taskCreateBaseSchema = z
   .object({
-    taskId: z.string().min(1),
-    source: jobSourceSchema,
+    source: taskSourceSchema,
     projectId: z.string().uuid(),
-    branchName: z.string().min(1),
-    agent: agentNameSchema.optional(),
-    prompt: z.string().min(1),
+    objective: z.string().min(1),
     issue: issueSnapshotSchema.optional(),
     dispatchKey: z.string().min(1).max(1_000).optional(),
-    mergeRequest: mergeRequestSpecSchema.optional(),
-    runtime: jobRuntimeOverrideSchema.optional(),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
 
-function validateIssueDrivenJob(
-  job: {
-    source: z.infer<typeof jobSourceSchema>;
+function validateIssueDrivenTask(
+  task: {
+    source: z.infer<typeof taskSourceSchema>;
     issue?: z.infer<typeof issueSnapshotSchema> | undefined;
     dispatchKey?: string | undefined;
   },
   ctx: z.RefinementCtx,
 ): void {
-    if (job.source === "issue" && (!job.issue || !job.dispatchKey)) {
+    if (task.source === "issue" && (!task.issue || !task.dispatchKey)) {
       ctx.addIssue({
         code: "custom",
-        message: "Issue-driven jobs require issue and dispatchKey",
+        message: "Issue-driven Tasks require issue and dispatchKey",
         path: ["issue"],
       });
     }
-    if (job.source !== "issue" && (job.issue || job.dispatchKey)) {
+    if (task.source !== "issue" && (task.issue || task.dispatchKey)) {
       ctx.addIssue({
         code: "custom",
-        message: "Only Issue-driven jobs may include issue or dispatchKey",
+        message: "Only Issue-driven Tasks may include issue or dispatchKey",
         path: ["source"],
       });
     }
 }
 
-export const jobSubmissionSchema = jobSubmissionBaseSchema.superRefine(validateIssueDrivenJob);
-export type JobSubmission = z.infer<typeof jobSubmissionSchema>;
+export const taskCreateRequestSchema = taskCreateBaseSchema
+  .omit({ issue: true, dispatchKey: true })
+  .extend({ source: z.enum(["api", "mcp"]) })
+  .strict();
+export type TaskCreateRequest = z.input<typeof taskCreateRequestSchema>;
 
-export const jobSpecSchema = jobSubmissionBaseSchema
+export const taskCreateSchema = taskCreateBaseSchema
   .extend({
     repository: repositorySnapshotSchema,
-    baseBranch: z.string().min(1),
-    agent: agentNameSchema,
   })
   .strict()
-  .superRefine(validateIssueDrivenJob);
-export type JobSpec = z.infer<typeof jobSpecSchema>;
+  .superRefine(validateIssueDrivenTask);
+export type TaskCreate = z.infer<typeof taskCreateSchema>;
+
+export const sessionCreateRequestSchema = z
+  .object({
+    title: z.string().min(1),
+    objective: z.string().min(1),
+    agent: agentNameSchema.optional(),
+    branch: z.string().min(1).optional(),
+    mergeRequest: mergeRequestSpecSchema.optional(),
+    runtime: sessionRuntimeOverrideSchema.optional(),
+    metadata: jsonObjectSchema.default({}),
+  })
+  .strict();
+export type SessionCreateRequest = z.input<typeof sessionCreateRequestSchema>;
+
+export const sessionCreateSchema = sessionCreateRequestSchema
+  .extend({
+    taskId: z.string().uuid(),
+    agent: agentNameSchema,
+    branch: z.string().min(1),
+  })
+  .strict();
+export type SessionCreate = z.infer<typeof sessionCreateSchema>;
 
 export const runnerRegistrationSchema = z
   .object({
@@ -631,8 +648,8 @@ export type RunnerRegistration = z.infer<typeof runnerRegistrationSchema>;
 
 export const runnerPollRequestSchema = z
   .object({
-    runnerSessionId: z.string().uuid(),
-    maxJobs: z.number().int().positive().default(1),
+    runnerId: z.string().uuid(),
+    maxSessions: z.number().int().positive().default(1),
   })
   .strict();
 export type RunnerPollRequest = z.infer<typeof runnerPollRequestSchema>;
@@ -656,11 +673,11 @@ export type RunnerLocalConfig = z.infer<typeof runnerLocalConfigSchema>;
 
 // --- 003-config-first-runner-durability: Cancellation Outcome ---
 
-export const cancelJobOutcomeSchema = z.discriminatedUnion("kind", [
+export const cancelSessionOutcomeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("canceled") }).strict(),
   z.object({ kind: z.literal("cancellation_requested") }).strict(),
 ]);
-export type CancelJobOutcome = z.infer<typeof cancelJobOutcomeSchema>;
+export type CancelSessionOutcome = z.infer<typeof cancelSessionOutcomeSchema>;
 
 // --- 003-config-first-runner-durability: Runner Observation ---
 
@@ -673,19 +690,19 @@ export const runnerObservationSchema = z.discriminatedUnion("type", [
     .strict(),
   z
     .object({
-      type: z.literal("run.canceled"),
+      type: z.literal("session.canceled"),
       summary: z.string().min(1),
     })
     .strict(),
   z
     .object({
-      type: z.literal("run.timed_out"),
+      type: z.literal("session.timed_out"),
       summary: z.string().min(1),
     })
     .strict(),
   z
     .object({
-      type: z.literal("run.cleanup_failed"),
+      type: z.literal("session.cleanup_failed"),
       summary: z.string().min(1),
     })
     .strict(),
@@ -696,8 +713,8 @@ export type RunnerObservation = z.infer<typeof runnerObservationSchema>;
 
 export const staleMarkingResultSchema = z
   .object({
-    runnerSessionId: z.string().uuid(),
-    staleRunIds: z.array(z.string().uuid()),
+    runnerId: z.string().uuid(),
+    staleSessionIds: z.array(z.string().uuid()),
   })
   .strict();
 export type StaleMarkingResult = z.infer<typeof staleMarkingResultSchema>;
@@ -708,9 +725,18 @@ export const cancellationRequestMetadataSchema = z
   .object({
     requestedAt: z.string().datetime(),
     requestedBy: z.string().min(1).optional(),
+    reason: z.string().min(1).optional(),
   })
   .strict();
 export type CancellationRequestMetadata = z.infer<typeof cancellationRequestMetadataSchema>;
+
+export const sessionCancellationRequestSchema = z
+  .object({
+    requestedBy: z.string().min(1).optional(),
+    reason: z.string().min(1).optional(),
+  })
+  .strict();
+export type SessionCancellationRequest = z.input<typeof sessionCancellationRequestSchema>;
 
 // --- 003-config-first-runner-durability: Runner Eligibility ---
 

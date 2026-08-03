@@ -6,69 +6,47 @@ import { useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "../_components/states";
 import { StatusBadge } from "../_components/status-badge";
 import { relativeTime, taskLabel } from "../_lib/format";
-import type { JobSnapshot } from "../_lib/types";
+import type { TaskListItem } from "../_lib/types";
 import { useResource } from "../_lib/use-resource";
 
 export default function TasksPage() {
-  const resource = useResource<{ jobs: JobSnapshot[] }>("/api/jobs", 3_000);
-  const [status, setStatus] = useState("all");
+  const resource = useResource<{ tasks: TaskListItem[] }>("/api/tasks", 3_000);
   const [query, setQuery] = useState("");
-
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return (resource.data?.jobs ?? []).filter((snapshot) => {
-      if (status !== "all" && snapshot.run.state !== status) return false;
-      if (!normalized) return true;
-      return [
-        snapshot.job.id,
-        snapshot.job.spec.taskId,
-        snapshot.job.spec.issue?.reference.identifier,
-        snapshot.job.spec.issue?.title,
-        snapshot.job.spec.branchName,
-        snapshot.project?.slug,
-      ].some((value) => value?.toLowerCase().includes(normalized));
-    });
-  }, [query, resource.data?.jobs, status]);
+    if (!normalized) return resource.data?.tasks ?? [];
+    return (resource.data?.tasks ?? []).filter((task) => [
+      task.id,
+      task.objective,
+      task.issue?.reference.identifier,
+      task.issue?.title,
+      task.repository.fullName,
+      task.latestSession?.branch,
+    ].some((value) => value?.toLowerCase().includes(normalized)));
+  }, [query, resource.data?.tasks]);
 
   return (
     <div className="pageContent">
       <div className="pageToolbar">
-        <div className="filterBar">
-          <label><span className="srOnly">Search tasks</span><input placeholder="Search tasks" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-          <label><span className="srOnly">Filter by status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="all">All states</option>
-              <option value="queued">Queued</option>
-              <option value="running">Running</option>
-              <option value="waiting_for_review">Waiting review</option>
-              <option value="succeeded">Succeeded</option>
-              <option value="failed">Failed</option>
-              <option value="canceled">Canceled</option>
-              <option value="timed_out">Timed out</option>
-            </select>
-          </label>
-        </div>
+        <label><span className="srOnly">Search tasks</span><input placeholder="Search tasks" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         <button className="secondaryButton" type="button" onClick={() => void resource.refresh()}>Refresh</button>
       </div>
       {resource.isLoading ? <LoadingState label="Loading tasks" /> : null}
       {resource.error ? <ErrorState message={resource.error} onRetry={() => void resource.refresh()} /> : null}
       {!resource.isLoading && !resource.error && filtered.length === 0 ? (
-        <EmptyState title="No matching tasks" description="Change the filters or refresh to check for newly recorded tasks." />
+        <EmptyState title="No matching tasks" description="Create a Task through API, CLI, MCP, or Issue dispatch." />
       ) : null}
       {filtered.length ? (
         <section className="panel">
-          <div className="tableHeader taskColumns"><span>Task</span><span>Status</span><span>Project</span><span>Branch</span><span>Updated</span></div>
+          <div className="tableHeader taskColumns"><span>Task</span><span>Sessions</span><span>Latest</span><span>Repository</span><span>Updated</span></div>
           <div className="dataList">
-            {filtered.map((snapshot) => (
-              <Link className="dataRow taskColumns" href={`/tasks/${snapshot.job.id}`} key={snapshot.job.id}>
-                <span className="primaryCell">
-                  <strong>{taskLabel(snapshot.job.spec.taskId, snapshot.job.spec.issue?.reference.identifier)}</strong>
-                  <small>{snapshot.job.spec.issue?.title ?? snapshot.run.result?.summary ?? snapshot.job.id}</small>
-                </span>
-                <StatusBadge state={snapshot.run.state} />
-                <span>{snapshot.project?.slug ?? snapshot.lane?.projectSlug ?? "unassigned"}</span>
-                <span className="mono">{snapshot.job.spec.branchName}</span>
-                <time>{relativeTime(snapshot.run.updatedAt)}</time>
+            {filtered.map((task) => (
+              <Link className="dataRow taskColumns" href={`/tasks/${task.id}`} key={task.id}>
+                <span className="primaryCell"><strong>{taskLabel(task.id, task.issue?.reference.identifier)}</strong><small>{task.issue?.title ?? task.objective}</small></span>
+                <span>{task.sessionCount} total · {task.activeSessionCount} active</span>
+                {task.latestSession ? <StatusBadge state={task.latestSession.state} /> : <span>none</span>}
+                <span>{task.repository.fullName}</span>
+                <time>{relativeTime(task.updatedAt)}</time>
               </Link>
             ))}
           </div>

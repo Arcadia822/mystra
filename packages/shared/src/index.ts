@@ -1,5 +1,5 @@
 export * from "./cache.js";
-export * from "./coordination-run-summary.js";
+export * from "./coordination-session-summary.js";
 export * from "./events.js";
 export * from "./issue.js";
 export * from "./management.js";

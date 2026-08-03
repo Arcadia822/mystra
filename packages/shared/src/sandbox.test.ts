@@ -10,7 +10,7 @@ import {
 describe("sandbox provider schemas", () => {
   it("accepts a launch request driven by the resolved runtime contract", () => {
     const parsed = sandboxLaunchRequestSchema.parse({
-      runId: "00000000-0000-4000-8000-000000000201",
+      sessionId: "00000000-0000-4000-8000-000000000201",
       runtime: {
         provider: "docker",
         environment: {
@@ -22,7 +22,7 @@ describe("sandbox provider schemas", () => {
         contextBundles: [],
         secrets: [{ name: "MYSTRA_GITLAB_TOKEN", mode: "env" }],
       },
-      workspacePath: "/var/lib/mystra/workspaces/run-201",
+      workspacePath: "/var/lib/mystra/workspaces/session-201",
       retentionPolicy: "retain_for_preview",
     });
 

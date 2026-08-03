@@ -1,187 +1,51 @@
 # Mystra Repoindex Overview
 
-## What repoindex is
-
-`repoindex` is the repository-indexing workflow Mystra uses for brownfield understanding.
-In this repository, it is intentionally **GitNexus-first** and **5xP-aware**:
-
-1. **GitNexus** provides the current structural view of the codebase.
-2. **5xP files** (`AGENTS.md`, `PRODUCT.md`, `PLATFORM.md`, `PROCESS.md`, `PROFILE.md`) provide durable product and process context.
-3. Durable docs such as `docs/ARCHITECTURE.md`, `docs/LOCAL-USAGE.md`, and `specs/spec-status.md` fill in runtime and status details.
-
-This means repoindex is not a blind directory walk. It is a maintained onboarding and architecture snapshot for the current repository state.
+This onboarding snapshot is GitNexus-first and 5xP-aware. Read `PRODUCT.md`,
+`PLATFORM.md`, `PROCESS.md`, `PROFILE.md`, and `AGENTS.md` before feature specs.
 
 ## Purpose
 
-Mystra is a self-use coding-agent orchestration platform. Its current MVP lets internal callers or remote MCP clients submit implementation work for repositories, then routes that work through a control plane, runner, sandbox, and agent so the platform can produce a reviewable branch and repository review artifact.
-
-Architecturally, Mystra is a **headless control-plane-and-runner system**. It is closer to Jenkins / Salt / Nomad than to a pure file-driven local tool: the product may use more declarative project/runtime/template inputs over time, but it still needs durable execution truth for jobs, runs, events, and artifacts.
-
-The near-term goal is one self-use, local-first path that works end to end. The north-star direction is a hosted **Mystra platform** serving many **Teams** and **projects** without rewriting core contracts, with a developer experience similar in spirit to Stripe Minion.
-
-The deployment path should stay **single-node first** and later expand into a **shared-nothing clustered** form where practical. In this repository, shared-nothing refers to minimizing shared mutable hot-path state, not to eliminating durable state entirely.
-
-### Explicit MVP exclusions
-
-Current MVP scope intentionally excludes:
-
-- control-plane caller authentication
-- logs API or log persistence
-- retry API
-- callback URLs
-- quality-gate fix loops
-- Claude CLI adapter
-- Kubernetes sandbox workloads
-- cross-runner shared caches
-- per-repository secret management
-- hosted PG/Supabase RDB implementation
+Mystra is a headless coding-Agent execution control plane. Callers create durable
+Tasks, create zero or many independent child Sessions, and use stable Runners to
+produce reviewable repository evidence.
 
 ## Runtime shape
 
-Mystra is a TypeScript pnpm monorepo.
-
 ```text
-apps/control-plane    Next.js control plane, HTTP APIs, MCP endpoint, integrations
-apps/runner-daemon    Pull-based direct-execution runner service
-packages/shared       Shared Zod schemas, state machine, events, results
+apps/control-plane    API, MCP, Web, Integrations, SQLite adapter
+apps/runner-daemon    stable pull-based execution capacity
+packages/shared       canonical Zod contracts and Session lifecycle
 packages/agent-adapters
-plugins/mystra
-plugins/supabase
-supabase
+plugins/mystra        MCP-facing Agent skills
 ```
 
-### Primary stack
+## Main flows
 
-- TypeScript 5.9
-- pnpm monorepo
-- Next.js 16 route handlers
-- React 19
-- Zod 4
-- Vitest 4
-- SQLite first, behind `RdbProvider`
-- Sandbox provider
-- Agent provider
-- Repository provider
+1. Create Task through HTTP/MCP/CLI or atomically dispatch an Issue to a Task
+   plus initial Session.
+2. Create additional sibling Sessions for independent subtasks.
+3. Enroll a stable Runner and atomically claim an eligible queued Session.
+4. Execute sandbox, Agent, quality, preview, branch, and review delivery.
+5. Persist terminal Session result and release Runner capacity transactionally.
 
-### Architectural direction
+## Boundaries
 
-- Open Agents is a **source-authoritative baseline**, not a packaged SDK dependency that Mystra blindly imports.
-- Mystra owns its Issue, persistence, sandbox, Agent, and repository provider seams.
-- The first durable state source is SQLite.
-- The runner owns one explicit direct execution sequence. Future policy belongs
-  in a removable Agent hook/plugin.
-- Runner hosts only initiate outbound connections.
-- Project, runtime, and template inputs should resolve into immutable execution contracts before runner-side execution.
-- Shared-nothing is a scaling direction for hot-path coordination; jobs, runs, events, results, and artifacts still need durable truth.
+- Task is intent and immutable Project/Repository context, never lifecycle.
+- Session owns objective, Agent, branch, runtime, state, cancellation, result.
+- Runner owns stable identity, health, capacity, credential, and assignments.
+- Internal execution facts are not public business resources.
+- API is canonical; MCP/CLI/Web are thin clients.
+- SQLite is first behind `RdbProvider`; future hosted adapters remain replaceable.
 
-## Main workflows
-
-### 1. Submit work through HTTP or remote MCP
-
-An internal caller or agent creates a Project and submits a job through the control plane HTTP APIs or `/api/mcp`. A read-only Linear integration can also normalize an Issue and dispatch its immutable snapshot. The control plane validates schemas and persists Project/job/run state for runner claim.
-
-### 2. Runner claim and execution
-
-The `runner-daemon` long-polls the control plane for assignable jobs, receives a resolved runtime contract, prepares the execution environment, then runs the task in the configured sandbox with the selected agent provider.
-
-### 3. Direct execution and delivery
-
-The runner executes `clone -> Agent -> test -> build -> preview -> commit -> push -> PR` inside the selected sandbox. A successful delivery enters `waiting_for_review`, retains the sandbox, and releases runner capacity.
-
-### 4. Health, inspection, and preview
-
-Operators inspect health through `mystra_health`, job APIs, and preview helpers. Mystra keeps enough structured state in the database that job/run lifecycle can be explained without depending on transient container logs alone.
-
-## Top-level topology
-
-```mermaid
-flowchart LR
-    Caller[MCP client / internal caller] --> CP[apps/control-plane]
-    Linear[Linear IssueProvider] --> CP
-    CP --> DB[(SQLite via RdbProvider)]
-    Runner[apps/runner-daemon] --> CP
-    Runner --> Sandbox[Sandbox provider]
-    Sandbox --> Agent[Agent provider]
-    Agent --> Repo[Repository provider]
-    Shared[packages/shared] --> CP
-    Shared --> Runner
-```
-
-## Operator commands
-
-### Core commands
+## Important commands
 
 ```sh
-pnpm install
-pnpm build
+pnpm audit:task-session-terminology
 pnpm typecheck
-pnpm lint
 pnpm test
-pnpm doctor
-pnpm dev
-pnpm dev:control-plane
-pnpm dev:runner
+pnpm build
+pnpm dlx gitnexus analyze --force
 ```
 
-### High-value focused commands
-
-```sh
-pnpm --filter @mystra/shared test
-pnpm --filter @mystra/runner-daemon test
-pnpm --filter @mystra/control-plane dev
-pnpm run deploy:dev
-pnpm job:submit -- --project <slug> --task-id <id> ...
-pnpm preview -- list
-pnpm preview -- logs mystra-<run-id>
-pnpm preview -- quality mystra-<run-id>
-```
-
-## Current status snapshot
-
-### Spec-Kit
-
-`specs/spec-status.md` is the source of truth for current Spec-Kit completion
-state:
-
-- 001 through 024 are currently reconciled into Spec-Kit with spec artifacts
-- 025-webui currently has a spec and requirements checklist, and still needs
-  `plan.md` and `tasks.md`
-
-### GitNexus
-
-GitNexus was refreshed before this overview, and the current repository graph was used as structural evidence. The exact graph counts are intentionally omitted because they are volatile index metadata rather than durable project facts.
-
-## Important constraints
-
-- `Project.runtime.image` is the runtime image contract; there is no top-level compatibility `Project.image` field.
-- `JobSpec` carries job identity and limited runtime overrides, not platform capability declarations.
-- Runner claim responses return a resolved runtime contract, and the runner executes that contract rather than independently interpreting Project state.
-- Sandbox task environments must not receive platform-breaking host access.
-- Secrets must be injected at runtime through env vars or read-only files.
-- Provider implementations must remain replaceable behind Mystra-owned seams.
-
-## Where to read next
-
-For the fastest onboarding path, read these in order:
-
-1. `PRODUCT.md`
-2. `PLATFORM.md`
-3. `PROCESS.md`
-4. `docs/ARCHITECTURE.md`
-5. `docs/LOCAL-USAGE.md`
-6. `docs/IMPLEMENTATION-PLAN.md`
-7. `specs/spec-status.md`
-
-## Provenance
-
-This overview is grounded in:
-
-- GitNexus index status and current repository graph
-- `PRODUCT.md`
-- `PLATFORM.md`
-- `PROCESS.md`
-- `AGENTS.md`
-- `docs/ARCHITECTURE.md`
-- `docs/LOCAL-USAGE.md`
-- `docs/IMPLEMENTATION-PLAN.md`
-- `specs/spec-status.md`
+Use `specs/spec-status.md` for Spec-Kit completion and
+`specs/038-task-session-model/` for the current model contract.

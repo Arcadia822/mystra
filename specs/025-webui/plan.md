@@ -5,7 +5,7 @@
 
 ## 摘要
 
-将 025 Web UI 框架实现为现有 `@mystra/control-plane` Next.js 应用的 shell 层。实现目标是把当前 `Control Plane`、`Tasks`、`Runners`、`Projects` 导航迁移到已批准的 shell 合同：primary navigation 为 `Overview`、`Inbox`、`New Job`、`Projects`，`Settings` 作为 shell modal，`Recent Jobs` 作为 secondary route；035/036 已交付对象页继续可达。
+将 025 Web UI 框架实现为现有 `@mystra/control-plane` Next.js 应用的 shell 层。实现目标是把当前 `Control Plane`、`Tasks`、`Runners`、`Projects` 导航迁移到已批准的 shell 合同：primary navigation 为 `Overview`、`Inbox`、`New Task`、`Projects`，`Settings` 作为 shell modal，`Recent Sessions` 作为 secondary route；035/036 已交付对象页继续可达。
 
 ## 技术上下文
 

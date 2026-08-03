@@ -1,59 +1,46 @@
-# ADR-0004: Open Agents Framework With Local-First Providers
+# ADR-0004: Open Agents Baseline With Local-First Providers
 
 ## Status
 
-Accepted
+Accepted, amended 2026-08-03 by the Task/Session/Runner contract migration.
 
 ## Context
 
-Mystra should align more directly with the Open Agents project instead of merely borrowing architectural inspiration from it. Open Agents provides a useful framework shape for coding agents: control surface, agent workflow, and sandbox execution are separate concerns.
-
-The first Mystra implementation should not depend on cloud services for its core development loop. Early cloud dependencies make local iteration harder, blur provider boundaries, and can turn infrastructure choices into product assumptions before the contract is stable.
+Open Agents provides a useful source baseline for separating control surfaces,
+Agent execution, sandboxing, and delivery. Mystra requires local development
+without mandatory cloud services and needs reusable contracts where upstream
+does not expose package-level seams.
 
 ## Decision
 
-Reuse the Open Agents project as Mystra's framework foundation, then adapt the provider layer for local-first execution.
+Use Open Agents as a source-authoritative reference architecture, not as an
+assumed packaged runtime dependency. Mystra owns these provider seams:
 
-Mystra's MVP keeps Codex CLI and GitHub Copilot CLI execution inside the task
-container. That is an explicit divergence from the upstream Open Agents
-agent-outside-sandbox model and must remain documented until a later feature
-replaces it with a different contract.
+- `RdbProvider`: SQLite first, hosted relational implementation later.
+- `IntegrationPlugin`: Repository and/or Issue capabilities.
+- `SandboxProvider`: single-machine Docker first.
+- `RepoDeliveryProvider`: clone, push, and review delivery.
+- `AgentProvider`: current Codex and Copilot adapters.
 
-The first provider implementations are:
+Mystra's canonical business model is Task intent, independent child Sessions,
+and stable Runners. Core execution is a direct lifecycle; no workflow provider,
+graph, or managed orchestration layer sits above the Agent.
 
-- `RdbProvider`: local SQLite.
-- `WorkflowProvider`: local dummy workflow implementation.
-- `SandboxProvider`: single-machine Docker.
-- `RepoProvider`: GitLab and GitHub review delivery behind a Mystra-owned
-  repository contract.
-- `AgentProvider`: Codex CLI and GitHub Copilot CLI.
-
-Cloud services remain future provider implementations, not MVP requirements. Hosted RDB, Vercel Workflow/WDK, Vercel Sandbox, AI Gateway, or other managed services can be added later behind the same provider contracts if they earn their complexity.
-
-The local dummy workflow provider is not equivalent to managed durable workflow infrastructure. It may drive deterministic MVP lifecycle transitions, but it must not claim long-lived replay, months-long pause/resume, or managed retry semantics unless those behaviors are actually implemented.
+Cloud services remain future provider implementations rather than MVP
+requirements. Provider-specific assumptions must not leak into canonical
+Task/Session/Runner contracts.
 
 ## Consequences
 
-Positive:
-
-- Local development can run without cloud database or workflow dependencies.
-- Provider contracts are forced early, before cloud integrations can leak into product logic.
-- Open Agents remains the framework reference while Mystra keeps control over runtime placement.
-- Single-machine Docker keeps the first sandbox implementation concrete and testable.
-- Remote MCP submission is a Mystra-owned control-surface extension, not a claim
-  that the upstream web surface is reused unchanged.
-
-Negative:
-
-- The local dummy workflow provider has weaker durability than managed workflow systems.
-- SQLite is appropriate for the first local implementation but not necessarily for multi-runner production scale.
-- Some existing Supabase and Vercel Workflow assumptions must be revised or demoted to future provider work.
+- Local development needs no hosted database or managed workflow service.
+- Provider boundaries are explicit before future infrastructure is added.
+- SQLite is appropriate for the private single-node MVP but not presumed to be
+  the hosted production implementation.
+- Remote MCP remains a Mystra-owned control surface.
 
 ## Verification
 
-The decision is validated when:
-
-1. A local SQLite-backed control plane can create, update, and recover job/run state.
-2. The dummy workflow provider can drive a queued run through assign, execute, and terminal state transitions.
-3. The Docker sandbox provider can execute a single-machine task without cloud workflow or hosted RDB services.
-4. The provider interfaces make a future cloud RDB or Vercel Workflow adapter possible without changing `JobSpec`.
+1. SQLite can persist and recover Task, Session, Runner, result, and artifact state.
+2. A stable Runner can claim and complete a Session locally.
+3. Docker execution and review delivery work without hosted orchestration.
+4. A future RDB or sandbox adapter can be added without changing business-object contracts.

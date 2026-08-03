@@ -7,14 +7,13 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "audit:task-session-terminology": "node ./scripts/audit-task-session-terminology.mjs",
     "build": "pnpm -r --if-present build",
     "dev": "pnpm --filter @mystra/control-plane dev",
     "dev:control-plane": "pnpm --filter @mystra/control-plane exec next dev -p 3000",
     "dev:runner": "pnpm --filter @mystra/runner-daemon dev",
     "doctor": "./scripts/doctor-local.sh",
     "deploy:dev": "bash ./scripts/deploy-dev-machine.sh",
-    "job:status": "node ./scripts/job-status.mjs",
-    "job:submit": "node ./scripts/submit-job.mjs",
     "operator:cli": "node ./scripts/operator-cli.mjs",
     "preview": "node ./scripts/preview-containers.mjs",
     "runner:image:build": "bash ./scripts/build-runner-image.sh",

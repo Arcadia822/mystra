@@ -14,7 +14,7 @@
 
 ## 阶段 2：基础 Shell 模型
 
-- [ ] T005 在 `apps/control-plane/app/_components/app-shell.tsx` 中定义四个 primary routes、Settings action、Recent Jobs secondary route、labels、layout archetypes 与 placeholder state
+- [ ] T005 在 `apps/control-plane/app/_components/app-shell.tsx` 中定义四个 primary routes、Settings action、Recent Sessions secondary route、labels、layout archetypes 与 placeholder state
 - [ ] T006 在 `apps/control-plane/app/_components/app-shell.tsx` 中增加 framework-owned locale copy scaffolding，用于 route labels 和 placeholder text
 - [ ] T007 在 `apps/control-plane/app/globals.css` 中更新 shell 层 CSS primitives，用于 navigation、active route state、route content frames 与 narrow viewport navigation
 
@@ -22,7 +22,7 @@
 
 **目标**：Operator 可以打开 shell，只看到已批准顶层 routes，并在 shell-valid page frames 之间导航。
 
-**独立测试**：在 desktop 与 narrow viewport 打开 app，确认 primary navigation 只包含 `Overview`、`Inbox`、`New Job`、`Projects`，并确认 Settings modal 与 Recent Jobs secondary route 可达。
+**独立测试**：在 desktop 与 narrow viewport 打开 app，确认 primary navigation 只包含 `Overview`、`Inbox`、`New Task`、`Projects`，并确认 Settings modal 与 Recent Sessions secondary route 可达。
 
 - [ ] T008 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 中用已批准 primary/secondary taxonomy 替换当前 rail taxonomy
 - [ ] T009 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 与现有 route pages 中为每个已批准 surface 渲染一致 route frame

@@ -7,7 +7,7 @@ export type SandboxRetentionPolicy = z.infer<typeof sandboxRetentionPolicySchema
 
 export const sandboxLaunchRequestSchema = z
   .object({
-    runId: z.string().uuid(),
+    sessionId: z.string().uuid(),
     runtime: resolvedRuntimeContractSchema,
     workspacePath: z.string().min(1),
     gitMirrorPath: z.string().min(1).optional(),
