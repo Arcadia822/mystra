@@ -33,3 +33,11 @@ Project slug through `GET /api/projects/{slug}` before posting the explicit
 project ID to the dispatch endpoint. `runs wait` treats
 `waiting_for_review` as a successful terminal handoff; failed, canceled, and
 timed-out Runs return non-zero.
+
+## Spec View
+
+`render-spec-view.mjs` renders a feature review page from fixed Spec-Kit
+artifact paths using `.specify/templates/spec-view-template.html`. It reads
+whole files such as `spec.md`, `features.md`, `checklists.md`, `plan.md`, and
+`tasks.md`; it does not parse `spec.md` sections. Example:
+`node scripts/render-spec-view.mjs --feature 025-webui`.

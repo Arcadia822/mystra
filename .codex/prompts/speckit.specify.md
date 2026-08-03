@@ -81,6 +81,8 @@ Given that feature description, do this:
     8. Return: SUCCESS (spec ready for planning)
 
 5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
+   - Write user-facing prose in Chinese by default unless the user explicitly requests another language.
+   - Preserve code identifiers, commands, file paths, API names, and product names as literals.
 
 6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
 
@@ -174,7 +176,23 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+7. **Generate Spec Artifacts**: If `.specify/extensions/spec-artifacts/commands/generate.md` exists, follow that command contract for the current feature:
+
+   - Use the freshly validated `spec.md` as a complete source document.
+   - Use the original feature description and already-loaded repository context as supporting context.
+   - Write `features.md` and `checklists.md` beside `spec.md`, using Chinese prose by default.
+   - Do not modify `spec.md`, `plan.md`, `tasks.md`, or files under `checklists/`.
+   - Do not parse `spec.md` headings or reformat the standard Spec-Kit artifacts.
+
+8. **Prototype Requirement For UI-Facing Specs**: If the feature is UI-facing or experience-facing, create or refresh `prototype.md` before handing off to planning/tasks.
+
+   - `prototype.md` must link to an independent HTML prototype, screenshot set, or interactive prototype artifact.
+   - If `mockups/index.html` exists, use it as the prototype entry and document covered surfaces plus known limits.
+   - Do not treat a written PRD/spec as the prototype.
+
+9. **Refresh Spec View**: After changing the spec or synchronized artifacts, re-render `specs/<feature>/index.html` when the renderer exists, then open or refresh that `index.html` in the Codex in-app browser. Use the tab most relevant to the latest change.
+
+10. Report completion with branch name, spec file path, generated artifact paths, prototype path when applicable, checklist results, browser-opened index path, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 

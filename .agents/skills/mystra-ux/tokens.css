@@ -1,0 +1,35 @@
+:root {
+  --mystra-page: var(--page);
+  --mystra-sidebar: var(--sidebar);
+  --mystra-header: var(--header);
+  --mystra-panel: var(--panel);
+  --mystra-panel-muted: var(--panel-muted);
+  --mystra-input: var(--input);
+
+  --mystra-text: var(--text);
+  --mystra-text-secondary: var(--text-secondary);
+  --mystra-text-muted: var(--text-muted);
+  --mystra-text-inverse: var(--text-inverse);
+
+  --mystra-border: var(--border);
+  --mystra-border-strong: var(--border-strong);
+  --mystra-focus: var(--focus);
+
+  --mystra-primary: var(--primary);
+  --mystra-primary-hover: var(--primary-hover);
+  --mystra-primary-soft: var(--primary-soft);
+  --mystra-primary-text: var(--primary-text);
+
+  --mystra-success: var(--success);
+  --mystra-warning: var(--warning);
+  --mystra-error: var(--error);
+
+  --mystra-hover: var(--hover);
+  --mystra-selected: var(--selected);
+  --mystra-pressed: var(--pressed);
+
+  --mystra-radius-compact: 6px;
+  --mystra-radius-panel: 8px;
+  --mystra-sidebar-width: 260px;
+  --mystra-header-height: 44px;
+}

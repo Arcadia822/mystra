@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{PAGE_TITLE}}</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{{SPEC_DATA}}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

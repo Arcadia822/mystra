@@ -5,3 +5,5 @@ installed:
     version: "1.0.0"
   - id: doctor
     version: "1.0.0"
+  - id: spec-artifacts
+    version: "0.1.0"
