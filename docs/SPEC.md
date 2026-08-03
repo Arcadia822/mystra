@@ -4,7 +4,14 @@
 
 Build `mystra`, an internal multi-task AI development container platform that uses the Open Agents project as a source-authoritative framework baseline and reference architecture, while keeping Mystra-owned interfaces and SDK surfaces at issue, repository, sandbox, agent, and persistence seams.
 
-The platform receives development tasks through an unauthenticated internal API/MCP surface or a thin HTTP CLI, can import them from a read-only Linear Issue integration, persists state through a local-first RDB provider, and executes a fixed direct lifecycle through the runner daemon. The runner starts a Docker sandbox, invokes Codex CLI or GitHub Copilot CLI, runs test and build phases, starts a host-reachable preview, and produces a reviewable GitHub pull request before entering `waiting_for_review`.
+The platform receives development tasks through an unauthenticated internal API,
+remote MCP, thin HTTP CLI, or secondary Web client. GitHub provides remote
+repository discovery and repository-scoped Issues; Linear provides read-only
+Issues. Mystra persists state through a local-first RDB provider and executes a
+fixed direct lifecycle through the runner daemon. The runner starts a Docker
+sandbox, invokes Codex CLI or GitHub Copilot CLI, runs test and build phases,
+starts a host-reachable preview, and produces a reviewable GitHub pull request
+before entering `waiting_for_review`.
 
 The first release optimizes for internal trusted infrastructure and fast validation. It is not a public multi-tenant service.
 
@@ -35,12 +42,16 @@ that current interfaces should preserve.
 
 1. Mystra uses the Open Agents project as a source-authoritative framework baseline, not as a packaged SDK with complete reusable interfaces for every Mystra surface.
 2. The first deployment target is a single local or private high-capacity server that can run Mystra control-plane, runner, and Docker sandbox workloads.
-3. The MVP code-host targets are GitLab and GitHub.
+3. The enabled MVP Integrations are GitHub and Linear. GitHub is the active
+   Project RepoProvider; GitLab remains only a runner-side RepoDeliveryProvider
+   implementation and is not registered for Project repository discovery.
 4. The MVP uses Docker runner containers on a configurable single host.
 5. The first RDB provider is local SQLite.
 6. MVP execution is a fixed direct runner lifecycle. Any future orchestration policy must return as a removable Codex plugin or Agent hook, not as a platform-owned package above the Agent.
 7. Mystra implements its own MCP server surface inside the control-plane app.
-8. Phase 1 uses GitLab/GitHub user tokens for clone, branch push, and merge request or pull request creation.
+8. The accepted MVP path uses a GitHub token for clone, branch push, and pull
+   request creation. A GitLab token is needed only when explicitly validating
+   the retained delivery-provider implementation.
 9. MVP intentionally has no control-plane caller auth, no logs API, no retry API, and no callback URL. Direct execution includes deterministic `test -> build` quality phases before preview and PR creation.
 10. Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, and per-repo secret management are future work.
 11. Interfaces should avoid assuming a forever-single-project operating model; Team and shared platform resource concepts must remain representable even before they are fully implemented.
@@ -337,7 +348,8 @@ MVP test layers:
 - Integration tests for strong cancel and timeout behavior.
 - Container smoke tests for Codex and Copilot adapter invocation.
 - Runner cache tests for repo cache miss/corruption fallback and dependency cache mount safety.
-- End-to-end GitLab MR flow on a disposable repository as a manual/scripted MVP gate, not default CI.
+- End-to-end GitHub PR flow on a disposable repository as the MVP gate. GitLab
+  delivery validation is optional and does not register GitLab as an Integration.
 
 Coverage should prioritize state transitions, idempotency, credential handling, cache safety, and runner cleanup.
 
@@ -358,9 +370,9 @@ There is no MVP fix loop after deterministic test failure. The runner executes a
 
 ## Credential Strategy
 
-GitLab:
+GitLab (optional delivery-provider validation only):
 
-- Use a GitLab user PAT for MVP.
+- Use a GitLab user PAT only when explicitly validating this delivery provider.
 - Required scopes: `read_repository`, `write_repository`, and `api`.
 - Store the PAT on the runner host and inject it into the task container as an env var or read-only secret file.
 - The task container performs clone, push, and MR creation in MVP. This intentionally gives the task container broad GitLab authority.
@@ -496,7 +508,8 @@ MVP is complete when:
 - The runner can start a Docker container with a normalized task file.
 - The container can run Codex or Copilot against a fixture repository.
 - Strong cancel and timeout paths stop the container and mark the run correctly.
-- The result includes GitLab branch/MR metadata, GitHub branch/PR metadata, or a structured failure reason.
+- The accepted path returns GitHub branch/PR metadata or a structured failure
+  reason; explicit GitLab delivery tests may return branch/MR metadata.
 - Runner cache miss/corruption falls back to cold clone/install.
 - Tests cover job idempotency, state transitions, SQL claim concurrency, runner heartbeat expiry, unknown agent rejection, credential injection shape, fake-runner completion, cancellation, and cache mount safety.
 
@@ -506,7 +519,8 @@ Before enabling real runner jobs:
 
 - Local SQLite database path is configured and writable.
 - `RUNNER_REGISTRATION_TOKEN` is configured in the control plane and runner daemon.
-- GitLab user PAT has `read_repository`, `write_repository`, and `api` scopes when validating GitLab flows.
+- GitLab user PAT has `read_repository`, `write_repository`, and `api` scopes
+  only when explicitly validating the optional GitLab delivery implementation.
 - GitHub token has repository read/write and pull request permissions when validating GitHub flows.
 - Copilot PAT has been rotated after validation and stored in the runner secret file.
 - Runner image includes Node 24, Python 3, uv, `ca-certificates`, `git`, `openssh-client`, `curl`, Codex CLI, and Copilot CLI.

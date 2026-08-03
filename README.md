@@ -27,6 +27,9 @@ Today the repository is focused on proving a local-first path with:
 - direct Job/Run → Sandbox → Agent execution
 - repository delivery for GitLab and GitHub
 - agent execution through current provider adapters
+- canonical API with CLI, remote MCP, and Web clients
+- completed Control Plane, Task, Runner, and Project inspection pages while the
+  final `025-webui` operator shell is consolidated
 
 The MVP is primarily for self-use. The long-term direction is to provide a
 developer experience similar in spirit to **Stripe Minion**: fast Issue intake,
@@ -160,10 +163,17 @@ For a full local protocol walk, MCP examples, restart-durability checks, and dev
 ### In scope
 
 - control-plane APIs and MCP entrypoint
+- GitHub remote repositories and repository-scoped Issues, plus read-only
+  Linear Issues, behind composable Integrations
+- immutable provider-resolved remote repository snapshots for every Project
 - pull-based runner registration and job claim loop
 - structured lifecycle events and final results
 - project-scoped runtime configuration
-- repository review delivery
+- direct Docker sandbox and Agent execution with test/build/preview evidence
+- GitHub PR review delivery and durable `waiting_for_review` handoff
+- thin CLI, remote MCP, and secondary Web clients over the canonical API
+- the `025-webui` shell target: `Overview`, `Inbox`, `New Job`, and `Projects`
+  primary navigation; `Settings` action/modal; `Recent Jobs` secondary route
 - provider seams that keep local-first and future hosted implementations replaceable
 
 ### Out of scope
@@ -173,9 +183,14 @@ For a full local protocol walk, MCP examples, restart-durability checks, and dev
 - retry API
 - callback URLs
 - quality-gate fix loops
+- OAuth, webhooks, Issue write-back, or Integration management UI
+- public hosted multi-tenancy or Team administration
 - per-repository secret management
 - Kubernetes sandbox workloads
 - hosted cloud RDB implementation
+- GitLab as an enabled/default Integration (its existing runner-side delivery
+  provider remains available behind the delivery contract)
+- standing orders or platform-owned workflow automation above the Agent
 
 ## Documentation map
 

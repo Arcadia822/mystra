@@ -73,6 +73,13 @@ In scope for the MVP:
   using the same frozen repository snapshot as Project, Job, and execution
   contracts.
 - Remote MCP server entrypoint for other agents and skills to submit user journeys and implementation requests.
+- A canonical Web API with CLI, remote MCP, and Web as thin clients of the same
+  Integration, Repository, Project, Issue, Job, and review-handoff contracts.
+- A secondary internal operator Web surface. Its completion target is the
+  `025-webui` shell: primary navigation contains only `Overview`, `Inbox`,
+  `New Job`, and `Projects`; `Settings` is a shell action/modal and
+  `Recent Jobs` is a secondary route. Existing Control Plane, Task, Runner,
+  and Project object pages remain supported during that migration.
 - Structured lifecycle events and final run results.
 - Direct Job/Run to SandboxProvider, AgentAdapter and RepoProvider execution without a workflow provider, blueprint or node graph.
 - Bounded Agent autonomy configured by the selected Agent adapter.
@@ -90,8 +97,17 @@ Explicitly out of scope for the MVP:
 - Kubernetes sandbox workloads.
 - Cross-runner shared caches.
 - Per-repository secret management.
-- Hosted RDB provider implementation (PG/Supabase SqliteRdbProvider is MVP; SupabaseRdbProvider is post-MVP, but the interface must not leak SQLite dialect).
+- Hosted RDB provider implementation (SQLite is the MVP implementation;
+  PG/Supabase is post-MVP, but `RdbProvider` must not leak SQLite dialect).
+- Public hosted multi-tenant operation or Team administration surfaces.
+- OAuth, webhook, Issue write-back, and Integration management UI.
+- GitLab as an enabled/default Integration or control-plane RepoProvider.
+  Existing GitLab runner-side `RepoDeliveryProvider` support remains a
+  replaceable delivery implementation, not an active repository-discovery
+  product surface.
 - A core workflow provider, workflow DSL, workflow marketplace or workflow graph above the Agent.
+- Standing orders, agent-operated workflow automation, or another platform
+  orchestration layer above direct Agent execution.
 - Codex plugin/hook implementation as a core execution dependency.
 - Adoption of any external workflow SDK as an MVP requirement.
 
@@ -113,7 +129,7 @@ Explicitly out of scope for the MVP:
 - API is the canonical product implementation and CLI remains a thin client over it.
 - Successful machine execution produces test/build evidence, an accessible preview, a repository review artifact and `waiting_for_review` state.
 - Documentation remains good enough for future agents to continue work from repository artifacts alone.
-- The architecture can evolve from one local project path toward many Team/project lanes without rewriting core product contracts.
+- The architecture can evolve from one private single-node deployment toward many Team/project lanes without rewriting core product contracts.
 - The system can keep durable execution truth while still moving toward a shared-nothing scaling model that minimizes shared mutable hot-path state.
 
 ## Source Documents

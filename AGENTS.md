@@ -153,16 +153,32 @@ Use `claude-design-intake` to start any design task.
 
 ## Current MVP Boundaries
 
-Mystra MVP uses the Open Agents project as a source-authoritative framework baseline and reference architecture, then defines Mystra-owned interfaces and SDK surfaces where upstream does not provide reusable package contracts. It starts with local-first providers: RdbProvider interface (SQLite implementation for local dev, designed for PG/Supabase compatibility), read-only Linear IssueProvider, direct Agent execution, and a single-machine sandbox path.
+Mystra MVP uses the Open Agents project as a source-authoritative framework
+baseline and reference architecture, then defines Mystra-owned interfaces and
+SDK surfaces where upstream does not provide reusable package contracts. The
+current provider set is SQLite behind `RdbProvider`, GitHub Integration with
+remote `RepoProvider` plus repository-scoped `IssueProvider`, read-only Linear
+`IssueProvider`, direct Agent execution, and a single-machine Docker sandbox.
+Every Project binds one provider-resolved immutable remote repository snapshot;
+local paths and caller-supplied clone URLs are not Project repository inputs.
 
-The near-term MVP goal is self-use: let an operator or another Agent select an Issue and dispatch it through Mystra API, CLI or remote MCP, then have Mystra start the selected Agent directly inside a sandbox and return tested, previewable repository artifacts through the current repository providers.
+The near-term MVP goal is self-use: let an operator or another Agent select a
+GitHub or Linear Issue and dispatch it through canonical API, thin CLI, remote
+MCP, or the secondary Web client. Mystra starts the selected Agent directly in
+the sandbox, performs bounded test/build/preview/review delivery, and returns a
+GitHub PR plus durable `waiting_for_review` evidence.
+
+The unfinished MVP UI target is `025-webui`: primary navigation contains only
+`Overview`, `Inbox`, `New Job`, and `Projects`; `Settings` is a shell
+action/modal and `Recent Jobs` is a secondary route. Preserve the completed
+Control Plane, Task, Runner, and Project object pages while migrating the shell.
 
 The north-star model is a hosted **Mystra platform** serving many independent
 **Teams**. Each Team may contain multiple projects with their own
 Issue integrations, Agent profiles, runtime images, product routes, user stories, and acceptance
 criteria, while sharing platform-owned provider pools such as sandbox capacity.
 Use this as the architectural direction when designing extensible interfaces,
-even if the current MVP only proves one local path.
+even though the current MVP proves one private, single-node deployment path.
 
 Reserve **workspace** for the run-scoped working directory and execution-context
 delivery surface, not for tenancy.
@@ -171,7 +187,15 @@ The intended long-term experience is similar in spirit to **Stripe Minion**:
 fast task intake, clear Agent execution ownership, reviewable outputs, and
 strong platform seams between Issue intake, runtime, Agent, and repository layers.
 
-Mystra MVP excludes caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, per-repository secret management, and hosted RDB provider implementation (PG/Supabase implementation is post-MVP; the interface must not leak SQLite dialect).
+Mystra MVP excludes caller auth, logs API/persistence, retry API, callback URLs,
+quality-gate fix loops, OAuth/webhooks/Issue write-back, Integration management
+UI, public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
+cross-runner shared caches, per-repository secret management, hosted RDB
+implementation, GitLab as an enabled/default Integration, and standing-order or
+agent-operated workflow orchestration above the Agent. GitLab may remain as a
+runner-side `RepoDeliveryProvider`; that does not make it an active Project
+repository Integration. PG/Supabase remains post-MVP and the `RdbProvider`
+interface must not leak SQLite dialect.
 
 ## Documentation Discipline
 

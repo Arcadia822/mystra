@@ -10,19 +10,23 @@ single-machine Docker sandbox provider, Codex/Copilot agent adapters, and
 runner-local caches. The accepted proof is a real Linear Issue producing a retained
 preview and private GitHub PR through the canonical API and thin CLI.
 
-The MVP intentionally excludes control-plane auth, logs, retry, callback URLs, quality-gate fix loops, Claude CLI, and remote shared caches.
+The MVP intentionally excludes control-plane auth, logs, retry, callback URLs,
+quality-gate fix loops, Claude CLI, remote shared caches, public hosted
+multi-tenancy, and platform-owned workflow automation.
 
 ## Architecture Decisions
 
 - Open Agents is the source-authoritative framework baseline, not an assumed packaged SDK for all Mystra seams.
 - Local SQLite is the first shared state provider for Job/Run execution truth.
 - `apps/control-plane` owns HTTP APIs and the Streamable HTTP MCP endpoint.
-- Integration owns Issue-provider capabilities; Linear is read-only.
+- Integration owns provider capabilities; GitHub provides remote repositories
+  plus repository-scoped Issues, and Linear provides read-only Issues.
 - Job creation persists a queued Run; a runner claims and directly executes it.
 - Runner daemon is pull-based over outbound long polling.
 - `/api/runner/jobs` uses the Vercel Node runtime with `maxDuration >= 30s`.
 - Docker is the MVP sandbox; Kubernetes remains future work behind the runner interface.
-- GitLab and GitHub are the MVP repository providers.
+- GitHub is the active MVP Project RepoProvider. GitLab remains a runner-side
+  RepoDeliveryProvider implementation, not an enabled/default Integration.
 - Branch naming, MR/PR title, and MR/PR body come from task/repository context. Mystra does not sanitize names or handle branch collisions.
 - Runner-local cache handles repo prewarm plus pnpm/uv dependency stores. Cache is never the source of truth.
 

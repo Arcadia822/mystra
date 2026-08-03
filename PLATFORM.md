@@ -48,9 +48,9 @@ Mystra platform
       -> jobs / runs
 ```
 
-MVP may implement only one concrete local path, but contracts should preserve
-room for Team-scoped defaults, project-scoped overrides, and shared
-platform resource pools.
+MVP implements one concrete private, single-node control-plane/runner path, but
+contracts should preserve room for Team-scoped defaults, project-scoped
+overrides, and shared platform resource pools.
 
 ## Important Commands
 
@@ -124,10 +124,12 @@ RepoDeliveryProvider  runner clone, push and review delivery
 AgentProvider         current adapter-backed execution first; more providers later
 ```
 
-GitHub is the current Project repository Integration. Runner delivery retains
-GitHub and GitLab implementations behind RepoDeliveryProvider; delivery
-selection uses the frozen repository provider instead of inferring from a URL
-hostname.
+GitHub is the current Project repository Integration; Linear contributes only
+read-only Issue capability. GitLab is not registered as an MVP Integration or
+control-plane RepoProvider. Runner delivery retains GitHub and GitLab
+implementations behind RepoDeliveryProvider; delivery selection uses the frozen
+repository provider instead of inferring from a URL hostname. That existing
+delivery implementation does not make GitLab an active Project intake surface.
 Provider-specific realization lives in `specs/010-repo-provider-contracts/` so
 runner and agent surfaces do not hardcode one host as the only valid
 target.
@@ -135,6 +137,12 @@ target.
 Provider implementations must be replaceable without rewriting product contracts or feature specs.
 
 Headless operation is part of that boundary: the control plane and runner surfaces should be invokable remotely and observable through APIs, CLI or MCP, so UI shells remain optional rather than architectural dependencies.
+
+The MVP operator UI is a secondary client of the canonical API. Its target shell
+uses `Overview`, `Inbox`, `New Job`, and `Projects` as primary navigation,
+with `Settings` as a shell action/modal and `Recent Jobs` as a secondary route;
+existing Control Plane, Task, Runner, and Project object pages remain valid
+inspection surfaces while that shell is completed.
 
 The intended scaling direction is shared nothing rather than tightly coupled service state. Single-node should stay a real product shape; clustered deployment should extend the same contracts by adding more independent control-plane and worker capacity, not by introducing an entirely different product model.
 
