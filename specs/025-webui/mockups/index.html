@@ -1,1 +1,1312 @@
-<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#e6e7eb;margin:0;padding:24px}section{margin:0 0 28px}img{width:100%;max-width:995px;border:1px solid #c4c7cf;border-radius:8px}</style></head><body><section><h2>Overview</h2><img src="../../026-overview-dashboard/screenshots/01-overview.png" /></section><section><h2>New Job</h2><img src="../../028-new-job/screenshots/02-new-work-intake.png" /></section><section><h2>Recent Jobs</h2><img src="../../031-recent-jobs/screenshots/03-run-detail.png" /></section><section><h2>Project</h2><img src="../../029-project/screenshots/04-project-config.png" /></section><section><h2>Settings / Skills MCP</h2><img src="../../030-settings/screenshots/05-skills-mcp.png" /></section><section><h2>Settings / Platform</h2><img src="../../030-settings/screenshots/06-platform-settings.png" /></section></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>025 Web UI Shell Prototype</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        --page: Canvas;
+        --sidebar: Canvas;
+        --header: Canvas;
+        --panel: Canvas;
+        --panel-muted: Canvas;
+        --input: Canvas;
+        --hover: Canvas;
+        --selected: Canvas;
+        --pressed: Canvas;
+        --text: CanvasText;
+        --text-secondary: CanvasText;
+        --text-muted: CanvasText;
+        --text-inverse: Canvas;
+        --border: CanvasText;
+        --border-strong: CanvasText;
+        --primary: Highlight;
+        --primary-hover: Highlight;
+        --primary-soft: Canvas;
+        --primary-text: HighlightText;
+        --success: CanvasText;
+        --warning: CanvasText;
+        --error: CanvasText;
+        --focus: Highlight;
+        --shadow-e1: none;
+        --shadow-e2: none;
+        --radius-compact: 6px;
+        --radius-panel: 8px;
+        --sidebar-width: 260px;
+        --sidebar-collapsed-width: 52px;
+        --rail-resizer-width: 6px;
+        --inspector-width: 320px;
+        --header-height: 44px;
+        --shell-section-gap: 10px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        letter-spacing: 0;
+        transition:
+          background-color 180ms ease,
+          color 180ms ease;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        color: inherit;
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: var(--sidebar-width) var(--rail-resizer-width) minmax(0, 1fr) 0 0;
+        min-height: 100vh;
+        background: var(--page);
+        transition:
+          background-color 180ms ease,
+          grid-template-columns 220ms ease;
+      }
+
+      .app[data-left-rail="collapsed"] {
+        grid-template-columns: var(--sidebar-collapsed-width) 0 minmax(0, 1fr) 0 0;
+      }
+
+      .app[data-inspector-state="expanded"] {
+        grid-template-columns: var(--sidebar-width) var(--rail-resizer-width) minmax(0, 1fr) var(--rail-resizer-width) var(--inspector-width);
+      }
+
+      .app[data-left-rail="collapsed"][data-inspector-state="expanded"] {
+        grid-template-columns: var(--sidebar-collapsed-width) 0 minmax(0, 1fr) var(--rail-resizer-width) var(--inspector-width);
+      }
+
+      .sidebar {
+        display: grid;
+        grid-template-rows: var(--header-height) minmax(0, 1fr) var(--header-height);
+        min-height: 100vh;
+        border-right: 1px solid var(--border-strong);
+        background: var(--sidebar);
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease;
+      }
+
+      .app[data-left-rail="collapsed"] .sidebar {
+        overflow: hidden;
+      }
+
+      .shell-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: var(--header-height);
+        min-height: var(--header-height);
+        padding: 0 10px;
+        background: transparent;
+        transition: background-color 180ms ease;
+      }
+
+      .app[data-left-rail="collapsed"] .sidebar .shell-header {
+        justify-content: center;
+        padding: 0 8px;
+      }
+
+      .sidebar .shell-header {
+        padding: 0 17px;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 18px;
+        height: 18px;
+        flex: 0 0 18px;
+        place-items: center;
+        border: 1px solid transparent;
+        border-radius: var(--radius-compact);
+        background: transparent;
+        color: var(--primary);
+      }
+
+      .brand-mark svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .rail-toggle {
+        margin-left: auto;
+      }
+
+      .sidebar .rail-toggle {
+        width: 30px;
+        min-width: 30px;
+        height: 30px;
+        min-height: 30px;
+        margin-right: -9px;
+        padding: 0;
+      }
+
+      .sidebar .rail-toggle .menu-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        margin: 0 auto;
+        line-height: 0;
+      }
+
+      .app[data-left-rail="collapsed"] .brand-mark {
+        display: none;
+      }
+
+      .app[data-left-rail="collapsed"] .sidebar .rail-toggle {
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+        min-height: 32px;
+        margin: 0 auto;
+      }
+
+      .sidebar-body {
+        display: grid;
+        align-content: start;
+        gap: var(--shell-section-gap);
+        min-height: 0;
+        padding: var(--shell-section-gap) 8px;
+        overflow: auto;
+      }
+
+      .app[data-left-rail="collapsed"] .sidebar-body {
+        padding: var(--shell-section-gap) 8px;
+        overflow: hidden;
+      }
+
+      .nav-group {
+        display: grid;
+        gap: 4px;
+      }
+
+      .nav-title {
+        padding: 0 10px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 20px;
+      }
+
+      .menu-item {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+        min-height: 28px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-compact);
+        background: transparent;
+        color: var(--text-secondary);
+        padding: 3px 8px;
+        text-align: left;
+        transition:
+          background-color 160ms ease,
+          border-color 160ms ease,
+          color 160ms ease,
+          transform 160ms ease;
+      }
+
+      .menu-item.compact {
+        grid-template-columns: 18px minmax(0, 1fr);
+      }
+
+      .sidebar .menu-item,
+      .inspector .menu-item {
+        position: relative;
+      }
+
+      .app[data-left-rail="collapsed"] .sidebar .menu-item {
+        grid-template-columns: 18px;
+        width: 32px;
+        min-height: 32px;
+        justify-content: center;
+        place-items: center;
+        margin: 0 auto;
+        padding: 0;
+      }
+
+      .app[data-left-rail="collapsed"] .sidebar .header-title,
+      .app[data-left-rail="collapsed"] .sidebar .menu-label,
+      .app[data-left-rail="collapsed"] .sidebar .nav-title {
+        display: none;
+        width: 0;
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none;
+        transition:
+          opacity 140ms ease,
+          width 180ms ease;
+      }
+
+      .app[data-left-rail="collapsed"] .settings-slot {
+        padding: 8px;
+      }
+
+      .menu-item:hover,
+      .menu-item:focus-visible {
+        background: var(--hover);
+        outline: none;
+      }
+
+      .menu-item[aria-current="page"],
+      .menu-item[aria-pressed="true"] {
+        border-color: transparent;
+        background: var(--selected);
+        color: var(--primary);
+      }
+
+      .menu-item:active {
+        transform: translateY(1px);
+      }
+
+      .menu-icon {
+        display: grid;
+        width: 18px;
+        height: 18px;
+        place-items: center;
+      }
+
+      .menu-icon svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .menu-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .main {
+        display: grid;
+        grid-template-rows: var(--header-height) minmax(0, 1fr);
+        min-width: 0;
+        min-height: 100vh;
+      }
+
+      .main-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        height: var(--header-height);
+        min-height: var(--header-height);
+        padding: 0 10px;
+        background: transparent;
+        border-bottom: 1px solid transparent;
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease;
+      }
+
+      .app[data-inspector-state="expanded"] .main-header,
+      .app[data-inspector-state="expanded"] .inspector .shell-header {
+        border-bottom-color: var(--border-strong);
+      }
+
+      .header-route-title,
+      .inspector-title {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+        min-height: 28px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-compact);
+        color: var(--text-secondary);
+        padding: 3px 8px;
+        text-align: left;
+      }
+
+      .header-left,
+      .header-actions {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .header-left {
+        gap: 4px;
+      }
+
+      .header-actions {
+        gap: 6px;
+        justify-content: end;
+      }
+
+      .icon-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        min-width: 30px;
+        height: 30px;
+        min-height: 30px;
+        padding: 0;
+      }
+
+      .icon-action .menu-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        flex: 0 0 18px;
+        line-height: 0;
+      }
+
+      .icon-action .menu-icon svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      .app[data-inspector-state="expanded"] #inspector-toggle {
+        display: none;
+      }
+
+      .header-title {
+        min-width: 0;
+        max-width: 420px;
+        color: var(--primary);
+        font-weight: 650;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .branch {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      .dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(--text-muted);
+      }
+
+      .content {
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--page) 72%, transparent);
+        backdrop-filter: blur(8px);
+        opacity: 1;
+        z-index: 20;
+        transition:
+          opacity 180ms ease,
+          backdrop-filter 180ms ease;
+      }
+
+      .modal-backdrop[hidden] {
+        display: none;
+      }
+
+      .settings-modal {
+        display: grid;
+        grid-template-columns: 260px minmax(420px, 760px);
+        width: min(1080px, calc(100vw - 64px));
+        min-height: min(720px, calc(100vh - 96px));
+        max-height: calc(100vh - 96px);
+        border: 1px solid var(--primary);
+        border-radius: var(--radius-panel);
+        background: var(--panel);
+        box-shadow: var(--shadow-e2);
+        overflow: hidden;
+        animation: modal-enter 180ms ease both;
+      }
+
+      .settings-modal-nav {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 12px;
+        min-width: 0;
+        border-right: 1px solid var(--border-strong);
+        padding: 16px;
+      }
+
+      .settings-user {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+      }
+
+      .avatar-placeholder {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--selected);
+      }
+
+      .settings-modal-body {
+        display: grid;
+        grid-template-rows: var(--header-height) minmax(0, 1fr);
+        min-width: 0;
+      }
+
+      .settings-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: var(--header-height);
+        padding: 0 16px;
+      }
+
+      .settings-modal-content {
+        min-height: 0;
+        padding: 16px;
+        overflow: auto;
+      }
+
+      .settings-modal .page-placeholder {
+        min-height: calc(min(720px, 100vh - 96px) - var(--header-height) - 32px);
+      }
+
+      .route {
+        min-height: calc(100vh - var(--header-height));
+        padding: var(--shell-section-gap) 16px 16px;
+        animation: route-enter 220ms ease both;
+      }
+
+      .route.dashboard-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+        align-content: start;
+      }
+
+      .route.chat-layout {
+        display: grid;
+        grid-template-columns: minmax(380px, 1fr);
+        gap: 0;
+        padding: 0;
+        transition: grid-template-columns 220ms ease;
+      }
+
+      .route.read-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 760px);
+        justify-content: center;
+        align-content: start;
+        padding-top: 28px;
+      }
+
+      .reader {
+        width: 100%;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-panel);
+        background: var(--panel);
+        box-shadow: var(--shadow-e1);
+        overflow: hidden;
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease,
+          box-shadow 180ms ease,
+          transform 180ms ease;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: var(--header-height);
+        border-bottom: 1px solid var(--border);
+        padding: 0 12px;
+      }
+
+      .panel-title {
+        min-width: 0;
+        overflow: hidden;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .panel-body {
+        padding: 12px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .inspector {
+        display: grid;
+        grid-template-rows: var(--header-height) minmax(0, 1fr);
+        min-width: 0;
+        border-left: 1px solid var(--border-strong);
+        background: var(--panel);
+        opacity: 0;
+        transform: translateX(12px);
+        pointer-events: none;
+        overflow: hidden;
+        transition:
+          opacity 220ms ease,
+          transform 220ms ease,
+          background-color 180ms ease,
+          border-color 180ms ease;
+      }
+
+      .inspector .shell-header {
+        justify-content: space-between;
+        border-bottom: 1px solid transparent;
+      }
+
+      .app:not([data-inspector-state="expanded"]) .inspector {
+        border-left: 0;
+        transform: translateX(0);
+      }
+
+      .app[data-inspector-state="expanded"] .inspector {
+        opacity: 1;
+        transform: translateX(0);
+        pointer-events: auto;
+      }
+
+      .resizer {
+        position: relative;
+        background: transparent;
+        cursor: col-resize;
+        opacity: 1;
+        transition: opacity 160ms ease;
+      }
+
+      .resizer:hover,
+      .resizer:focus-visible {
+        outline: none;
+      }
+
+      .sidebar-resizer {
+        cursor: col-resize;
+      }
+
+      .app[data-left-rail="collapsed"] .sidebar-resizer {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .inspector-resizer {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .app[data-inspector-state="expanded"] .inspector-resizer {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .app[data-inspector-state="expanded"] .sidebar-resizer::before,
+      .app[data-inspector-state="expanded"] .inspector-resizer::before {
+        position: absolute;
+        inset: 0 0 auto;
+        height: var(--header-height);
+        border-bottom: 1px solid var(--border-strong);
+        content: "";
+        pointer-events: none;
+      }
+
+      .layout-placeholder {
+        display: grid;
+        gap: 10px;
+        min-height: 100%;
+      }
+
+      .placeholder-block {
+        min-height: var(--slot-height, 120px);
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-panel);
+        background:
+          linear-gradient(90deg, transparent, var(--hover), transparent),
+          var(--panel-muted);
+        background-size: 220% 100%, auto;
+        color: var(--text-muted);
+        display: grid;
+        place-items: center;
+        padding: 12px;
+        text-align: center;
+        animation:
+          placeholder-sheen 2600ms ease-in-out infinite,
+          slot-enter 240ms ease both;
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease,
+          color 180ms ease,
+          transform 180ms ease;
+      }
+
+      .placeholder-block:hover {
+        transform: translateY(-1px);
+      }
+
+      .placeholder-block strong {
+        display: block;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .placeholder-block span {
+        display: block;
+        margin-top: 4px;
+        font-size: 12px;
+      }
+
+      .placeholder-block.page-placeholder {
+        min-height: calc(100vh - var(--header-height) - 32px);
+        width: 100%;
+      }
+
+      .chat-layout .placeholder-block.page-placeholder {
+        min-height: calc(100vh - var(--header-height));
+        border-radius: 0;
+        border-width: 0;
+        border-top: 1px dashed var(--border-strong);
+      }
+
+      @keyframes route-enter {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slot-enter {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes placeholder-sheen {
+        0% {
+          background-position: 180% 0, 0 0;
+        }
+        50% {
+          background-position: 20% 0, 0 0;
+        }
+        100% {
+          background-position: -120% 0, 0 0;
+        }
+      }
+
+      @keyframes modal-enter {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation-duration: 180ms;
+        animation-timing-function: ease;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 1ms !important;
+        }
+      }
+
+      .inspector-body {
+        padding: 12px;
+        overflow: auto;
+      }
+
+      .read-section {
+        border-bottom: 1px solid var(--border);
+        padding: 20px 0;
+      }
+
+      .read-section:first-child {
+        padding-top: 0;
+      }
+
+      .read-section h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+        line-height: 1.25;
+      }
+
+      .read-section p {
+        margin: 0;
+        color: var(--text-secondary);
+        line-height: 1.75;
+      }
+
+      .settings-slot {
+        padding: 8px;
+      }
+
+      .primary-action {
+        min-height: 28px;
+        border: 1px solid var(--primary);
+        border-radius: var(--radius-compact);
+        background: var(--primary);
+        color: var(--primary-text);
+        padding: 3px 10px;
+        font-weight: 650;
+      }
+
+      .ghost-action {
+        min-height: 28px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-compact);
+        background: transparent;
+        color: var(--text-secondary);
+        padding: 3px 8px;
+        transition:
+          background-color 160ms ease,
+          color 160ms ease,
+          transform 160ms ease;
+      }
+
+      .ghost-action:hover,
+      .ghost-action:focus-visible {
+        background: var(--hover);
+        outline: none;
+      }
+
+      .ghost-action:active,
+      .primary-action:active {
+        transform: translateY(1px);
+      }
+
+      .divider-dot {
+        color: var(--text-muted);
+      }
+
+      @media (max-width: 1040px) {
+        .route.dashboard-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .inspector {
+          border-left: 0;
+          border-top: 1px solid var(--border-strong);
+        }
+
+      }
+
+      @media (max-width: 720px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          min-height: auto;
+          grid-template-rows: var(--header-height) auto;
+          border-right: 0;
+        }
+
+        .sidebar-body {
+          display: none;
+        }
+
+        .settings-slot {
+          display: none;
+        }
+
+        .main {
+          min-height: calc(100vh - var(--header-height));
+        }
+
+        .main-header {
+          grid-template-columns: 1fr;
+          height: auto;
+          min-height: var(--header-height);
+          gap: 8px;
+          padding: 8px 10px;
+        }
+
+        .header-actions {
+          justify-content: start;
+        }
+
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="shell-header">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 20 8v8l-8 4-8-4V8l8-4Z" /><path d="M12 8v8M8 10l4 2 4-2" /></svg></span>
+          <span class="header-title">Mystra</span>
+          <button class="ghost-action icon-action rail-toggle" type="button" id="left-rail-toggle" aria-label="收起左侧栏" title="收起左侧栏">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16" /></svg></span>
+          </button>
+        </div>
+
+        <div class="sidebar-body">
+          <section class="nav-group" aria-label="主菜单" id="primary-nav"></section>
+          <section class="nav-group" aria-label="Projects">
+            <div class="nav-title">Projects</div>
+            <button class="menu-item compact" type="button" data-route="project">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M4 6h7l2 3h7v9H4V6Z" /></svg></span>
+              <span class="menu-label">mystra</span>
+            </button>
+            <button class="menu-item compact" type="button" data-route="new-job">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9" /></svg></span>
+              <span class="menu-label">025 Web UI Shell</span>
+            </button>
+          </section>
+        </div>
+
+        <div class="settings-slot">
+          <button class="menu-item compact" type="button" data-settings-open>
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.4 1.2 1.1-1.8 3.1-1.6-.5a7 7 0 0 1-1.5.9l-.3 1.6H9l-.3-1.6a7 7 0 0 1-1.5-.9l-1.6.5-1.8-3.1L5 13.4a7 7 0 0 1 0-1.8l-1.2-1.1 1.8-3.1 1.6.5A7 7 0 0 1 8.7 7L9 5.4h6l.3 1.6a7 7 0 0 1 1.5.9l1.6-.5 1.8 3.1-1.2 1.1a7 7 0 0 1 0 1.8Z" /></svg></span>
+            <span class="menu-label">Settings</span>
+          </button>
+        </div>
+      </aside>
+      <div class="resizer sidebar-resizer" id="sidebar-resizer" role="separator" aria-label="调整主侧边栏宽度"></div>
+
+      <main class="main">
+        <header class="main-header">
+          <div class="header-left">
+            <div class="header-route-title" aria-current="page">
+              <span class="menu-icon" id="route-icon"><svg viewBox="0 0 24 24"><path d="M4 13h7V4H4v9Z" /><path d="M13 20h7V4h-7v16Z" /><path d="M4 20h7v-5H4v5Z" /></svg></span>
+              <span class="menu-label" id="route-title">Overview</span>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="ghost-action icon-action" type="button" id="inspector-toggle" aria-label="打开右侧栏" title="打开右侧栏">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16" /></svg></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="content">
+          <div id="route-host"></div>
+        </section>
+      </main>
+      <div class="resizer inspector-resizer" id="inspector-resizer" role="separator" aria-label="调整右侧栏宽度"></div>
+      <aside class="inspector" id="inspector">
+        <div class="shell-header">
+          <div class="inspector-title">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" /><path d="M8 8h8M8 12h8M8 16h5" /></svg></span>
+            <span class="menu-label">Right sidebar</span>
+          </div>
+          <button class="ghost-action icon-action" type="button" data-inspector-action="close" aria-label="收起右侧栏" title="收起右侧栏">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16" /></svg></span>
+          </button>
+        </div>
+        <div class="inspector-body grid">
+          <div class="placeholder-block page-placeholder"><div><strong>right sidebar placeholder</strong><span>content omitted</span></div></div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="modal-backdrop" id="settings-modal-backdrop" hidden>
+      <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+        <aside class="settings-modal-nav" aria-label="Settings sections">
+          <div class="settings-user">
+            <span class="avatar-placeholder" aria-hidden="true"></span>
+            <div>
+              <strong class="menu-label">arcadia.han</strong>
+              <span class="menu-label">Mystra</span>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="menu-item compact" type="button" aria-pressed="true">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.4 1.2 1.1-1.8 3.1-1.6-.5a7 7 0 0 1-1.5.9l-.3 1.6H9l-.3-1.6a7 7 0 0 1-1.5-.9l-1.6.5-1.8-3.1L5 13.4a7 7 0 0 1 0-1.8l-1.2-1.1 1.8-3.1 1.6.5A7 7 0 0 1 8.7 7L9 5.4h6l.3 1.6a7 7 0 0 1 1.5.9l1.6-.5 1.8 3.1-1.2 1.1a7 7 0 0 1 0 1.8Z" /></svg></span>
+              <span class="menu-label">General</span>
+            </button>
+            <button class="menu-item compact" type="button">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18" /><path d="M5 8h14" /><path d="M7 16h10" /></svg></span>
+              <span class="menu-label">Themes</span>
+            </button>
+            <button class="menu-item compact" type="button">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M7 8h10M7 16h10" /><path d="M8 12h8" /></svg></span>
+              <span class="menu-label">MCP Servers</span>
+            </button>
+            <button class="menu-item compact" type="button">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="m13 3-8 11h6l-1 7 8-11h-6l1-7Z" /></svg></span>
+              <span class="menu-label">Skills</span>
+            </button>
+          </div>
+        </aside>
+        <div class="settings-modal-body">
+          <header class="settings-modal-header">
+            <strong id="settings-modal-title">General</strong>
+            <button class="ghost-action icon-action" type="button" data-settings-close aria-label="关闭设置" title="关闭设置">
+              <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></span>
+            </button>
+          </header>
+          <div class="settings-modal-content">
+            <div class="placeholder-block page-placeholder"><div><strong>settings modal placeholder</strong><span>content omitted</span></div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <template id="dashboard-template">
+      <div class="route dashboard-layout">
+        <div class="placeholder-block page-placeholder"><div><strong>dashboardLayout placeholder</strong><span>content omitted</span></div></div>
+      </div>
+    </template>
+
+    <template id="chat-template">
+      <div class="route chat-layout" id="chat-route">
+        <div class="placeholder-block page-placeholder"><div><strong>chatLayout placeholder</strong><span>content omitted</span></div></div>
+      </div>
+    </template>
+
+    <template id="read-template">
+      <div class="route read-layout">
+        <article class="reader">
+          <div class="placeholder-block page-placeholder"><div><strong>readLayout placeholder</strong><span>content omitted</span></div></div>
+        </article>
+      </div>
+    </template>
+
+    <script>
+      const icons = {
+        home: '<svg viewBox="0 0 24 24"><path d="m4 11 8-7 8 7" /><path d="M6 10v10h12V10" /></svg>',
+        inbox: '<svg viewBox="0 0 24 24"><path d="M4 5h16l-2 10H6L4 5Z" /><path d="M8 15a4 4 0 0 0 8 0" /></svg>',
+        plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>',
+        project: '<svg viewBox="0 0 24 24"><path d="M4 6h7l2 3h7v9H4V6Z" /></svg>',
+        clock: '<svg viewBox="0 0 24 24"><path d="M12 6v6l4 2" /><path d="M21 12a9 9 0 1 1-9-9" /></svg>',
+      };
+
+      const themes = {
+        highContrast: {
+          name: "High contrast",
+          seed: {
+            page: "#dde1e9",
+            sidebar: "#d0d5e0",
+            header: "#d9dde6",
+            panel: "#eef1f6",
+            accent: "#2f62d6",
+            text: "#101827",
+            inverse: "#ffffff",
+            neutralLight: "#ffffff",
+            neutralDark: "#111827",
+            quiet: "#cbd3df",
+            success: "#17734f",
+            warning: "#a45c00",
+            error: "#b42335",
+          },
+        },
+        slate: {
+          name: "Slate",
+          seed: {
+            page: "#171b22",
+            sidebar: "#202631",
+            header: "#1d232d",
+            panel: "#242b36",
+            accent: "#78a6ff",
+            text: "#f4f7fb",
+            inverse: "#111827",
+            neutralLight: "#f8fafc",
+            neutralDark: "#111827",
+            quiet: "#111827",
+            success: "#72c9a4",
+            warning: "#e2a866",
+            error: "#f18a8a",
+          },
+        },
+      };
+
+      const routes = [
+        { id: "overview", label: "Overview", meta: "main", icon: icons.home, template: "dashboard-template", primary: true },
+        { id: "inbox", label: "Inbox", meta: "placeholder", icon: icons.inbox, template: "read-template", primary: true },
+        { id: "new-job", label: "New Job", meta: "chatLayout", icon: icons.plus, template: "chat-template", primary: true },
+        { id: "project", label: "Projects", meta: "readLayout", icon: icons.project, template: "read-template", primary: true },
+        { id: "recent-jobs", label: "Recent Jobs", meta: "dashboardLayout", icon: icons.clock, template: "dashboard-template", primary: false },
+      ];
+
+      function hexToRgb(hex) {
+        const value = hex.replace("#", "");
+        return {
+          r: Number.parseInt(value.slice(0, 2), 16),
+          g: Number.parseInt(value.slice(2, 4), 16),
+          b: Number.parseInt(value.slice(4, 6), 16),
+        };
+      }
+
+      function rgbToHex({ r, g, b }) {
+        return `#${[r, g, b].map((part) => Math.max(0, Math.min(255, Math.round(part))).toString(16).padStart(2, "0")).join("")}`;
+      }
+
+      function mix(a, b, weight) {
+        const left = hexToRgb(a);
+        const right = hexToRgb(b);
+        return rgbToHex({
+          r: left.r * (1 - weight) + right.r * weight,
+          g: left.g * (1 - weight) + right.g * weight,
+          b: left.b * (1 - weight) + right.b * weight,
+        });
+      }
+
+      function alpha(hex, value) {
+        const { r, g, b } = hexToRgb(hex);
+        return `rgba(${r}, ${g}, ${b}, ${value})`;
+      }
+
+      function deriveTheme(theme) {
+        const seed = theme.seed;
+        const isDark = seed.inverse === seed.neutralDark;
+        const base = isDark ? seed.neutralDark : seed.neutralLight;
+        return {
+          "--page": seed.page,
+          "--sidebar": seed.sidebar,
+          "--header": seed.header,
+          "--panel": seed.panel,
+          "--panel-muted": mix(seed.panel, seed.quiet, 0.26),
+          "--input": mix(seed.panel, base, isDark ? 0.04 : 0.34),
+          "--hover": alpha(seed.accent, isDark ? 0.14 : 0.1),
+          "--selected": alpha(seed.accent, isDark ? 0.2 : 0.13),
+          "--pressed": alpha(seed.accent, isDark ? 0.28 : 0.2),
+          "--text": seed.text,
+          "--text-secondary": mix(seed.text, seed.page, isDark ? 0.28 : 0.22),
+          "--text-muted": mix(seed.text, seed.page, isDark ? 0.46 : 0.4),
+          "--text-inverse": seed.inverse,
+          "--border": mix(seed.text, seed.page, isDark ? 0.64 : 0.68),
+          "--border-strong": mix(seed.text, seed.page, isDark ? 0.52 : 0.54),
+          "--primary": seed.accent,
+          "--primary-hover": mix(seed.accent, seed.text, 0.12),
+          "--primary-soft": alpha(seed.accent, 0.14),
+          "--primary-text": seed.inverse,
+          "--success": seed.success,
+          "--warning": seed.warning,
+          "--error": seed.error,
+          "--focus": seed.accent,
+          "--shadow-e1": `0 1px 1px ${alpha(seed.text, isDark ? 0.18 : 0.1)}`,
+          "--shadow-e2": `0 12px 34px ${alpha(seed.text, isDark ? 0.28 : 0.16)}`,
+        };
+      }
+
+      function applyTheme(name) {
+        const tokens = deriveTheme(themes[name]);
+        for (const [key, value] of Object.entries(tokens)) {
+          document.documentElement.style.setProperty(key, value);
+        }
+        document.documentElement.dataset.theme = name;
+      }
+
+      const nav = document.getElementById("primary-nav");
+      const app = document.getElementById("app");
+      const host = document.getElementById("route-host");
+      const routeTitle = document.getElementById("route-title");
+      const routeIcon = document.getElementById("route-icon");
+      const inspectorToggle = document.getElementById("inspector-toggle");
+      const leftRailToggle = document.getElementById("left-rail-toggle");
+      const sidebarResizer = document.getElementById("sidebar-resizer");
+      const inspectorResizer = document.getElementById("inspector-resizer");
+      const settingsModal = document.getElementById("settings-modal-backdrop");
+      let activeRouteId = "overview";
+
+      function renderNav(activeId) {
+        nav.innerHTML = "";
+        for (const route of routes.filter((item) => item.primary)) {
+          const button = document.createElement("button");
+          button.className = "menu-item";
+          button.type = "button";
+          button.dataset.route = route.id;
+          button.setAttribute("aria-current", route.id === activeId ? "page" : "false");
+          button.innerHTML = `<span class="menu-icon">${route.icon}</span><span class="menu-label">${route.label}</span>`;
+          button.addEventListener("click", () => activate(route.id));
+          nav.append(button);
+        }
+      }
+
+      function activate(routeId, options = {}) {
+        const updateRoute = () => {
+          const route = routes.find((item) => item.id === routeId) || routes[0];
+          const template = document.getElementById(route.template);
+          activeRouteId = route.id;
+          routeTitle.textContent = route.label;
+          routeIcon.innerHTML = route.icon;
+          host.replaceChildren(template.content.cloneNode(true));
+          renderNav(route.id);
+          setInspectorState(options.inspector ? "expanded" : "closed", { updateHash: false });
+          const nextHash = options.inspector ? "#new-job-inspector" : `#${route.id}`;
+          history.replaceState(null, "", nextHash);
+          bindResizers();
+        };
+
+        if (!options.instant && document.startViewTransition) {
+          document.startViewTransition(updateRoute);
+        } else {
+          updateRoute();
+        }
+      }
+
+      function routeFromHash() {
+        if (location.hash === "#new-job-inspector") {
+          return { id: "new-job", inspector: true };
+        }
+        return { id: location.hash.replace("#", "") || "overview", inspector: false };
+      }
+
+      function setInspectorState(state, options = {}) {
+        const nextState = state === "expanded" ? "expanded" : "closed";
+        app.dataset.inspectorState = nextState;
+        inspectorToggle.setAttribute("aria-label", nextState === "closed" ? "打开右侧栏" : "关闭右侧栏");
+        inspectorToggle.setAttribute("title", nextState === "closed" ? "打开右侧栏" : "关闭右侧栏");
+        const nextHash = activeRouteId === "new-job"
+          ? nextState === "closed" ? "#new-job" : "#new-job-inspector"
+          : `#${activeRouteId}`;
+        if (options.updateHash !== false) history.replaceState(null, "", nextHash);
+      }
+
+      function bindResizers() {
+        if (!sidebarResizer.dataset.bound) {
+          sidebarResizer.dataset.bound = "true";
+          bindHorizontalResizer(sidebarResizer, {
+            getStartWidth: () => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width")),
+            update: (next) => document.documentElement.style.setProperty("--sidebar-width", `${Math.round(next)}px`),
+            min: 200,
+            max: 360,
+          });
+        }
+        if (!inspectorResizer.dataset.bound) {
+          inspectorResizer.dataset.bound = "true";
+          bindHorizontalResizer(inspectorResizer, {
+            getStartWidth: () => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--inspector-width")),
+            update: (next) => document.documentElement.style.setProperty("--inspector-width", `${Math.round(next)}px`),
+            min: 260,
+            max: 460,
+            invert: true,
+          });
+        }
+      }
+
+      function bindHorizontalResizer(resizer, config) {
+        let startX = 0;
+        let startWidth = 0;
+        const onMove = (event) => {
+          const delta = (event.clientX - startX) * (config.invert ? -1 : 1);
+          const next = Math.max(config.min, Math.min(config.max, startWidth + delta));
+          config.update(next);
+        };
+        const onUp = () => {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+        };
+        resizer.addEventListener("pointerdown", (event) => {
+          if (resizer === sidebarResizer && app.dataset.leftRail === "collapsed") return;
+          if (resizer === inspectorResizer && app.dataset.inspectorState !== "expanded") return;
+          startX = event.clientX;
+          startWidth = config.getStartWidth();
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp);
+        });
+      }
+
+      inspectorToggle.addEventListener("click", () => {
+        setInspectorState(app.dataset.inspectorState === "closed" ? "expanded" : "closed");
+      });
+
+      leftRailToggle.addEventListener("click", () => {
+        const collapsed = app.dataset.leftRail === "collapsed";
+        app.dataset.leftRail = collapsed ? "expanded" : "collapsed";
+        leftRailToggle.setAttribute("aria-label", collapsed ? "收起左侧栏" : "展开左侧栏");
+        leftRailToggle.setAttribute("title", collapsed ? "收起左侧栏" : "展开左侧栏");
+      });
+
+      document.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-inspector-action]")?.dataset.inspectorAction;
+        if (!action) return;
+        if (action === "close") setInspectorState("closed");
+      });
+
+      function setSettingsModal(open) {
+        settingsModal.hidden = !open;
+      }
+
+      document.addEventListener("click", (event) => {
+        if (event.target.closest("[data-settings-open]")) setSettingsModal(true);
+        if (event.target.closest("[data-settings-close]")) setSettingsModal(false);
+        if (event.target === settingsModal) setSettingsModal(false);
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !settingsModal.hidden) setSettingsModal(false);
+      });
+
+      document.querySelectorAll("[data-route]").forEach((button) => {
+        button.addEventListener("click", () => activate(button.dataset.route));
+      });
+
+      applyTheme("highContrast");
+      app.dataset.leftRail = "expanded";
+      app.dataset.inspectorState = "closed";
+      const initial = routeFromHash();
+      activate(initial.id, { inspector: initial.inspector, instant: true });
+      window.addEventListener("hashchange", () => {
+        const next = routeFromHash();
+        activate(next.id, { inspector: next.inspector });
+      });
+    </script>
+  </body>
+</html>

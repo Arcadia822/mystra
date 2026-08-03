@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>025-webui</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"025-webui","title":"025-webui","prototypeHref":"mockups/index.html?v=1785032536871","generatedAt":"2026-08-03T10:31:29.882Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：MVP 操作 Web UI 框架\n\n**Feature Branch**: 已合并到本地 `main`，保留逻辑 feature id `025-webui`\n**Created**: 2026-05-19  \n**Status**: Draft  \n**Input**: 用户描述：“简单补充 025 的 spec，作为 mvp 版本的操作 ui”；后续范围决策：`025-webui` 只聚焦前端框架层，并纳入主题/design-system、国际化、主侧边栏、共享 layout、基础组件、响应式和未来 Electron 兼容边界。\n**Consolidation**: 2026-08-03 起，025 是唯一保留的未完成 UI spec；原 `026`–`031` 的页面探索材料并入 025，已完成的 035/036 对象页继续作为当前代码事实。025 的 shell 实施将显式迁移现有导航，而不是假装当前代码已经采用目标 taxonomy。\n\n## 用户场景与测试 *(mandatory)*\n\n### 用户故事 1 - 操作员使用已批准的 Shell 框架（优先级：P1）\n\n作为内部操作员，我希望 MVP UI 提供稳定的 shell、已批准的顶层导航和共享页面框架，以便我能识别 Mystra 的人类操作界面，同时不让 shell 拥有页面级业务行为。\n\n**优先级原因**：第一个有用的 UI 切片是框架本身：导航、布局、路由框架和共享 chrome。Mystra 仍然以 API 为真相，并保持 agent-first；shell 应先存在，而不是让任意一个页面先变成产品本体。\n\n**独立测试**：在桌面和窄视口打开应用，确认 shell 只暴露已批准的顶层菜单，为每个路由提供一致页面框架，并且不依赖页面级功能先实现才能可用。\n\n**验收场景**：\n\n1. **前提** 操作员打开应用 shell，**当** 主导航渲染，**则** primary navigation 只包含 `Overview`、`Inbox`、`New Job` 和 `Projects`；`Settings` 作为 shell action 打开 modal，`Recent Jobs` 作为 secondary route 保持可达。\n2. **前提** 操作员在已批准路由之间切换，**当** 每个路由加载，**则** shell 提供一致的导航、页面框架和共享视觉结构，即使该页面的专属 feature spec 尚未实现。\n3. **前提** 某个已批准页面目前只有框架级支持，**当** 操作员打开它，**则** UI 可以显示占位或只读框架内容，而不是发明属于后续实现切片的页面行为。\n\n---\n\n### 用户故事 2 - 后续页面实现切片接入 Shell 而不重新定义 Shell（优先级：P1）\n\n作为未来的 Mystra agent 或前端维护者，我希望页面级工作落在稳定的 shell 合同之后，以便 `Overview`、`Inbox`、`New Job`、`Projects`、`Settings` 和 `Recent Jobs` 可以在同一 025 边界内按独立实现切片演进，而不反复改变产品分类或共享 UI 所有权边界。\n\n**优先级原因**：页面功能需要拆成独立实现切片。025 必须定义什么属于框架、什么必须延后，否则下一个 agent 会再次即兴发挥。非常可预期。也非常不必要。\n\n**独立测试**：审查 shell 合同，确认后续页面实现切片可以向某个已批准路由添加具体内容，而不改变顶层导航、管理面层级或 shell 级偏好设置。\n\n**验收场景**：\n\n1. **前提** 后续实现切片定义具体的 `Recent Jobs` 行为，**当** 实现该工作，**则** 它接入现有已批准 shell 的 secondary route，而不是添加新的主导航入口或替换 shell 所有权。\n2. **前提** 某个页面能力需要新数据、动作或视觉解释，**当** 指定该能力，**则** 它由 025 中明确的实现切片拥有，而不是悄悄扩张 shell 任务。\n3. **前提** shell 框架已经存在，**当** 后续页面实现切片增量到来，**则** 它们可以独立交付，而不迫使全局导航、布局原语或共享偏好设置重设计。\n\n---\n\n### 用户故事 3 - 操作员跨设备、主题和语言环境使用 Shell（优先级：P2）\n\n作为内部操作员，我希望 shell 框架处理响应式导航、外观、主题和语言环境脚手架，以便后续页面实现切片继承可用的横切基础，而不是每个页面重新发明一遍。\n\n**优先级原因**：响应式、视觉偏好和本地化属于框架问题，应在 shell 层解决一次，而不是每个页面重复争论。\n\n**独立测试**：在窄视口和宽视口打开 shell，切换 light/dark 外观、主题和语言环境，确认即使页面级功能仍是占位，shell 也保持可用。\n\n**验收场景**：\n\n1. **前提** 操作员使用窄视口，**当** 在已批准路由之间导航，**则** shell 仍可使用，且主要导航策略不是横向滚动。\n2. **前提** 操作员切换 light/dark 外观或主题，**当** shell 重新渲染，**则** 共享导航和页面框架在所有已批准路由中保持视觉一致。\n3. **前提** 操作员切换语言环境，**当** 再次访问 shell，**则** 共享导航和框架自有文案显示所选语言或可预测 fallback。\n\n---\n\n### 用户故事 4 - 前端维护者复用共享布局和组件（优先级：P2）\n\n作为前端维护者，我希望 shell 框架提供主侧边栏、共享 layout archetype 和与 Mystra design-system 方向一致的基础组件层，以便后续页面实现切片能组合一致 UI，而不是临时重建结构和原语。\n\n**优先级原因**：如果框架现在不拥有 sidebar、layout mode 和 base components，每个后续页面实现切片都会从侧门把框架决策塞回来。这并不优雅，只是可预测。\n\n**独立测试**：审查 shell 合同，确认后续页面实现切片可以选择已批准 layout archetype 和共享基础组件，而不用重新定义 sidebar、token model 或基础交互模式。\n\n**验收场景**：\n\n1. **前提** 操作员使用 shell，**当** 显示导航，**则** 主侧边栏仍是已批准顶层路由的共享主导航容器。\n2. **前提** 后续页面实现切片需要会话式、仪表盘式或阅读式界面，**当** 实现它，**则** 它可以接入 `chatLayout`、`dashboardLayout` 或 `readLayout`，而不是默认发明新的顶层框架模型。\n3. **前提** 后续页面实现切片需要按钮、输入框、badge、panel、list 或类似原语，**当** 实现它，**则** 它可以依赖框架共享组件层和 design-system 对齐，而不是引入无关视觉语法。\n\n---\n\n### 用户故事 5 - 未来桌面封装保留同一框架合同（优先级：P3）\n\n作为未来 Mystra 维护者，我希望 shell 框架与后续 Electron wrapper 兼容，以便 Mystra 可以获得桌面 shell，而不用重写导航、布局、主题、本地化或基础组件合同。\n\n**优先级原因**：owner 明确希望未来兼容 Electron。这应被视为框架切片的架构护栏，而不是发布前一周添加的道歉。\n\n**独立测试**：审查框架要求，确认 shell concern 的表达既能运行在当前 web delivery 形态中，也能兼容未来 Electron-hosted shell。\n\n**验收场景**：\n\n1. **前提** Mystra 当前以 web control-plane UI 交付，**当** 实现 shell 框架，**则** 它不假设浏览器唯一产品模型，以至于未来 Electron 需要重新设计路由分类、主题处理或布局所有权。\n2. **前提** 未来 Electron shell 包裹同一前端，**当** 迁移发生，**则** 主侧边栏、共享布局、i18n 和主题系统保持可复用，而不是成为 web-only 特例。\n3. **前提** 某个框架能力确实依赖 host 环境，**当** 指定或实现它，**则** 环境特定 seam 必须显式存在，而不是藏在共享 shell 行为内部。\n\n---\n\n### 边界情况\n\n- 当已批准页面还没有专属 feature spec 时怎么办？shell 仍应渲染有效路由，显示占位或只读框架，而不是省略路由或发明页面语义。\n- 当页面级后端能力尚不足以支持编辑或实时数据时怎么办？框架可以保持 inspection-first，不应伪装为已完成产品行为。\n- 当小屏导航空间不足时怎么办？shell 应保留所有已批准菜单入口，而不是为移动端创造不同产品分类。\n- 当选中主题或语言环境不完整时怎么办？shell 应可预测 fallback，同时保持导航可理解。\n- 当页面形态不明显适配 `chatLayout`、`dashboardLayout` 或 `readLayout` 时怎么办？默认映射到已批准 archetype，除非 025 的后续变更证明需要新的框架级 layout。\n- 当页面设计偏离共享 design system 时怎么办？页面应论证对框架的扩展，而不是静默绕过共享 token 和原语。\n- 当未来 Electron host 引入桌面专属 affordance 时怎么办？框架应保持共享 UI 合同可移植，并把 host-only 行为隔离在显式 seam。\n- 当后续页面实现切片试图引入新的主菜单或 UI-owned 管理语义时怎么办？该变化超出既定 shell 范围，必须先更新 025 并对照项目管理面层级证明。\n\n## 需求 *(mandatory)*\n\n### 功能需求\n\n- **FR-001**: 系统 MUST 提供内部 MVP web UI 框架，作为 Mystra 现有管理能力之上的二级操作与 inspection shell。\n- **FR-002**: MVP UI 框架的 primary navigation MUST 只包含 `Overview`、`Inbox`、`New Job` 和 `Projects`；`Settings` MUST 是 shell action/modal，`Recent Jobs` MUST 是可直接访问的 secondary route。\n- **FR-003**: 本 spec MUST 只拥有 shell 级 concern，包括已批准导航、路由框架、共享布局结构、共享视觉语言、shell-wide preference plumbing 和未来兼容 host-shell 边界。\n- **FR-004**: 本 spec MUST NOT 把页面探索材料伪装为已实现产品行为；`Overview`、`Inbox`、`New Job`、`Projects`、`Settings` 或 `Recent Jobs` 的具体行为 MUST 作为 025 内独立实现切片明确计划和验证。\n- **FR-005**: 每个已批准 navigation surface MUST 有路由或等价 shell entry，以便在页面级功能实现前导航模型已经具体。\n- **FR-006**: 当某个已批准路由的专属 feature spec 尚未落地时，shell MUST 允许该路由渲染 placeholder、unavailable 或 read-only 框架内容。\n- **FR-007**: shell MUST 提供主侧边栏，作为已批准 primary routes 的共享主导航容器。\n- **FR-008**: shell MUST 定义并拥有三个核心 layout archetype：`chatLayout`、`dashboardLayout` 和 `readLayout`。\n- **FR-009**: 后续页面级 spec MUST 默认组合到 `chatLayout`、`dashboardLayout` 或 `readLayout`，除非单独论证的框架变更扩展已批准 layout 集合。\n- **FR-010**: shell MUST 为各已批准路由使用的常见 UI 原语提供共享基础组件层。\n- **FR-011**: 基础组件层和 shell 视觉语言 MUST 与 Mystra 的 Claude design-system 方向保持一致，以便主题、token 和组件行为在框架内一致。\n- **FR-012**: shell MUST 为导航、页面框架和共享交互模式提供跨路由一致结构，而不是让每个页面定义不兼容 shell。\n- **FR-013**: shell MUST 在支持的窄视口和宽视口中提供共享响应式行为。\n- **FR-014**: shell MUST 支持 light mode 和 dark mode。\n- **FR-015**: 当产品定义不同视觉主题时，shell MUST 支持超出 light/dark 外观模式的主题切换。\n- **FR-016**: shell MUST 支持国际化，使已批准导航和框架自有文案可以用受支持语言或可预测 fallback 呈现。\n- **FR-017**: shell MUST 保持项目管理面层级：API 为真相，skill/MCP 和 CLI 仍是优先 programmable interfaces；UI 框架 MUST NOT 成为管理语义的唯一 owner。\n- **FR-018**: shell MUST 将 workspace 视为 run-scoped execution-context 概念，MUST NOT 用 workspace 表示 hosted product structure 的 tenancy。\n- **FR-019**: MVP shell 框架 MUST 保持 private-operations focused，MUST NOT 在可用前要求 caller auth、logs API、retry API、public SaaS tenancy management 或其他当前 out-of-scope platform features。\n- **FR-020**: 025 的后续页面实现切片 MUST 能在不改变已批准 navigation taxonomy 或 shell-level ownership model 的前提下，为某个已批准 surface 添加路由内容、动作和数据呈现。\n- **FR-021**: shell 框架 MUST 保持与未来 Electron host 的兼容性，使导航、layout archetype、theme system、internationalization 和 base components 可复用，而无需重新定义框架合同。\n- **FR-022**: 未来 Electron shell 所需的任何环境特定行为 MUST 被隔离在显式 seam 之后，而不是作为 web-only 假设嵌入共享框架合同。\n\n### 关键实体\n\n- **Operations Shell**: 组织顶层导航和共享页面框架的框架级 UI 容器。\n- **Main Sidebar**: 已批准顶层路由的共享主导航栏。\n- **Navigation Model**: 已批准顶层菜单集合及其路由身份。\n- **Page Frame Contract**: 后续页面级 spec 添加内容时继承的共享 shell 结构。\n- **Layout Archetypes**: 已批准框架布局 `chatLayout`、`dashboardLayout` 和 `readLayout`。\n- **Base Component Layer**: 各路由共享的 UI 原语和交互模式集合。\n- **Theme System**: 框架拥有的主题、token 和外观模型，与 Mystra Claude design-system 方向对齐。\n- **Shell Preferences**: 框架拥有的 appearance、theme、locale 和其他跨路由共享 UI 设置。\n- **Placeholder Route State**: 已批准页面在专属 feature spec 尚未实现时的有效 shell-level 状态。\n- **Host Shell Compatibility Boundary**: 保持共享 UI 可在当前 web host 与未来 Electron host 之间移植的框架约束。\n\n## 成功标准 *(mandatory)*\n\n### 可衡量结果\n\n- **SC-001**: MVP UI 的 primary navigation 只暴露 `Overview`、`Inbox`、`New Job` 和 `Projects`；`Settings` 与 `Recent Jobs` 仍按各自 shell action/secondary route 语义可达，不出现额外主导航区域。\n- **SC-002**: shell 提供主侧边栏以及已批准的 `chatLayout`、`dashboardLayout` 和 `readLayout` archetype，作为后续页面实现切片可复用框架原语。\n- **SC-003**: shell 提供共享主题/design-system 对齐、国际化脚手架、基础组件和响应式行为，后续页面实现切片可继承而不重新定义。\n- **SC-004**: 操作员可访问每个已批准 navigation surface，并看到一致的 shell-valid 页面框架，即使页面级行为被延后。\n- **SC-005**: 后续页面级 spec 可添加具体路由行为，而不改变已批准 shell taxonomy 或重新定义共享 layout、component 和 preference。\n- **SC-006**: 操作员可在窄视口和宽视口使用 shell，并可切换 light/dark mode、theme 和受支持语言，而不破坏 shell 导航。\n- **SC-007**: 同一框架合同可用于当前 web host，并且不会以阻塞未来 Electron wrapper 的方式被指定。\n- **SC-008**: UI 框架保持为 API、skill/MCP 和 CLI 管理面的二级辅助界面，不需要 MVP excluded platform capabilities 才能有用。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：025-webui\n\n## 摘要\n\n025 定义 Mystra MVP 操作 Web UI 的框架层能力。它提供面向人类操作者的稳定 shell：统一导航、侧边栏、路由承载、布局范式、基础组件期望、主题与本地化脚手架、响应式行为，以及未来 Electron 宿主兼容边界。\n\n本功能刻意不把页面探索材料等同于已实现业务行为。`Overview`、`Inbox`、`New Job`、`Projects`、`Settings` 和 `Recent Jobs` 的业务语义、数据解释与操作动作，将作为 025 内独立实现切片接入这个 shell。\n\n## 功能地图\n\n- 建立 Mystra MVP 的操作型 Web UI shell。\n- 固定 primary navigation：`Overview`、`Inbox`、`New Job`、`Projects`。\n- 固定 secondary surfaces：`Settings` shell modal 与可直接访问的 `Recent Jobs` route。\n- 为已批准页面提供共享侧边栏与路由框架。\n- 定义共享布局范式：`chatLayout`、`dashboardLayout`、`readLayout`。\n- 建立 shell 基础组件层，供后续页面复用。\n- 保留主题、外观、本地化与响应式脚手架。\n- 为未来 Electron 宿主保留兼容边界，但不提前实现桌面专属能力。\n\n## 边界\n\n- API 仍是管理能力的事实来源。\n- Skill/MCP 与 CLI 仍是优先的可编程管理界面。\n- 具体页面行为按 025 内独立实现切片承担，不能由 shell 重构顺带臆造。\n- `workspace` 仍表示 run-scoped 执行上下文，不表示租户或产品组织。\n- MVP 排除项继续排除：caller auth、logs API、retry API、公开 SaaS 租户管理、Kubernetes sandbox 以及相关平台能力。\n\n## 分阶段能力图\n\n- 阶段 1：交付共享 shell、固定导航、路由框架和可安全占位的页面槽位。\n- 阶段 2：允许页面级 spec 接入具体路由内容，但不重新定义全局 shell taxonomy。\n- 阶段 3：通过显式宿主边界扩展未来 Electron packaging，而不是把宿主行为混入 Web shell。\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：025-webui\n\n## Owner 评审\n\n- [ ] 确认 primary navigation 严格为 `Overview`、`Inbox`、`New Job`、`Projects`，并确认 `Settings` modal 与 `Recent Jobs` secondary route 的可达性。\n- [ ] 确认 025 只负责 shell/framework 范围，不吞并页面级业务行为。\n- [ ] 确认并入 025 的页面探索材料仍与已实现行为分离，后续按独立实现切片推进。\n- [ ] 确认 Web UI shell 仍低于 API、Skill/MCP 和 CLI 等管理事实来源。\n- [ ] 确认 `prototype.md` 已提供可打开的独立 HTML 原型入口，而不是把文字说明伪装成原型。\n\n## Spec 就绪度\n\n- [ ] `spec.md` 已描述 shell 层用户场景、需求、实体与成功标准。\n- [ ] 框架负责的事项已经明确：导航、侧边栏、路由承载、布局范式、基础组件、主题、本地化、响应式与 Electron 兼容边界。\n- [ ] 被推迟的页面行为已与 shell 行为分离。\n- [ ] MVP 排除项足够可见，避免后续 agent 把它们偷偷塞回当前切片。\n- [ ] 面向用户、评审者和后续 agent 的说明默认使用中文，必要英文仅保留为标识符、路径、命令或产品名。\n\n## 后续插件检查\n\n- [ ] `FEATURES` tab 通过固定路径加载本文件的同级 `features.md`。\n- [ ] `CHECKLISTS` tab 通过固定路径加载本文件。\n- [ ] `PROTOTYPE` tab 通过固定路径加载 `prototype.md`，并由该文件指向独立 HTML 原型。\n- [ ] renderer 不解析 `spec.md` heading，也不从标准 Spec-Kit 文件中推断产品结构。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# 原型：025-webui\n\n## 原型入口\n\n- [打开交互式高保真 HTML 原型](mockups/index.html)\n\n## 覆盖范围\n\n该原型是独立 HTML 页面，不再引用截图。它用于 025 的 shell/framework 评审，只展示页面级 layout placeholder，不展示任何页面业务内容或组件结构。\n\n- `Overview`：单个 `dashboardLayout` 页面级 placeholder。\n- `Inbox`：单个 `readLayout` 页面级 placeholder。\n- `New Job`：单个 `chatLayout` 页面级 placeholder。\n- `Settings`：左下角入口打开 modal 组件，不再作为 route 页面。\n- `Projects`：primary navigation 中的项目入口，复用已完成的 Project object pages。\n- `Recent Jobs`：保留为可直接访问的非主菜单 route，用于验证 secondary route 兼容性。\n- 左侧 sidebar 保留 `Projects` 分组与 project 下的 job 列表；导航行不展示 layout 类型说明。\n\n## 使用方式\n\n1. 打开本 feature 的 Spec View：`specs/025-webui/index.html`。\n2. 切换到 `PROTOTYPE` tab。\n3. 点击上方原型入口，在独立页面打开 `mockups/index.html`。\n4. 在原型左侧导航中切换 route，检查 navigation、layout archetypes、placeholder framing 与视觉方向是否一致。\n5. 拖动左侧栏分割线，检查主侧边栏宽度调整动画。\n6. 收起/展开左侧栏，检查 icon rail 状态下导航仍可识别、居中且保持稳定命中区域。\n7. 使用主 header 右侧 icon 打开右侧栏，检查右侧栏与主区域并列、全高展示、显式关闭与宽度调整动画；关闭后不保留右侧竖条。\n\n## 补充截图\n\n- [chatLayout](mockups/screenshots/chatlayout.jpg)\n- [chatLayout 打开右侧栏](mockups/screenshots/chatlayout-inspector.jpg)\n- [readLayout](mockups/screenshots/readlayout.jpg)\n\n## 当前限制\n\n- 原型是交互式高保真 HTML review artifact，不是生产实现。\n- 原型中的 route 内容区只放一个大 layout placeholder，不展示页面业务数据、组件网格、消息结构或真实 API 行为，也不会提交任务。\n- 所有可见交互都应有动画反馈，包括 route 切换、hover/selected、左侧栏展开/图标收起、右侧栏开合与 placeholder 入场。\n- 页面级业务能力仍由 025 内后续实现切片定义；当前原型只确认 shared shell、route taxonomy、layout archetypes 与兼容边界。\n- 如果后续 prototype plugin 接管该产物，应保持 `prototype.md` 作为 `PROTOTYPE` tab 的固定入口说明。\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1785032536871"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# 实施计划：MVP 操作 Web UI 框架\n\n**Branch**: 本地 `main`（逻辑 feature id `025-webui`） | **Date**: 2026-05-20 | **Spec**: `specs/025-webui/spec.md`\n**Input**: 来自 `/specs/025-webui/spec.md` 的功能规格\n\n## 摘要\n\n将 025 Web UI 框架实现为现有 `@mystra/control-plane` Next.js 应用的 shell 层。实现目标是把当前 `Control Plane`、`Tasks`、`Runners`、`Projects` 导航迁移到已批准的 shell 合同：primary navigation 为 `Overview`、`Inbox`、`New Job`、`Projects`，`Settings` 作为 shell modal，`Recent Jobs` 作为 secondary route；035/036 已交付对象页继续可达。\n\n## 技术上下文\n\n**Language/Version**: TypeScript 5.9, Node.js 24\n**Primary Dependencies**: Next.js 16, React 19, 现有 control-plane theme system\n**Storage**: 仅使用浏览器 `localStorage` 保存 shell 偏好；不改变业务状态存储\n**Testing**: `pnpm --filter @mystra/control-plane typecheck`, `pnpm --filter @mystra/control-plane test`, 浏览器预览验证\n**Target Platform**: 桌面优先的内部 Web UI，并响应窄视口\n**Project Type**: Next.js Web 应用\n**Performance Goals**: 本 shell 切片不新增超出现有 control-plane 数据获取之外的轮询或 API 调用\n**Constraints**: 保持 API-truth 和 headless management 优先级；不加入页面级产品行为、caller auth、logs API、retry API 或 hosted tenancy 功能\n**Scale/Scope**: `apps/control-plane/app` 中的一个 shell 框架，四个 primary routes、两个 secondary surfaces、三个 layout archetype，theme/i18n 脚手架\n\n## 宪章检查\n\n- **规格拥有产品边界**：通过。025 仍是 shell/framework 范围，并明确延后页面级行为。\n- **服务边界使用类型化合同**：通过。本计划不引入 API、持久化、MCP 或 runner 合同变更。\n- **Provider 是可替换边界**：通过。不变更 provider 实现。\n- **Runner 隔离和 secret hygiene**：通过。不变更 runner、容器或 secret 处理。\n- **交付前验证与文档**：必须执行。plan、contracts、tasks 和浏览器验证需要与 shell 行为保持一致。\n\n## 项目结构\n\n### 本功能文档\n\n```text\nspecs/025-webui/\n├── spec.md\n├── features.md\n├── checklists.md\n├── prototype.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   └── shell-contract.md\n└── tasks.md\n```\n\n### 源码结构\n\n```text\napps/control-plane/\n└── app/\n    ├── _components/app-shell.tsx\n    ├── globals.css\n    ├── layout.tsx\n    ├── page.tsx\n    └── theme-system.ts\n```\n\n**结构决策**：本切片保留在现有 control-plane app 中。`_components/app-shell.tsx` 是 shell taxonomy、主题和 Settings action 的第一实现面；现有 route pages 继续拥有对象页内容，尚未实现的页面保持 placeholder/read-only。\n\n## 设计与实施方向\n\n- 在 `_components/app-shell.tsx` 中定义小型 shell model：已批准导航项、route id、layout archetype、框架自有 label 和 placeholder state。\n- 保留 `theme-system.ts` 中的现有主题系统；只在 shell preference 需要稳定表面时扩展。\n- 为框架自有文案引入 i18n 脚手架，不在本切片翻译页面级业务行为。\n- 将当前 Control Plane、Tasks、Runners 与 Projects 对象页显式映射到目标 primary/secondary surfaces；不通过导航重构删除已交付能力。\n- 代码现实依据：现有 shell 在 `apps/control-plane/app/_components/app-shell.tsx`，overview 在 `apps/control-plane/app/page.tsx`，主题在 `apps/control-plane/app/theme-system.ts`，视觉方向和 shell mockup 函数在 `specs/025-webui/mockups/render-mockups.cjs`。\n\n## 阶段 0：研究\n\n研究决策记录在 `research.md`。\n\n## 阶段 1：设计\n\n设计产物：\n\n- `data-model.md`：shell 级实体和偏好概念。\n- `contracts/shell-contract.md`：路由 taxonomy、layout archetype、placeholder、theme、locale 和 Electron 兼容合同。\n- `quickstart.md`：桌面、窄视口、主题、语言环境和路由 placeholder 行为的验证路径。\n- `prototype.md`：可打开的独立 HTML 原型入口和覆盖范围。\n\n## 复杂度追踪\n\n不需要 constitution 例外或复杂度豁免。\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# 任务：MVP 操作 Web UI 框架\n\n**Input**：来自 `/specs/025-webui/` 的设计文档\n**Prerequisites**：`plan.md`、`spec.md`、`research.md`、`data-model.md`、`contracts/shell-contract.md`、`prototype.md`\n\n**Tests**：025 会改变用户可见 shell 行为，因此需要包含聚焦 typecheck/test 任务和浏览器验证。\n\n## 阶段 1：准备\n\n- [ ] T001 审查 `specs/025-webui/contracts/shell-contract.md`，在编辑 `apps/control-plane/app/_components/app-shell.tsx` 前确认已批准 route taxonomy 与 035/036 对象页迁移策略\n- [ ] T002 [P] 审查 `apps/control-plane/app/theme-system.ts` 中的当前 theme contract\n- [ ] T003 [P] 审查 `apps/control-plane/app/globals.css` 中的当前 shell styles\n- [ ] T004 [P] 打开 `specs/025-webui/prototype.md` 指向的独立 HTML 原型，确认实现前参考表面可访问\n\n## 阶段 2：基础 Shell 模型\n\n- [ ] T005 在 `apps/control-plane/app/_components/app-shell.tsx` 中定义四个 primary routes、Settings action、Recent Jobs secondary route、labels、layout archetypes 与 placeholder state\n- [ ] T006 在 `apps/control-plane/app/_components/app-shell.tsx` 中增加 framework-owned locale copy scaffolding，用于 route labels 和 placeholder text\n- [ ] T007 在 `apps/control-plane/app/globals.css` 中更新 shell 层 CSS primitives，用于 navigation、active route state、route content frames 与 narrow viewport navigation\n\n## 阶段 3：用户故事 1 - 操作员使用已批准的 Shell 框架（优先级：P1）\n\n**目标**：Operator 可以打开 shell，只看到已批准顶层 routes，并在 shell-valid page frames 之间导航。\n\n**独立测试**：在 desktop 与 narrow viewport 打开 app，确认 primary navigation 只包含 `Overview`、`Inbox`、`New Job`、`Projects`，并确认 Settings modal 与 Recent Jobs secondary route 可达。\n\n- [ ] T008 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 中用已批准 primary/secondary taxonomy 替换当前 rail taxonomy\n- [ ] T009 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 与现有 route pages 中为每个已批准 surface 渲染一致 route frame\n- [ ] T010 [US1] 确保尚无实现切片的 route page 显示 placeholder 或 read-only framing，同时保留 035/036 已交付对象页\n- [ ] T011 [US1] 在浏览器中验证 desktop 与 narrow viewport navigation 行为\n\n## 阶段 4：用户故事 2 - 后续页面实现切片接入 Shell 而不重新定义 Shell（优先级：P1）\n\n**目标**：025 的后续页面实现切片可以接入 route content，而不改变全局 taxonomy 或 shell ownership。\n\n**独立测试**：审查 route model，确认单个 route 可以接收专属 content，同时保留 navigation 与 layout contracts。\n\n- [ ] T012 [US2] 在 `apps/control-plane/app/_components/app-shell.tsx` 中通过 route id 与 layout archetype helper 隔离 route content framing\n- [ ] T013 [US2] 在 `apps/control-plane/app/page.tsx` 与对象 route pages 中把当前 operational panels 映射到适合的已批准 surface，不删除现有业务能力\n- [ ] T014 [US2] 在尚未实现的 route placeholder copy 中记录后续 implementation-slice ownership notes\n\n## 阶段 5：用户故事 3 - 操作员跨设备、主题和语言环境使用 Shell（优先级：P2）\n\n**目标**：Theme、appearance、locale scaffolding 与 responsive navigation 在整个 shell 中保持可用。\n\n**独立测试**：切换 themes，检查 framework-owned copy，并在 desktop 与 narrow viewport 验证 shell。\n\n- [ ] T015 [US3] 在 `apps/control-plane/app/_components/app-shell.tsx` 中保留现有 theme persistence，并应用到新的 shell route frames\n- [ ] T016 [US3] 在 `apps/control-plane/app/_components/app-shell.tsx` 中把 locale scaffolding 应用到 framework-owned labels 与 placeholder text\n- [ ] T017 [US3] 在 `apps/control-plane/app/globals.css` 中更新 narrow viewport navigation 的 responsive shell styling\n- [ ] T018 [US3] 用浏览器验证 theme switching 与 narrow viewport 行为\n\n## 阶段 6：用户故事 4 - 前端维护者复用共享布局和组件（优先级：P2）\n\n**目标**：Maintainer 可以用 `chatLayout`、`dashboardLayout`、`readLayout` 和 shared shell primitives 组合后续页面。\n\n**独立测试**：检查 route frames，确认每个已批准 layout archetype 都作为 reusable pattern 出现。\n\n- [ ] T019 [US4] 在 `apps/control-plane/app/_components/app-shell.tsx` 或专用共享组件中实现 `chatLayout`、`dashboardLayout`、`readLayout` frame variants\n- [ ] T020 [US4] 在 `apps/control-plane/app/globals.css` 中增加三个 layout archetypes 的 CSS classes\n- [ ] T021 [US4] 验证现有 route pages 中每个 layout archetype 至少被一个已批准 surface 使用\n\n## 阶段 7：用户故事 5 - 未来桌面封装保留同一框架合同（优先级：P3）\n\n**目标**：shared shell contract 对未来 Electron host 保持可移植。\n\n**独立测试**：审查 shell code，确认 host-specific behavior 没有写入 route taxonomy、theme、locale 或 layout ownership。\n\n- [ ] T022 [US5] 在 `apps/control-plane/app/_components/app-shell.tsx` 中避免把 host-specific assumptions 写入 shell route definitions\n- [ ] T023 [US5] 在 `apps/control-plane/app/_components/app-shell.tsx` 的 shell constants 附近增加显式 host compatibility comment\n\n## 阶段 8：验证\n\n- [ ] T024 运行 `pnpm --filter @mystra/control-plane typecheck`\n- [ ] T025 运行 `pnpm --filter @mystra/control-plane test`\n- [ ] T026 使用 `node scripts/render-spec-view.mjs --feature 025-webui` 重新渲染 `specs/025-webui/index.html`\n- [ ] T027 在 Codex browser 中验证 `SPEC`、`FEATURES`、`CHECKLISTS`、`PROTOTYPE`、`PLAN`、`TASKS` tabs\n\n## 依赖与执行顺序\n\n- 阶段 1 可以立即执行。\n- 阶段 2 阻塞所有 story work。\n- US1 与 US2 都是 P1；先实现 US1，让 route navigation 存在，再实现 US2，让后续页面实现切片获得稳定 attachment points。\n- US3 与 US4 可在阶段 2 完成、且 US1 route frame 存在后推进。\n- US5 在 shell constants 存在后独立推进。\n- 验证在选定 implementation slice 之后执行。\n\n## 并行机会\n\n- T002、T003、T004 可以并行。\n- T015/T016 与 T017 可以在 route frames 存在后按 `page.tsx` 与 `globals.css` 拆分。\n- T019 与 T020 可以在 layout names 固定后按 `page.tsx` 与 `globals.css` 拆分。\n\n## 实施策略\n\n1. 先构建 shell route model 和 navigation。\n2. 在优化 content 前，让每个已批准 route 都渲染一个有效 frame。\n3. 除非另一个 spec 拥有页面行为，否则保持 placeholder/read-only。\n4. 每个 story 独立验证后，再继续更广泛的 polish。\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

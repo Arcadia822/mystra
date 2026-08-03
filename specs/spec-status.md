@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=29758b78d9f890f4584faf26fc1358c218467fde updated=2026-07-23T10:44:17Z -->
+<!-- spec-status: project=mystra commit=062d60ed1879dacd7655afa414e7bfc495b8d5f2 updated=2026-08-03T10:30:57Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -27,14 +27,11 @@
 | 022-lsp-navigation                 | ✓     | ✓  | ✓   | ✓ Complete |
 | 023-control-plane-design-system    | ✓     | ✓  | ✓   | ✓ Complete |
 | 024-agent-runtime-sdk              | ✓     | ✓  | ✓   | ✓ Complete |
-| 025-webui                          | ✓     | -    | -     | -         |
-| 026-overview-dashboard             | -       | -    | -     | -         |
-| 027-inbox                          | -       | -    | -     | -         |
-| 028-new-job                        | -       | -    | -     | -         |
-| 029-project                        | -       | -    | -     | -         |
-| 030-settings                       | -       | -    | -     | -         |
-| 031-recent-jobs                    | -       | -    | -     | -         |
+| 025-webui                          | ✓     | ✓  | ✓   | ● 0/27 (0%) |
 | 033-issue-agent-execution          | ✓     | ✓  | ✓   | ✓ Complete |
+| 035-control-plane-object-pages     | ✓     | ✓  | ✓   | ✓ Complete |
+| 036-project-object-pages           | ✓     | ✓  | ✓   | ✓ Complete |
+| 037-remote-repository-integrations | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -60,11 +57,8 @@
 <!-- feature: 022-lsp-navigation has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=12 tasks_completed=12 checklist_files=requirements.md -->
 <!-- feature: 023-control-plane-design-system has_spec=true has_plan=true has_tasks=true has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=12 tasks_completed=12 checklist_files= -->
 <!-- feature: 024-agent-runtime-sdk has_spec=true has_plan=true has_tasks=true has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=3 tasks_completed=3 checklist_files=requirements.md -->
-<!-- feature: 025-webui has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
-<!-- feature: 026-overview-dashboard has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
-<!-- feature: 027-inbox has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
-<!-- feature: 028-new-job has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
-<!-- feature: 029-project has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
-<!-- feature: 030-settings has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
-<!-- feature: 031-recent-jobs has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
+<!-- feature: 025-webui has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=27 tasks_completed=0 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 033-issue-agent-execution has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=61 tasks_completed=61 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 035-control-plane-object-pages has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=20 tasks_completed=20 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 036-project-object-pages has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=11 tasks_completed=11 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 037-remote-repository-integrations has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=34 tasks_completed=34 checklist_files=engineering-review.md,requirements.md -->

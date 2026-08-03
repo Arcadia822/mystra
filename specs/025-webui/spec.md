@@ -1,309 +1,153 @@
-# Feature Specification: MVP Operations Web UI Framework
+# 功能规格：MVP 操作 Web UI 框架
 
-**Feature Branch**: `025-webui`  
+**Feature Branch**: 已合并到本地 `main`，保留逻辑 feature id `025-webui`
 **Created**: 2026-05-19  
 **Status**: Draft  
-**Input**: User description: "简单补充 025 的 spec，作为 mvp 版本的操作 ui" plus follow-up scope decisions: keep `025-webui` focused on the frontend framework only, move concrete page capabilities into later page-specific specs, and include the framework foundations for theme/design-system, internationalization, main sidebar, shared layout modes, base components, responsiveness, and future Electron compatibility.
+**Input**: 用户描述：“简单补充 025 的 spec，作为 mvp 版本的操作 ui”；后续范围决策：`025-webui` 只聚焦前端框架层，并纳入主题/design-system、国际化、主侧边栏、共享 layout、基础组件、响应式和未来 Electron 兼容边界。
+**Consolidation**: 2026-08-03 起，025 是唯一保留的未完成 UI spec；原 `026`–`031` 的页面探索材料并入 025，已完成的 035/036 对象页继续作为当前代码事实。025 的 shell 实施将显式迁移现有导航，而不是假装当前代码已经采用目标 taxonomy。
 
-## User Scenarios & Testing *(mandatory)*
+## 用户场景与测试 *(mandatory)*
 
-### User Story 1 - Operator Uses The Approved Shell Framework (Priority: P1)
+### 用户故事 1 - 操作员使用已批准的 Shell 框架（优先级：P1）
 
-As an internal operator, I want the MVP UI to provide a stable shell with the
-approved top-level navigation and shared page framing, so that I can recognize
-Mystra's human-facing surface without that shell owning page-specific business
-behavior.
+作为内部操作员，我希望 MVP UI 提供稳定的 shell、已批准的顶层导航和共享页面框架，以便我能识别 Mystra 的人类操作界面，同时不让 shell 拥有页面级业务行为。
 
-**Why this priority**: The first useful UI slice is the framework itself:
-navigation, layout, route framing, and shared chrome. Mystra remains API-truth
-and agent-first; the shell should exist before any one page tries to become the
-product.
+**优先级原因**：第一个有用的 UI 切片是框架本身：导航、布局、路由框架和共享 chrome。Mystra 仍然以 API 为真相，并保持 agent-first；shell 应先存在，而不是让任意一个页面先变成产品本体。
 
-**Independent Test**: Open the application on desktop and narrow viewports and
-verify that the shell exposes only the approved top-level menus, provides a
-consistent page frame for each route, and does not require page-specific
-features to be implemented before the shell is usable.
+**独立测试**：在桌面和窄视口打开应用，确认 shell 只暴露已批准的顶层菜单，为每个路由提供一致页面框架，并且不依赖页面级功能先实现才能可用。
 
-**Acceptance Scenarios**:
+**验收场景**：
 
-1. **Given** the operator opens the application shell, **When** navigation is
-   rendered, **Then** the top-level menu contains only `Overview`, `Inbox`,
-   `New Job`, `Project`, `Settings`, and `Recent Jobs`.
-2. **Given** the operator navigates between approved routes, **When** each route
-   loads, **Then** the shell provides consistent navigation, page framing, and
-   shared visual structure even when the page's dedicated feature spec has not
-   been implemented yet.
-3. **Given** one approved page has only framework-level support so far,
-   **When** the operator opens it, **Then** the UI may show placeholder or
-   read-only framing content instead of inventing page behavior that belongs to
-   a later spec.
+1. **前提** 操作员打开应用 shell，**当** 主导航渲染，**则** primary navigation 只包含 `Overview`、`Inbox`、`New Job` 和 `Projects`；`Settings` 作为 shell action 打开 modal，`Recent Jobs` 作为 secondary route 保持可达。
+2. **前提** 操作员在已批准路由之间切换，**当** 每个路由加载，**则** shell 提供一致的导航、页面框架和共享视觉结构，即使该页面的专属 feature spec 尚未实现。
+3. **前提** 某个已批准页面目前只有框架级支持，**当** 操作员打开它，**则** UI 可以显示占位或只读框架内容，而不是发明属于后续实现切片的页面行为。
 
 ---
 
-### User Story 2 - Future Page Specs Plug Into The Shell Without Redefining It (Priority: P1)
+### 用户故事 2 - 后续页面实现切片接入 Shell 而不重新定义 Shell（优先级：P1）
 
-As a future Mystra agent or frontend maintainer, I want page-specific work to
-land behind a stable shell contract, so that `Overview`, `Inbox`, `New Job`,
-`Project`, `Settings`, and `Recent Jobs` can evolve through separate specs
-without repeatedly changing the product taxonomy or shared UI ownership
-boundaries.
+作为未来的 Mystra agent 或前端维护者，我希望页面级工作落在稳定的 shell 合同之后，以便 `Overview`、`Inbox`、`New Job`、`Projects`、`Settings` 和 `Recent Jobs` 可以在同一 025 边界内按独立实现切片演进，而不反复改变产品分类或共享 UI 所有权边界。
 
-**Why this priority**: The owner wants page functionality decomposed into later
-specs. This spec must therefore define what belongs to the framework and what
-must be deferred, or the next agent will improvise... again.
+**优先级原因**：页面功能需要拆成独立实现切片。025 必须定义什么属于框架、什么必须延后，否则下一个 agent 会再次即兴发挥。非常可预期。也非常不必要。
 
-**Independent Test**: Review the shell contract and verify that a later
-page-specific spec can add concrete content to one approved route without
-changing top-level navigation, management-surface hierarchy, or shell-wide
-preferences.
+**独立测试**：审查 shell 合同，确认后续页面实现切片可以向某个已批准路由添加具体内容，而不改变顶层导航、管理面层级或 shell 级偏好设置。
 
-**Acceptance Scenarios**:
+**验收场景**：
 
-1. **Given** a later spec defines concrete `Recent Jobs` behavior, **When** that work
-   is implemented, **Then** it attaches to the existing approved shell rather
-   than adding a new top-level menu or replacing shell ownership.
-2. **Given** a page capability requires new data, actions, or visual
-   interpretation, **When** that capability is specified, **Then** it is owned
-   by a dedicated follow-on spec rather than silently expanding this framework
-   spec.
-3. **Given** the shell framework is already present, **When** later page specs
-   arrive incrementally, **Then** they can ship independently without forcing a
-   redesign of global navigation, layout primitives, or shared preference
-   plumbing.
+1. **前提** 后续实现切片定义具体的 `Recent Jobs` 行为，**当** 实现该工作，**则** 它接入现有已批准 shell 的 secondary route，而不是添加新的主导航入口或替换 shell 所有权。
+2. **前提** 某个页面能力需要新数据、动作或视觉解释，**当** 指定该能力，**则** 它由 025 中明确的实现切片拥有，而不是悄悄扩张 shell 任务。
+3. **前提** shell 框架已经存在，**当** 后续页面实现切片增量到来，**则** 它们可以独立交付，而不迫使全局导航、布局原语或共享偏好设置重设计。
 
 ---
 
-### User Story 3 - Operator Uses The Shell Across Device, Theme, And Locale Contexts (Priority: P2)
+### 用户故事 3 - 操作员跨设备、主题和语言环境使用 Shell（优先级：P2）
 
-As an internal operator, I want the shell framework to handle responsive
-navigation, appearance, theme, and locale scaffolding, so that later page specs
-inherit a usable cross-cutting foundation instead of each reinventing it.
+作为内部操作员，我希望 shell 框架处理响应式导航、外观、主题和语言环境脚手架，以便后续页面实现切片继承可用的横切基础，而不是每个页面重新发明一遍。
 
-**Why this priority**: Responsiveness, visual preference, and localization are
-framework concerns. They should be solved once at the shell level, not
-re-litigated page by page.
+**优先级原因**：响应式、视觉偏好和本地化属于框架问题，应在 shell 层解决一次，而不是每个页面重复争论。
 
-**Independent Test**: Open the shell on narrow and wide viewports, switch light
-and dark appearance, change theme and locale, and verify that the shell remains
-usable even if page-specific functionality is still placeholder-level.
+**独立测试**：在窄视口和宽视口打开 shell，切换 light/dark 外观、主题和语言环境，确认即使页面级功能仍是占位，shell 也保持可用。
 
-**Acceptance Scenarios**:
+**验收场景**：
 
-1. **Given** the operator uses a narrow viewport, **When** they navigate between
-   approved routes, **Then** the shell remains usable without horizontal
-   overflow being the primary navigation strategy.
-2. **Given** the operator switches light/dark appearance or theme, **When** the
-   shell re-renders, **Then** shared navigation and page framing remain visually
-   coherent across approved routes.
-3. **Given** the operator changes locale, **When** they revisit the shell,
-   **Then** shared navigation and framework-owned copy reflect the selected
-   locale or a predictable fallback.
+1. **前提** 操作员使用窄视口，**当** 在已批准路由之间导航，**则** shell 仍可使用，且主要导航策略不是横向滚动。
+2. **前提** 操作员切换 light/dark 外观或主题，**当** shell 重新渲染，**则** 共享导航和页面框架在所有已批准路由中保持视觉一致。
+3. **前提** 操作员切换语言环境，**当** 再次访问 shell，**则** 共享导航和框架自有文案显示所选语言或可预测 fallback。
 
 ---
 
-### User Story 4 - Frontend Maintainer Reuses Shared Layouts And Components (Priority: P2)
+### 用户故事 4 - 前端维护者复用共享布局和组件（优先级：P2）
 
-As a frontend maintainer, I want the shell framework to provide a main sidebar,
-shared layout archetypes, and a base component layer aligned with Mystra's
-design-system direction, so that later page specs can compose consistent UI
-surfaces instead of rebuilding structure and primitives ad hoc.
+作为前端维护者，我希望 shell 框架提供主侧边栏、共享 layout archetype 和与 Mystra design-system 方向一致的基础组件层，以便后续页面实现切片能组合一致 UI，而不是临时重建结构和原语。
 
-**Why this priority**: If the framework does not own sidebar, layout modes, and
-base components now, every later page spec will smuggle framework decisions
-back in through the side door. That pattern is not elegant. It is merely
-predictable.
+**优先级原因**：如果框架现在不拥有 sidebar、layout mode 和 base components，每个后续页面实现切片都会从侧门把框架决策塞回来。这并不优雅，只是可预测。
 
-**Independent Test**: Review the shell contract and verify that later page specs
-can choose among the approved layout archetypes and shared base components
-without redefining the sidebar, token model, or primitive interaction patterns.
+**独立测试**：审查 shell 合同，确认后续页面实现切片可以选择已批准 layout archetype 和共享基础组件，而不用重新定义 sidebar、token model 或基础交互模式。
 
-**Acceptance Scenarios**:
+**验收场景**：
 
-1. **Given** the operator is using the shell, **When** navigation is displayed,
-   **Then** the main sidebar remains the shared primary navigation container for
-   approved top-level routes.
-2. **Given** a later page spec needs a conversational, dashboard, or
-   reading-focused surface, **When** it is implemented, **Then** it can attach to
-   `chatLayout`, `dashboardLayout`, or `readLayout` rather than inventing a new
-   top-level framing model by default.
-3. **Given** a later page spec needs buttons, inputs, badges, panels, lists, or
-   similar primitives, **When** it is implemented, **Then** it can rely on the
-   framework's shared component layer and design-system alignment instead of
-   introducing an unrelated visual grammar.
+1. **前提** 操作员使用 shell，**当** 显示导航，**则** 主侧边栏仍是已批准顶层路由的共享主导航容器。
+2. **前提** 后续页面实现切片需要会话式、仪表盘式或阅读式界面，**当** 实现它，**则** 它可以接入 `chatLayout`、`dashboardLayout` 或 `readLayout`，而不是默认发明新的顶层框架模型。
+3. **前提** 后续页面实现切片需要按钮、输入框、badge、panel、list 或类似原语，**当** 实现它，**则** 它可以依赖框架共享组件层和 design-system 对齐，而不是引入无关视觉语法。
 
 ---
 
-### User Story 5 - Future Desktop Packaging Preserves The Same Framework Contract (Priority: P3)
+### 用户故事 5 - 未来桌面封装保留同一框架合同（优先级：P3）
 
-As a future Mystra maintainer, I want the shell framework to remain compatible
-with a later Electron wrapper, so that Mystra can gain a desktop shell without
-rewriting navigation, layout, theming, localization, or base component
-contracts.
+作为未来 Mystra 维护者，我希望 shell 框架与后续 Electron wrapper 兼容，以便 Mystra 可以获得桌面 shell，而不用重写导航、布局、主题、本地化或基础组件合同。
 
-**Why this priority**: The owner explicitly wants later Electron compatibility.
-That should be treated as an architectural guardrail for the framework slice,
-not as an apology added during packaging week.
+**优先级原因**：owner 明确希望未来兼容 Electron。这应被视为框架切片的架构护栏，而不是发布前一周添加的道歉。
 
-**Independent Test**: Review the framework requirements and verify that shell
-concerns are expressed in a way that can run in the current web delivery shape
-while remaining compatible with a future Electron-hosted shell.
+**独立测试**：审查框架要求，确认 shell concern 的表达既能运行在当前 web delivery 形态中，也能兼容未来 Electron-hosted shell。
 
-**Acceptance Scenarios**:
+**验收场景**：
 
-1. **Given** Mystra is currently delivered as a web control-plane UI, **When**
-   the shell framework is implemented, **Then** it does not assume a browser-only
-   product model that would force route taxonomy, theme handling, or layout
-   ownership to be redesigned for Electron.
-2. **Given** a future Electron shell wraps the same frontend, **When** that
-   migration happens, **Then** main sidebar, shared layouts, i18n, and theme
-   systems remain reusable rather than being web-only special cases.
-3. **Given** a framework capability truly depends on the host environment,
-   **When** it is specified or implemented, **Then** the environment-specific
-   seam is explicit instead of being hidden inside otherwise shared shell
-   behavior.
+1. **前提** Mystra 当前以 web control-plane UI 交付，**当** 实现 shell 框架，**则** 它不假设浏览器唯一产品模型，以至于未来 Electron 需要重新设计路由分类、主题处理或布局所有权。
+2. **前提** 未来 Electron shell 包裹同一前端，**当** 迁移发生，**则** 主侧边栏、共享布局、i18n 和主题系统保持可复用，而不是成为 web-only 特例。
+3. **前提** 某个框架能力确实依赖 host 环境，**当** 指定或实现它，**则** 环境特定 seam 必须显式存在，而不是藏在共享 shell 行为内部。
 
 ---
 
-### Edge Cases
+### 边界情况
 
-- What happens when an approved page does not yet have a dedicated feature spec?
-  The shell should still render a valid route with placeholder or read-only
-  framing rather than omitting the route or inventing page semantics.
-- What happens when page-specific backend capabilities are not mature enough for
-  editing or live data? The framework may remain inspection-first and should not
-  fake completed product behavior.
-- What happens when navigation space is limited on small screens? The shell
-  should preserve access to all approved menus without creating a different
-  product taxonomy for mobile.
-- What happens when a selected theme or locale is not fully available? The shell
-  should fall back predictably while keeping navigation understandable.
-- What happens when a page needs a shape that does not obviously fit
-  `chatLayout`, `dashboardLayout`, or `readLayout`? The default expectation is
-  to map it onto one of the approved layout archetypes unless a later spec
-  justifies a new framework-level layout.
-- What happens when a page-specific design diverges from the shared design
-  system? The page should justify an extension to the framework rather than
-  bypassing shared tokens and primitives silently.
-- What happens when a future Electron host introduces desktop-only affordances?
-  The framework should keep shared UI contracts portable and isolate host-only
-  behavior at explicit seams.
-- What happens when a later page spec tries to introduce a new primary menu or
-  UI-owned management semantics? That change is out of scope for this feature
-  and must be justified separately against the project management-surface
-  hierarchy.
+- 当已批准页面还没有专属 feature spec 时怎么办？shell 仍应渲染有效路由，显示占位或只读框架，而不是省略路由或发明页面语义。
+- 当页面级后端能力尚不足以支持编辑或实时数据时怎么办？框架可以保持 inspection-first，不应伪装为已完成产品行为。
+- 当小屏导航空间不足时怎么办？shell 应保留所有已批准菜单入口，而不是为移动端创造不同产品分类。
+- 当选中主题或语言环境不完整时怎么办？shell 应可预测 fallback，同时保持导航可理解。
+- 当页面形态不明显适配 `chatLayout`、`dashboardLayout` 或 `readLayout` 时怎么办？默认映射到已批准 archetype，除非 025 的后续变更证明需要新的框架级 layout。
+- 当页面设计偏离共享 design system 时怎么办？页面应论证对框架的扩展，而不是静默绕过共享 token 和原语。
+- 当未来 Electron host 引入桌面专属 affordance 时怎么办？框架应保持共享 UI 合同可移植，并把 host-only 行为隔离在显式 seam。
+- 当后续页面实现切片试图引入新的主菜单或 UI-owned 管理语义时怎么办？该变化超出既定 shell 范围，必须先更新 025 并对照项目管理面层级证明。
 
-## Requirements *(mandatory)*
+## 需求 *(mandatory)*
 
-### Functional Requirements
+### 功能需求
 
-- **FR-001**: The system MUST provide an internal MVP web UI framework that acts
-  as a secondary operations and inspection shell over Mystra's existing
-  management capabilities.
-- **FR-002**: The top-level navigation of the MVP UI framework MUST contain only
-  `Overview`, `Inbox`, `New Job`, `Project`, `Settings`, and `Recent Jobs`.
-- **FR-003**: This spec MUST own shell-level concerns only, including approved
-  navigation, route framing, shared layout structure, shared visual language,
-  shell-wide preference plumbing, and future-compatible host-shell boundaries.
-- **FR-004**: This spec MUST NOT define concrete page-specific product behavior
-  for `Overview`, `Inbox`, `New Job`, `Project`, `Settings`, or `Recent Jobs`;
-  those behaviors MUST be specified in dedicated follow-on specs.
-- **FR-005**: Each approved top-level menu MUST have a route or route-equivalent
-  shell entry so the navigation model is concrete even before page-specific
-  functionality is implemented.
-- **FR-006**: The shell MUST allow an approved route to render placeholder,
-  unavailable, or read-only framing content when that route's dedicated feature
-  spec has not yet landed.
-- **FR-007**: The shell MUST provide a main sidebar as the shared primary
-  navigation container for approved top-level routes.
-- **FR-008**: The shell MUST define and own the three core layout archetypes:
-  `chatLayout`, `dashboardLayout`, and `readLayout`.
-- **FR-009**: Later page-specific specs MUST compose onto `chatLayout`,
-  `dashboardLayout`, or `readLayout` by default unless a separately justified
-  framework change expands the approved layout set.
-- **FR-010**: The shell MUST provide a shared base component layer for common UI
-  primitives used across approved routes.
-- **FR-011**: The base component layer and shell visual language MUST align with
-  Mystra's Claude design-system direction so that themes, tokens, and component
-  behavior remain coherent across the framework.
-- **FR-012**: The shell MUST provide consistent cross-route structure for
-  navigation, page framing, and shared interaction patterns instead of letting
-  each page define its own incompatible shell.
-- **FR-013**: The shell MUST provide shared responsive behavior across supported
-  narrow and wide viewports.
-- **FR-014**: The shell MUST support light mode and dark mode.
-- **FR-015**: The shell MUST support theme switching beyond light/dark
-  appearance mode where the product defines distinct visual themes.
-- **FR-016**: The shell MUST support internationalization so that approved
-  navigation and framework-owned copy can be presented in supported locales.
-- **FR-017**: The shell MUST preserve the project management-surface hierarchy in
-  which API is truth and skill/MCP and CLI remain preferred programmable
-  interfaces; the UI framework MUST not become the sole owner of management
-  semantics.
-- **FR-018**: The shell MUST treat workspace as a run-scoped execution-context
-  concept and MUST NOT use workspace as the tenancy term for hosted product
-  structure.
-- **FR-019**: The MVP shell framework MUST remain private-operations focused and
-  MUST NOT require caller auth, logs API, retry API, public SaaS tenancy
-  management, or other currently out-of-scope platform features before it is
-  usable.
-- **FR-020**: A later page-specific spec MUST be able to add route content,
-  actions, and data presentation for one approved menu without changing the
-  approved top-level taxonomy or shell-level ownership model.
-- **FR-021**: The shell framework MUST preserve compatibility with a future
-  Electron host so that navigation, layout archetypes, theme system,
-  internationalization, and base components can be reused without redefining the
-  framework contract.
-- **FR-022**: Any environment-specific behavior required for a future Electron
-  shell MUST be isolated behind explicit seams rather than being baked into the
-  shared framework contract as a web-only assumption.
+- **FR-001**: 系统 MUST 提供内部 MVP web UI 框架，作为 Mystra 现有管理能力之上的二级操作与 inspection shell。
+- **FR-002**: MVP UI 框架的 primary navigation MUST 只包含 `Overview`、`Inbox`、`New Job` 和 `Projects`；`Settings` MUST 是 shell action/modal，`Recent Jobs` MUST 是可直接访问的 secondary route。
+- **FR-003**: 本 spec MUST 只拥有 shell 级 concern，包括已批准导航、路由框架、共享布局结构、共享视觉语言、shell-wide preference plumbing 和未来兼容 host-shell 边界。
+- **FR-004**: 本 spec MUST NOT 把页面探索材料伪装为已实现产品行为；`Overview`、`Inbox`、`New Job`、`Projects`、`Settings` 或 `Recent Jobs` 的具体行为 MUST 作为 025 内独立实现切片明确计划和验证。
+- **FR-005**: 每个已批准 navigation surface MUST 有路由或等价 shell entry，以便在页面级功能实现前导航模型已经具体。
+- **FR-006**: 当某个已批准路由的专属 feature spec 尚未落地时，shell MUST 允许该路由渲染 placeholder、unavailable 或 read-only 框架内容。
+- **FR-007**: shell MUST 提供主侧边栏，作为已批准 primary routes 的共享主导航容器。
+- **FR-008**: shell MUST 定义并拥有三个核心 layout archetype：`chatLayout`、`dashboardLayout` 和 `readLayout`。
+- **FR-009**: 后续页面级 spec MUST 默认组合到 `chatLayout`、`dashboardLayout` 或 `readLayout`，除非单独论证的框架变更扩展已批准 layout 集合。
+- **FR-010**: shell MUST 为各已批准路由使用的常见 UI 原语提供共享基础组件层。
+- **FR-011**: 基础组件层和 shell 视觉语言 MUST 与 Mystra 的 Claude design-system 方向保持一致，以便主题、token 和组件行为在框架内一致。
+- **FR-012**: shell MUST 为导航、页面框架和共享交互模式提供跨路由一致结构，而不是让每个页面定义不兼容 shell。
+- **FR-013**: shell MUST 在支持的窄视口和宽视口中提供共享响应式行为。
+- **FR-014**: shell MUST 支持 light mode 和 dark mode。
+- **FR-015**: 当产品定义不同视觉主题时，shell MUST 支持超出 light/dark 外观模式的主题切换。
+- **FR-016**: shell MUST 支持国际化，使已批准导航和框架自有文案可以用受支持语言或可预测 fallback 呈现。
+- **FR-017**: shell MUST 保持项目管理面层级：API 为真相，skill/MCP 和 CLI 仍是优先 programmable interfaces；UI 框架 MUST NOT 成为管理语义的唯一 owner。
+- **FR-018**: shell MUST 将 workspace 视为 run-scoped execution-context 概念，MUST NOT 用 workspace 表示 hosted product structure 的 tenancy。
+- **FR-019**: MVP shell 框架 MUST 保持 private-operations focused，MUST NOT 在可用前要求 caller auth、logs API、retry API、public SaaS tenancy management 或其他当前 out-of-scope platform features。
+- **FR-020**: 025 的后续页面实现切片 MUST 能在不改变已批准 navigation taxonomy 或 shell-level ownership model 的前提下，为某个已批准 surface 添加路由内容、动作和数据呈现。
+- **FR-021**: shell 框架 MUST 保持与未来 Electron host 的兼容性，使导航、layout archetype、theme system、internationalization 和 base components 可复用，而无需重新定义框架合同。
+- **FR-022**: 未来 Electron shell 所需的任何环境特定行为 MUST 被隔离在显式 seam 之后，而不是作为 web-only 假设嵌入共享框架合同。
 
-### Key Entities *(include if feature involves data)*
+### 关键实体
 
-- **Operations Shell**: The framework-level UI container that organizes
-  top-level navigation and shared page framing.
-- **Main Sidebar**: The shared primary navigation rail for approved top-level
-  routes.
-- **Navigation Model**: The approved set of top-level menus and their routing
-  identity.
-- **Page Frame Contract**: The shared shell structure that later page-specific
-  specs inherit when they add content to an approved route.
-- **Layout Archetypes**: The approved framework layouts `chatLayout`,
-  `dashboardLayout`, and `readLayout`.
-- **Base Component Layer**: The shared set of UI primitives and interaction
-  patterns used across routes.
-- **Theme System**: The framework-owned theme, token, and appearance model,
-  aligned with Mystra's Claude design-system direction.
-- **Shell Preferences**: Framework-owned appearance, theme, locale, and other
-  shared UI settings that apply across routes.
-- **Placeholder Route State**: The valid shell-level state for an approved page
-  whose dedicated feature spec has not yet been implemented.
-- **Host Shell Compatibility Boundary**: The framework constraint that keeps the
-  shared UI portable between the current web host and a future Electron host.
+- **Operations Shell**: 组织顶层导航和共享页面框架的框架级 UI 容器。
+- **Main Sidebar**: 已批准顶层路由的共享主导航栏。
+- **Navigation Model**: 已批准顶层菜单集合及其路由身份。
+- **Page Frame Contract**: 后续页面级 spec 添加内容时继承的共享 shell 结构。
+- **Layout Archetypes**: 已批准框架布局 `chatLayout`、`dashboardLayout` 和 `readLayout`。
+- **Base Component Layer**: 各路由共享的 UI 原语和交互模式集合。
+- **Theme System**: 框架拥有的主题、token 和外观模型，与 Mystra Claude design-system 方向对齐。
+- **Shell Preferences**: 框架拥有的 appearance、theme、locale 和其他跨路由共享 UI 设置。
+- **Placeholder Route State**: 已批准页面在专属 feature spec 尚未实现时的有效 shell-level 状态。
+- **Host Shell Compatibility Boundary**: 保持共享 UI 可在当前 web host 与未来 Electron host 之间移植的框架约束。
 
-## Success Criteria *(mandatory)*
+## 成功标准 *(mandatory)*
 
-### Measurable Outcomes
+### 可衡量结果
 
-- **SC-001**: The MVP UI exposes only `Overview`, `Inbox`, `New Job`,
-  `Project`, `Settings`, and `Recent Jobs` as top-level menus, with no extra
-  primary navigation areas.
-- **SC-002**: The shell provides a main sidebar plus the approved
-  `chatLayout`, `dashboardLayout`, and `readLayout` archetypes as reusable
-  framework primitives for later page specs.
-- **SC-003**: The shell provides shared theme/design-system alignment,
-  internationalization scaffolding, base components, and responsive behavior
-  that later page specs can inherit without redefining them.
-- **SC-004**: Operators can navigate to every approved top-level route and see a
-  consistent shell-valid page frame even when page-specific behavior is deferred
-  to later specs.
-- **SC-005**: Later page-specific specs can add concrete route behavior without
-  changing the approved shell taxonomy or redefining shared layouts,
-  components, and preferences.
-- **SC-006**: Operators can use the shell on both narrow and wide viewports, and
-  can switch light/dark mode, theme, and supported language without breaking
-  shell navigation.
-- **SC-007**: The same framework contract remains usable in the current web host
-  and is not specified in a way that blocks a later Electron wrapper.
-- **SC-008**: The UI framework remains secondary to API, skill/MCP, and CLI
-  management surfaces and does not require MVP-excluded platform capabilities to
-  be useful.
+- **SC-001**: MVP UI 的 primary navigation 只暴露 `Overview`、`Inbox`、`New Job` 和 `Projects`；`Settings` 与 `Recent Jobs` 仍按各自 shell action/secondary route 语义可达，不出现额外主导航区域。
+- **SC-002**: shell 提供主侧边栏以及已批准的 `chatLayout`、`dashboardLayout` 和 `readLayout` archetype，作为后续页面实现切片可复用框架原语。
+- **SC-003**: shell 提供共享主题/design-system 对齐、国际化脚手架、基础组件和响应式行为，后续页面实现切片可继承而不重新定义。
+- **SC-004**: 操作员可访问每个已批准 navigation surface，并看到一致的 shell-valid 页面框架，即使页面级行为被延后。
+- **SC-005**: 后续页面级 spec 可添加具体路由行为，而不改变已批准 shell taxonomy 或重新定义共享 layout、component 和 preference。
+- **SC-006**: 操作员可在窄视口和宽视口使用 shell，并可切换 light/dark mode、theme 和受支持语言，而不破坏 shell 导航。
+- **SC-007**: 同一框架合同可用于当前 web host，并且不会以阻塞未来 Electron wrapper 的方式被指定。
+- **SC-008**: UI 框架保持为 API、skill/MCP 和 CLI 管理面的二级辅助界面，不需要 MVP excluded platform capabilities 才能有用。

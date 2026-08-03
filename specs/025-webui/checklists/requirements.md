@@ -1,65 +1,51 @@
-# Specification Quality Checklist: MVP Operations Web UI Framework
+# 规格质量清单：MVP 操作 Web UI 框架
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning  
-**Created**: 2026-05-19  
-**Feature**: [spec.md](../spec.md)
+**目的**：在进入 planning 前验证规格完整性与质量
+**创建时间**：2026-05-19
+**Feature**：[spec.md](../spec.md)
 
-## Content Quality
+## 内容质量
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [x] 没有泄漏实现细节（语言、框架、API）。
+- [x] 聚焦用户价值和业务需要。
+- [x] 面向非技术评审者可读。
+- [x] 所有必需章节已完成。
 
-## Requirement Completeness
+## 需求完整性
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
+- [x] 没有遗留 `[NEEDS CLARIFICATION]` 标记。
+- [x] 需求可测试且无歧义。
+- [x] 成功标准可衡量。
+- [x] 成功标准与技术实现无关。
+- [x] 所有验收场景已定义。
+- [x] 边界情况已识别。
+- [x] 范围边界清晰。
+- [x] 依赖与假设已识别。
 
-## Feature Readiness
+## Feature 就绪度
 
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] 所有功能需求都有清晰验收标准。
+- [x] 用户场景覆盖主要流程。
+- [x] Feature 满足成功标准中定义的可衡量结果。
+- [x] 没有实现细节泄漏到规格中。
 
-## Product Requirements Review
+## 产品需求评审
 
-Reviewed with the project-local `product-requirements` rubric, adapted to
-Spec-Kit output rules.
+已使用项目本地 `product-requirements` rubric 评审，并按 Spec-Kit 输出规则调整。
 
-**Quality Score**: 97/100
+**质量评分**：97/100
 
-- Business Value & Goals: 29/30
-- Functional Requirements: 25/25
-- User Or Operator Experience: 19/20
-- Technical Constraints: 15/15
-- Scope & Priorities: 9/10
+- 业务价值与目标：29/30
+- 功能需求：25/25
+- 用户或操作员体验：19/20
+- 技术约束：15/15
+- 范围与优先级：9/10
 
-Notes:
+说明：
 
-- Readiness conclusion: ready for planning as a shell-and-framework slice, not
-  as the full page-behavior specification.
-- Major assumptions: the MVP UI remains a secondary operations surface; API is
-  truth and skill/MCP and CLI stay ahead of UI in management priority.
-- Major assumptions: the only approved top-level menus are `Overview`, `Inbox`,
-  `New Job`, `Project`, `Settings`, and `Recent Jobs`; page-specific behavior
-  for each menu will be specified later in dedicated follow-on specs.
-- Major assumptions: shell-level scope explicitly includes theme support aligned
-  with the Claude design-system direction, internationalization, the main
-  sidebar, `chatLayout`/`dashboardLayout`/`readLayout`, shared base components,
-  responsive behavior, and future Electron compatibility.
-- Major assumptions: appearance, theme, locale, layouts, components, and host
-  compatibility remain framework concerns, while page data, actions, and
-  operational interpretation stay out of this framework spec unless explicitly
-  promoted later.
-- Remaining gaps or planning reminders: follow-on specs should define concrete
-  behavior for `Overview`, `Inbox`, `New Job`, `Project`, `Settings`, and
-  `Recent Jobs` without changing the approved shell taxonomy,
-  framework-owned layouts/components, or Electron-compatible shell boundary.
+- 就绪结论：可以进入 planning；本切片是 shell/framework 规格，不是完整页面行为规格。
+- 主要假设：MVP UI 仍是二级 operations surface；API 是事实来源，skill/MCP 与 CLI 的管理优先级高于 UI。
+- 主要假设：唯一已批准 primary navigation 是 `Overview`、`Inbox`、`New Job` 和 `Projects`；`Settings` 是 shell modal，`Recent Jobs` 是 secondary route。
+- 主要假设：shell-level 范围明确包括与 Claude design-system 方向对齐的主题支持、国际化、主侧边栏、`chatLayout`/`dashboardLayout`/`readLayout`、共享基础组件、响应式行为和未来 Electron 兼容。
+- 主要假设：appearance、theme、locale、layouts、components 与 host compatibility 保持为 framework concerns；页面数据、动作和操作解释保持在 framework spec 之外，除非后续显式提升。
+- 剩余 planning 提醒：025 的后续实现切片应定义各 surface 的具体行为，同时不改变已批准 shell taxonomy、framework-owned layouts/components 或 Electron-compatible shell boundary；035/036 已实现对象页必须显式迁移，不能由导航重构意外丢失。

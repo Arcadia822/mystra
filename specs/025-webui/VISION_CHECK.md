@@ -1,4 +1,4 @@
-# Vision Check
+# 视觉检查
 
 视觉检查时间：2026-05-19 Asia/Shanghai
 
@@ -58,3 +58,12 @@
 - Overview 主体没有重复大标题；筛选、构成图和 Toplist 已符合第三轮反馈。
 - Overview 的筛选、文案和 Toplist 可视化已符合第四轮反馈。
 - 截图适合用于老板能力演示前的产品界面方向讨论，而不是直接作为实现承诺。
+
+## 第五轮 shell 交互复查
+
+- 主区域 header title 改为静态标题，不再作为 route button。
+- 右侧 sidebar header title 改为静态标题，关闭动作拆成独立 icon button。
+- 右侧 sidebar 只保留 closed 与 expanded 两种状态；closed 状态 grid 列宽为 `0px 0px`，不再保留 icon rail 或 1px 残留竖条。
+- 左侧与右侧 toggle icon 尺寸复查为 `15px x 15px`，与 sidebar menu item 前置 icon 保持一致。
+- 左侧 sidebar 展开态 toggle 右边缘与当前菜单行右边缘对齐；收起态 toggle 在 `52px` rail 内居中，中心误差约 `0.5px`。
+- 右侧 sidebar 展开时主 header 与 inspector header 的分界线使用同一 `border-strong` token，左右分割线通过 resizer header 伪元素补齐。

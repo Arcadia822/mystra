@@ -3,7 +3,7 @@
 **用途**: 为老板演示 Mystra 当前 MVP 能力，并争取项目支持。  
 **定位**: UI 是演示和操作外壳，不是产品真相。Mystra 的核心管理能力仍按 `API -> Skill/MCP -> CLI -> UI` 的优先级建设。  
 **当前规范边界**: `specs/025-webui/spec.md` 现在只定义前端框架层：主题功能与 Claude design-system 对齐、国际化、主侧边栏、`chatLayout` / `dashboardLayout` / `readLayout` 三种核心 layout、基础组件、响应式，以及后续页面能力接入和未来 Electron 兼容的边界。  
-**本文角色**: 本 README 中的页面地图、草图和演示叙事现在属于非规范性的探索材料，可作为后续页面拆分 spec 的输入，但不再代表 `025-webui` 当前的规范范围。页面材料已拆到 `026` 到 `031`。  
+**本文角色**: 本 README 中的页面地图、草图和演示叙事属于非规范性的探索材料，不代表页面行为已经交付。原 `026` 到 `031` 的有效材料已合并到 `page-designs/`，025 是唯一保留的未完成 UI spec。
 **参考风格**: Codex Desktop 的浅灰桌面、左侧固定导航、中间工作画布、右侧详情/配置栏、低饱和边框、克制按钮和少量状态色。
 
 ## 事实来源
@@ -30,22 +30,22 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 5. 完成后返回 branch / PR / MR / summary，可直接进入审查。
 6. 配置页面说明系统不是一次性脚本，而是可扩展的控制平面。
 
-## 页面地图（后续页面 spec 候选拆分）
+## 页面地图（025 内实现切片）
 
-| 页面 | 页面目录 | 已迁移材料 |
+| 页面 | 025 内材料 | 当前状态 |
 | --- | --- | --- |
-| Overview | [`../026-overview-dashboard/`](../026-overview-dashboard/) | `overview-analytics.md`, `screenshots/01-overview.png` |
-| Inbox | [`../027-inbox/`](../027-inbox/) | 暂无 |
-| New Job | [`../028-new-job/`](../028-new-job/) | `new-work.md`, `screenshots/02-new-work-intake.png` |
-| Project | [`../029-project/`](../029-project/) | `screenshots/04-project-config.png` |
-| Settings | [`../030-settings/`](../030-settings/) | `screenshots/05-skills-mcp.png`, `screenshots/06-platform-settings.png` |
-| Recent Jobs | [`../031-recent-jobs/`](../031-recent-jobs/) | `screenshots/03-run-detail.png` |
+| Overview | [`page-designs/overview-analytics.md`](page-designs/overview-analytics.md), [`01-overview.png`](page-designs/screenshots/01-overview.png) | 探索材料 |
+| Inbox | 无 | placeholder |
+| New Job | [`page-designs/new-work.md`](page-designs/new-work.md), [`02-new-work-intake.png`](page-designs/screenshots/02-new-work-intake.png) | 探索材料 |
+| Projects | [`04-project-config.png`](page-designs/screenshots/04-project-config.png) | 已有对象页，截图为演示输入 |
+| Settings | [`05-skills-mcp.png`](page-designs/screenshots/05-skills-mcp.png), [`06-platform-settings.png`](page-designs/screenshots/06-platform-settings.png) | 探索材料 |
+| Recent Jobs | [`03-run-detail.png`](page-designs/screenshots/03-run-detail.png) | 探索材料 |
 
 ## 页面能力
 
 ### 页面拆分
 
-具体页面内容不在 025 中继续展开。025 只保留 shell/framework 边界；页面材料按上表迁移到各自目录。Inbox 当前没有可迁移材料，先保持空目录。
+025 仍以 shell/framework 为第一实施边界；页面材料集中在本目录，后续以 025 内独立实现切片推进。Inbox 当前没有可迁移材料，保持 placeholder，不再创建空 feature 目录。
 
 ## 演示顺序
 
@@ -69,14 +69,14 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 
 ## 生成截图
 
-截图已移到页面目录：
+历史页面截图已合并到 025：
 
-- [`../026-overview-dashboard/screenshots/01-overview.png`](../026-overview-dashboard/screenshots/01-overview.png)
-- [`../028-new-job/screenshots/02-new-work-intake.png`](../028-new-job/screenshots/02-new-work-intake.png)
-- [`../031-recent-jobs/screenshots/03-run-detail.png`](../031-recent-jobs/screenshots/03-run-detail.png)
-- [`../029-project/screenshots/04-project-config.png`](../029-project/screenshots/04-project-config.png)
-- [`../030-settings/screenshots/05-skills-mcp.png`](../030-settings/screenshots/05-skills-mcp.png)
-- [`../030-settings/screenshots/06-platform-settings.png`](../030-settings/screenshots/06-platform-settings.png)
+- [`page-designs/screenshots/01-overview.png`](page-designs/screenshots/01-overview.png)
+- [`page-designs/screenshots/02-new-work-intake.png`](page-designs/screenshots/02-new-work-intake.png)
+- [`page-designs/screenshots/03-run-detail.png`](page-designs/screenshots/03-run-detail.png)
+- [`page-designs/screenshots/04-project-config.png`](page-designs/screenshots/04-project-config.png)
+- [`page-designs/screenshots/05-skills-mcp.png`](page-designs/screenshots/05-skills-mcp.png)
+- [`page-designs/screenshots/06-platform-settings.png`](page-designs/screenshots/06-platform-settings.png)
 
 可复现渲染脚本位于 [mockups/render-mockups.cjs](mockups/render-mockups.cjs)。生成命令：
 
@@ -88,18 +88,18 @@ specs/025-webui/mockups/render-mockups.cjs
 
 视觉复查记录位于 [VISION_CHECK.md](VISION_CHECK.md)。
 
-说明：本轮只迁移现有页面材料，不补写缺失页面 spec 内容。
+说明：本轮只合并现有页面材料，不把探索性页面内容声明为已实现能力。
 
 ## 需求质量评估
 
-Requirements Quality Score: 94/100
+需求质量评分：94/100
 
-Breakdown:
-- Business Value & Goals: 29/30
-- Functional Requirements: 24/25
-- User Or Operator Experience: 19/20
-- Technical Constraints: 14/15
-- Scope & Priorities: 8/10
+分项：
+- 业务价值与目标：29/30
+- 功能需求：24/25
+- 用户或操作员体验：19/20
+- 技术约束：14/15
+- 范围与优先级：8/10
 
 剩余不确定项：
 
