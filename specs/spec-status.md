@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=e0949381a63a096377b86111945b5179e82196b0 updated=2026-08-03T12:45:26Z -->
+<!-- spec-status: project=mystra commit=ebf5ed7ef1cca4f72e0bddb1f2736b3ba6dbb771 updated=2026-08-05T02:30:33Z -->
 
 ## Current business-model authority
 
