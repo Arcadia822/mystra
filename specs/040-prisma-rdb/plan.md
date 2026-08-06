@@ -156,28 +156,35 @@ apps/control-plane/
 │       ├── schema.prisma
 │       ├── prisma.config.ts
 │       └── migrations/
-├── scripts/
-│   ├── adopt-sqlite.ts
-│   ├── check-prisma-parity.ts
-│   └── verify-database.ts
 ├── src/generated/prisma/
 │   ├── sqlite/
 │   └── postgresql/
 ├── src/lib/db/
-│   ├── config.ts
-│   ├── config.test.ts
-│   ├── client-factory.ts
+│   ├── rdb-config.ts
+│   ├── rdb-config.test.ts
 │   ├── index.ts
+│   ├── prisma-client.ts
+│   ├── prisma-errors.ts
+│   ├── prisma-mappers.ts
 │   ├── prisma-provider.ts
-│   ├── provider-contract.test.ts
+│   ├── rdb-provider.contract.ts
+│   ├── prisma-provider.sqlite.test.ts
+│   ├── prisma-provider.postgresql.test.ts
+│   ├── sqlite-adoption.ts
 │   ├── sqlite-adoption.test.ts
 │   ├── rdb-provider.ts
 │   └── README.md
 └── app/api/**/route.ts
+
+scripts/
+├── migrate-rdb.mjs
+├── migrate-rdb.test.ts
+├── adopt-sqlite-prisma.mjs
+└── verify-installation-docs.test.ts
 ```
 
-Generated client output由 `pnpm db:generate` 创建并纳入 build 前置门；是否提交 generated source 在
-implementation 前按仓库 build/deploy可重复性验证决定，默认不提交并由 `postinstall/prebuild` 生成。
+Generated client output 由 `pnpm db:generate` 创建且不提交。Installation、CI 与制品构建必须在
+TypeScript build 前显式运行该命令；当前不通过 `postinstall` 隐式执行。
 
 **Structure Decision**: 保持所有 ORM 和 driver imports 在 control-plane DB module 与 migration
 scripts。不开新 workspace package，不建立第二个 repository abstraction。两个 Prisma asset trees 是
@@ -277,7 +284,7 @@ Verification: shared provider contract suite 先 SQLite，后真实 PostgreSQL�
 |---|---|---|---|---|
 | config parse | URL/pool missing or invalid | config matrix | fail before connect, sanitize | clear variable-level error |
 | provider singleton | concurrent first requests create multiple pools | concurrency unit | cache initialization promise | startup error once |
-| SQLite adoption | unknown schema or interrupted backup | fingerprint/failure fixtures | fail closed, checksum backup | exact failed phase |
+| SQLite adoption | unknown schema or interrupted backup | fingerprint/failure fixtures | fail closed, consistent backup + row/FK validation | exact failed phase |
 | migration deploy | pooled URL/session lock failure | config + local PG integration | use direct URL only | Prisma migration error, no secret echo |
 | client/schema mismatch | wrong generated client loaded | parity/generate tests | provider-tag assertion at factory | startup error |
 | dispatch | duplicate key race | concurrent contract test | transaction + unique conflict normalization | stable conflict/idempotent result |
@@ -375,7 +382,7 @@ Lane B: Installation draft（可在 D 稳定前并行，但最终 verification �
 
 ## Implementation Gate
 
-**当前状态：OPEN FOR IMPLEMENTATION。** 已完成：
+**当前状态：CORE IMPLEMENTED；EXTERNAL DATABASE EVIDENCE PENDING。** 已完成：
 
 1. Owner 批准 `data-model.md` 中的 ER、字段改名与移除面；
 2. 040 merge `main@10750ca` 后确认 schema v5 + 039/041 contracts；
@@ -383,7 +390,9 @@ Lane B: Installation draft（可在 D 稳定前并行，但最终 verification �
 4. plan-eng-review 复审通过。
 
 `/speckit.tasks` 已生成 60 项；只读 `/speckit.analyze` 对 40/40 requirements 建立任务映射，发现 0
-constitution 冲突、0 未映射任务、0 CRITICAL/HIGH 不一致。进入 TDD implementation。
+constitution 冲突、0 未映射任务、0 CRITICAL/HIGH 不一致。三表 Prisma 核心、SQLite adoption、
+三 profile 配置与 Installation 已完成；真实 PostgreSQL/Supabase 连接证据因本机无可用实例而保留为
+明确未执行项，批准删除面的上层调用者继续列入后续规格。
 
 ## GSTACK REVIEW REPORT
 

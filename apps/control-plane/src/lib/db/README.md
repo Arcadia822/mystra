@@ -1,41 +1,44 @@
 # Control Plane DB Provider
 
-This module owns Mystra's `RdbProvider` boundary.
+This module owns Mystra's async `RdbProvider` boundary and the complete first-phase relational
+model: `IntegrationConnection`, `Project`, and `Task`.
 
 ## Invariants
 
-- Routes and MCP handlers depend on `RdbProvider`, never SQLite APIs.
-- Task stores durable intent, Project ownership, an immutable Repository
-  snapshot, and optional immutable Issue snapshot. It has no execution state.
-- Session is an independently created child of exactly one Task. It owns its
-  objective, Agent, branch, runtime resolution, lifecycle, cancellation, and
-  review evidence. Sibling Sessions do not share lifecycle transitions.
-- Runner has a stable identity. Registration by name rotates credentials while
-  retaining the Runner ID; management responses expose health, capacity, and
-  current Task/Session assignments only.
-- Execution facts are internal persistence details. They are not exposed as a
-  business collection or public identifiers.
-- Issue dispatch atomically creates or reuses one Task and its initial Session
-  using a unique dispatch key.
-- Schema v5 stores multiple active Integration connections, connection type,
-  credential health, and only an opaque `credential_ref`; credential plaintext
-  is never a database field.
-- The exact schema v4 fingerprint upgrades to v5 in one transaction while
-  preserving Integration connection IDs and Project references. Other
-  precisely recognized obsolete schemas retain their documented rebuild path;
-  unknown or mixed schemas fail closed and preserve data.
-- SQLite WAL and foreign-key enforcement are enabled during initialization.
-- Terminal completion persists result, lifecycle transition, internal facts,
-  and released Runner capacity transactionally.
-- Stale evaluation fails active assigned Sessions without retry, requeue, or
-  reassignment.
+- Business callers depend on `RdbProvider`; Prisma, adapters, pools, URLs, and driver errors do
+  not cross this directory.
+- SQLite uses `@prisma/adapter-better-sqlite3`. PostgreSQL and Supabase use the same PostgreSQL
+  generated client through `@prisma/adapter-pg`.
+- Supabase is a deployment profile, not a second persistence API.
+- All JSON objects are serialized explicitly and parsed through shared Zod contracts before
+  leaving the provider.
+- Project stores stable Repository identity only. Mutable repository names, URLs, issue data,
+  and repository snapshots belong in provider caches, not these tables.
+- Task stores six fields only. `issue_dispatch_key` provides nullable unique dispatch identity.
+- Session, Runner, ContextBundle, event, artifact, and derived summary persistence are absent.
+- The provider singleton caches the initialization promise, clears failed initialization, and
+  awaits disconnect during reset or shutdown.
+- Prisma Migrate owns schema history. Runtime startup never creates or mutates schema.
+
+## Configuration
+
+`MYSTRA_RDB_PROVIDER` is `sqlite` (default), `postgresql`, or `supabase`.
+
+- SQLite: `MYSTRA_DB_PATH`.
+- PostgreSQL/Supabase runtime: `MYSTRA_DATABASE_URL`.
+- Migration: `MYSTRA_DIRECT_DATABASE_URL`; required for Supabase.
+- Pool: `MYSTRA_DB_POOL_MAX`, `MYSTRA_DB_CONNECTION_TIMEOUT_MS`,
+  `MYSTRA_DB_IDLE_TIMEOUT_MS`.
+
+See the root [Installation guide](../../../../../INSTALLATION.md) for commands, adoption,
+backup, and recovery.
 
 ## Commands
 
 ```sh
-pnpm --filter @mystra/control-plane test
-pnpm --filter @mystra/control-plane typecheck
+pnpm db:validate
+pnpm db:generate
+pnpm db:migrate:deploy
+pnpm db:migrate:status
+pnpm db:adopt:sqlite -- --database ./data/mystra.db --dry-run
 ```
-
-`getDb()` reads `MYSTRA_DB_PATH`; local development defaults to
-`./data/mystra.db`.

@@ -140,28 +140,29 @@ client/adapter，并在持久化模块内部适配为经 parity tests 证明等�
 - 两份手写 provider：直接产生行为 drift。
 - 重新发明完整 repository abstraction：只是把 Prisma 包装成另一套 ORM，文件更多而保证更少。
 
-## Decision 7：SQLite 既有数据库采用 fingerprint + baseline + deploy
+## Decision 7：SQLite 既有数据库采用 fingerprint + backup + replacement
 
 **Decision**: 提供显式 `db:adopt:sqlite` 流程：
 
 1. 只读检查受支持的 `main@10750ca` schema v5 fingerprint 和 foreign keys。
-2. 备份原数据库并记录 checksum。
-3. 用 `prisma migrate resolve --applied` 标记 provider-specific baseline。
-4. 用 `prisma migrate deploy` 应用 baseline 后续 migration。
-5. 运行数据计数、关系和 foreign-key verification。
+2. 拒绝 open WAL，并使用 SQLite backup API 生成一致性备份。
+3. 在同目录临时文件上执行已提交的 Prisma SQLite baseline migration。
+4. 验证并映射获批三表数据，不把已删除字段转存到 `metadata`。
+5. 核对三表行数与 foreign keys 后，以原子 rename 替换源数据库；成功后重复执行应报告已接管。
 
 未知/混合 schema 在第 1 步停止。生产 app startup 不自动运行 adoption 或 migration。
 
 **Rationale**:
 
-- Prisma 官方 existing-project 流程使用 `migrate diff` 创建 baseline，并以 `migrate resolve`
-  标记既有数据库。
+- 旧 v5 与最终三表 schema 都需要破坏性删表/删列和字段提升；在 Prisma 初始化的临时数据库中
+  显式复制获批数据，比在原文件上伪造 migration history 更容易验证和恢复。
 - 分离 adoption 与 runtime 避免普通重启意外改写用户数据库。
 
 **Alternatives considered**:
 
 - 在 constructor 中自动迁移：连接时副作用过大，失败恢复不透明。
-- 复制到新文件再替换：可用于备份，但不解决 Prisma migration metadata 和 schema drift。
+- 在原数据库上 `migrate resolve --applied`：不会执行所需的数据转换，也会把未实际匹配 baseline
+  的 schema 标记为已应用。
 
 **Sources**:
 

@@ -64,3 +64,6 @@ Notes:
 
 - 初次质量检查通过，无需 `[NEEDS CLARIFICATION]`。
 - planning 必须验证 Prisma 当前版本、Node 24/pnpm 10 兼容性、双 schema/migration 策略、SQLite baseline、PostgreSQL transaction/pool、Supabase pooled/direct URL 和迁移失败恢复。
+- 2026-08-06 核心实现复核：三表 Prisma CRUD、SQLite migration/adoption、三 profile 配置、
+  Installation、共享 contracts 与安全错误边界已通过 scoped gates；真实 PostgreSQL/Supabase
+  connectivity 仍按 engineering checklist 明确标为未执行。

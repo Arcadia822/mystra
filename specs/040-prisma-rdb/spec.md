@@ -3,7 +3,7 @@
 **Feature Branch**: `040-prisma-rdb`
 **Created**: 2026-08-05
 **Revised**: 2026-08-06
-**Status**: Approved for implementation
+**Status**: Core implemented; external PostgreSQL/Supabase verification pending
 **Input**: 由 Prisma 接管 RDB，并实现 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL；提供启动时 provider 切换配置、独立迁移配置及 `INSTALLATION.md` 安装说明。Owner 反馈要求 capability 以内嵌 JSON 保存，不提前建立联动表；第一期同时移除待重做的 Project execution defaults、ContextBundle、Runner 与 Session persistence。Project 只保存 stable Repository identity；Task 只保留 identity、Project relation、Issue dispatch 幂等键和通用元数据，Issue/Repository snapshot 与 cache 设计留给后续 Integration 规格。
 
 ## User Scenarios & Testing

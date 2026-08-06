@@ -3,8 +3,8 @@
 **Status**: Owner approved
 **Audited baseline**: merged `main@10750ca`（包含 039 与 041）
 **Audited on**: 2026-08-06
-**Current-schema coverage**: 当前 schema 的 84 个业务列已完成 84/84 审计；根据 Owner 最新反馈，
-Prisma 第一期候选模型收缩为 3 张业务表、30 个候选字段。
+**Current-schema coverage**: 原 schema 的 84 个业务列已完成 84/84 审计；Owner 已批准并实现
+Prisma 第一期的 3 张业务表、30 个业务字段。
 
 ## 第四轮结论
 

@@ -2,7 +2,7 @@
 
 ## Owner
 
-`apps/control-plane/src/lib/db/config.ts` 解析环境变量并返回内部 discriminated union。
+`apps/control-plane/src/lib/db/rdb-config.ts` 解析环境变量并返回内部 discriminated union。
 该 contract 不进入 `@mystra/shared`，因为它是 control-plane deployment configuration。
 
 ## Provider selector
@@ -52,7 +52,7 @@ session pooler 或 transaction pooler，选择由部署形态决定；migration 
 
 ## Validation and errors
 
-- provider unknown: `INVALID_RDB_CONFIGURATION: unsupported MYSTRA_RDB_PROVIDER`。
+- provider unknown: `INVALID_RDB_CONFIGURATION: MYSTRA_RDB_PROVIDER must be one of sqlite, postgresql, or supabase`。
 - required value missing: 只报告变量名。
 - invalid URL scheme: 只报告允许 scheme，不打印输入 URL。
 - invalid pool value: 只报告变量名、范围和收到的非秘密数值。
