@@ -6,13 +6,17 @@ import { fileURLToPath } from "node:url";
 const actions = new Map([
   ["dev", ["migrate", "dev"]],
   ["deploy", ["migrate", "deploy"]],
+  ["reset", ["migrate", "reset", "--force"]],
   ["status", ["migrate", "status"]],
 ]);
 
 const action = process.argv[2];
 const prismaArguments = actions.get(action);
 if (!prismaArguments) {
-  fail("usage: migrate-rdb.mjs <dev|deploy|status>");
+  fail("usage: migrate-rdb.mjs <dev|deploy|reset|status>");
+}
+if (action === "reset" && process.env.MYSTRA_ALLOW_TEST_DB_RESET !== "1") {
+  fail("MYSTRA_ALLOW_TEST_DB_RESET=1 is required for destructive test reset");
 }
 
 const provider = process.env.MYSTRA_RDB_PROVIDER ?? "sqlite";

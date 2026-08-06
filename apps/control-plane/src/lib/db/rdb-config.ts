@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { z } from "zod";
+
 export type SqliteRdbConfiguration = {
   provider: "sqlite";
   databasePath: string;
@@ -26,12 +28,20 @@ export class RdbConfigurationError extends Error {
 }
 
 type Environment = Record<string, string | undefined>;
+const providerSchema = z.enum(["sqlite", "postgresql", "supabase"]);
 
 export function parseRdbConfiguration(
   environment: Environment = process.env,
   cwd = process.cwd(),
 ): RdbConfiguration {
-  const provider = environment.MYSTRA_RDB_PROVIDER ?? "sqlite";
+  const providerResult = providerSchema.safeParse(environment.MYSTRA_RDB_PROVIDER ?? "sqlite");
+  if (!providerResult.success) {
+    throw new RdbConfigurationError(
+      "MYSTRA_RDB_PROVIDER",
+      "must be one of sqlite, postgresql, or supabase",
+    );
+  }
+  const provider = providerResult.data;
   if (provider === "sqlite") {
     const configuredPath = environment.MYSTRA_DB_PATH ?? path.join("data", "mystra.db");
     return {
@@ -39,13 +49,6 @@ export function parseRdbConfiguration(
       databasePath: configuredPath === ":memory:" ? configuredPath : path.resolve(cwd, configuredPath),
     };
   }
-  if (provider !== "postgresql" && provider !== "supabase") {
-    throw new RdbConfigurationError(
-      "MYSTRA_RDB_PROVIDER",
-      "must be one of sqlite, postgresql, or supabase",
-    );
-  }
-
   const runtimeUrl = requirePostgresqlUrl(environment, "MYSTRA_DATABASE_URL");
   const directUrl = provider === "supabase"
     ? requirePostgresqlUrl(environment, "MYSTRA_DIRECT_DATABASE_URL")
@@ -108,9 +111,9 @@ function parseInteger(
   if (!/^(?:0|[1-9][0-9]*)$/u.test(raw)) {
     throw new RdbConfigurationError(name, `must be an integer from ${bounds.min} to ${bounds.max}`);
   }
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value < bounds.min || value > bounds.max) {
+  const result = z.coerce.number().int().min(bounds.min).max(bounds.max).safeParse(raw);
+  if (!result.success || !Number.isSafeInteger(result.data)) {
     throw new RdbConfigurationError(name, `must be an integer from ${bounds.min} to ${bounds.max}`);
   }
-  return value;
+  return result.data;
 }

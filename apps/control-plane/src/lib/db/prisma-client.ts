@@ -18,7 +18,7 @@ type ConnectionMutable = Omit<IntegrationConnection, "id" | "createdAt">;
 type ConnectionUpdate = Partial<ConnectionMutable>;
 type ProjectUpdate = Partial<Pick<Project, "name" | "slug" | "repositoryBaseBranch" | "metadata" | "archivedAt" | "updatedAt">>;
 
-export interface MystraPrismaClient {
+export interface MystraPrismaDelegates {
   integrationConnection: {
     upsert(args: {
       where: { integration_provider_providerExternalId: Pick<IntegrationConnection, "integration" | "provider" | "providerExternalId"> };
@@ -44,6 +44,10 @@ export interface MystraPrismaClient {
     findUnique(args: { where: { id: string } | { issueDispatchKey: string } }): Promise<Task | null>;
     findMany(args: { where?: { projectId: string }; orderBy: OrderBy }): Promise<Task[]>;
   };
+}
+
+export interface MystraPrismaClient extends MystraPrismaDelegates {
+  transaction<T>(operation: (transaction: MystraPrismaDelegates) => Promise<T>): Promise<T>;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
 }
@@ -72,6 +76,26 @@ export function createSqlitePrismaClient(input: {
       findUnique: async (args) => client.task.findUnique(args),
       findMany: async (args) => client.task.findMany(args),
     },
+    transaction: async (operation) => client.$transaction(async (transaction) => operation({
+      integrationConnection: {
+        upsert: async (args) => transaction.integrationConnection.upsert(args),
+        updateMany: async (args) => transaction.integrationConnection.updateMany(args),
+        findUnique: async (args) => transaction.integrationConnection.findUnique(args),
+        findMany: async (args) => transaction.integrationConnection.findMany(args),
+        deleteMany: async (args) => transaction.integrationConnection.deleteMany(args),
+      },
+      project: {
+        create: async (args) => transaction.project.create(args),
+        updateMany: async (args) => transaction.project.updateMany(args),
+        findUnique: async (args) => transaction.project.findUnique(args),
+        findMany: async (args) => transaction.project.findMany(args),
+      },
+      task: {
+        create: async (args) => transaction.task.create(args),
+        findUnique: async (args) => transaction.task.findUnique(args),
+        findMany: async (args) => transaction.task.findMany(args),
+      },
+    }), { isolationLevel: "Serializable" }),
     connect: async () => client.$connect(),
     disconnect: async () => client.$disconnect(),
   };
@@ -109,6 +133,26 @@ export function createPostgresqlPrismaClient(input: {
       findUnique: async (args) => client.task.findUnique(args),
       findMany: async (args) => client.task.findMany(args),
     },
+    transaction: async (operation) => client.$transaction(async (transaction) => operation({
+      integrationConnection: {
+        upsert: async (args) => transaction.integrationConnection.upsert(args),
+        updateMany: async (args) => transaction.integrationConnection.updateMany(args),
+        findUnique: async (args) => transaction.integrationConnection.findUnique(args),
+        findMany: async (args) => transaction.integrationConnection.findMany(args),
+        deleteMany: async (args) => transaction.integrationConnection.deleteMany(args),
+      },
+      project: {
+        create: async (args) => transaction.project.create(args),
+        updateMany: async (args) => transaction.project.updateMany(args),
+        findUnique: async (args) => transaction.project.findUnique(args),
+        findMany: async (args) => transaction.project.findMany(args),
+      },
+      task: {
+        create: async (args) => transaction.task.create(args),
+        findUnique: async (args) => transaction.task.findUnique(args),
+        findMany: async (args) => transaction.task.findMany(args),
+      },
+    }), { isolationLevel: "Serializable" }),
     connect: async () => client.$connect(),
     disconnect: async () => client.$disconnect(),
   };

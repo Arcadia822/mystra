@@ -19,7 +19,7 @@ import {
   type TaskRecord,
 } from "@mystra/shared";
 
-import type { MystraPrismaClient } from "./prisma-client";
+import type { MystraPrismaClient, MystraPrismaDelegates } from "./prisma-client";
 import { normalizeDatabaseError, RdbError } from "./prisma-errors";
 import {
   mapIntegrationConnectionRecord,
@@ -202,18 +202,20 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async createProject(input: ProjectCreate): Promise<Project> {
     const parsed = projectCreateSchema.parse(input);
-    await this.#requireUsableRepositoryConnection(parsed.repositoryConnectionId);
     const timestamp = this.#now();
     try {
-      const row = await this.#client.project.create({
-        data: {
-          id: this.#newId(),
-          ...parsed,
-          metadata: serializeJson(parsed.metadata),
-          archivedAt: null,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        },
+      const row = await this.#client.transaction(async (transaction) => {
+        await this.#requireUsableRepositoryConnection(parsed.repositoryConnectionId, transaction);
+        return transaction.project.create({
+          data: {
+            id: this.#newId(),
+            ...parsed,
+            metadata: serializeJson(parsed.metadata),
+            archivedAt: null,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        });
       });
       return mapProject(row);
     } catch (error) {
@@ -276,17 +278,29 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async createTask(input: TaskCreateRequest): Promise<TaskRecord> {
     const parsed = taskCreateRequestSchema.parse(input);
-    await this.#requireActiveProject(parsed.projectId);
-    return this.#insertTask(parsed);
+    return this.#client.transaction(async (transaction) => {
+      await this.#requireActiveProject(parsed.projectId, transaction);
+      return this.#insertTask(parsed, transaction);
+    });
   }
 
   async dispatchIssue(
     input: TaskCreateRequest & { issueDispatchKey: string },
   ): Promise<IssueDispatchResult> {
     const parsed = taskCreateRequestSchema.parse(input);
-    await this.#requireActiveProject(parsed.projectId);
+    const existing = await this.getTaskByIssueDispatchKey(input.issueDispatchKey);
+    if (existing) {
+      if (existing.projectId !== parsed.projectId) {
+        throw new RdbError("DISPATCH_CONFLICT", "Issue dispatch key belongs to another Project");
+      }
+      return { task: existing, created: false };
+    }
     try {
-      return { task: await this.#insertTask(parsed), created: true };
+      const task = await this.#client.transaction(async (transaction) => {
+        await this.#requireActiveProject(parsed.projectId, transaction);
+        return this.#insertTask(parsed, transaction);
+      });
+      return { task, created: true };
     } catch (error) {
       if (!(error instanceof RdbError) || error.code !== "DISPATCH_CONFLICT") {
         throw error;
@@ -317,10 +331,13 @@ export class PrismaRdbProvider implements RdbProvider {
     return rows.map(mapTask);
   }
 
-  async #insertTask(input: TaskCreateRequest): Promise<TaskRecord> {
+  async #insertTask(
+    input: TaskCreateRequest,
+    client: MystraPrismaDelegates = this.#client,
+  ): Promise<TaskRecord> {
     const timestamp = this.#now();
     try {
-      const row = await this.#client.task.create({
+      const row = await client.task.create({
         data: {
           id: this.#newId(),
           projectId: input.projectId,
@@ -339,11 +356,15 @@ export class PrismaRdbProvider implements RdbProvider {
     }
   }
 
-  async #requireUsableRepositoryConnection(id: string): Promise<IntegrationConnectionRecord> {
-    const connection = await this.getIntegrationConnectionRecord(id);
-    if (!connection) {
+  async #requireUsableRepositoryConnection(
+    id: string,
+    client: MystraPrismaDelegates = this.#client,
+  ): Promise<IntegrationConnectionRecord> {
+    const row = await client.integrationConnection.findUnique({ where: { id } });
+    if (!row) {
       throw new RdbError("RDB_RELATION_CONFLICT", "Repository connection does not exist");
     }
+    const connection = mapIntegrationConnectionRecord(row);
     if (
       connection.status !== "active"
       || connection.credentialState !== "ready"
@@ -354,11 +375,15 @@ export class PrismaRdbProvider implements RdbProvider {
     return connection;
   }
 
-  async #requireActiveProject(id: string): Promise<Project> {
-    const project = await this.getProjectById(id);
-    if (!project) {
+  async #requireActiveProject(
+    id: string,
+    client: MystraPrismaDelegates = this.#client,
+  ): Promise<Project> {
+    const row = await client.project.findUnique({ where: { id } });
+    if (!row) {
       throw new RdbError("RDB_RELATION_CONFLICT", "Project does not exist");
     }
+    const project = mapProject(row);
     if (project.archivedAt) {
       throw new RdbError("RDB_RELATION_CONFLICT", "Project is archived");
     }

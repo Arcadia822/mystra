@@ -127,6 +127,13 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       left.task.id,
       ordinary.id,
     ]);
+
+    await db.archiveProject(parent.slug);
+    await expect(db.dispatchIssue({
+      projectId: parent.id,
+      issueDispatchKey: key,
+      metadata: { ignoredOnReplay: true },
+    })).resolves.toEqual({ task: left.task, created: false });
   });
 
   it("normalizes slug, foreign-key, and dispatch conflicts", async () => {
