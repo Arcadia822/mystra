@@ -26,18 +26,27 @@ Adjacent controls share density without flattening their semantic levels. Destru
 ## Composer
 
 - New/intake composer uses one bordered card surface and a compact 3-line input.
-- Internal body padding follows the Castrel source baseline exactly: top 9px, right 7px, bottom 7px, left 9px.
+- Internal body keeps the Castrel source baseline of top 9px, right 7px, bottom 7px, left 9px, then compensates the textarea right edge and footer right/bottom by 2px so the effective visual inset around content and the 32px send action is 9px on every side.
 - Footer stays inside the same padded body, uses transparent ghost styling, and has no separator line or separate filled strip.
 - Footer control groups use the shared 4px tight gap.
-- Attachment, Repository, and Issue are ghost controls at rest; border/fill appears only for hover, focus, open, selected, or disabled explanation.
+- Attachment and Project are ghost controls at rest; border/fill appears only for hover, focus, open, selected, or disabled explanation. Project uses the shared dropdown trigger/content/item anatomy and never uses Repository as its UI label.
+- Issue selection is not a footer dropdown. After Project selection, repository-scoped Issues appear as compact selectable cards below the input; before Project selection the Issue region is absent.
 - Send is the single solid action, 32px circular visual target inside a larger touch affordance when needed.
 - Unsupported API actions remain disabled with a concise explanation.
+
+## Dropdown
+
+- Shared dropdowns use one trigger/content/item component family, with common density, icon grid, padding, surface, radius, motion and selected mark.
+- The trigger is a real button with `aria-haspopup="listbox"` and `aria-expanded`; content is a labelled listbox; options expose selected and disabled state.
+- Keyboard support includes Arrow Up/Down, Home/End, Escape and Tab. Opening focuses the selected or first enabled option; Escape returns focus to the trigger; outside pointer input closes the popup.
+- Page components provide option value, label and optional description but do not restyle menu internals or reproduce dropdown behavior.
 
 ## Sidebar Sections
 
 - Projects and Tasks section headings use text only; they never display counts.
 - Projects exposes one ghost plus action aligned right, labelled for accessibility, navigating to the Project creation surface.
 - Project and Task rows use the same 28px density and selected-surface feedback as primary navigation.
+- Sidebar leading icons, marks, and status indicators use one 16px visual slot. Trailing icons, count badges, and icon buttons use one shared 24px desktop slot with a common right edge; coarse-pointer layouts expand that slot and its interactive control to 44px. Shell icons remain 16px with one stroke and motion template, and badge content is centered inside the slot rather than positioning itself with private margins.
 - Collapsed mode removes the sidebar entirely; it does not convert each section into an icon-only rail.
 
 ## Settings

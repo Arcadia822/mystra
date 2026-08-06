@@ -5,6 +5,11 @@ import type {
   ContextBundleCreate,
   IntegrationConnection,
   IntegrationConnectionActivation,
+  IntegrationConnectionAccount,
+  IntegrationConnectionRepositorySelection,
+  IntegrationConnectionStatus,
+  IntegrationConnectionType,
+  IntegrationCredentialState,
   PlatformCapabilities,
   Project,
   ProjectCreate,
@@ -70,13 +75,46 @@ export type IssueDispatchResult = {
   created: boolean;
 };
 
+export type IntegrationConnectionRecord = Omit<IntegrationConnection, "externalId"> & {
+  providerExternalId: string;
+  credentialRef?: string;
+  accessSummary: Record<string, unknown>;
+};
+
+export type IntegrationConnectionUpsert = {
+  id?: string;
+  integration: string;
+  provider: string;
+  connectionType: IntegrationConnectionType;
+  providerExternalId: string;
+  displayName?: string;
+  account: IntegrationConnectionAccount;
+  repositorySelection: IntegrationConnectionRepositorySelection;
+  permissions: Record<string, string>;
+  credentialState: IntegrationCredentialState;
+  credentialRef?: string;
+  accessSummary?: Record<string, unknown>;
+  status?: IntegrationConnectionStatus;
+};
+
 export interface RdbProvider {
   close(): void;
 
   activateIntegrationConnection(input: IntegrationConnectionActivation): IntegrationConnection;
+  upsertIntegrationConnection(input: IntegrationConnectionUpsert): IntegrationConnectionRecord;
+  replaceIntegrationConnection(id: string, input: IntegrationConnectionUpsert): IntegrationConnectionRecord | undefined;
   getIntegrationConnection(id: string): IntegrationConnection | undefined;
+  getIntegrationConnectionRecord(id: string): IntegrationConnectionRecord | undefined;
   getActiveIntegrationConnection(integration: string): IntegrationConnection | undefined;
   listIntegrationConnections(options?: { integration?: string }): IntegrationConnection[];
+  listIntegrationConnectionRecords(options?: { integration?: string }): IntegrationConnectionRecord[];
+  setIntegrationConnectionStatus(
+    id: string,
+    status: IntegrationConnectionStatus,
+    credentialState?: IntegrationCredentialState,
+  ): IntegrationConnectionRecord | undefined;
+  deleteIntegrationConnection(id: string): boolean;
+  listProjectsForIntegrationConnection(id: string): Project[];
 
   createProject(input: ProjectCreate): Project;
   listProjects(options?: { includeArchived?: boolean }): Project[];

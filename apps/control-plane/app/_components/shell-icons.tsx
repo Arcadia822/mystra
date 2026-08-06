@@ -6,6 +6,7 @@ export type ShellIconName =
   | "automation"
   | "check"
   | "circle"
+  | "close"
   | "collapse"
   | "expand"
   | "inbox"
@@ -51,6 +52,7 @@ export function ShellIcon({ name, ...props }: SVGProps<SVGSVGElement> & { name: 
       {name === "review" ? <><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.5" /></> : null}
       {name === "check" ? <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></> : null}
       {name === "alert" ? <><circle cx="12" cy="12" r="9" /><path d="M12 7v6" /><path d="M12 17h.01" /></> : null}
+      {name === "close" ? <path d="m6 6 12 12M18 6 6 18" /> : null}
     </svg>
   );
 }

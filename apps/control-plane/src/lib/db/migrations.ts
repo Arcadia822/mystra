@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 4;
+export const currentSchemaVersion = 5;
 
 export const sqliteMigrations = `
 CREATE TABLE mystra_schema (
@@ -13,14 +13,23 @@ CREATE TABLE integration_connections (
   id TEXT PRIMARY KEY,
   integration TEXT NOT NULL,
   provider TEXT NOT NULL,
+  connection_type TEXT NOT NULL CHECK (connection_type IN ('github-app', 'personal-access-token')),
   external_id TEXT NOT NULL,
+  display_name TEXT,
   account TEXT NOT NULL,
-  repository_selection TEXT NOT NULL CHECK (repository_selection IN ('all', 'selected')),
+  repository_selection TEXT NOT NULL CHECK (repository_selection IN ('all', 'selected', 'token')),
   permissions TEXT NOT NULL DEFAULT '{}',
+  access_summary TEXT NOT NULL DEFAULT '{}',
+  credential_ref TEXT,
+  credential_state TEXT NOT NULL CHECK (credential_state IN ('ready', 'missing', 'invalid')),
   status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  UNIQUE(integration, external_id)
+  UNIQUE(integration, external_id),
+  CHECK (
+    (connection_type = 'github-app' AND credential_ref IS NULL) OR
+    (connection_type = 'personal-access-token' AND credential_ref IS NOT NULL)
+  )
 );
 
 CREATE TABLE projects (
@@ -134,9 +143,8 @@ CREATE TABLE artifacts (
 CREATE INDEX idx_projects_slug ON projects(slug);
 CREATE UNIQUE INDEX idx_integration_connections_identity
   ON integration_connections(integration, external_id);
-CREATE UNIQUE INDEX idx_integration_connections_active
-  ON integration_connections(integration)
-  WHERE status = 'active';
+CREATE INDEX idx_integration_connections_status
+  ON integration_connections(integration, status);
 CREATE INDEX idx_context_bundles_slug ON context_bundles(slug);
 CREATE INDEX idx_tasks_project_id ON tasks(project_id);
 CREATE INDEX idx_tasks_created_at ON tasks(created_at, id);
@@ -201,6 +209,27 @@ const schemaV3Columns: Record<string, Set<string>> = {
   artifacts: new Set(["id", "session_id", "task_id", "kind", "name", "uri", "metadata", "created_at"]),
 };
 
+const schemaV4Columns: Record<string, Set<string>> = {
+  ...schemaV3Columns,
+  integration_connections: new Set([
+    "id", "integration", "provider", "external_id", "account", "repository_selection",
+    "permissions", "status", "created_at", "updated_at",
+  ]),
+  projects: new Set([
+    "id", "name", "slug", "repository_connection_id", "repository_snapshot", "base_branch",
+    "default_agent", "runtime", "prewarm_config", "metadata", "archived_at", "created_at", "updated_at",
+  ]),
+};
+
+const schemaV5Columns: Record<string, Set<string>> = {
+  ...schemaV4Columns,
+  integration_connections: new Set([
+    "id", "integration", "provider", "connection_type", "external_id", "display_name",
+    "account", "repository_selection", "permissions", "access_summary", "credential_ref",
+    "credential_state", "status", "created_at", "updated_at",
+  ]),
+};
+
 const legacyTables = new Set([
   "artifacts",
   "context_bundles",
@@ -237,6 +266,39 @@ function isExactSchemaV3Fingerprint(db: Database.Database, tables: string[]): bo
   return version === 3 && Object.entries(schemaV3Columns).every(([table, expected]) => (
     sameSet([...columns(db, table)], expected)
   ));
+}
+
+function hasExactColumns(
+  db: Database.Database,
+  expectedByTable: Record<string, Set<string>>,
+): boolean {
+  return Object.entries(expectedByTable).every(([table, expected]) => (
+    sameSet([...columns(db, table)], expected)
+  ));
+}
+
+function isExactSchemaV4Fingerprint(db: Database.Database, tables: string[]): boolean {
+  if (!sameSet(tables, currentTables)) {
+    return false;
+  }
+  const version = db.prepare("SELECT version FROM mystra_schema WHERE id = 1").pluck().get();
+  if (version !== 4 || !hasExactColumns(db, schemaV4Columns)) {
+    return false;
+  }
+  const activeIndex = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_integration_connections_active'",
+  ).pluck().get();
+  return typeof activeIndex === "string"
+    && /CREATE\s+UNIQUE\s+INDEX/i.test(activeIndex)
+    && /WHERE\s+status\s*=\s*'active'/i.test(activeIndex);
+}
+
+function isExactCurrentSchema(db: Database.Database, tables: string[]): boolean {
+  if (!sameSet(tables, currentTables)) {
+    return false;
+  }
+  const version = db.prepare("SELECT version FROM mystra_schema WHERE id = 1").pluck().get();
+  return version === currentSchemaVersion && hasExactColumns(db, schemaV5Columns);
 }
 
 function isExactLegacyFingerprint(db: Database.Database, tables: string[]): boolean {
@@ -325,6 +387,58 @@ function rebuildExactSchemaV3(db: Database.Database): void {
   verifyForeignKeys(db);
 }
 
+function migrateExactSchemaV4(db: Database.Database): void {
+  db.pragma("foreign_keys = OFF");
+  const migrate = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE integration_connections_v5 (
+        id TEXT PRIMARY KEY,
+        integration TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        connection_type TEXT NOT NULL CHECK (connection_type IN ('github-app', 'personal-access-token')),
+        external_id TEXT NOT NULL,
+        display_name TEXT,
+        account TEXT NOT NULL,
+        repository_selection TEXT NOT NULL CHECK (repository_selection IN ('all', 'selected', 'token')),
+        permissions TEXT NOT NULL DEFAULT '{}',
+        access_summary TEXT NOT NULL DEFAULT '{}',
+        credential_ref TEXT,
+        credential_state TEXT NOT NULL CHECK (credential_state IN ('ready', 'missing', 'invalid')),
+        status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(integration, external_id),
+        CHECK (
+          (connection_type = 'github-app' AND credential_ref IS NULL) OR
+          (connection_type = 'personal-access-token' AND credential_ref IS NOT NULL)
+        )
+      );
+      INSERT INTO integration_connections_v5 (
+        id, integration, provider, connection_type, external_id, display_name, account,
+        repository_selection, permissions, access_summary, credential_ref, credential_state,
+        status, created_at, updated_at
+      )
+      SELECT
+        id, integration, provider, 'github-app', external_id, NULL, account,
+        repository_selection, permissions, '{}', NULL, 'ready', status, created_at, updated_at
+      FROM integration_connections;
+      DROP TABLE integration_connections;
+      ALTER TABLE integration_connections_v5 RENAME TO integration_connections;
+      CREATE UNIQUE INDEX idx_integration_connections_identity
+        ON integration_connections(integration, external_id);
+      CREATE INDEX idx_integration_connections_status
+        ON integration_connections(integration, status);
+      UPDATE mystra_schema SET version = ${currentSchemaVersion} WHERE id = 1;
+    `);
+  });
+  try {
+    migrate.immediate();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+  verifyForeignKeys(db);
+}
+
 export function ensureCurrentSchema(db: Database.Database): void {
   const tables = userTables(db);
   if (tables.length === 0) {
@@ -332,12 +446,12 @@ export function ensureCurrentSchema(db: Database.Database): void {
     create.immediate();
     return;
   }
-  if (sameSet(tables, currentTables)) {
-    const version = db.prepare("SELECT version FROM mystra_schema WHERE id = 1").pluck().get();
-    if (version !== currentSchemaVersion) {
-      throw new Error(`UNKNOWN_DATABASE_SCHEMA: unsupported schema version ${String(version)}`);
-    }
+  if (isExactCurrentSchema(db, tables)) {
     verifyForeignKeys(db);
+    return;
+  }
+  if (isExactSchemaV4Fingerprint(db, tables)) {
+    migrateExactSchemaV4(db);
     return;
   }
   if (isExactSchemaV3Fingerprint(db, tables)) {

@@ -1,18 +1,24 @@
 "use client";
 
-import type { Project } from "@mystra/shared";
+import type { Issue, IssueListResponse, Project } from "@mystra/shared";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
 import { MystraLogo } from "./mystra-logo";
 import { ShellIcon } from "./shell-icons";
-import { UiIconButton } from "./ui-actions";
-import { UiSelect, UiTextarea } from "./ui-fields";
+import { UiButton, UiIconButton } from "./ui-actions";
+import { UiDropdown } from "./ui-dropdown";
+import { UiTextarea } from "./ui-fields";
 
 interface TaskCreateResponse {
   task?: { id?: string };
   error?: { code?: string; message?: string };
+}
+
+function issueBranch(identifier: string): string {
+  const slug = identifier.toLowerCase().match(/[a-z0-9]+/g)?.join("-") ?? "issue";
+  return `codex/${slug}`;
 }
 
 export function NewTaskComposer() {
@@ -21,24 +27,79 @@ export function NewTaskComposer() {
   const projects = projectsResource.data?.projects ?? [];
   const [objective, setObjective] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [selectedIssueId, setSelectedIssueId] = useState("");
+  const [issuesLoading, setIssuesLoading] = useState(false);
+  const [issuesError, setIssuesError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === projectId),
     [projectId, projects],
   );
-  const canSubmit = objective.trim().length > 0 && Boolean(selectedProject) && !isSubmitting;
+  const selectedIssue = useMemo(
+    () => issues.find((issue) => issue.reference.externalId === selectedIssueId),
+    [issues, selectedIssueId],
+  );
+  const selectedProjectIntegration = selectedProject?.repository.integration;
+  const selectedProjectRepository = selectedProject?.repository.fullName;
+  const canSubmit = Boolean(selectedProject)
+    && (objective.trim().length > 0 || Boolean(selectedIssue))
+    && !isSubmitting;
+
+  useEffect(() => {
+    setIssues([]);
+    setSelectedIssueId("");
+    setIssuesError(null);
+    if (!selectedProjectIntegration || !selectedProjectRepository) {
+      setIssuesLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const integration = encodeURIComponent(selectedProjectIntegration);
+    const repository = encodeURIComponent(selectedProjectRepository);
+    setIssuesLoading(true);
+
+    void fetch(`/api/integrations/${integration}/issues?repository=${repository}&limit=8`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = await response.json() as IssueListResponse & TaskCreateResponse;
+        if (!response.ok) {
+          throw new Error(payload.error?.message ?? `Issue loading failed with status ${response.status}`);
+        }
+        setIssues(payload.items);
+      })
+      .catch((caught) => {
+        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        setIssuesError(caught instanceof Error ? caught.message : String(caught));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIssuesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [selectedProjectIntegration, selectedProjectRepository]);
 
   async function createTask() {
-    if (!selectedProject || !objective.trim() || isSubmitting) return;
+    if (!selectedProject || (!objective.trim() && !selectedIssue) || isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/tasks", {
+      const response = await fetch(selectedIssue
+        ? `/api/integrations/${encodeURIComponent(selectedIssue.reference.integration)}/issues/${encodeURIComponent(selectedIssue.reference.identifier)}/dispatch`
+        : "/api/tasks", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(selectedIssue ? {
+          projectId: selectedProject.id,
+          agent: selectedProject.defaultAgent,
+          branch: issueBranch(selectedIssue.reference.identifier),
+          ...(objective.trim() ? { sessionObjective: objective.trim() } : {}),
+        } : {
           source: "api",
           projectId: selectedProject.id,
           objective: objective.trim(),
@@ -57,9 +118,8 @@ export function NewTaskComposer() {
 
   return (
     <section aria-labelledby="new-task-heading" className="newTaskSurface">
-      <div aria-label="Mystra" className="newTaskLogo">
-        <MystraLogo className="newTaskLogoMark" />
-        <strong>Mystra</strong>
+      <div className="newTaskLogo">
+        <MystraLogo className="newTaskLogoMark" title="Mystra" />
       </div>
       <h1 className="srOnly" id="new-task-heading">Create a new Task</h1>
 
@@ -85,33 +145,61 @@ export function NewTaskComposer() {
           }}
         />
 
+        {selectedProject && (issuesLoading || issuesError || issues.length > 0) ? (
+          <div aria-label="Issues" className="newTaskIssueRegion">
+            {issuesLoading ? <p aria-live="polite" className="newTaskIssueState">Loading Issues…</p> : null}
+            {issuesError ? <p className="newTaskIssueState error" role="alert">{issuesError}</p> : null}
+            {!issuesLoading && !issuesError && issues.length > 0 ? (
+              <div aria-label="Select an Issue" className="newTaskIssueList" role="list">
+                {issues.map((issue) => (
+                  <div key={issue.reference.externalId} role="listitem">
+                    <UiButton
+                      active={selectedIssue?.reference.externalId === issue.reference.externalId}
+                      aria-label={`Select ${issue.reference.identifier}: ${issue.title}`}
+                      aria-pressed={selectedIssue?.reference.externalId === issue.reference.externalId}
+                      className="newTaskIssueCard"
+                      onClick={() => setSelectedIssueId((current) => current === issue.reference.externalId ? "" : issue.reference.externalId)}
+                    >
+                      <ShellIcon name="issue" />
+                      <span className="newTaskIssueCopy">
+                        <strong>{issue.reference.identifier}</strong>
+                        <span>{issue.title}</span>
+                      </span>
+                      <small>{issue.state.name}</small>
+                    </UiButton>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <footer className="newTaskComposerFooter">
           <div className="composerTools">
             <UiIconButton aria-label="Attach file" className="composerIconButton" disabled size="header" title="Attachments are not connected to the Task API yet">
               <ShellIcon name="attachment" />
             </UiIconButton>
-            <label className="composerSelect">
-              <ShellIcon name="repository" />
-              <span className="srOnly">Repository</span>
-              <UiSelect aria-label="Repository" fieldSize="header" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
-                <option value="">Repository</option>
-                {projects.map((project) => <option key={project.id} value={project.id}>{project.repository.fullName}</option>)}
-              </UiSelect>
-            </label>
-            <label className="composerSelect muted" title="Issue dispatch selection is not connected in this slice">
-              <ShellIcon name="issue" />
-              <span className="srOnly">Issue</span>
-              <UiSelect aria-label="Issue" disabled defaultValue="" fieldSize="header">
-                <option value="">Issue</option>
-              </UiSelect>
-            </label>
+            <UiDropdown
+              aria-label="Project"
+              className="composerProjectDropdown"
+              disabled={projectsResource.isLoading || projects.length === 0}
+              icon={<ShellIcon name="project" />}
+              onValueChange={setProjectId}
+              options={projects.map((project) => ({
+                value: project.id,
+                label: project.name,
+                description: project.repository.fullName,
+              }))}
+              placeholder="Project"
+              value={projectId}
+            />
           </div>
 
           <div className="composerActions">
             <UiIconButton aria-label="Voice input" className="composerIconButton" disabled size="header" title="Voice input is not available">
               <ShellIcon name="microphone" />
             </UiIconButton>
-            <UiIconButton aria-label="Send Task" className="composerSendButton" data-loading={isSubmitting || undefined} disabled={!canSubmit} size="default" tone="solid" type="submit">
+            <UiIconButton aria-label={selectedIssue ? "Create Task from Issue" : "Send Task"} className="composerSendButton" data-loading={isSubmitting || undefined} disabled={!canSubmit} size="default" tone="solid" type="submit">
               <ShellIcon name={isSubmitting ? "spinner" : "send"} />
             </UiIconButton>
           </div>
@@ -119,7 +207,6 @@ export function NewTaskComposer() {
       </form>
 
       {projectsResource.error ? <p className="newTaskNotice error" role="alert">{projectsResource.error}</p> : null}
-      {!projectsResource.isLoading && projects.length === 0 ? <p className="newTaskNotice">Configure a Project before creating a Task.</p> : null}
       {error ? <p className="newTaskNotice error" role="alert">{error}</p> : null}
     </section>
   );

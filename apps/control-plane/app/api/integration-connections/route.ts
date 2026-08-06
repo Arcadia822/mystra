@@ -2,16 +2,32 @@ import { integrationConnectionListResponseSchema } from "@mystra/shared";
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
-import { readGitHubAppConfig } from "@/lib/integrations/github-app";
+import { readSecretStoreConfig } from "@/lib/secrets";
 
 export async function GET() {
-  return NextResponse.json(integrationConnectionListResponseSchema.parse({
+  let patConfigured = false;
+  let patDisabledReason: string | undefined;
+  try {
+    patConfigured = readSecretStoreConfig() !== undefined;
+    if (!patConfigured) patDisabledReason = "Secret store is not configured";
+  } catch {
+    patDisabledReason = "Secret store configuration is invalid";
+  }
+  const response = NextResponse.json(integrationConnectionListResponseSchema.parse({
     providers: [{
       integration: "github",
-      connectionType: "github-app-installation",
-      configured: readGitHubAppConfig() !== undefined,
-      connectUrl: "/api/integration-connections/github/connect",
+      methods: [
+        {
+          type: "personal-access-token",
+          configured: patConfigured,
+          createUrl: "/api/integration-connections/github/pat",
+          ...(patDisabledReason ? { disabledReason: patDisabledReason } : {}),
+        },
+      ],
     }],
-    connections: getDb().listIntegrationConnections(),
+    connections: getDb().listIntegrationConnections()
+      .filter((connection) => connection.connectionType === "personal-access-token"),
   }));
+  response.headers.set("cache-control", "no-store");
+  return response;
 }

@@ -3,13 +3,19 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  APPEARANCE_STORAGE_KEY,
   CONTROL_PLANE_FOUNDATION_TOKENS,
   CONTROL_PLANE_THEMES,
   THEME_STORAGE_KEY,
+  buildAppearanceCssVariables,
   buildThemeBootstrapScript,
   buildThemeCssVariables,
   buildThemeSwatch,
+  getDefaultAppearancePreferences,
   getDefaultTheme,
+  normalizeAppearancePreferences,
+  resolveAppearanceTheme,
+  resolveAppearanceVariant,
 } from "./theme-system";
 
 describe("control-plane theme system", () => {
@@ -85,6 +91,7 @@ describe("control-plane theme system", () => {
       localStorage: {
         getItem: (key: string) => key === THEME_STORAGE_KEY ? "notion-light" : null,
       },
+      matchMedia: () => ({ matches: false }),
     });
 
     expect(dataset).toMatchObject({
@@ -94,6 +101,96 @@ describe("control-plane theme system", () => {
     });
     expect(properties.get("--font-sans")).toContain("Fira Code");
     expect(properties.get("--background")).toBeTruthy();
+  });
+
+  it("normalizes damaged browser preferences without accepting mismatched theme variants", () => {
+    expect(normalizeAppearancePreferences({
+      version: 1,
+      mode: "neon",
+      lightThemeId: "notion-dark",
+      darkThemeId: "linen-light",
+      borderMode: "loud",
+      codeSurfaceVariant: "sepia",
+      contrast: 800,
+      uiFont: 42,
+      chatFont: "  Inter  ",
+      codeFont: "",
+      uiFontSize: 100,
+      chatFontSize: 2,
+    })).toEqual({
+      ...getDefaultAppearancePreferences(),
+      chatFont: "Inter",
+      codeFont: null,
+      contrast: 100,
+      uiFontSize: 14,
+      chatFontSize: 12,
+    });
+  });
+
+  it("resolves System, Light, and Dark modes against separate theme selections", () => {
+    const preferences = {
+      ...getDefaultAppearancePreferences(),
+      lightThemeId: "linen-light",
+      darkThemeId: "notion-dark",
+    };
+
+    expect(resolveAppearanceVariant(preferences, "light")).toBe("light");
+    expect(resolveAppearanceTheme(preferences, "light").id).toBe("linen-light");
+    expect(resolveAppearanceTheme(preferences, "dark").id).toBe("notion-dark");
+    expect(resolveAppearanceTheme({ ...preferences, mode: "dark" }, "light").id).toBe("notion-dark");
+  });
+
+  it("publishes detail, border, code-surface, and font preferences as runtime tokens", () => {
+    const base = getDefaultAppearancePreferences();
+    const quiet = buildAppearanceCssVariables({ ...base, contrast: 0 }, "dark");
+    const vivid = buildAppearanceCssVariables({
+      ...base,
+      borderMode: "color-high-contrast",
+      chatFont: "Literata",
+      codeFont: "JetBrains Mono",
+      codeSurfaceVariant: "light",
+      contrast: 100,
+      uiFont: "Inter",
+      uiFontSize: 14,
+      chatFontSize: 16,
+    }, "dark");
+
+    expect(vivid["--border-visible"]).not.toBe(quiet["--border-visible"]);
+    expect(vivid["--code-bg"]).not.toBe(quiet["--code-bg"]);
+    expect(vivid).toMatchObject({
+      "--font-sans": "Inter",
+      "--font-chat": "Literata",
+      "--font-mono": "JetBrains Mono",
+      "--font-size-ui": "14px",
+      "--font-size-chat": "16px",
+    });
+  });
+
+  it("hydrates the full appearance model before React and keeps legacy theme fallback", () => {
+    const runBootstrap = (storage: Record<string, string>) => {
+      const dataset: Record<string, string> = {};
+      const properties = new Map<string, string>();
+      vm.runInNewContext(buildThemeBootstrapScript(), {
+        document: { documentElement: { dataset, style: { setProperty: (name: string, value: string) => properties.set(name, value) } } },
+        localStorage: { getItem: (key: string) => storage[key] ?? null },
+        matchMedia: () => ({ matches: true }),
+      });
+      return { dataset, properties };
+    };
+
+    const saved = runBootstrap({
+      [APPEARANCE_STORAGE_KEY]: JSON.stringify({
+        ...getDefaultAppearancePreferences(),
+        mode: "light",
+        lightThemeId: "linen-light",
+        uiFontSize: 14,
+      }),
+    });
+    expect(saved.dataset).toMatchObject({ themePreset: "linen-light", themeVariant: "light" });
+    expect(saved.properties.get("--font-size-ui")).toBe("14px");
+
+    const legacy = runBootstrap({ [THEME_STORAGE_KEY]: "notion-light" });
+    expect(legacy.dataset).toMatchObject({ themePreset: "notion-light", themeVariant: "light" });
   });
 
   it("publishes Castrel-derived density and padding through named theme tokens", () => {

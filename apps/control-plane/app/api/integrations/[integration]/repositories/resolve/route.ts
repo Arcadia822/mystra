@@ -20,9 +20,19 @@ export async function GET(
         },
       }, { status: 400 });
     }
+    const db = getDb();
+    const activeConnections = connectionId
+      ? []
+      : db.listIntegrationConnections({ integration }).filter((candidate) => candidate.status === "active");
+    if (!connectionId && activeConnections.length > 1) {
+      throw new IntegrationFailure({
+        code: "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
+        message: "Select an Integration connection explicitly",
+      });
+    }
     const connection = connectionId
-      ? getDb().getIntegrationConnection(connectionId)
-      : getDb().getActiveIntegrationConnection(integration);
+      ? db.getIntegrationConnection(connectionId)
+      : activeConnections[0];
     if (!connection) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",

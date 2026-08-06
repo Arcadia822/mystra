@@ -17,9 +17,18 @@ export async function GET(
     const cursor = url.searchParams.get("cursor");
     const requestedConnectionId = url.searchParams.get("connectionId");
     const db = getDb();
+    const activeConnections = requestedConnectionId
+      ? []
+      : db.listIntegrationConnections({ integration }).filter((candidate) => candidate.status === "active");
+    if (!requestedConnectionId && activeConnections.length > 1) {
+      throw new IntegrationFailure({
+        code: "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
+        message: "Select an Integration connection explicitly",
+      });
+    }
     const connection = requestedConnectionId
       ? db.getIntegrationConnection(requestedConnectionId)
-      : db.getActiveIntegrationConnection(integration);
+      : activeConnections[0];
     if (!connection) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
@@ -39,7 +48,9 @@ export async function GET(
     const repositories = await defaultIntegrationRegistry({ githubConnectionId: connection.id })
       .requireRepoProvider(integration)
       .listRepositories(input);
-    return NextResponse.json(repositories);
+    const response = NextResponse.json(repositories);
+    response.headers.set("cache-control", "no-store");
+    return response;
   } catch (error) {
     return integrationErrorResponse(error);
   }

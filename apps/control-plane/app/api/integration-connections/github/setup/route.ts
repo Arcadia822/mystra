@@ -5,6 +5,7 @@ import {
   githubOAuthAuthorizationUrl,
   requireGitHubAppConfig,
 } from "@/lib/integrations/github-app";
+import { assertGitHubAppAvailable } from "@/lib/integrations/deployment-capabilities";
 import {
   githubOAuthCookieNames,
   readRequestCookies,
@@ -14,6 +15,7 @@ import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations
 
 export async function GET(request: Request) {
   try {
+    assertGitHubAppAvailable();
     const config = requireGitHubAppConfig();
     const installationId = new URL(request.url).searchParams.get("installation_id");
     if (!installationId || !/^\d+$/.test(installationId)) {
@@ -32,6 +34,6 @@ export async function GET(request: Request) {
     if (existing) setTransactionCookie(response, request, githubOAuthCookieNames.returnTo, existing);
     return response;
   } catch (error) {
-    return error instanceof IntegrationFailure ? integrationErrorResponse(error) : integrationErrorResponse(error);
+    return integrationErrorResponse(error);
   }
 }

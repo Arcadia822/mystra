@@ -3,7 +3,7 @@
 **Feature Branch**: 已合并到本地 `main`，保留逻辑 feature id `025-webui`
 **Created**: 2026-05-19  
 **Status**: Draft  
-**Input**: 用户描述：“简单补充 025 的 spec，作为 mvp 版本的操作 ui”；后续范围决策：`025-webui` 只聚焦前端框架层，并纳入主题/design-system、国际化、主侧边栏、共享 layout、基础组件、响应式和未来 Electron 兼容边界。2026-08-05 owner 明确要求 demo/PR 平移 Castrel UX 的结构、密度与交互模式：主菜单为 `New`、`Search`、`Inbox`、`Issues`、`Automations`，其下是 Projects 与按 Project 分组的 Tasks；具体配色采用 dark-tech design system，默认 UI 字号为 12px。随后 owner 要求将当前页面实际使用的 Castrel v2 组件迁移并替换现有页面原语，尤其保证 padding 与配色通过主题 token system 实现。
+**Input**: 用户描述：“简单补充 025 的 spec，作为 mvp 版本的操作 ui”；后续范围决策：`025-webui` 只聚焦前端框架层，并纳入主题/design-system、国际化、主侧边栏、共享 layout、基础组件、响应式和未来 Electron 兼容边界。2026-08-05 owner 明确要求 demo/PR 平移 Castrel UX 的结构、密度与交互模式：主菜单为 `New`、`Search`、`Inbox`、`Issues`、`Automations`，其下是 Projects 与按 Project 分组的 Tasks；具体配色采用 dark-tech design system，默认 UI 字号为 12px。随后 owner 要求将当前页面实际使用的 Castrel v2 组件迁移并替换现有页面原语，尤其保证 padding 与配色通过主题 token system 实现。2026-08-06 owner 进一步要求 New 页面使用放大的独立 Logo、统一 `Project` 术语和共享 dropdown，并用 Project 选定后出现的 Issue 卡片列表替代 Issue select；随后要求从主菜单移除 `Automations`，并把 `/automations` 清空为只显示 `Coming soon` 的直接访问占位页。
 **Consolidation**: 2026-08-03 起，025 是唯一保留的未完成 UI spec；原 `026`–`031` 的页面探索材料并入 025，已完成的 035/036 对象页继续作为当前代码事实。025 的 shell 实施将显式迁移现有导航，而不是假装当前代码已经采用目标 taxonomy。
 
 ## 用户场景与测试 *(mandatory)*
@@ -18,7 +18,7 @@
 
 **验收场景**：
 
-1. **前提** 操作员打开应用 shell，**当** 主导航渲染，**则** primary navigation 依次包含 `New`、`Search`、`Inbox`、`Issues` 和 `Automations`；`Automations` 下方显示 Project list，再下方的 Tasks section 按 Project 分组显示 Task，`Settings` 作为底部 shell action 打开 modal。
+1. **前提** 操作员打开应用 shell，**当** 主导航渲染，**则** primary navigation 依次且只包含 `New`、`Search`、`Inbox` 和 `Issues`；其下显示 Project list，再下方的 Tasks section 按 Project 分组显示 Task，`Settings` 作为底部 shell action 打开 modal；直接访问 `/automations` 时只显示 `Coming soon`。
 2. **前提** 操作员在已批准路由之间切换，**当** 每个路由加载，**则** shell 提供一致的导航、页面框架和共享视觉结构，即使该页面的专属 feature spec 尚未实现。
 3. **前提** 某个已批准页面目前只有框架级支持，**当** 操作员打开它，**则** UI 可以显示占位或只读框架内容，而不是发明属于后续实现切片的页面行为。
 
@@ -26,7 +26,7 @@
 
 ### 用户故事 2 - 后续页面实现切片接入 Shell 而不重新定义 Shell（优先级：P1）
 
-作为未来的 Mystra agent 或前端维护者，我希望页面级工作落在稳定的 shell 合同之后，以便 `New`、`Search`、`Inbox`、`Issues`、`Automations`、Project-grouped Tasks 和 `Settings` 可以在同一 025 边界内按独立实现切片演进，而不反复改变产品分类或共享 UI 所有权边界。
+作为未来的 Mystra agent 或前端维护者，我希望页面级工作落在稳定的 shell 合同之后，以便 `New`、`Search`、`Inbox`、`Issues`、Project-grouped Tasks、`Settings` 和不在主菜单中的 `/automations` 占位路由可以在同一 025 边界内按独立实现切片演进，而不反复改变产品分类或共享 UI 所有权边界。
 
 **优先级原因**：页面功能需要拆成独立实现切片。025 必须定义什么属于框架、什么必须延后，否则下一个 agent 会再次即兴发挥。非常可预期。也非常不必要。
 
@@ -53,6 +53,10 @@
 1. **前提** 操作员使用窄视口，**当** 在已批准路由之间导航，**则** shell 仍可使用，且主要导航策略不是横向滚动。
 2. **前提** 操作员切换 light/dark 外观或主题，**当** shell 重新渲染，**则** 共享导航和页面框架在所有已批准路由中保持视觉一致。
 3. **前提** 操作员切换语言环境，**当** 再次访问 shell，**则** 共享导航和框架自有文案显示所选语言或可预测 fallback。
+4. **前提** 操作员将主题模式设为 `System`，**当** 操作系统明暗偏好变化，**则** shell 在不刷新页面的情况下使用分别配置的浅色或深色主题。
+5. **前提** 操作员分别选择浅色主题和深色主题，**当** 在 `System`、`Light`、`Dark` 间切换，**则** 每种模式使用对应 variant 的主题，不接受跨 variant 的无效 theme id。
+6. **前提** 操作员调整边缘线模式、代码表面明暗、对比度、字体或字号，**当** 控件值变化，**则** Settings 预览与整个 shell 即时反映结果，并可把主题细节复位为当前主题默认值。
+7. **前提** 当前版本没有服务端 Appearance persistence，**当** 操作员刷新同一浏览器，**则** 有效设置从 localStorage 恢复；损坏或过期值回退为安全默认值，且不得创建 API 或 RDB 写入。
 
 ---
 
@@ -95,6 +99,8 @@
 - 当页面级后端能力尚不足以支持编辑或实时数据时怎么办？框架可以保持 inspection-first，不应伪装为已完成产品行为。
 - 当小屏导航空间不足时怎么办？shell 应保留所有已批准菜单入口，而不是为移动端创造不同产品分类。
 - 当选中主题或语言环境不完整时怎么办？shell 应可预测 fallback，同时保持导航可理解。
+- 当 localStorage 中 Appearance JSON 损坏、字段越界或引用错误 variant 的主题时怎么办？主题模型应逐字段 normalize，并回退到对应 variant 的有效默认主题，不能让首帧脚本或 React hydration 崩溃。
+- 当 `System` 模式下操作系统明暗偏好在页面打开后变化时怎么办？shell 应监听 `prefers-color-scheme` 并即时重新解析 active theme，同时在组件卸载时移除监听。
 - 当页面形态不明显适配 `chatLayout`、`dashboardLayout` 或 `readLayout` 时怎么办？默认映射到已批准 archetype，除非 025 的后续变更证明需要新的框架级 layout。
 - 当页面设计偏离共享 design system 时怎么办？页面应论证对框架的扩展，而不是静默绕过共享 token 和原语。
 - 当未来 Electron host 引入桌面专属 affordance 时怎么办？框架应保持共享 UI 合同可移植，并把 host-only 行为隔离在显式 seam。
@@ -105,9 +111,9 @@
 ### 功能需求
 
 - **FR-001**: 系统 MUST 提供内部 MVP web UI 框架，作为 Mystra 现有管理能力之上的二级操作与 inspection shell。
-- **FR-002**: MVP demo UI 的 primary navigation MUST 依次包含 `New`、`Search`、`Inbox`、`Issues` 和 `Automations`；`Settings` MUST 是底部 shell action/modal。
+- **FR-002**: MVP demo UI 的 primary navigation MUST 依次且只包含 `New`、`Search`、`Inbox` 和 `Issues`；`Automations` MUST NOT 出现在主菜单中；`Settings` MUST 是底部 shell action/modal。
 - **FR-003**: 本 spec MUST 只拥有 shell 级 concern，包括已批准导航、路由框架、共享布局结构、共享视觉语言、shell-wide preference plumbing 和未来兼容 host-shell 边界。
-- **FR-004**: 本 spec MUST NOT 把页面探索材料伪装为已实现产品行为；`New`、`Search`、`Inbox`、`Issues`、`Automations`、`Settings` 或 Project-grouped Tasks 的具体行为 MUST 作为 025 内独立实现切片明确计划和验证。
+- **FR-004**: 本 spec MUST NOT 把页面探索材料伪装为已实现产品行为；`New`、`Search`、`Inbox`、`Issues`、`Settings` 或 Project-grouped Tasks 的具体行为 MUST 作为 025 内独立实现切片明确计划和验证，`/automations` 在对应实现切片出现前 MUST 保持占位状态。
 - **FR-005**: 每个已批准 navigation surface MUST 有路由或等价 shell entry，以便在页面级功能实现前导航模型已经具体。
 - **FR-006**: 当某个已批准路由的专属 feature spec 尚未落地时，shell MUST 允许该路由渲染 placeholder、unavailable 或 read-only 框架内容。
 - **FR-007**: shell MUST 提供主侧边栏，作为已批准 primary routes 与 Project-grouped Tasks 的共享导航容器。
@@ -131,13 +137,15 @@
 - **FR-022**: 未来 Electron shell 所需的任何环境特定行为 MUST 被隔离在显式 seam 之后，而不是作为 web-only 假设嵌入共享框架合同。
 - **FR-023**: shell 默认 UI 字号 MUST 为 12px，sidebar menu row MUST 使用 28px 紧凑行高和 token-derived hover/selected state。
 - **FR-024**: Tasks section MUST 按 Project 分组；每个 Task 的 icon MUST 表达其最新 Session 状态，无 Session 时使用明确的 idle icon。
-- **FR-025**: `Automations` 在本 demo/PR 切片中 MUST 只是 presentation-only shell entry，MUST NOT 引入 workflow API、持久化或平台编排语义。
+- **FR-025**: `/automations` 在本 demo/PR 切片中 MUST 是不出现在主菜单中的直接路由，页面 MUST 只显示 `Coming soon`，且 MUST NOT 引入 workflow API、持久化、配置入口或平台编排语义。
 - **FR-026**: shell MUST 平移 Castrel UX 的结构、密度、层级与交互模式，并以 dark-tech design system 作为具体颜色来源：canvas `#111513`，surface `#181C1A` / `#202522` / `#2B312D`，ink `#E7ECE8` / `#AAB4AD` / `#76817A`，executor `#74B98B`，以及已批准 signal colors；统一使用等宽字体、0/2/4/6px radius、flat elevation，且不得使用 gradient、glow、glass 或 noise。
-- **FR-027**: `New` surface MUST 在主内容区域居中显示产品 Logo 和 Task 输入 composer；composer MUST 使用 Castrel 密度：默认 3 行输入高度、输入区 9/7/7/9px 内边距、无分隔线且透明的 ghost footer。footer 左侧 MUST 依次提供附件、Repository 和 Issue controls，右侧 MUST 提供语音输入和发送 controls。未被现有 API contract 支持的 control MUST 清楚表现为不可用，不得伪造提交成功。
+- **FR-027**: `New` surface MUST 在主内容区域居中显示放大的独立产品 Logo，不得在 Logo 右侧重复产品文案。Task composer MUST 保持默认 3 行输入高度、无分隔线且透明的 ghost footer，并在 Castrel 9/7/7/9px 基础 inset 上补偿右侧与底部 2px，使 textarea、footer controls 与 32px send action 的有效视觉 inset 四边一致。footer 左侧 MUST 提供附件和由 Mystra-owned shared dropdown 实现的 `Project` control，右侧 MUST 提供语音输入和发送 controls；不得用 `Repository` 指代 Project。Project 选定前不得呈现 Issue selector；选定后 MUST 在输入框下方加载该 Project repository scope 内的 Issue 卡片列表，卡片 MUST 可选择并通过既有 Issue dispatch API 创建对应 Task/initial Session。不得显示无行动价值的 Project 配置引导文案；未被现有 API contract 支持的 control MUST 清楚表现为不可用，不得伪造提交成功。
 - **FR-028**: `Search` MUST 以 modal 形式覆盖当前 route，并支持按 Task id、objective、Issue、repository 或最新 branch 过滤和导航。
 - **FR-029**: 主侧边栏 MUST 支持显式收起与展开，并持久化该 preference；收起状态 MUST 将侧边栏完整压缩为 0px 并移除其交互命中，不得保留 icon rail。此时主区域 header MUST 提供 Mystra brand、`New` action 与重新展开 control。
-- **FR-030**: `Automations` 之后 MUST 显示 Projects section，且 Project item MUST 导航到对应 Project detail route；Projects 与 Tasks section heading MUST NOT 显示 count，Projects heading 右侧 MUST 提供 ghost-style add Project action；Project-grouped Tasks 继续作为其后的独立 section。
+- **FR-030**: primary navigation 之后 MUST 显示 Projects section，且 Project item MUST 导航到对应 Project detail route；Projects 与 Tasks section heading MUST NOT 显示 count，Projects heading 右侧 MUST 提供 ghost-style add Project action；Project-grouped Tasks 继续作为其后的独立 section。
 - **FR-031**: `Inbox` MUST 使用标准 master-detail 布局：左侧为最新 Session 处于 `waiting_for_review` 的 Task 卡片列表，右侧为当前选中 Task 的只读详情；`Issues` 继续使用当前 Task table。Inbox 列表 MUST 支持搜索、刷新、明确选中态、加载态、空态与窄视口降级，右侧详情 MUST 提供进入完整 Task 对象页的入口。
+- **FR-032**: `Appearance` MUST 迁移 Castrel 的外观能力模型：`System` / `Light` / `Dark` 模式、分别配置的浅色与深色主题、`Default` / `High Contrast` / `Color High Contrast` 边缘线模式、代码与终端表面的浅色/深色 variant，以及 Theme Details 中的预览、对比度、UI/Chat/Code 字体、UI/Chat 字号和复位动作。所有控件 MUST 使用 Mystra-owned 共享原语、双语文案和 semantic theme token，不得复制 Castrel palette、Zustand、`next-themes` 或业务服务依赖。
+- **FR-033**: 本切片的 Appearance preference MUST 只保存在当前浏览器 localStorage，并在 hydration 前应用有效保存值以避免错误主题闪烁。解析 MUST 对损坏 JSON、未知字段、越界数值、无效 mode/border/variant 和跨 variant theme id fail closed 到可预测默认值。不得新增 Appearance API、RDB schema、server action 或伪造跨设备同步；未来数据库存储属于独立 contract change。
 - **FR-032**: 主区域 header MUST 只显示当前 surface title，不得显示 `local control plane`、`本地控制平面` 或等价环境说明。
 
 ### 关键实体
@@ -158,7 +166,7 @@
 
 ### 可衡量结果
 
-- **SC-001**: MVP demo UI 的 primary navigation 只暴露 `New`、`Search`、`Inbox`、`Issues` 和 `Automations`；其下依次显示 Project list 和 Project-grouped Tasks，`Settings` 保持底部 shell action 语义。
+- **SC-001**: MVP demo UI 的 primary navigation 只暴露 `New`、`Search`、`Inbox` 和 `Issues`；其下依次显示 Project list 和 Project-grouped Tasks，`Settings` 保持底部 shell action 语义；`/automations` 直接访问时只显示 `Coming soon`。
 - **SC-002**: shell 提供主侧边栏以及已批准的 `chatLayout`、`dashboardLayout` 和 `readLayout` archetype，作为后续页面实现切片可复用框架原语。
 - **SC-003**: shell 提供 Castrel-derived UX 结构与共享 dark-tech 默认配色、英语/简体中文切换、12px 默认字号、基础组件和响应式行为；dark-tech 源 token 可由自动测试逐项验证，后续页面实现切片无需重新定义。
 - **SC-004**: 操作员可访问每个已批准 navigation surface，并看到一致的 shell-valid 页面框架，即使页面级行为被延后。

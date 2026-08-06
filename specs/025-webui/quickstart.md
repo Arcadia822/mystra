@@ -23,10 +23,11 @@ http://127.0.0.1:3000
 
 ## 验证 Shell Taxonomy
 
-1. 确认 primary navigation 严格包含并按顺序显示：`New`、`Search`、`Inbox`、`Issues`、`Automations`。
+1. 确认 primary navigation 严格包含并按顺序显示：`New`、`Search`、`Inbox`、`Issues`；不得显示 `Automations`。
 2. 确认 `Inbox` 右侧显示数字 badge。
 3. 确认第二个 section 为 `Tasks`，Task 按 Project 分组，Task icon 映射最新 Session 状态。
 4. 确认 `Settings` 通过侧边栏底部 action 打开 modal。
+5. 直接打开 `/automations`，确认页面只显示 `Coming soon`，且不会出现 workflow action、数据或配置入口。
 5. 打开 `Inbox`，确认左侧 review Task 卡片控制右侧只读详情；在窄 viewport 下确认列表先于详情堆叠，且页面没有横向溢出。
 
 ## 验证 Framework Concerns

@@ -41,6 +41,13 @@ export const managementErrorCodeSchema = z.enum([
   "GITHUB_INSTALLATION_UNVERIFIED",
   "INTEGRATION_CONNECTION_NOT_FOUND",
   "INTEGRATION_CONNECTION_MISMATCH",
+  "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
+  "INTEGRATION_CONNECTION_IN_USE",
+  "INTEGRATION_CONNECTION_METHOD_DISABLED",
+  "INTEGRATION_CONNECTION_METHOD_UNAVAILABLE",
+  "INTEGRATION_CONNECTION_DELETE_INCOMPLETE",
+  "INTEGRATION_CREDENTIAL_INVALID",
+  "INTEGRATION_CREDENTIAL_UNAVAILABLE",
   "INTEGRATION_TIMEOUT",
   "INTEGRATION_RATE_LIMITED",
   "INTEGRATION_UPSTREAM_ERROR",
@@ -253,6 +260,11 @@ export const integrationConnectionListResponseSchema = z
   })
   .strict();
 export type IntegrationConnectionListResponse = z.infer<typeof integrationConnectionListResponseSchema>;
+
+export const integrationConnectionResponseSchema = z
+  .object({ connection: integrationConnectionSchema })
+  .strict();
+export type IntegrationConnectionResponse = z.infer<typeof integrationConnectionResponseSchema>;
 
 export const contextBundleCreateResponseSchema = z.object({ contextBundle: contextBundleSchema }).strict();
 export type ContextBundleCreateResponse = z.infer<typeof contextBundleCreateResponseSchema>;

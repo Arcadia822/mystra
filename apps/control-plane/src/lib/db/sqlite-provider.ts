@@ -61,6 +61,8 @@ import { projectCoordinationSessionSummary } from "../coordination-session-summa
 import type {
   IssueDispatchInput,
   IssueDispatchResult,
+  IntegrationConnectionRecord,
+  IntegrationConnectionUpsert,
   ProjectClaim,
   RdbProvider,
   RegisterRunnerInput,
@@ -217,86 +219,191 @@ export class SqliteRdbProvider implements RdbProvider {
 
   activateIntegrationConnection(input: IntegrationConnectionActivation): IntegrationConnection {
     const parsed = integrationConnectionActivationSchema.parse(input);
+    return this.publicIntegrationConnection(this.upsertIntegrationConnection({
+      integration: parsed.integration,
+      provider: parsed.provider,
+      connectionType: parsed.connectionType,
+      providerExternalId: parsed.externalId,
+      ...(parsed.displayName ? { displayName: parsed.displayName } : {}),
+      account: parsed.account,
+      repositorySelection: parsed.repositorySelection,
+      permissions: parsed.permissions,
+      credentialState: parsed.credentialState,
+      accessSummary: {},
+    }));
+  }
+
+  upsertIntegrationConnection(input: IntegrationConnectionUpsert): IntegrationConnectionRecord {
+    this.validateIntegrationConnectionInput(input);
     const timestamp = this.now();
-    const activate = this.db.transaction(() => {
+    const upsert = this.db.transaction(() => {
       const existing = this.db.prepare(
         "SELECT * FROM integration_connections WHERE integration = ? AND external_id = ?",
-      ).get(parsed.integration, parsed.externalId) as Row | undefined;
-
-      this.db.prepare(`
-        UPDATE integration_connections
-        SET status = 'inactive', updated_at = ?
-        WHERE integration = ? AND status = 'active'
-      `).run(timestamp, parsed.integration);
+      ).get(input.integration, input.providerExternalId) as Row | undefined;
 
       if (existing) {
         this.db.prepare(`
           UPDATE integration_connections SET
             provider = @provider,
+            connection_type = @connectionType,
+            display_name = @displayName,
             account = @account,
             repository_selection = @repositorySelection,
             permissions = @permissions,
-            status = 'active',
+            access_summary = @accessSummary,
+            credential_ref = @credentialRef,
+            credential_state = @credentialState,
+            status = @status,
             updated_at = @updatedAt
           WHERE id = @id
         `).run({
           id: stringField(existing, "id"),
-          provider: parsed.provider,
-          account: jsonStringify(parsed.account),
-          repositorySelection: parsed.repositorySelection,
-          permissions: jsonStringify(parsed.permissions),
+          provider: input.provider,
+          connectionType: input.connectionType,
+          displayName: input.displayName ?? null,
+          account: jsonStringify(input.account),
+          repositorySelection: input.repositorySelection,
+          permissions: jsonStringify(input.permissions),
+          accessSummary: jsonStringify(input.accessSummary),
+          credentialRef: input.credentialRef ?? null,
+          credentialState: input.credentialState,
+          status: input.status ?? "active",
           updatedAt: timestamp,
         });
         return stringField(existing, "id");
       }
 
-      const id = randomUUID();
+      const id = input.id ?? randomUUID();
       this.db.prepare(`
         INSERT INTO integration_connections (
-          id, integration, provider, external_id, account, repository_selection,
-          permissions, status, created_at, updated_at
+          id, integration, provider, connection_type, external_id, display_name, account,
+          repository_selection, permissions, access_summary, credential_ref, credential_state,
+          status, created_at, updated_at
         ) VALUES (
-          @id, @integration, @provider, @externalId, @account, @repositorySelection,
-          @permissions, 'active', @createdAt, @updatedAt
+          @id, @integration, @provider, @connectionType, @externalId, @displayName, @account,
+          @repositorySelection, @permissions, @accessSummary, @credentialRef, @credentialState,
+          @status, @createdAt, @updatedAt
         )
       `).run({
         id,
-        integration: parsed.integration,
-        provider: parsed.provider,
-        externalId: parsed.externalId,
-        account: jsonStringify(parsed.account),
-        repositorySelection: parsed.repositorySelection,
-        permissions: jsonStringify(parsed.permissions),
+        integration: input.integration,
+        provider: input.provider,
+        connectionType: input.connectionType,
+        externalId: input.providerExternalId,
+        displayName: input.displayName ?? null,
+        account: jsonStringify(input.account),
+        repositorySelection: input.repositorySelection,
+        permissions: jsonStringify(input.permissions),
+        accessSummary: jsonStringify(input.accessSummary),
+        credentialRef: input.credentialRef ?? null,
+        credentialState: input.credentialState,
+        status: input.status ?? "active",
         createdAt: timestamp,
         updatedAt: timestamp,
       });
       return id;
     });
-    const id = activate.immediate();
-    const connection = this.getIntegrationConnection(id);
+    const id = upsert.immediate();
+    const connection = this.getIntegrationConnectionRecord(id);
     if (!connection) {
-      throw new Error("INTEGRATION_CONNECTION_NOT_FOUND: activated connection was not persisted");
+      throw new Error("INTEGRATION_CONNECTION_NOT_FOUND: connection was not persisted");
     }
     return connection;
   }
 
+  replaceIntegrationConnection(
+    id: string,
+    input: IntegrationConnectionUpsert,
+  ): IntegrationConnectionRecord | undefined {
+    this.validateIntegrationConnectionInput(input);
+    const result = this.db.prepare(`
+      UPDATE integration_connections SET
+        integration = @integration,
+        provider = @provider,
+        connection_type = @connectionType,
+        external_id = @externalId,
+        display_name = @displayName,
+        account = @account,
+        repository_selection = @repositorySelection,
+        permissions = @permissions,
+        access_summary = @accessSummary,
+        credential_ref = @credentialRef,
+        credential_state = @credentialState,
+        status = @status,
+        updated_at = @updatedAt
+      WHERE id = @id
+    `).run({
+      id,
+      integration: input.integration,
+      provider: input.provider,
+      connectionType: input.connectionType,
+      externalId: input.providerExternalId,
+      displayName: input.displayName ?? null,
+      account: jsonStringify(input.account),
+      repositorySelection: input.repositorySelection,
+      permissions: jsonStringify(input.permissions),
+      accessSummary: jsonStringify(input.accessSummary),
+      credentialRef: input.credentialRef ?? null,
+      credentialState: input.credentialState,
+      status: input.status ?? "active",
+      updatedAt: this.now(),
+    });
+    return result.changes === 0 ? undefined : this.getIntegrationConnectionRecord(id);
+  }
+
   getIntegrationConnection(id: string): IntegrationConnection | undefined {
+    const record = this.getIntegrationConnectionRecord(id);
+    return record ? this.publicIntegrationConnection(record) : undefined;
+  }
+
+  getIntegrationConnectionRecord(id: string): IntegrationConnectionRecord | undefined {
     const row = this.db.prepare("SELECT * FROM integration_connections WHERE id = ?").get(id) as Row | undefined;
-    return row ? this.integrationConnectionFromRow(row) : undefined;
+    return row ? this.integrationConnectionRecordFromRow(row) : undefined;
   }
 
   getActiveIntegrationConnection(integration: string): IntegrationConnection | undefined {
-    const row = this.db.prepare(
-      "SELECT * FROM integration_connections WHERE integration = ? AND status = 'active'",
-    ).get(integration) as Row | undefined;
-    return row ? this.integrationConnectionFromRow(row) : undefined;
+    const rows = this.db.prepare(
+      "SELECT * FROM integration_connections WHERE integration = ? AND status = 'active' ORDER BY created_at DESC, id DESC LIMIT 2",
+    ).all(integration) as Row[];
+    return rows.length === 1 ? this.publicIntegrationConnection(this.integrationConnectionRecordFromRow(rows[0]!)) : undefined;
   }
 
   listIntegrationConnections(options: { integration?: string } = {}): IntegrationConnection[] {
     const rows = (options.integration
       ? this.db.prepare("SELECT * FROM integration_connections WHERE integration = ? ORDER BY created_at DESC, id DESC").all(options.integration)
       : this.db.prepare("SELECT * FROM integration_connections ORDER BY created_at DESC, id DESC").all()) as Row[];
-    return rows.map((row) => this.integrationConnectionFromRow(row));
+    return rows.map((row) => this.publicIntegrationConnection(this.integrationConnectionRecordFromRow(row)));
+  }
+
+  listIntegrationConnectionRecords(options: { integration?: string } = {}): IntegrationConnectionRecord[] {
+    const rows = (options.integration
+      ? this.db.prepare("SELECT * FROM integration_connections WHERE integration = ? ORDER BY created_at DESC, id DESC").all(options.integration)
+      : this.db.prepare("SELECT * FROM integration_connections ORDER BY created_at DESC, id DESC").all()) as Row[];
+    return rows.map((row) => this.integrationConnectionRecordFromRow(row));
+  }
+
+  setIntegrationConnectionStatus(
+    id: string,
+    status: IntegrationConnection["status"],
+    credentialState?: IntegrationConnection["credentialState"],
+  ): IntegrationConnectionRecord | undefined {
+    const result = this.db.prepare(`
+      UPDATE integration_connections
+      SET status = ?, credential_state = COALESCE(?, credential_state), updated_at = ?
+      WHERE id = ?
+    `).run(status, credentialState ?? null, this.now(), id);
+    return result.changes === 0 ? undefined : this.getIntegrationConnectionRecord(id);
+  }
+
+  deleteIntegrationConnection(id: string): boolean {
+    return this.db.prepare("DELETE FROM integration_connections WHERE id = ?").run(id).changes > 0;
+  }
+
+  listProjectsForIntegrationConnection(id: string): Project[] {
+    const rows = this.db.prepare(
+      "SELECT * FROM projects WHERE repository_connection_id = ? ORDER BY created_at DESC, id DESC",
+    ).all(id) as Row[];
+    return rows.map((row) => this.projectFromRow(row));
   }
 
   createProject(input: ProjectCreate): Project {
@@ -1072,19 +1179,65 @@ export class SqliteRdbProvider implements RdbProvider {
     });
   }
 
-  private integrationConnectionFromRow(row: Row): IntegrationConnection {
+  private integrationConnectionRecordFromRow(row: Row): IntegrationConnectionRecord {
     const id = stringField(row, "id");
-    return integrationConnectionSchema.parse({
+    const connectionType = stringField(row, "connection_type");
+    const providerExternalId = stringField(row, "external_id");
+    const credentialRef = nullableStringField(row, "credential_ref");
+    const publicConnection = integrationConnectionSchema.parse({
       id,
       integration: stringField(row, "integration"),
       provider: stringField(row, "provider"),
-      externalId: stringField(row, "external_id"),
+      connectionType,
+      ...(connectionType === "github-app" ? { externalId: providerExternalId } : {}),
+      displayName: nullableStringField(row, "display_name"),
       account: parseJson(row, "account", id),
       repositorySelection: stringField(row, "repository_selection"),
       permissions: parseJson(row, "permissions", id),
+      credentialState: stringField(row, "credential_state"),
       status: stringField(row, "status"),
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
+    });
+    const { externalId: _externalId, ...publicFields } = publicConnection;
+    return {
+      ...publicFields,
+      providerExternalId,
+      ...(credentialRef ? { credentialRef } : {}),
+      accessSummary: parseJson(row, "access_summary", id) as Record<string, unknown>,
+    };
+  }
+
+  private publicIntegrationConnection(record: IntegrationConnectionRecord): IntegrationConnection {
+    const {
+      providerExternalId,
+      credentialRef: _credentialRef,
+      accessSummary: _accessSummary,
+      ...publicFields
+    } = record;
+    return integrationConnectionSchema.parse({
+      ...publicFields,
+      ...(record.connectionType === "github-app" ? { externalId: providerExternalId } : {}),
+    });
+  }
+
+  private validateIntegrationConnectionInput(input: IntegrationConnectionUpsert): void {
+    if (input.connectionType === "github-app" && input.credentialRef) {
+      throw new Error("GitHub App connections must not store a credential reference");
+    }
+    if (input.connectionType === "personal-access-token" && !input.credentialRef) {
+      throw new Error("PAT connections require a credential reference");
+    }
+    integrationConnectionActivationSchema.parse({
+      integration: input.integration,
+      provider: input.provider,
+      connectionType: input.connectionType,
+      externalId: input.providerExternalId,
+      ...(input.displayName ? { displayName: input.displayName } : {}),
+      account: input.account,
+      repositorySelection: input.repositorySelection,
+      permissions: input.permissions,
+      credentialState: input.credentialState,
     });
   }
 

@@ -14,7 +14,7 @@
 
 ## 阶段 2：基础 Shell 模型
 
-- [x] T005 在 `apps/control-plane/app/_components/app-shell.tsx` 中定义 `New`、`Search`、`Inbox`、`Issues`、`Automations`、Project-grouped Tasks、Settings action 与 framework-owned labels
+- [x] T005 在 `apps/control-plane/app/_components/app-shell.tsx` 中定义 `New`、`Search`、`Inbox`、`Issues`、Project-grouped Tasks、Settings action 与 framework-owned labels
 - [x] T006 在 shell components 中增加 framework-owned locale copy scaffolding，用于 navigation 与 Settings 文案
 - [x] T007 在 `apps/control-plane/app/globals.css` 中更新 shell 层 CSS primitives，用于 12px typography、navigation、Task status icon、active state 与 narrow viewport navigation
 
@@ -22,7 +22,7 @@
 
 **目标**：Operator 可以打开 shell，只看到已批准顶层 routes，并在 shell-valid page frames 之间导航。
 
-**独立测试**：在 desktop 与 narrow viewport 打开 app，确认 primary navigation 只包含 `New`、`Search`、`Inbox`、`Issues`、`Automations`，并确认 Project-grouped Tasks 与 Settings modal 可达。
+**独立测试**：在 desktop 与 narrow viewport 打开 app，确认 primary navigation 只包含 `New`、`Search`、`Inbox`、`Issues`，并确认 `/automations` 直接访问时只显示 `Coming soon`、Project-grouped Tasks 与 Settings modal 可达。
 
 - [x] T008 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 中用已批准 primary/secondary taxonomy 替换当前 rail taxonomy
 - [ ] T009 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 与现有 route pages 中为每个已批准 surface 渲染一致 route frame
@@ -80,7 +80,7 @@
 - [x] T030 用真实浏览器验证 Graphite Signal 默认主题、Settings theme 切换、320/768/1024/1440px 视口、console 和窄视口可访问名称
 - [x] T031 [US1] 实现居中 New composer，并按批准顺序呈现附件、Repository、Issue、语音与发送 controls
 - [x] T032 [US1] 将 Search 实现为 native dialog modal，并复用 Task filter model
-- [x] T033 [US1] 实现可持久化的 sidebar 收起/展开，并在 Automations 后增加 Project list
+- [x] T033 [US1] 实现可持久化的 sidebar 收起/展开，并在 primary navigation 后增加 Project list
 - [x] T034 [US1] 为 Inbox 新增 route，并让 Inbox 与 Issues 复用 Castrel-aligned Task table component
 - [x] T035 [US1] 从主区域 header 移除本地控制平面环境说明
 - [x] T036 为 shell filter、Inbox selection 和 Project grouping 增加聚焦单元测试
@@ -108,6 +108,14 @@
 - [x] T058 [US4] 按 owner feedback 移除所有 input/textarea/select 及 Settings/New/Inbox field container 的 focus accent border、outline 与 halo，保留非输入命令控件的 keyboard-visible focus，并完成自动测试和真实浏览器回归；80/80 tests、New/Search/Settings/Inbox/Issues computed-style 验证与零 console error/warning 均通过
 - [x] T059 [US3] 按 owner feedback 将 Settings 重组为 `Account`、`Appearance`、`Team`、`Integrations` 四个 Tab，把 Theme/Language 收入 Appearance、GitHub connection 保留在 Integrations，并用 Mystra-owned `SettingGroup` / `SettingRow` 对齐 Castrel v2 设置行 anatomy；Account/Team 未支持写操作保持诚实只读。
 - [x] T060 重新渲染 025/039 Spec View，并运行 11/11 focused tests、96/96 control-plane tests、typecheck、production build、`git diff --check` 与真实浏览器回归；四 Tab、搜索、Theme/Language、GitHub 状态、320/768/1024/1440px、accessibility tree 和 0 console error/warning 均通过。本地 `file://` Spec View 被应用内浏览器安全策略拒绝，未规避策略。
+- [x] T061 [US4] 按 owner feedback 新增 `SidebarVisual` 组件族，将 sidebar leading icon、mark、status、trailing badge 与 icon button 收敛到统一 16px icon、24px desktop trailing slot、1.7 stroke 和同一 transition 模板，并用结构测试、computed-style 和 320/768/1024/1440px 真实浏览器验证。
+- [x] T062 [US1] 按 owner feedback 修复 New Task 页面：Logo 放大并移除相邻文案；以 Mystra-owned `UiDropdown` 和 `Project` 术语替换 native Repository select；移除无效配置提示与 Issue select；Project 选定后在输入框下方加载、选择 repository-scoped Issue 卡片并复用既有 dispatch API；以 2px 右下补偿把 composer 有效视觉 inset 统一为 9px。
+- [x] T063 [US1] 按 owner feedback 从 primary navigation 移除 `Automations`，删除 shell-local utility view 状态，并新增只显示 `Coming soon` 的 `/automations` 直接路由；同步 5xP、constitution、025 合同、回归测试与浏览器验证。136/136 control-plane tests、typecheck、production build、直接路由与主菜单浏览器回归均通过。
+- [x] T064 [US3] 先用 `theme-system.test.ts` 写失败测试，再在 `theme-system.ts` 建立 versioned `AppearancePreferences` default/parse/normalize/resolve contract；覆盖损坏 JSON、无效 mode/border/code variant、跨 variant theme id、越界 contrast/font size、light/dark/System resolution 与 hydration bootstrap。验证：4 项预期失败后实现，theme suite 与全量 control-plane tests 通过。
+- [x] T065 [US4] 先扩展组件迁移契约测试，再新增 Mystra-owned `ui-preference-controls.tsx` 共享 segmented 与 range controls；保证真实 input/button、ARIA group/pressed、keyboard focus、共享 24/28px density 和 semantic token styling。验证：组件契约先红后绿。
+- [x] T066 [US3] 将 `AppShell`、`ShellSettings` 与 `AppearanceSettingsPanel` 接入 normalized Appearance state：Language、System/Light/Dark、三种 border mode、code surface、亮暗主题分别设置、预览、contrast、UI/Chat/Code font、UI/Chat size 和 reset；只写 versioned localStorage，不创建 API/RDB。验证：focused tests、typecheck 与 production build 通过。
+- [x] T067 [US3] 用真实浏览器验证 Appearance mode/theme 分离、border/code surface、细节预览与 reset、刷新恢复、keyboard、320/768/1024/1440px 和 0 console error/warning；System resolution、media contract、损坏值 fallback 由 deterministic unit/static contract 覆盖；同步 `prototype.md`、`mockups/settings-modal.html` 与 Spec View。
+- [x] T068 运行 control-plane 全量 test/typecheck/build、`git diff --check`、HTTP 200 与 GitNexus `detect-changes`；143/143 tests、typecheck、production build、diff check、HTTP 200 和 Spec View render 通过。GitNexus 对整个未暂存 dirty worktree 报告 70 files / 262 symbols / 112 flows / CRITICAL；其中包含 5xP、Prisma、integration connection 等并发改动，不能归因于本 Appearance 切片；本切片预编辑 upstream 结果为 `buildThemeCssVariables` / `AppearanceSettingsPanel` HIGH、`AppShell` / bootstrap / settings shell LOW，实际修改限制在 theme、Settings、AppShell、共享 preference controls、CSS/tests 与 025 artifacts。
 
 ## 依赖与执行顺序
 

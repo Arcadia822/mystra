@@ -157,31 +157,37 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
   readonly repositoryScope = "required";
   private readonly token: string | undefined;
   private readonly credentialSource: (() => Promise<string>) | undefined;
+  private readonly repositoryListingMode: "installation" | "authenticated-user";
   private readonly fetchImpl: Fetch;
   private readonly timeoutMs: number;
 
   constructor(input: {
     token: string | undefined;
     credentialSource?: () => Promise<string>;
+    repositoryListingMode?: "installation" | "authenticated-user";
     fetchImpl?: Fetch;
     timeoutMs?: number;
   }) {
     this.token = input.token;
     this.credentialSource = input.credentialSource;
+    this.repositoryListingMode = input.repositoryListingMode ?? "installation";
     this.fetchImpl = input.fetchImpl ?? globalThis.fetch;
     this.timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   async listRepositories(input: RepositoryListRequest): Promise<RepositoryListResponse> {
     const page = input.after ?? "1";
-    const response = await this.request(
-      `/installation/repositories?per_page=${input.first}&page=${encodeURIComponent(page)}`,
-    );
-    const raw = await this.parseJson(rawRepositoryListSchema, response);
+    const path = this.repositoryListingMode === "authenticated-user"
+      ? `/user/repos?per_page=${input.first}&page=${encodeURIComponent(page)}&affiliation=owner%2Ccollaborator%2Corganization_member`
+      : `/installation/repositories?per_page=${input.first}&page=${encodeURIComponent(page)}`;
+    const response = await this.request(path);
+    const repositories = this.repositoryListingMode === "authenticated-user"
+      ? await this.parseJson(z.array(rawRepositorySchema), response)
+      : (await this.parseJson(rawRepositoryListSchema, response)).repositories;
     const fetchedAt = new Date().toISOString();
     const endCursor = nextPage(response);
     return repositoryListResponseSchema.parse({
-      items: raw.repositories.map((repository) => normalizeRepository(repository, fetchedAt)),
+      items: repositories.map((repository) => normalizeRepository(repository, fetchedAt)),
       pageInfo: {
         hasNextPage: endCursor !== undefined,
         ...(endCursor ? { endCursor } : {}),
@@ -345,6 +351,7 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
 export function createGitHubIntegration(input: {
   token: string | undefined;
   credentialSource?: () => Promise<string>;
+  repositoryListingMode?: "installation" | "authenticated-user";
   fetchImpl?: Fetch;
   timeoutMs?: number;
 }): IntegrationPlugin {

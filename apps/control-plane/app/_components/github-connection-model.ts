@@ -5,7 +5,7 @@ export type GitHubConnectionView = {
   action: "none" | "connect" | "reconnect" | "retry";
   connectUrl?: string;
   accountLogin?: string;
-  repositorySelection?: "all" | "selected";
+  repositorySelection?: "all" | "selected" | "token";
 };
 
 export function githubConnectionView(
@@ -16,15 +16,24 @@ export function githubConnectionView(
   if (isLoading) return { state: "loading", action: "none" };
   if (error || !data) return { state: "error", action: "retry" };
   const provider = data.providers.find((candidate) => candidate.integration === "github");
-  if (!provider?.configured) return { state: "not-configured", action: "none" };
+  if (!provider?.methods.some((method) => method.configured)) {
+    return { state: "not-configured", action: "none" };
+  }
+  const appMethod = provider.methods.find((method) => method.type === "github-app");
   const connection = data.connections.find((candidate) => (
     candidate.integration === "github" && candidate.status === "active"
   ));
-  if (!connection) return { state: "disconnected", action: "connect", connectUrl: provider.connectUrl };
+  if (!connection) {
+    return {
+      state: "disconnected",
+      action: appMethod?.configured ? "connect" : "none",
+      ...(appMethod ? { connectUrl: appMethod.connectUrl } : {}),
+    };
+  }
   return {
     state: "connected",
-    action: "reconnect",
-    connectUrl: provider.connectUrl,
+    action: connection.connectionType === "github-app" ? "reconnect" : "none",
+    ...(appMethod ? { connectUrl: appMethod.connectUrl } : {}),
     accountLogin: connection.account.login,
     repositorySelection: connection.repositorySelection,
   };

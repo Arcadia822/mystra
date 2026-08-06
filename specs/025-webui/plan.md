@@ -5,7 +5,7 @@
 
 ## 摘要
 
-将 025 Web UI 框架实现为现有 `@mystra/control-plane` Next.js 应用的 shell 层。当前切片复刻 Castrel 的紧凑侧边栏结构：primary menu 为 `New`、`Search`、`Inbox`、`Issues`、`Automations`，其下用 Project 分组展示 Tasks，Task icon 映射最新 Session 状态，`Settings` 作为底部 modal 入口并承载 theme/language。035/036 已交付对象页继续可达。
+将 025 Web UI 框架实现为现有 `@mystra/control-plane` Next.js 应用的 shell 层。当前切片复刻 Castrel 的紧凑侧边栏结构：primary menu 为 `New`、`Search`、`Inbox`、`Issues`，其下用 Project 分组展示 Tasks，Task icon 映射最新 Session 状态，`Settings` 作为底部 modal 入口并承载 theme/language。`/automations` 不进入主菜单，仅保留 `Coming soon` 直接路由；035/036 已交付对象页继续可达。
 
 ## 技术上下文
 
@@ -92,6 +92,70 @@ apps/control-plane/
 - **数据与性能**：shell、Inbox 与 Issues 对 `/api/tasks` 使用同一共享轮询资源，避免三个组件独立请求相同数据；不改变 API、缓存或持久化合同。
 - **风险与验证**：GitNexus 对 `AppShell`、`RootLayout`、`buildThemeCssVariables`、`applyThemeToDocument`、`TasksPage` 和 `InboxPage` 的 upstream 风险均为 LOW。用主题单测、control-plane 全量 test/typecheck/build、GitNexus change detection、HTTP 200，以及 1440/1024/768/320px 真实浏览器检查首帧主题、字体、sidebar、overflow、control height、focus 与 console。
 
+### UX Intent：Castrel Appearance 能力迁移
+
+- **目标**：把 `/Users/arcadia/Documents/castrel-ai/frontend/components/pages/settings/appearance/AppearanceSettings.tsx`、`useAppearanceSettings.ts` 与 `lib/theme/castrelTheme.ts` 中面向用户的外观能力迁移到 Mystra Appearance Tab，同时保留 Mystra-owned theme definitions、共享组件和 dark-tech semantic token。
+- **能力范围**：语言；`System` / `Light` / `Dark`；`Default` / `High Contrast` / `Color High Contrast`；代码表面 `Light` / `Dark`；浅色主题和深色主题分别选择；预览；0–100 对比度；UI/Chat/Code 字体；UI 12–14px 与 Chat 12–16px 字号；复位主题细节。
+- **状态模型**：`AppearancePreferences` 是纯浏览器 preference，不是业务实体。`AppShell` 持有 normalized state，`prefers-color-scheme` 只负责把 `System` 解析为当前 variant。状态变化即时应用到 `documentElement`，并写入单一 versioned localStorage JSON；首帧 bootstrap 使用同一 normalization/default contract 的序列化数据。
+- **数据流**：`localStorage -> parse/normalize -> resolve active variant -> resolve variant theme -> build semantic CSS variables -> documentElement dataset/style`。Settings 控件只发送 partial preference update，不直接操作 DOM 或选择 palette。
+- **复用与隔离**：扩展现有 `theme-system.ts`，不引入 Zustand、`next-themes`、Castrel service API 或数据库表。`UiDropdown` 继续承担 theme select；在 Mystra-owned field/action primitives 中补充 segmented 与 range anatomy，字体使用现有 input。运行时只消费 Mystra 的四个现有 theme presets，不复制 Castrel 全量主题目录。
+- **失败策略**：损坏 JSON、未知 mode/border/variant、跨 variant theme id、非有限数值和越界字号必须逐字段回退；`System` listener 必须清理；localStorage 不可用时仍能以 Graphite Signal 默认值启动。Appearance 未产生网络、API 或 RDB failure state。
+- **性能**：所有变更是 O(theme token count) 的同步浏览器操作；只在 preference 或 system variant 变化时写 CSS variables，不引入轮询或渲染期存储读取。
+- **NOT in scope**：服务端/RDB persistence、账户同步、多设备同步、Castrel SDK theme override、通知 toast、外部字体下载、Castrel 全量 theme preset 迁移，以及当前 Mystra 尚不存在的独立 terminal/chat product surface。
+- **验证**：主题纯函数单测覆盖 normalization、variant resolution、bootstrap、contrast/border/code surface/font token；组件契约测试覆盖共享 controls；真实浏览器覆盖 mode/theme 分离、system media change、preview/reset、local refresh、320/768/1024/1440px、键盘与 console。
+
+```text
+Appearance controls
+        |
+        v
+partial preference update
+        |
+        v
+normalize + localStorage --------> hydration bootstrap
+        |
+        v
+mode + prefers-color-scheme
+        |
+        v
+lightScheme / darkScheme
+        |
+        v
+theme preset + detail overrides
+        |
+        v
+semantic CSS variables + dataset
+```
+
+### 工程评审结论：Castrel Appearance 能力迁移
+
+- **Scope Challenge**：现有 theme presets、CSS variable builder、首帧 bootstrap、AppShell localStorage owner、Settings four-tab anatomy 与 shared dropdown 已覆盖大部分基础；最小完整方案只扩展这些 seams，不迁移 Castrel store/service/dependencies。
+- **Architecture**：0 个未解决问题。纯 preference resolver 是运行态和 bootstrap 的唯一真相；服务端 persistence 明确不在范围。
+- **Code Quality**：0 个未解决问题。使用显式 union、clamp、variant guard 和 partial update；不在 Settings panel 复制 token 计算。
+- **Tests**：覆盖图与 failure modes 已写入 `checklists/engineering-review.md`；损坏 storage、System listener、variant mismatch、细节 reset 和 responsive/browser flow 均进入 tasks。
+- **Performance**：0 个问题。固定规模 token map，单一 media listener，只在依赖变化时应用。
+- **What already exists**：`CONTROL_PLANE_THEMES`、`buildThemeCssVariables`、`buildThemeBootstrapScript`、`AppShell` preference effects、`UiDropdown`、`SettingGroup` / `SettingRow` 全部复用。
+- **NOT in scope**：RDB/API persistence、跨设备同步、Castrel SDK override、toast、外部字体下载、Castrel 全量 preset 和独立 terminal/chat 业务页面。
+- **Failure modes**：非法本地值由单元测试覆盖并 fail closed；localStorage 不可用时保留默认主题；没有网络错误路径或 silent critical gap。
+- **Parallelization**：顺序实施，无独立 worktree lane；theme model -> shared controls -> shell/settings wiring -> browser/full verification。
+
+### UX Intent：Sidebar Visual Slot 一致性修复
+
+- **体验问题**：sidebar 的 leading icon、Task status、section mark、trailing count badge 和 icon button 分别维护尺寸、padding 与位置，导致同一右侧列的 badge 与按钮中心线漂移，图标视觉规范也无法由一个组件合同保证。
+- **影响表面**：共享 sidebar header、primary navigation、Projects/Tasks section、Project/Task row 与 Settings 入口；不改变 route、API、数据加载或业务状态。
+- **复用规则**：所有 sidebar 图标、mark、status、count badge 与 icon button 必须通过 `SidebarVisual` 组件族。leading slot 固定为 16px；desktop trailing slot 固定为 24px；Shell icon 固定为 16px、`stroke-width: 1.7`，共享相同的颜色、透明度、位移与背景 transition 模板。coarse pointer 下 trailing slot 与 icon button 一起扩大为 44px。
+- **对齐规则**：trailing icon、badge 与 icon button 共享同一 slot 宽度和右边界；badge 只改变内部内容宽度，不改变 slot 中心线。Project mark 与 Task status 也先进入统一 leading slot，再与 label 建立固定间距。
+- **状态与无障碍**：icon-only button 继续使用真实 button 与显式 `aria-label`；Task status 保留 `role="img"`、可访问名称和语义颜色；active spinner 保留现有旋转，并由全局 `prefers-reduced-motion` 规则降级。
+- **风险与验证**：GitNexus 对 `AppShell` 的 upstream 风险为 LOW，唯一直接调用方是 `RootLayout`。用 sidebar component contract test、control-plane typecheck/test、1440/1024/768/320px 真实浏览器 computed-style 与 console 检查验证。
+
+### UX Intent：New Task Project 与 Issue 选择修复
+
+- **体验问题**：New 页面重复显示 Logo 右侧文案，原生 select 与 composer ghost controls 不同构，`Repository` 错误替代了 `Project`，不可用 Issue select 和配置提示还占用空间；32px send action 令 9/7/7/9px 基础 inset 的右下边缘在视觉上更紧。
+- **影响表面**：仅限 New Task composer、Mystra-owned dropdown primitive、Project 选项、repository-scoped Issue loading/selection、Issue dispatch submission，以及 desktop/narrow 布局；不改变 API、数据库或 provider contract。
+- **复用规则**：新增 `UiDropdown`，沿用 Castrel trigger/content/item anatomy，但使用 Mystra action、icon、surface、border、radius、motion 与 accessibility tokens。New 页面选项 label 使用 Project name，repository full name 只作为说明。Issue 不再使用下拉，改为输入框下方的紧凑可选择卡片列表。
+- **几何规则**：Logo 使用 48px token 且不带相邻文案。composer 保留 9/7/7/9px 基础 inset，在 textarea 右侧和 footer 右侧/底部各补偿 2px，使四边有效视觉 inset 都为 9px；send action 保持共享 32px solid action。
+- **状态与无障碍**：Project 未选定时不请求或显示 Issue；Project dropdown 支持 button/listbox 语义、方向键、Home/End、Escape、外部点击和显式 label。Issue 卡片使用真实 button、`aria-pressed`、selected surface，并覆盖 loading/error 状态。无 Project 时只保持 disabled Project trigger，不显示额外引导句。
+- **风险与验证**：GitNexus 对 `NewTaskComposer` upstream 风险为 LOW，只有首页 `Page` 一个直接调用者。用先红后绿的 composer contract test、control-plane typecheck/test/build、HTTP、真实浏览器 computed-style、accessibility tree、responsive 与 console 检查验证。
+
 ## 阶段 0：研究
 
 研究决策记录在 `research.md`。
@@ -108,3 +172,15 @@ apps/control-plane/
 ## 复杂度追踪
 
 不需要 constitution 例外或复杂度豁免。
+
+## GSTACK REVIEW REPORT
+
+| Review | Count | Result |
+|---|---:|---|
+| Engineering review | 1 | CLEAR — local-only preference model, first-frame bootstrap, failure modes and verification map defined |
+| CEO review | 0 | Not requested |
+| Design review | 0 | Existing Castrel Appearance reference and approved Mystra Settings anatomy used |
+| Security review | 0 | No credential, API, database or new trust boundary introduced |
+| Test plan | 1 | Theme-model unit tests, component contracts and browser matrix documented |
+
+**Verdict:** ENG CLEARED. Zero unresolved issues and zero silent critical gaps.

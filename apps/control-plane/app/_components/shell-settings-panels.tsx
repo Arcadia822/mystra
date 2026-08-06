@@ -1,12 +1,14 @@
 import type { CSSProperties } from "react";
+import type { IntegrationConnectionListResponse } from "@mystra/shared";
 
-import type { ControlPlaneThemeDefinition } from "../theme-system";
-import { CONTROL_PLANE_THEMES } from "../theme-system";
-import type { GitHubConnectionView } from "./github-connection-model";
+import type { AppearancePreferences, ControlPlaneThemeDefinition, ThemeVariant } from "../theme-system";
+import { getThemesByVariant } from "../theme-system";
 import { SettingGroup, SettingRow } from "./setting-row";
 import { SHELL_COPY, type ShellLocale } from "./shell-copy";
-import { UiActionAnchor, UiButton } from "./ui-actions";
-import { UiSelect } from "./ui-fields";
+import { UiButton } from "./ui-actions";
+import { UiDropdown } from "./ui-dropdown";
+import { UiInput } from "./ui-fields";
+import { UiRange, UiSegmented } from "./ui-preference-controls";
 
 export function AccountSettingsPanel({ locale }: { locale: ShellLocale }) {
   const copy = SHELL_COPY[locale];
@@ -29,62 +31,103 @@ export function AccountSettingsPanel({ locale }: { locale: ShellLocale }) {
 
 export function AppearanceSettingsPanel({
   locale,
+  onAppearanceChange,
   onLocaleChange,
-  onThemeChange,
+  onResetDetails,
+  preferences,
+  systemVariant,
   theme,
 }: {
   locale: ShellLocale;
+  onAppearanceChange: (change: Partial<AppearancePreferences>) => void;
   onLocaleChange: (locale: ShellLocale) => void;
-  onThemeChange: (themeId: string) => void;
+  onResetDetails: () => void;
+  preferences: AppearancePreferences;
+  systemVariant: ThemeVariant;
   theme: ControlPlaneThemeDefinition;
 }) {
   const copy = SHELL_COPY[locale];
+  const themeOptions = (variant: ThemeVariant) => getThemesByVariant(variant).map((option) => ({
+    description: option.description,
+    label: option.label,
+    value: option.id,
+  }));
+  const lightTheme = getThemesByVariant("light").find((option) => option.id === preferences.lightThemeId);
+  const darkTheme = getThemesByVariant("dark").find((option) => option.id === preferences.darkThemeId);
 
   return (
-    <SettingGroup aria-label={copy.appearance}>
+    <SettingGroup aria-label={copy.appearance} className="appearanceSettings">
       <SettingRow
         control={(
-          <UiSelect
+          <UiDropdown
+            align="end"
             aria-label={copy.language}
-            fieldSize="header"
+            className="appearanceDropdown"
+            onValueChange={(value) => onLocaleChange(value as ShellLocale)}
+            options={[
+              { label: copy.languageEnglish, value: "en" },
+              { label: copy.languageChinese, value: "zh-CN" },
+            ]}
+            placeholder={copy.language}
             value={locale}
-            onChange={(event) => onLocaleChange(event.currentTarget.value as ShellLocale)}
-          >
-            <option value="en">{copy.languageEnglish}</option>
-            <option value="zh-CN">{copy.languageChinese}</option>
-          </UiSelect>
+          />
         )}
         description={copy.languageDescription}
         title={copy.language}
       />
       <SettingRow
-        control={(
-          <div className="appearanceThemeControl">
-            <span
-              aria-hidden="true"
-              className="themeInlineSwatch"
-              style={{
-                "--swatch-ink": theme.theme.ink,
-                "--swatch-surface": theme.theme.surface,
-              } as CSSProperties}
-            >
-              Aa
-            </span>
-            <UiSelect
-              aria-label={copy.theme}
-              fieldSize="header"
-              value={theme.id}
-              onChange={(event) => onThemeChange(event.currentTarget.value)}
-            >
-              {CONTROL_PLANE_THEMES.map((option) => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </UiSelect>
-          </div>
-        )}
-        description={copy.themeDescription}
-        title={copy.theme}
+        control={<UiSegmented aria-label={copy.themeMode} onValueChange={(mode) => onAppearanceChange({ mode })} options={[
+          { label: copy.system, value: "system" },
+          { label: copy.light, value: "light" },
+          { label: copy.dark, value: "dark" },
+        ]} value={preferences.mode} />}
+        description={copy.themeModeDescription}
+        title={copy.themeMode}
       />
+      <SettingRow
+        control={<UiDropdown align="end" aria-label={copy.lightTheme} className="appearanceDropdown" icon={<span aria-hidden="true" className="themeInlineSwatch" style={{ "--swatch-ink": lightTheme?.theme.ink, "--swatch-surface": lightTheme?.theme.surface } as CSSProperties}>Aa</span>} onValueChange={(lightThemeId) => onAppearanceChange({ lightThemeId })} options={themeOptions("light")} placeholder={copy.lightTheme} value={preferences.lightThemeId} />}
+        description={copy.lightThemeDescription}
+        title={copy.lightTheme}
+      />
+      <SettingRow
+        control={<UiDropdown align="end" aria-label={copy.darkTheme} className="appearanceDropdown" icon={<span aria-hidden="true" className="themeInlineSwatch" style={{ "--swatch-ink": darkTheme?.theme.ink, "--swatch-surface": darkTheme?.theme.surface } as CSSProperties}>Aa</span>} onValueChange={(darkThemeId) => onAppearanceChange({ darkThemeId })} options={themeOptions("dark")} placeholder={copy.darkTheme} value={preferences.darkThemeId} />}
+        description={copy.darkThemeDescription}
+        title={copy.darkTheme}
+      />
+      <SettingRow
+        control={<UiSegmented aria-label={copy.borderMode} onValueChange={(borderMode) => onAppearanceChange({ borderMode })} options={[
+          { label: copy.borderDefault, value: "default" },
+          { label: copy.borderHighContrast, value: "high-contrast" },
+          { label: copy.borderColorHighContrast, value: "color-high-contrast" },
+        ]} value={preferences.borderMode} />}
+        description={copy.borderModeDescription}
+        title={copy.borderMode}
+      />
+      <SettingRow
+        control={<UiSegmented aria-label={copy.codeSurface} onValueChange={(codeSurfaceVariant) => onAppearanceChange({ codeSurfaceVariant })} options={[
+          { label: copy.light, value: "light" },
+          { label: copy.dark, value: "dark" },
+        ]} value={preferences.codeSurfaceVariant} />}
+        description={copy.codeSurfaceDescription}
+        title={copy.codeSurface}
+      />
+      <div className="appearanceDetails">
+        <div className="appearanceDetailsHeader">
+          <div><h4>{copy.themeDetails}</h4><p>{copy.themeDetailsDescription}</p></div>
+          <UiButton onClick={onResetDetails} size="compact" tone="soft">{copy.resetThemeDetails}</UiButton>
+        </div>
+        <div aria-label={`${theme.label} ${copy.themeDetails}`} className="appearanceThemePreview">
+          <span>{theme.label} · {preferences.mode === "system" ? systemVariant : preferences.mode}</span>
+          <strong>Aa</strong>
+          <code>const task = "Mystra";</code>
+        </div>
+        <SettingRow control={<UiRange label={copy.contrast} max={100} min={0} onValueChange={(contrast) => onAppearanceChange({ contrast })} value={preferences.contrast} valueDisplay={`${preferences.contrast}%`} />} title={copy.contrast} />
+        <SettingRow control={<UiInput aria-label={copy.uiFont} fieldSize="default" onChange={(event) => onAppearanceChange({ uiFont: event.currentTarget.value })} value={preferences.uiFont ?? ""} />} title={copy.uiFont} />
+        <SettingRow control={<UiInput aria-label={copy.chatFont} fieldSize="default" onChange={(event) => onAppearanceChange({ chatFont: event.currentTarget.value })} value={preferences.chatFont ?? ""} />} title={copy.chatFont} />
+        <SettingRow control={<UiInput aria-label={copy.codeFont} fieldSize="default" onChange={(event) => onAppearanceChange({ codeFont: event.currentTarget.value })} value={preferences.codeFont ?? ""} />} title={copy.codeFont} />
+        <SettingRow control={<UiRange label={copy.uiFontSize} max={14} min={12} onValueChange={(uiFontSize) => onAppearanceChange({ uiFontSize })} value={preferences.uiFontSize} valueDisplay={`${preferences.uiFontSize}px`} />} title={copy.uiFontSize} />
+        <SettingRow control={<UiRange label={copy.chatFontSize} max={16} min={12} onValueChange={(chatFontSize) => onAppearanceChange({ chatFontSize })} value={preferences.chatFontSize} valueDisplay={`${preferences.chatFontSize}px`} />} title={copy.chatFontSize} />
+      </div>
     </SettingGroup>
   );
 }
@@ -109,41 +152,39 @@ export function TeamSettingsPanel({ locale }: { locale: ShellLocale }) {
 }
 
 export function IntegrationsSettingsPanel({
-  githubView,
+  data,
+  error,
+  isLoading,
   locale,
-  onRetry,
+  onOpenGitHub,
 }: {
-  githubView: GitHubConnectionView;
+  data: IntegrationConnectionListResponse | null;
+  error: string | null;
+  isLoading: boolean;
   locale: ShellLocale;
-  onRetry: () => void;
+  onOpenGitHub: () => void;
 }) {
   const copy = SHELL_COPY[locale];
-
-  const control = githubView.action === "connect" || githubView.action === "reconnect" ? (
-    <UiActionAnchor
-      href={`${githubView.connectUrl}?returnTo=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.pathname)}`}
-      size="compact"
-      tone="soft"
-    >
-      {githubView.action === "connect" ? copy.githubConnect : copy.githubReconnect}
-    </UiActionAnchor>
-  ) : githubView.action === "retry" ? (
-    <UiButton size="compact" tone="soft" onClick={onRetry}>{copy.search}</UiButton>
-  ) : (
-    <span className="settingRowStatus">{githubView.state === "loading" ? "…" : "—"}</span>
-  );
-
-  const description = githubView.state === "connected"
-    ? `${copy.githubConnectedAs} ${githubView.accountLogin}`
-    : githubView.state === "not-configured"
-      ? copy.githubNotConfigured
-      : githubView.state === "error"
-        ? copy.githubConnectionError
-        : copy.githubDisconnected;
+  const connectionCount = data?.connections.filter((connection) => connection.integration === "github").length ?? 0;
+  const methodSummary = data?.providers
+    .find((provider) => provider.integration === "github")
+    ?.methods.map((method) => method.type === "github-app" ? "GitHub App" : "PAT")
+    .join(" / ") ?? "PAT";
+  const description = isLoading
+    ? "…"
+    : error
+      ? copy.githubConnectionError
+      : locale === "zh-CN"
+        ? `${connectionCount} 条连接 · ${methodSummary}`
+        : `${connectionCount} connections · ${methodSummary}`;
 
   return (
     <SettingGroup aria-label={copy.integrations}>
-      <SettingRow control={control} description={description} title={copy.githubApp} />
+      <SettingRow
+        control={<UiButton size="compact" tone="soft" onClick={onOpenGitHub}>{locale === "zh-CN" ? "打开" : "Open"}</UiButton>}
+        description={description}
+        title="GitHub"
+      />
     </SettingGroup>
   );
 }

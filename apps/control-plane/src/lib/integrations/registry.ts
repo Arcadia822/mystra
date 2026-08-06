@@ -9,7 +9,7 @@ import type {
   RepoProvider,
 } from "./types";
 import { getDb } from "../db";
-import { getGitHubAppService } from "./github-app";
+import { defaultGitHubCredentialResolver } from "./github-credential";
 
 export class IntegrationRegistry {
   private readonly integrations = new Map<string, IntegrationPlugin>();
@@ -79,21 +79,21 @@ export class IntegrationRegistry {
 }
 
 export function defaultIntegrationRegistry(options: { githubConnectionId?: string } = {}): IntegrationRegistry {
+  const db = getDb();
+  const selectedConnection = options.githubConnectionId
+    ? db.getIntegrationConnectionRecord(options.githubConnectionId)
+    : db.listIntegrationConnectionRecords({ integration: "github" })
+      .filter((connection) => connection.status === "active")
+      .at(0);
+  const credentialResolver = defaultGitHubCredentialResolver();
   return new IntegrationRegistry([
     createGitHubIntegration({
       token: undefined,
+      repositoryListingMode: selectedConnection?.connectionType === "personal-access-token"
+        ? "authenticated-user"
+        : "installation",
       credentialSource: async () => {
-        const db = getDb();
-        const connection = options.githubConnectionId
-          ? db.getIntegrationConnection(options.githubConnectionId)
-          : db.getActiveIntegrationConnection("github");
-        if (!connection || connection.integration !== "github" || connection.provider !== "github") {
-          throw new IntegrationFailure({
-            code: "INTEGRATION_CONNECTION_NOT_FOUND",
-            message: "GitHub App connection is not available",
-          });
-        }
-        return (await getGitHubAppService().getInstallationCredential(connection.externalId)).secret;
+        return (await credentialResolver.resolve(options.githubConnectionId)).credential.secret;
       },
       fetchImpl: globalThis.fetch,
     }),

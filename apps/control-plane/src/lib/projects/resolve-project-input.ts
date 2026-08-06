@@ -13,6 +13,7 @@ import {
 
 import { IntegrationFailure } from "../integrations/errors";
 import type { IntegrationRegistry } from "../integrations/registry";
+import { readProjectDefaults } from "./project-defaults";
 
 export type ProjectConnectionLookup = {
   getIntegrationConnection(id: string): IntegrationConnection | undefined;
@@ -78,11 +79,14 @@ export async function resolveProjectCreateInput(
 ): Promise<ProjectCreate> {
   const request = projectCreateRequestSchema.parse(input);
   const { connection, repository } = await resolveRepository(request.repository, registry, connections);
+  const defaults = readProjectDefaults();
   return projectCreateSchema.parse({
     ...request,
     repositoryConnectionId: connection.id,
     repository,
     baseBranch: request.baseBranch ?? repository.defaultBranch,
+    defaultAgent: request.defaultAgent ?? defaults.defaultAgent,
+    runtime: request.runtime ?? defaults.runtime,
   });
 }
 

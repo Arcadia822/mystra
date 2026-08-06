@@ -83,6 +83,25 @@ describe("GitHubIntegrationProvider repositories", () => {
     await expect(provider.getRepository("arcadia/missing")).resolves.toBeUndefined();
   });
 
+  it("lists PAT-visible repositories from the authenticated-user endpoint", async () => {
+    const fetchImpl = vi.fn(async (_input: URL | RequestInfo) => jsonResponse([{
+      ...githubRepository,
+      permissions: { pull: true, push: true, admin: false },
+    }]));
+    const provider = new GitHubIntegrationProvider({
+      token: "github_pat_exact",
+      repositoryListingMode: "authenticated-user",
+      fetchImpl,
+    });
+
+    const result = await provider.listRepositories({ first: 25 });
+
+    expect(result.items[0]?.fullName).toBe("arcadia/mystra-fixture");
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe(
+      "https://api.github.com/user/repos?per_page=25&page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
+    );
+  });
+
   it.each([
     [401, "INTEGRATION_UNAUTHORIZED"],
     [403, "INTEGRATION_UNAUTHORIZED"],

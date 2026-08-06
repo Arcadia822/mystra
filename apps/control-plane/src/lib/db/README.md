@@ -17,9 +17,13 @@ This module owns Mystra's `RdbProvider` boundary.
   business collection or public identifiers.
 - Issue dispatch atomically creates or reuses one Task and its initial Session
   using a unique dispatch key.
-- The local schema is clean-rebuild only. Fresh schema is created directly;
-  precisely recognized obsolete schemas are destroyed and rebuilt in one
-  transaction; unknown or mixed schemas fail closed and preserve data.
+- Schema v5 stores multiple active Integration connections, connection type,
+  credential health, and only an opaque `credential_ref`; credential plaintext
+  is never a database field.
+- The exact schema v4 fingerprint upgrades to v5 in one transaction while
+  preserving Integration connection IDs and Project references. Other
+  precisely recognized obsolete schemas retain their documented rebuild path;
+  unknown or mixed schemas fail closed and preserve data.
 - SQLite WAL and foreign-key enforcement are enabled during initialization.
 - Terminal completion persists result, lifecycle transition, internal facts,
   and released Runner capacity transactionally.

@@ -7,19 +7,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getDb, resetDbForTests } from "@/lib/db";
 import { resetGitHubAppServiceForTests } from "@/lib/integrations/github-app";
+import { resetSecretProviderForTests } from "@/lib/secrets";
+import { DELETE as deleteConnection } from "./integration-connections/[id]/route";
 import { GET as listConnections } from "./integration-connections/route";
+import { POST as createPatConnection } from "./integration-connections/github/pat/route";
 import { GET as connectGitHub } from "./integration-connections/github/connect/route";
 import { GET as setupGitHub } from "./integration-connections/github/setup/route";
 import { GET as finishGitHubOAuth } from "./integration-connections/github/oauth/callback/route";
 
 const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 let tempDir: string;
-
-function cookieHeader(responses: Response[]): string {
-  return responses.flatMap((response) => response.headers.getSetCookie())
-    .map((value) => value.split(";", 1)[0])
-    .join("; ");
-}
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -39,80 +36,115 @@ beforeEach(async () => {
   process.env.MYSTRA_GITHUB_APP_CALLBACK_URL = "http://localhost/api/integration-connections/github/oauth/callback";
   resetDbForTests();
   resetGitHubAppServiceForTests();
+  resetSecretProviderForTests();
 });
 
 afterEach(async () => {
   vi.unstubAllGlobals();
   resetGitHubAppServiceForTests();
+  resetSecretProviderForTests();
   resetDbForTests();
   for (const key of Object.keys(process.env).filter((key) => key.startsWith("MYSTRA_GITHUB_APP_"))) {
     delete process.env[key];
   }
   delete process.env.MYSTRA_DB_PATH;
+  delete process.env.MYSTRA_SECRET_STORE_KEY;
+  delete process.env.MYSTRA_SECRET_STORE_PATH;
   await rm(tempDir, { recursive: true, force: true });
 });
 
-describe("GitHub App connection routes", () => {
-  it("lists configured provider state without secret fields", async () => {
+describe("self-hosted GitHub connection routes", () => {
+  it("lists only PAT even when complete GitHub App secrets are present", async () => {
+    getDb().activateIntegrationConnection({
+      integration: "github",
+      provider: "github",
+      externalId: "18492",
+      account: { externalId: "42", login: "arcadia", type: "User" },
+      repositorySelection: "selected",
+      permissions: { contents: "write", pull_requests: "write" },
+    });
     const response = await listConnections();
     const body = await response.json();
     expect(body).toEqual({
       providers: [{
         integration: "github",
-        connectionType: "github-app-installation",
-        configured: true,
-        connectUrl: "/api/integration-connections/github/connect",
+        methods: [
+          {
+            type: "personal-access-token",
+            configured: false,
+            createUrl: "/api/integration-connections/github/pat",
+            disabledReason: "Secret store is not configured",
+          },
+        ],
       }],
       connections: [],
     });
-    expect(JSON.stringify(body)).not.toMatch(/client-secret|private.key|token/i);
+    expect(JSON.stringify(body)).not.toMatch(/github-app|connectUrl|client-secret|private.key|github_pat_|credentialRef/i);
   });
 
-  it("installs, starts PKCE, verifies exact installation and activates it", async () => {
-    const connect = await connectGitHub(new Request("http://localhost/api/integration-connections/github/connect?returnTo=%2Ftasks"));
-    expect(connect.status).toBe(307);
-    expect(connect.headers.get("location")).toBe("https://github.com/apps/mystra-fixture/installations/new");
-
-    const setup = await setupGitHub(new Request(
-      "http://localhost/api/integration-connections/github/setup?installation_id=18492&setup_action=install",
-      { headers: { cookie: cookieHeader([connect]) } },
-    ));
-    expect(setup.status).toBe(307);
-    const oauthUrl = new URL(setup.headers.get("location")!);
-    expect(oauthUrl.origin + oauthUrl.pathname).toBe("https://github.com/login/oauth/authorize");
-    expect(oauthUrl.searchParams.get("code_challenge_method")).toBe("S256");
-
+  it("creates and deletes a PAT connection without returning plaintext or secret references", async () => {
+    process.env.MYSTRA_SECRET_STORE_KEY = Buffer.alloc(32, 7).toString("base64");
+    process.env.MYSTRA_SECRET_STORE_PATH = path.join(tempDir, "secrets");
+    resetSecretProviderForTests();
     vi.stubGlobal("fetch", vi.fn()
-      .mockResolvedValueOnce(jsonResponse({ access_token: "ghu_ephemeral", token_type: "bearer" }))
-      .mockResolvedValueOnce(jsonResponse({ installations: [{
-        id: 18492,
-        app_id: 12345,
-        account: { id: 42, login: "arcadia", type: "User" },
-        repository_selection: "selected",
-        permissions: { contents: "write", pull_requests: "write" },
-      }] })));
-    const callback = await finishGitHubOAuth(new Request(
-      `http://localhost/api/integration-connections/github/oauth/callback?code=oauth-code&state=${oauthUrl.searchParams.get("state")}`,
-      { headers: { cookie: cookieHeader([connect, setup]) } },
-    ));
+      .mockResolvedValueOnce(jsonResponse({ id: 42, login: "arcadia", type: "User" }))
+      .mockResolvedValueOnce(jsonResponse([{
+        id: 101,
+        full_name: "arcadia/mystra",
+        permissions: { pull: true, push: true, admin: false },
+      }])));
 
-    expect(callback.status).toBe(307);
-    expect(callback.headers.get("location")).toBe("http://localhost/tasks?settings=integrations&github=connected");
-    expect(getDb().getActiveIntegrationConnection("github")).toMatchObject({ externalId: "18492" });
+    const created = await createPatConnection(new Request(
+      "http://localhost/api/integration-connections/github/pat",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: "github_pat_route_secret", displayName: "Delivery" }),
+      },
+    ));
+    const body = await created.json();
+
+    expect(created.status).toBe(201);
+    expect(created.headers.get("cache-control")).toBe("no-store");
+    expect(body.connection).toMatchObject({
+      connectionType: "personal-access-token",
+      displayName: "Delivery",
+      credentialState: "ready",
+    });
+    expect(JSON.stringify(body)).not.toMatch(/github_pat_route_secret|credentialRef|fingerprint/);
+    const record = getDb().getIntegrationConnectionRecord(body.connection.id);
+    expect(record?.credentialRef).toBe(`github-pat/${body.connection.id}`);
+    expect(JSON.stringify(record)).not.toContain("github_pat_route_secret");
+
+    const deleted = await deleteConnection(
+      new Request(`http://localhost/api/integration-connections/${body.connection.id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id: body.connection.id }) },
+    );
+    expect(deleted.status).toBe(204);
+    expect(getDb().getIntegrationConnection(body.connection.id)).toBeUndefined();
   });
 
-  it("rejects forged state and never persists the hinted installation", async () => {
-    const connect = await connectGitHub(new Request("http://localhost/api/integration-connections/github/connect"));
-    const setup = await setupGitHub(new Request(
-      "http://localhost/api/integration-connections/github/setup?installation_id=18492",
-      { headers: { cookie: cookieHeader([connect]) } },
-    ));
-    const callback = await finishGitHubOAuth(new Request(
-      "http://localhost/api/integration-connections/github/oauth/callback?code=oauth-code&state=forged",
-      { headers: { cookie: cookieHeader([connect, setup]) } },
-    ));
-    expect(callback.headers.get("location")).toContain("github=connection_failed");
-    expect(callback.headers.get("location")).toContain("reason=oauth_state_invalid");
+  it("blocks every GitHub App route before redirect, OAuth exchange, or persistence", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const responses = await Promise.all([
+      connectGitHub(new Request("http://localhost/api/integration-connections/github/connect?returnTo=%2Ftasks")),
+      setupGitHub(new Request("http://localhost/api/integration-connections/github/setup?installation_id=18492")),
+      finishGitHubOAuth(new Request("http://localhost/api/integration-connections/github/oauth/callback?code=oauth-code&state=fixture")),
+    ]);
+
+    for (const response of responses) {
+      expect(response.status).toBe(409);
+      expect(response.headers.get("location")).toBeNull();
+      expect(await response.json()).toEqual({
+        error: {
+          code: "INTEGRATION_CONNECTION_METHOD_UNAVAILABLE",
+          message: "GitHub App connections are available only on Mystra Cloud",
+          details: { reasonCode: "HOSTED_ONLY" },
+        },
+      });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(getDb().listIntegrationConnections()).toEqual([]);
   });
 });

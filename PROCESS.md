@@ -21,9 +21,12 @@ GitHub RepoProvider plus repository-scoped IssueProvider, read-only Linear
 IssueProvider, direct Agent execution, and a single-machine sandbox path. Every
 Project repository is remote and provider-resolved. Product runtime MUST NOT
 depend on a WorkflowProvider, workflow blueprint or workflow node graph.
-The approved GitHub App connection exception uses OAuth only to verify an
-installation and uses short-lived installation tokens for both discovery and
-delivery; it does not introduce caller auth or a general Integration catalog.
+The approved GitHub App connection exception is hosted-only. It uses OAuth only
+to verify that an authenticated actor may bind an installation to a Team and
+uses short-lived installation tokens for both discovery and delivery. The
+self-hosted product reports GitHub App as unavailable and supports PAT instead;
+retaining the hosted adapter in the open-source tree does not widen the
+self-hosted support contract or create a general Integration catalog.
 
 1. Use `AGENTS.md` to route the work through `aaa-spec-kit` and identify the relevant project-local skill/process.
 2. Use the 5xP root files for stable project context:

@@ -111,7 +111,7 @@ export function ShellSearchDialog({
             <UiInput autoFocus placeholder={placeholder} type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <ShellIcon name="search" />
-          <UiIconButton aria-label={closeLabel} className="compactIconButton" size="compact" onClick={onClose}>×</UiIconButton>
+          <UiIconButton aria-label={closeLabel} className="compactIconButton" onClick={onClose}><ShellIcon name="close" /></UiIconButton>
         </UiSurfaceHeader>
 
         <div className="searchDialogWorkspace">

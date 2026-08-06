@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>043-identity-team-rbac</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"043-identity-team-rbac","title":"043-identity-team-rbac","prototypeHref":"mockups/index.html?v=1786001630730","generatedAt":"2026-08-06T07:35:27.101Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：身份、Team 与 RBAC\n\n**Feature Number**: `043`  \n**Feature Directory**: `specs/043-identity-team-rbac`  \n**Working Branch**: `041-github-integration-connections`（Owner 明确要求在当前 branch 创建 043 规格；后续命令必须显式设置 `SPECIFY_FEATURE=043-identity-team-rbac`）  \n**Created**: 2026-08-06  \n**Status**: Draft — ready for owner review；implementation blocked by 040/041 persistence baseline  \n**Input**: 建立基本 User、登录、注册、Team、Role/RBAC；Hosted SaaS 使用 Google/GitHub SSO，开源 self-hosted 使用 username/password，email 是人类用户唯一外部业务 ID；支持 Control-plane Agent 与 Sandbox Dev Agent 两类非人类身份，并为未来 2FA、Passkey、TOTP、Email OTP、SMS OTP 与 One-Time Token 保留扩展能力；认证数据在 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL 上保持一致。\n\n## 用户场景与验收\n\n### User Story 1 - 人类用户按部署模式注册与登录（Priority: P1）\n\n作为 Mystra 人类用户，我希望使用当前部署明确支持的注册和登录方式进入平台，以便在不理解底层身份提供方的情况下获得一个稳定、可跨 Team 使用的账户。\n\n**Why this priority**：没有可信 caller identity，Team、RBAC、Hosted GitHub App 绑定和任何多租户隔离都只是装饰性文本。\n\n**Independent Test**：分别启动 Hosted 与 stock self-hosted profile；在 Hosted 使用 Google/GitHub SSO 注册登录，在 self-hosted 使用 email、username、password 完成首次初始化与后续受邀注册；验证两种 profile 不展示或接受对方未支持的登录方式。\n\n**Acceptance Scenarios**：\n\n1. **Given** 当前为 Hosted SaaS，**When** 用户打开登录页，**Then** 页面提供 Google 与 GitHub SSO，且不默认提供 username/password 注册。\n2. **Given** Google 或 GitHub 返回稳定 provider subject 与已验证 email，**When** 新用户首次完成 SSO，**Then** Mystra 创建一个内部稳定 User，并以规范化 email 作为唯一外部业务 ID。\n3. **Given** 当前为 stock self-hosted 且尚无 User，**When** 首位用户以 email、username、password 完成注册，**Then** 系统创建首个 Team，并将该用户设为唯一初始 Owner。\n4. **Given** self-hosted 初始化已经完成，**When** 未受邀访客尝试匿名注册，**Then** 系统默认拒绝并显示邀请要求；管理员可通过显式部署策略另行开放注册。\n5. **Given** 同一规范化 email 已属于一个 User，**When** 另一 SSO provider 或 password 注册尝试创建新 User，**Then** 系统不得静默合并或创建重复 User，而是要求用户先用现有方式登录后显式关联账户。\n6. **Given** SSO 未返回已验证 email，**When** 登录回调完成，**Then** Mystra 不创建 User、Team 或 session，并提供可恢复说明。\n7. **Given** 用户已登录，**When** 用户退出、撤销指定 session 或账户被停用，**Then** 对应 session 不再能访问受保护资源，其他未撤销 session 按策略保持或失效。\n\n---\n\n### User Story 2 - Team Owner 管理成员、角色与授权范围（Priority: P1）\n\n作为 Team Owner，我希望邀请成员、管理成员状态，并按 Team 或 Project 范围分配角色，以便人类用户和 Control-plane Agent 只执行其职责允许的操作。\n\n**Why this priority**：认证只回答“是谁”；如果没有服务端授权和明确作用域，多租户系统仍然允许正确的人访问错误的 Team。\n\n**Independent Test**：建立两个 Team、两个 Project、一个多 Team User 和一个 Control-plane Agent；分配不同 Team/Project RoleBinding，逐项验证 API、MCP、CLI 与 Web 对同一权限决策给出一致结果，并拒绝跨 Team 或越权访问。\n\n**Acceptance Scenarios**：\n\n1. **Given** User 已加入多个 Team，**When** 其进入 Web、调用 API、CLI 或 MCP，**Then** 每次操作都具有明确 Team context；缺失、歧义或无权 Team context 时 fail closed。\n2. **Given** Team Owner 邀请一个尚未注册的 email，**When** 该 email 对应用户完成注册或登录并接受邀请，**Then** 其获得指定 Team membership，而不会创建第二个 User。\n3. **Given** Team Owner 分配 Team 级或 Project 级角色，**When** Principal 操作目标资源，**Then** 服务端根据目标作用域和 permission catalog 计算有效权限；客户端隐藏按钮不能替代服务端检查。\n4. **Given** Principal 同时拥有多个 RoleBinding，**When** 计算有效权限，**Then** MVP 使用允许权限的并集，不提供隐式 deny 或策略 DSL。\n5. **Given** Team 只剩一名有效 Owner，**When** 尝试移除、停用或降级该 Owner，**Then** 系统拒绝操作，直到先产生另一名有效 Owner。\n6. **Given** membership、Role 或 RoleBinding 被撤销，**When** Principal 再次请求受影响资源，**Then** 新请求立即按更新后的权限拒绝；不得依赖客户端刷新才能生效。\n7. **Given** Team Owner 查看成员和角色设置，**When** 数据加载、为空、失败或权限不足，**Then** Settings 显示真实状态和可恢复操作，不展示无持久化能力的假表单。\n\n---\n\n### User Story 3 - 人驱动工具与 Control-plane Agent 使用可审计身份（Priority: P1）\n\n作为 Team 操作者，我希望人驱动的 Agent/工具可以沿用人的 OAuth/session/API key，而长期在 Control Plane 活动的 Agent 拥有独立身份和凭据，以便既不制造无意义的主体，又能区分真正自主的项目管理员或产品经理 Agent。\n\n**Why this priority**：把所有自动化都建成 User 会制造虚构 email；把所有自动化都归到某个人又会失去撤销、归责和职责隔离。\n\n**Independent Test**：分别使用人类 session、人类 scoped API key 与 Control-plane Agent credential 执行同一组允许/拒绝操作；验证前两者归属于人类 User，第三者归属于独立 AgentPrincipal，并且三者均受相同 Team/Project RBAC 决策约束。\n\n**Acceptance Scenarios**：\n\n1. **Given** 一个工具由已登录用户直接触发，**When** 工具使用该用户的 OAuth/session 或用户 API key 调用 Mystra，**Then** actor 记录为该 User，不额外创建 AgentPrincipal。\n2. **Given** 用户创建 scoped API key，**When** key 被显示、使用、轮换或撤销，**Then** 明文只显示一次，持久状态只保留不可逆验证材料，且 key 权限不得超过创建者在绑定 Team 中的权限。\n3. **Given** Team Owner 创建长期 Control-plane Agent，**When** Agent 获得 Project Admin、Product Manager 或其他允许角色，**Then** 系统创建不需要 email 的 AgentPrincipal，并为其分配显式 Team/Project RoleBinding。\n4. **Given** Control-plane Agent 使用独立凭据登录，**When** 它调用 API、MCP 或 CLI 合同，**Then** 请求可识别 AgentPrincipal、Team、凭据和授权范围，不伪装成人类 User。\n5. **Given** Agent credential 被轮换、过期、撤销或 AgentPrincipal 被停用，**When** 旧凭据再次使用，**Then** 请求在执行任何业务副作用前失败。\n6. **Given** 人类 API key 或 Agent credential 不包含目标 Team/Project 权限，**When** 调用受保护操作，**Then** 返回稳定的 unauthenticated/forbidden 区分，不泄漏目标资源是否存在。\n\n---\n\n### User Story 4 - Sandbox Dev Agent 使用 Session 级工作负载身份（Priority: P1）\n\n作为运行开发任务的 Dev Agent，我希望在 sandbox 中获得与当前 Session 绑定的短期能力，以便调用 Mystra 明确提供的外部通信或交付能力，而不继承人类或 Control-plane Agent 的长期凭据。\n\n**Why this priority**：sandbox Agent 能执行代码；让它同时持有长期 Team 凭据会把一次 Session 的风险扩大为整个 Team 的持续风险。\n\n**Independent Test**：启动一个 Session，在 sandbox 中使用短期 workload credential 调用允许的 Mystra capability；验证 audience、Session、Project、Team、expiry 和 capability 约束，随后完成或取消 Session 并确认旧凭据失效。\n\n**Acceptance Scenarios**：\n\n1. **Given** Runner 已合法 claim 一个 Session，**When** sandbox 启动，**Then** Mystra 为该 Session 派生短期 WorkloadIdentity/CapabilityGrant，而不是创建 User、Team membership 或长期 AgentPrincipal。\n2. **Given** Dev Agent 调用 Mystra 提供的对外能力，**When** capability 与当前 Session、Project、Team、audience 和时限匹配，**Then** Mystra 代表该 workload 执行允许动作，并保留可定位到 Session 的 actor evidence。\n3. **Given** workload token 尝试调用未授予 capability、其他 Project/Team 或 control-plane 管理操作，**When** 请求到达，**Then** 系统 fail closed，且不自动借用发起 Task 的人类权限。\n4. **Given** Session 结束、取消、重新分配或 token 到期，**When** sandbox 再次调用，**Then** 旧 token 失效；重新执行必须获得新的 Session-bound credential。\n5. **Given** 当前产品规格没有授权某种 Issue 写回、消息发送或其他外部副作用，**When** Dev Agent 请求该能力，**Then** 043 不因存在 workload identity 而自动扩大产品能力，必须由拥有该 capability 的独立规格启用。\n6. **Given** sandbox 被检查，**When** 查找长期 OAuth token、API key、Agent credential 或平台 secret，**Then** 它们不得因 043 被注入；只允许当前 Session 所需的短期材料。\n\n---\n\n### User Story 5 - 在不更换 User 的前提下扩展认证因子与数据库（Priority: P2）\n\n作为平台运营者或安全管理员，我希望未来可以为同一 User 增加 TOTP、Passkey、Email OTP、SMS OTP 和 One-Time Token，并在 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL 上获得一致行为，以便增强认证而不分裂身份或形成数据库专用分支。\n\n**Why this priority**：首期不需要同时交付全部因子，但如果基础模型只容纳密码或单一数据库，未来增强会变成账户迁移项目。\n\n**Independent Test**：对三种受支持数据库 profile 运行同一套 schema parity、注册、登录、session、Team/RBAC 与插件兼容测试；在测试配置中启用每种未来因子并确认仍绑定已有 User，且不产生 phone-only、passkey-only 或重复 email User。\n\n**Acceptance Scenarios**：\n\n1. **Given** User 已通过 password 或 SSO 建立 verified-email 身份，**When** 后续注册 TOTP authenticator 或 Passkey，**Then** 新因子绑定现有 User，不创建新 User 或改变 email 外部业务 ID。\n2. **Given** Email OTP 被用于登录、email verification 或密码恢复，**When** code 被创建和验证，**Then** code 短期有效、限制尝试次数、不可重复使用，并以不可逆形式持久保存。\n3. **Given** SMS OTP 被启用，**When** 用户验证 phone number，**Then** phone 只能作为已存在 verified-email User 的认证或恢复因子；不得使用 synthetic email 创建 phone-only User。\n4. **Given** One-Time Token 用于跨表面 session handoff，**When** token 被验证一次或过期，**Then** 它不能再次使用，且默认只能由受信服务端流程签发。\n5. **Given** SQLite、PostgreSQL 或 Supabase-backed PostgreSQL 被选择，**When** 执行相同身份与授权场景，**Then** 公共行为、约束、错误语义和数据关系一致，不向调用方暴露数据库差异。\n\n### Edge Cases\n\n- email 比较必须 trim 并大小写不敏感，但不得实施 Gmail 点号、`+tag` 或其他 provider-specific 折叠。\n- 用户更换 primary email 时，必须先验证新 email 并通过全局唯一检查；内部 User ID 和已绑定 provider subject 保持稳定。\n- Google/GitHub provider subject 已绑定 User，但 provider 返回的 email 后续变化时，系统不得据此创建第二个 User或偷偷迁移 primary email。\n- 同一 email 的未完成 invitation、重复 SSO callback 和并发注册必须收敛为一个 User/一个 membership 或明确冲突。\n- GitHub primary email 为 private 时，只有 provider 返回的已验证 email 才能用于注册；无法取得时不猜测 noreply address。\n- 被停用 User 仍可保留历史业务归属，但不能建立新 session、使用 API key 或接受新 RoleBinding。\n- Team 删除、归档或 ownership 转移必须处理 Projects、memberships、AgentPrincipals 和 active Sessions；043 首期只允许归档，不实施级联硬删除。\n- Role 被修改或归档时，既有 RoleBinding 的处理必须原子且可解释；不得使最后 Owner 保护失效。\n- 多个 RoleBinding 的允许权限并集不得越过 Team 边界；Team role 不自动授予其他 Team 的同名 Project。\n- authentication provider、短信/邮件发送服务或数据库暂时不可用时，不得创建半完成 User、factor、membership 或凭据。\n- OTP、password、session token、API key、Agent credential、TOTP secret、backup code 和 OAuth client secret 不得进入 URL、日志、公共响应或验收证据。\n- 时钟漂移、OTP 重放、WebAuthn challenge 重放、OAuth state 重放、session fixation 和 CSRF/origin mismatch 必须 fail closed。\n- 旧 sandbox workload token 在 Session retry、reassignment 或 cancellation 后不得恢复有效。\n\n## Requirements\n\n### Functional Requirements\n\n#### Human identity and account lifecycle\n\n- **FR-001**：系统 MUST 为每个人类 User 生成稳定内部 ID，并将规范化、已验证的 email 作为平台范围内唯一外部业务 ID；email 不得作为数据库主键或 OAuth provider identity key。\n- **FR-002**：系统 MUST 保存每个登录方式的稳定 provider subject；Google 使用其稳定 subject，GitHub 使用稳定 numeric identity，password/username 作为本地 credential account。\n- **FR-003**：同一 `provider + providerSubject` MUST 只绑定一个 User；一个 User MAY 显式关联多个登录方式。\n- **FR-004**：相同 email 的不同 provider account MUST NOT 静默关联；用户必须先通过已有方式认证，再显式添加新登录方式。\n- **FR-005**：Hosted SaaS MUST 支持 Google 与 GitHub SSO 注册/登录，并要求 provider 提供已验证 email；stock self-hosted MUST 支持 email + username + password 注册/登录。\n- **FR-006**：Hosted 与 self-hosted MUST 由可信 deployment profile 选择公开登录方式；客户端输入、Host header 或环境变量是否齐全不得提升 capability。\n- **FR-007**：stock self-hosted 首位注册用户 MUST 初始化首个 Team 并成为 Owner；完成初始化后匿名注册 MUST 默认关闭，后续用户通过 invitation 注册，除非部署策略显式开放。\n- **FR-008**：Hosted 新用户首次登录后 MUST 能创建 Team 或接受已发送至同一 email 的 invitation；一个 User MUST 能加入多个 Team。\n- **FR-009**：系统 MUST 支持登录、退出、当前 session 查询、session 撤销与账户停用；停用后所有登录方式、session 和用户 API key MUST fail closed。\n- **FR-010**：primary email 变更 MUST 验证新 email、保证全局唯一并保留内部 User ID；不得通过 provider profile update 隐式改变 primary email。\n- **FR-011**：username MUST 是 self-hosted 登录别名而不是外部身份主键；username 冲突不得改变 email 唯一规则。\n- **FR-012**：注册、登录、找回与 invitation 流程 MUST 防止 email/username 枚举，并对暴力尝试、重放、CSRF 与不可信 origin 实施 fail-closed 保护。\n\n#### Team, Role and authorization\n\n- **FR-013**：Team MUST 是 Mystra 顶层租户；`workspace` 不得被用作 tenancy 同义词。\n- **FR-014**：TeamMembership MUST 将一个 User 或长期 AgentPrincipal 关联到一个 Team，并保存状态与生命周期；Sandbox WorkloadIdentity MUST NOT 成为 TeamMembership。\n- **FR-015**：系统 MUST 提供稳定 permission catalog；公共 API、MCP、CLI 与 Web 必须使用同一 permission 语义。\n- **FR-016**：系统 MUST 提供不可删除的内置 Team roles（Owner、Admin、Member）以及满足 Control-plane Agent 工作的 Project-scoped roles（至少 Project Admin、Product Manager、Developer）。\n- **FR-017**：RoleBinding MUST 将 Principal、Role 和作用域明确关联；作用域 MUST 至少支持 Team 与 Project，不得依赖当前 UI route 推断。\n- **FR-018**：一个 Principal MAY 在同一 Team 拥有多个 RoleBinding；MVP 有效权限为所有适用 allow permissions 的并集，不支持 deny rule、ABAC 或通用 policy DSL。\n- **FR-019**：系统 MUST 保护每个 Team 至少一名有效 Owner；最后 Owner 不得被移除、停用、降级或退出。\n- **FR-020**：所有受保护的 API、MCP、CLI 与 Web 操作 MUST 在服务端解析 Principal、Team context、目标资源作用域和 effective permissions；缺失或歧义时 fail closed。\n- **FR-021**：未认证请求 MUST 使用稳定 unauthenticated 语义；已认证但未授权请求 MUST 使用稳定 forbidden 语义，并避免通过错误差异泄漏跨 Team 资源存在性。\n- **FR-022**：membership、Role 与 RoleBinding 变更 MUST 对新请求立即生效；长时 operation 必须在发生外部副作用前重新确认必要权限。\n- **FR-023**：Team Owner MUST 能邀请、查看、停用和移除成员，查看并分配内置 Role；自定义 Role 的创建、修改和归档 MAY 作为后续 slice，但数据与合同不得阻止该扩展。\n- **FR-024**：Team 及其 membership、Role、RoleBinding 和 AgentPrincipal 首期 MUST 支持归档/停用而非无条件硬删除，以保留既有 Task、Session 与 Project 的历史归属。\n\n#### Human API keys and Control-plane Agents\n\n- **FR-025**：人驱动 Agent 或工具 MAY 使用人的 OAuth/session 或 user-owned API key；这种调用的 Principal MUST 是 User，不创建额外 AgentPrincipal。\n- **FR-026**：用户 API key MUST 绑定 User、Team、显式权限、创建时间、可选过期时间与状态；权限不得超过创建者在该 Team 的有效权限。\n- **FR-027**：API key 明文 MUST 只在创建时显示一次；持久状态只能保存不可逆验证材料、安全前缀和非秘密元数据，并支持轮换、撤销、过期和最后使用时间。\n- **FR-028**：长期在 Control Plane 活动的非人类主体 MUST 使用独立 AgentPrincipal；AgentPrincipal MUST 不要求或伪造 email。\n- **FR-029**：AgentPrincipal MUST 归属于明确 Team，并通过 RoleBinding 获得 Team/Project 权限；其 credential 生命周期 MUST 独立于创建者的人类 session。\n- **FR-030**：Agent credential 或 OAuth client credential MUST 支持一次性展示、不可逆持久验证、明确 audience/scope、短期 access token、轮换、撤销和过期；自主 Agent 不得依赖无限期 human refresh token。\n- **FR-031**：当前不稳定的 Agent-specific authentication extension MUST NOT 成为首期生产前置；首期必须使用稳定、可替换的 OAuth/API credential 合同并保持 Mystra-owned AgentPrincipal 领域边界。\n\n#### Sandbox workload identity and capabilities\n\n- **FR-032**：Runner 只有在合法 claim Session 后才能请求 Session-bound WorkloadIdentity/CapabilityGrant；credential MUST 绑定 Session、Task、Project、Team、Runner、audience、capabilities、签发与过期时间。\n- **FR-033**：Sandbox workload credential MUST 短期、最小权限、不可用于普通 Team membership 或 Control-plane 管理，并在 Session 完成、取消、重新分配或到期时失效。\n- **FR-034**：Sandbox Agent 对外产生副作用 MUST 通过 Mystra 明确提供的 capability boundary；每次调用 MUST 能归属到 WorkloadIdentity 和 Session，而不是借用人类或 AgentPrincipal 长期凭据。\n- **FR-035**：043 MUST NOT 因引入 workload identity 自动启用当前产品边界排除的 Issue write-back、任意消息发送、callback 或通用外部网络能力；每项 capability 仍由其拥有规格显式授权。\n- **FR-036**：长期人类、Integration、Agent 或平台 secrets MUST NOT 注入 sandbox；允许的短期 workload material 必须通过现有 runtime secret hygiene 边界交付。\n\n#### Framework, persistence and future factors\n\n- **FR-037**：认证引擎 MUST 使用 Better Auth 的稳定发布版；Mystra MUST 在其外部提供自有 Auth/Identity boundary，Better Auth 类型不得泄漏到 shared、API、MCP、CLI、Web 或 Runner 公共合同。\n- **FR-038**：Team、Role、Permission、RoleBinding、AgentPrincipal 与 WorkloadIdentity MUST 是 Mystra-owned 领域模型；不得让 Better Auth Organization/Team 模型成为产品真相来源。\n- **FR-039**：SQLite、PostgreSQL 与 Supabase-backed PostgreSQL MUST 提供相同行为和数据关系；Supabase MUST 复用 PostgreSQL profile，不形成第二条 Auth 或 Data API 持久化路径。\n- **FR-040**：Prisma MUST 是认证及授权关系数据的 schema、migration 与 runtime access owner；Better Auth 的 schema generator MAY 作为模型输入或 drift check，但 Better Auth MUST NOT 绕过 040 的 Prisma migration history 自行迁移生产数据库。\n- **FR-041**：两套 provider-specific Prisma schema/migration history MUST 覆盖相同 Auth、Team 与 RBAC 逻辑模型，并通过自动 parity 检查阻止无意漂移。\n- **FR-042**：实现 MUST 保留未来启用 TOTP/2FA、Passkey、Email OTP、SMS OTP 与 One-Time Token 所需的稳定 User/factor 关联和 schema extension path，但这些因子不要求在首个 implementation slice 全部上线。\n- **FR-043**：TOTP 与 backup material MUST 加密或不可逆保护；OTP、One-Time Token 与 recovery material MUST 默认不可逆保存、短期有效、限制尝试并防止重放。\n- **FR-044**：Passkey MUST 绑定已有 verified-email User；SMS OTP MUST 绑定已有 verified-email User 的已验证 phone number；首期及后续默认模式不得创建 passkey-only 或 phone-only User。\n- **FR-045**：未来对敏感操作启用 step-up authentication 时，Role 修改、Owner 转移、API key/Agent credential 创建和账户恢复 MUST 能要求近期认证或更强因子，而不更换 User identity。\n\n#### Product surfaces, dependencies and migration\n\n- **FR-046**：Settings MUST 将 Account、Team、Members/Roles 与 Agent credentials 显示为真实可用、只读或 prerequisite-unavailable 状态；不得呈现无持久化/API 支持的假写入。\n- **FR-047**：登录、注册、邀请、账户关联、Team/member/role 管理与 credential 管理的用户可见文案 MUST 支持英语和简体中文，并满足键盘、焦点、错误播报与窄屏重排要求。\n- **FR-048**：043 的 implementation MUST 等待 040 Prisma RDB ownership 落地，并在 041 GitHub Integration schema 冻结后吸收其最终数据模型；不得从当前临时 schema 生成永久 baseline。\n- **FR-049**：043 开始 implementation 前 MUST 显式修订 5xP/constitution 中 caller auth、Team administration 和 hosted multi-tenancy 的旧排除项，并说明 self-host 与 Hosted 的差异。\n- **FR-050**：迁移 MUST 保留现有 Project、Task、Session、Runner 和 IntegrationConnection ID/关系；未知或混合 schema MUST fail closed，不得通过身份迁移顺便重建业务数据。\n\n### Key Entities\n\n- **User**：一个人类账户；拥有稳定内部 ID、唯一 verified primary email、显示资料、状态和时间信息。一个 User 可加入多个 Team。\n- **ExternalIdentity**：User 与 password、Google 或 GitHub 登录身份的绑定；以 provider 与稳定 provider subject 唯一识别，不以 email 替代 provider subject。\n- **AuthSession**：一次有过期时间、可撤销的 User 认证会话；保存必要的安全状态，不成为业务活动对象。\n- **UserApiKey**：代表一个 User 在指定 Team 范围调用 Mystra 的可轮换凭据；只保存不可逆验证材料和非秘密元数据。\n- **Team**：Mystra 顶层租户，拥有 Projects、memberships、roles 和 Team-scoped AgentPrincipals。\n- **TeamInvitation**：发送至唯一 email 的短期、一次性 Team 加入意图；接受后收敛到既有或新建 User。\n- **TeamMembership**：User 或 AgentPrincipal 在 Team 中的成员关系与状态；不直接等同于 Role。\n- **Permission**：平台定义的稳定、机器可读操作能力；公共管理表面共享同一 catalog。\n- **Role**：命名 permission 集合；包含内置 Team/Project roles，并为未来 Team 自定义 role 留出扩展面。\n- **RoleBinding**：将 Principal、Role 与 Team 或 Project 作用域关联的授权事实。\n- **AgentPrincipal**：长期在 Control Plane 活动的非人类主体；没有 email，通过独立 credential 和 RoleBinding 行动。\n- **AgentCredential**：AgentPrincipal 的可轮换、可撤销认证材料或 OAuth client binding；不作为 User password/account。\n- **WorkloadIdentity**：一次 Session 执行期间的短期 sandbox actor；不是 Team member，不在 Session 之外复用。\n- **CapabilityGrant**：WorkloadIdentity 对特定 audience 和能力的最小授权，绑定 Session/Task/Project/Team/Runner 与有效期。\n- **AuthenticationFactor**：未来绑定 User 的 TOTP、Passkey、Email OTP、SMS OTP 或 recovery/handoff factor；不改变 User identity。\n\n## Scope\n\n### In scope — first implementation slice\n\n- Better Auth 认证边界与 Prisma-owned Auth schema 集成。\n- Hosted Google/GitHub SSO；stock self-hosted email/username/password。\n- User、ExternalIdentity、session、显式账户关联和 email 唯一规则。\n- self-host 首位 Owner bootstrap、后续 invitation 默认模式。\n- Team、TeamMembership、内置 Team/Project roles、RoleBinding、permission enforcement。\n- 人类 scoped API keys 与长期 Control-plane AgentPrincipal/credential。\n- Session-bound sandbox WorkloadIdentity/CapabilityGrant 基础合同和现有允许 capability 的鉴权接入。\n- Account 与 Team Settings 的真实状态和最小管理流程；API/MCP/CLI 仍优先于 Web。\n- SQLite、PostgreSQL、Supabase-backed PostgreSQL parity 与迁移安全。\n\n### In scope — extension-ready, later slices\n\n- Team 自定义 Role 管理。\n- TOTP/2FA、Passkey、Email OTP、SMS OTP 与 One-Time Token。\n- 敏感操作的 step-up authentication、recovery 和 trusted-device policy。\n\n### Out of scope\n\n- SAML、SCIM、LDAP/Active Directory、企业目录同步和 Google/GitHub 以外的 Hosted social providers。\n- phone-only、passkey-only、anonymous 或 synthetic-email User。\n- 通用 ABAC/ReBAC policy engine、deny rules、任意条件表达式或客户自定义 policy DSL。\n- 把 Better Auth Organization/Team、Supabase Auth 或第三方 IAM 的租户模型作为 Mystra 领域真相。\n- 使用当前不稳定 Agent Auth 插件作为生产身份根。\n- Runner 作为 Team Principal；Runner 继续是稳定执行容量业务对象。\n- 因 workload identity 自动扩大 Issue write-back、webhook、callback、日志 API、公共 activity timeline 或任意外部通信范围。\n- 本规格阶段实施、迁移或部署代码；043 implementation 仍受 040/041 前置阻塞。\n\n## Assumptions & Dependencies\n\n- Owner 已确认三类执行归属：人驱动 Agent 沿用人的 OAuth/API key；长期 Control-plane Agent 使用独立主体；Sandbox Dev Agent 使用 Session-scoped 工作负载身份。\n- Owner 已确认认证框架必须同时支持 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL，并能扩展 TOTP/2FA、Passkey、Email OTP、SMS OTP 和 One-Time Token。\n- `email` 的唯一性只适用于人类 User；AgentPrincipal、Runner 和 WorkloadIdentity 不使用或伪造 email。\n- self-hosted 初始化后的邀请制是安全默认；是否允许匿名注册由显式部署策略决定。\n- User 可加入多个 Team；每次请求只有一个明确 Team context。\n- MVP 允许多个适用 RoleBinding 并取 allow permission 并集；不引入 deny 语义。\n- Better Auth 使用 planning 时验证的稳定版本；当前调研基线为 1.6.26，具体 pin 留给 `/speckit.plan`。\n- Better Auth Prisma adapter 只生成 schema，不拥有迁移；040 的 Prisma schema/migration history 是唯一持久化事实来源。\n- 040 当前已有 spec/plan/engineering review 但尚未实施；041 当前 schema 仍处于未提交实现状态，因此 043 可评审但不可开始 implementation。\n- Email/SMS delivery provider、Hosted OAuth application credentials 与生产 KMS/SecretProvider 由部署 composition root 注入，不成为 Team 可编辑秘密。\n\n## Success Criteria\n\n### Measurable Outcomes\n\n- **SC-001**：Hosted 新用户可在 2 分钟内使用 Google 或 GitHub 完成注册/登录并进入 Team 创建或 invitation 接受流程；self-host 首位用户可在 3 分钟内完成初始 Team bootstrap。\n- **SC-002**：同一规范化 email 通过 password、Google、GitHub 和并发 callback 测试后，持久 User 数始终为 1；未经显式账户关联的 provider 不会被静默绑定。\n- **SC-003**：API、MCP、CLI 与 Web 对同一 Principal、Team、resource 和 RoleBinding 测试矩阵的 allow/deny 结果一致率为 100%。\n- **SC-004**：跨 Team、跨 Project、最后 Owner、停用 membership、撤销 RoleBinding 和资源存在性泄漏测试均 100% fail closed。\n- **SC-005**：人类 session/API key、Control-plane Agent credential 与 Sandbox workload token 的 actor 分类准确率为 100%；不存在 synthetic-email Agent User。\n- **SC-006**：Session 结束、取消、重新分配或 workload token 到期后，旧 sandbox credential 成功调用数为 0。\n- **SC-007**：password、OTP、session token、API key、Agent credential、TOTP secret、backup code、OAuth secret 和 One-Time Token 在日志、URL、公共响应、UI DOM 和验收证据中的明文泄漏计数为 0。\n- **SC-008**：SQLite、PostgreSQL 与 Supabase-backed PostgreSQL 运行同一身份/RBAC contract suite，核心场景通过率均为 100%，schema parity gate 无未记录差异。\n- **SC-009**：stock self-hosted 公开登录表面中的 Google/GitHub SSO 可执行入口计数为 0；Hosted 默认公开 username/password 注册入口计数为 0。\n- **SC-010**：Account、Team、Members/Roles 与 Agent credential 流程在 320 / 768 / 1024 / 1440px 视口和键盘操作下没有不可达主要操作或页面级水平滚动。\n- **SC-011**：在不创建第二个 User 的前提下，测试配置可分别注册并验证 TOTP 与 Passkey，且 Email OTP、SMS OTP 和 One-Time Token 均满足一次性、过期和尝试限制合同。\n- **SC-012**：043 implementation 开始前，040 已落地、041 schema 已冻结且 5xP/constitution 的 caller auth 与 Team administration 边界已显式更新；缺少任一前置时启动检查必须失败。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：身份、Team 与 RBAC\n\n## 摘要\n\n043 为 Mystra 增加可信 caller identity、Team tenancy 与服务端 RBAC。Hosted 使用 Google/GitHub SSO；stock self-hosted 使用 email、username、password。人类 User 以 verified email 作为唯一外部业务 ID，但内部身份和 provider binding 使用稳定 ID。长期 Control-plane Agent 拥有独立 AgentPrincipal；Sandbox Dev Agent 只获得 Session-scoped workload identity。\n\n## 功能地图\n\n- 人类身份：注册、登录、退出、session、账户关联、email 变更与停用。\n- 部署能力：Hosted SSO 与 self-host password profile 明确分离并 fail closed。\n- Team：首位 Owner bootstrap、邀请、成员状态、多 Team membership 与明确 active Team context。\n- RBAC：稳定 permission catalog、Team/Project-scoped RoleBinding、内置 Owner/Admin/Member/Project roles 和最后 Owner 保护。\n- 人类工具：沿用 User OAuth/session 或 scoped API key，不制造额外 Agent 身份。\n- Control-plane Agent：独立 AgentPrincipal、credential 生命周期和 Team/Project roles。\n- Sandbox Agent：Session-bound WorkloadIdentity/CapabilityGrant，通过 Mystra 明确能力向外行动。\n- 持久化：SQLite、PostgreSQL、Supabase-backed PostgreSQL 使用同一 Prisma-owned 逻辑模型。\n- 未来因子：TOTP/2FA、Passkey、Email OTP、SMS OTP 与 One-Time Token 绑定同一 User。\n\n## 边界\n\n- Email 唯一规则只适用于人类 User；Agent、Runner 与 workload 不伪造 email。\n- Team 是顶层 tenancy；Better Auth Organization/Team 不成为 Mystra 领域真相。\n- Role 首期使用稳定 allow permission catalog，不引入 deny、ABAC 或 policy DSL。\n- Workload identity 不自动启用 Issue 写回、任意消息或其他尚未获批的外部副作用。\n- 首期不交付 SAML/SCIM、phone-only/passkey-only User、全部未来因子或自定义 policy engine。\n- 043 可先评审；implementation 等待 040 落地、041 schema 冻结和 5xP boundary amendment。\n\n## 分阶段能力图\n\n1. **Identity foundation**：Better Auth + Prisma-owned User/identity/session，Hosted SSO 与 self-host password。\n2. **Team/RBAC**：Team、invitation、membership、内置 roles、RoleBinding 和所有管理表面的服务端 enforcement。\n3. **Agent identity**：User API keys、Control-plane AgentPrincipal/credentials、Sandbox WorkloadIdentity/CapabilityGrant。\n4. **Account hardening**：TOTP/2FA、Passkey、Email/SMS OTP、One-Time Token、step-up 与 recovery。\n5. **Enterprise extensions**：自定义 roles、SAML/SCIM 或更复杂 policy，仅在独立规格明确后进入。\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：身份、Team 与 RBAC\n\n## Owner 评审\n\n- [x] 使用 043 编号，并按 Owner 要求直接创建在当前 041 branch。\n- [x] Hosted 使用 Google/GitHub SSO；stock self-hosted 使用 email/username/password。\n- [x] verified email 是人类 User 唯一外部业务 ID，但不是内部主键或 provider subject。\n- [x] 人驱动 Agent 使用人的 OAuth/API key，不另建 AgentPrincipal。\n- [x] 长期 Control-plane Agent 使用独立 AgentPrincipal，可担任 Project Admin、Product Manager 等角色。\n- [x] Sandbox Dev Agent 使用 Session-scoped workload identity，并通过 Mystra capability 向外行动。\n- [x] 认证方案必须支持 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL。\n- [x] 未来可扩展 2FA/TOTP、Passkey、Email OTP、SMS OTP 与 One-Time Token。\n- [ ] Owner 确认 self-host 初始化后默认 invitation-only。\n- [ ] Owner 确认内置 Team/Project role catalog 与多个 RoleBinding 的 allow-union 语义。\n- [ ] Owner 审阅登录、Team、Roles 与 Agent credentials 低保真原型。\n\n## Spec 就绪度\n\n- [x] 五个独立用户故事覆盖人类、Team/RBAC、Control-plane Agent、Sandbox workload 和未来因子。\n- [x] Hosted/self-hosted capability、email identity、account linking 和秘密边界明确。\n- [x] Team 与 Project scope 的授权模型、最后 Owner 和跨 Team fail-closed 明确。\n- [x] 040/041 前置和 Prisma migration ownership 明确。\n- [x] Requirements Quality Score 达到 95/100。\n- [ ] 040 已实施并合入目标代码基线。\n- [ ] 041 schema 已冻结并被 040 吸收。\n- [ ] 5xP/constitution 的旧排除项已正式修订。\n- [ ] 进入 `/speckit.plan`。\n\n## 后续插件检查\n\n- [ ] Planning 锁定 Better Auth 稳定版本及 Prisma adapter 版本。\n- [ ] Planning 核验 Google/GitHub verified email 和 explicit account linking 配置。\n- [ ] Planning 为 SQLite/PG 两套 Prisma schema 建立 Auth/RBAC parity gate。\n- [ ] Planning 核验 API Key、OAuth Provider、2FA、Passkey、Email OTP、Phone OTP 与 One-Time Token schema 影响。\n- [ ] Planning 设计 WorkloadIdentity audience、capability、expiry、revocation 与 Session lifecycle 绑定。\n- [ ] `plan-eng-review` 覆盖全 route/MCP/CLI authorization、RdbProvider/Prisma、Runner claim 和 sandbox secret blast radius。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# 交互原型：身份、Team 与 RBAC\n\n## 原型入口\n\n[打开独立 HTML 原型](mockups/index.html)\n\n## Intake\n\n- **目标**：验证 Hosted/self-hosted 登录分流、Team 成员、RoleBinding、Control-plane Agent credential 与 Sandbox workload grant 的信息层级。\n- **主要用户**：首次注册的人类用户、Team Owner、使用人类 API key 的操作者、长期 Control-plane Agent 管理者和诊断 Session 的平台操作者。\n- **主要动作**：登录或初始化、邀请成员、分配作用域角色、创建 Agent credential、检查 Session-bound capability。\n- **限制**：沿用 Mystra 现有 dark-tech Settings 语言；不重新设计 shell，不把未来认证因子伪装成首期可用能力。\n\n## Wireframe 方向\n\n评估了三种结构：\n\n1. **独立 Auth 页面 + Settings 管理面**：登录/注册脱离 shell；Account、Team、Roles、Agents 进入既有 Settings。信息所有权最清晰。\n2. **全部塞进 Settings Modal**：复用容器，但未认证用户无法进入 Settings，结构自相矛盾。\n3. **首次使用全屏 Wizard**：适合 self-host bootstrap，但不适合日常登录和 Hosted SSO。\n\n采用方向 1；self-host 首次初始化在同一 Auth 页面中使用 setup state，而不是另造永久导航。\n\n## 覆盖页面与状态\n\n原型顶部可切换 `Hosted` 与 `Self-hosted` profile，左侧切换六个关键表面：\n\n1. **Sign in**：Hosted 显示 Google/GitHub；self-hosted 显示 email/username/password。\n2. **Bootstrap**：self-host 首位 Owner 创建账户与首个 Team；Hosted 呈现创建 Team/接受邀请后续动作。\n3. **Members**：User 与 AgentPrincipal 使用不同 actor 标识，membership 状态和 role summary 可辨识。\n4. **Roles**：Team/Project scope、permission summary、最后 Owner 保护和多个 RoleBinding。\n5. **Agents & Keys**：人类 API key 与 Control-plane Agent credential 分栏，不用 synthetic email 混合。\n6. **Workload Grant**：Session、Task、Project、Team、Runner、audience、capability 和 expiry 的只读诊断面。\n\n## Interaction Notes\n\n- Profile 切换会改变 Sign in/Bootstrap 的公开能力，但不会改变 Team/RBAC 领域结构。\n- 原型中的创建、邀请、轮换和撤销操作只展示 flow intent，不进行持久化。\n- Roles 使用作用域标签和 permission summary，不让颜色成为唯一语义。\n- Workload Grant 只读，明确提示它不是 Team membership 或长期 Agent identity。\n- 未来 Factors 只在 Account security summary 中显示 `Planned`，不提供假 enrollment。\n\n## 当前限制\n\n- 静态示例数据，不调用 OAuth、短信、邮件、数据库、API、MCP 或 Runner。\n- 不模拟 WebAuthn、OTP、credential one-time reveal、session cookie 或 capability 签名。\n- UI copy 以英语示例为主，用于结构验证；实现必须提供英语和简体中文。\n- 视觉为低保真结构，不代表最终 iconography、motion 或 pixel polish。\n- Spec View 与原型已生成到磁盘；Codex 应用内浏览器的 URL policy 阻止 `file://`，本轮没有绕过策略或声称完成浏览器 review。\n\n## High-fidelity 升级目标\n\n- 登录失败、provider email 未验证、invitation expired、last Owner conflict 和 credential reveal/rotation 状态。\n- Settings 现有 Account/Team tab 的真实 component mapping。\n- 320 / 768 / 1024 / 1440px、键盘、focus return、screen-reader labels 和错误播报验证。\n- 接入 040/041 后再制作真实 browser prototype，避免围绕临时 schema 绘制精美幻觉。\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1786001630730"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Plan\n\n_specs/043-identity-team-rbac/plan.md is not present for this spec yet._"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks\n\n_specs/043-identity-team-rbac/tasks.md is not present for this spec yet._"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

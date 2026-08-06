@@ -24,10 +24,12 @@ const connection = {
   id: "00000000-0000-4000-8000-000000000039",
   integration: "github",
   provider: "github",
+  connectionType: "github-app" as const,
   externalId: "18492",
   account: { externalId: "42", login: "arcadia", type: "User" },
   repositorySelection: "selected" as const,
   permissions: { contents: "write", pull_requests: "write" },
+  credentialState: "ready" as const,
   status: "active" as const,
   createdAt: "2026-08-05T08:00:00.000Z",
   updatedAt: "2026-08-05T08:00:00.000Z",
@@ -83,6 +85,20 @@ describe("Project request resolution", () => {
         repositoryConnectionId: connection.id,
         repository,
         baseBranch: "trunk",
+      }),
+    );
+  });
+
+  it("resolves platform-wide Agent and development image defaults when the UI omits them", async () => {
+    const { defaultAgent: _defaultAgent, runtime: _runtime, ...minimalRequest } = createRequest;
+
+    await expect(resolveProjectCreateInput(minimalRequest, registry(), connections)).resolves.toEqual(
+      expect.objectContaining({
+        defaultAgent: "copilot",
+        runtime: expect.objectContaining({
+          provider: "docker",
+          image: "mystra-runner:local",
+        }),
       }),
     );
   });

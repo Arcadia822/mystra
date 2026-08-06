@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
 import { SettingGroup, SettingRow } from "./setting-row";
+import { ShellIcon } from "./shell-icons";
 import { UiActionAnchor, UiButton, UiIconButton } from "./ui-actions";
 import { UiInput, UiSelect } from "./ui-fields";
 import { UiDialogSurface } from "./ui-surfaces";
@@ -30,9 +31,17 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
   const zh = locale === "zh-CN";
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const repositoryRequestRef = useRef(0);
   const connections = useResource<IntegrationConnectionListResponse>("/api/integration-connections");
-  const activeConnection = connections.data?.connections.find((item) => item.integration === "github" && item.status === "active");
+  const activeConnections = useMemo(() => (
+    connections.data?.connections.filter((item) => (
+      item.integration === "github" && item.status === "active" && item.credentialState === "ready"
+    )) ?? []
+  ), [connections.data]);
+  const [connectionId, setConnectionId] = useState("");
+  const activeConnection = activeConnections.find((item) => item.id === connectionId);
   const provider = connections.data?.providers.find((item) => item.integration === "github");
+  const appMethod = provider?.methods.find((method) => method.type === "github-app");
   const [repositories, setRepositories] = useState<RepositorySnapshot[]>([]);
   const [pageInfo, setPageInfo] = useState<RepositoryListResponse["pageInfo"] | null>(null);
   const [repositoryLoading, setRepositoryLoading] = useState(false);
@@ -41,15 +50,19 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
   const [selected, setSelected] = useState<RepositorySnapshot | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [agent, setAgent] = useState<"codex" | "copilot">("copilot");
-  const [runtimeImage, setRuntimeImage] = useState("mystra-runner:local");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => { const dialog = dialogRef.current; if (dialog && !dialog.open) dialog.showModal(); }, []);
 
+  useEffect(() => {
+    if (activeConnections.some((connection) => connection.id === connectionId)) return;
+    setConnectionId(activeConnections.length === 1 ? activeConnections[0]!.id : "");
+  }, [activeConnections, connectionId]);
+
   async function loadRepositories(cursor?: string) {
     if (!activeConnection) return;
+    const requestId = ++repositoryRequestRef.current;
     setRepositoryLoading(true);
     setRepositoryError(null);
     try {
@@ -58,18 +71,30 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
       const response = await fetch(`/api/integrations/github/repositories?${params}`, { cache: "no-store" });
       const payload = await response.json() as RepositoryListResponse;
       if (!response.ok) throw new Error(responseError(payload, response.status));
+      if (repositoryRequestRef.current !== requestId) return;
       setRepositories((current) => cursor
         ? [...new Map([...current, ...payload.items].map((item) => [item.externalId, item])).values()]
         : payload.items);
       setPageInfo(payload.pageInfo);
     } catch (error) {
-      setRepositoryError(error instanceof Error ? error.message : String(error));
+      if (repositoryRequestRef.current === requestId) {
+        setRepositoryError(error instanceof Error ? error.message : String(error));
+      }
     } finally {
-      setRepositoryLoading(false);
+      if (repositoryRequestRef.current === requestId) setRepositoryLoading(false);
     }
   }
 
-  useEffect(() => { if (activeConnection) void loadRepositories(); }, [activeConnection?.id]);
+  useEffect(() => {
+    repositoryRequestRef.current += 1;
+    setRepositoryLoading(false);
+    setRepositories([]);
+    setPageInfo(null);
+    setSelected(null);
+    setQuery("");
+    setRepositoryError(null);
+    if (activeConnection) void loadRepositories();
+  }, [activeConnection?.id]);
 
   const visibleRepositories = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -87,7 +112,7 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!selected || !activeConnection || !name.trim() || !slug.trim() || !runtimeImage.trim()) return;
+    if (!selected || !activeConnection || !name.trim() || !slug.trim()) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -97,8 +122,6 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
         body: JSON.stringify({
           name: name.trim(), slug: slug.trim(),
           repository: { integration: "github", connectionId: activeConnection.id, identifier: selected.fullName },
-          defaultAgent: agent,
-          runtime: { provider: "docker", image: runtimeImage.trim() },
         }),
       });
       const payload = await response.json() as { project?: { slug: string } };
@@ -112,7 +135,7 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
     }
   }
 
-  const connectHref = `${provider?.connectUrl ?? "/api/integration-connections/github/connect"}?returnTo=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.pathname)}`;
+  const connectHref = `${appMethod?.connectUrl ?? "/api/integration-connections/github/connect"}?returnTo=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.pathname)}`;
 
   return (
     <dialog aria-labelledby="project-create-title" className="projectCreateModal" ref={dialogRef}
@@ -121,18 +144,66 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
       <UiDialogSurface className="projectCreateModalSurface">
         <header className="projectCreateModalHeader">
           <div><h2 id="project-create-title">{zh ? "添加 Project" : "Add Project"}</h2><span>{zh ? "从远程仓库创建执行边界" : "Create an execution boundary from a remote repository"}</span></div>
-          <UiIconButton aria-label={zh ? "关闭" : "Close"} onClick={onClose}>×</UiIconButton>
+          <UiIconButton aria-label={zh ? "关闭" : "Close"} onClick={onClose}><ShellIcon name="close" /></UiIconButton>
         </header>
         <form className="projectCreateModalBody" onSubmit={(event) => void submit(event)}>
-          <SettingGroup><SettingRow title={zh ? "来源" : "Source"} description={zh ? "以后可以扩展更多来源" : "More sources can be added later"}>
-            <UiSelect aria-label={zh ? "项目来源" : "Project source"} value="github" onChange={() => undefined}><option value="github">GitHub</option><option disabled>GitLab — Soon</option></UiSelect>
-          </SettingRow></SettingGroup>
+          {!selected ? (
+            <SettingGroup>
+              <SettingRow
+                control={(
+                  <UiSelect
+                    aria-label={zh ? "项目来源" : "Project source"}
+                    className="projectCreateSettingField"
+                    fieldSize="default"
+                    value="github"
+                    onChange={() => undefined}
+                  >
+                    <option value="github">GitHub</option>
+                    <option disabled>GitLab — Soon</option>
+                  </UiSelect>
+                )}
+                description={zh ? "以后可以扩展更多来源" : "More sources can be added later"}
+                title={zh ? "来源" : "Source"}
+              />
+            </SettingGroup>
+          ) : null}
 
-          {!activeConnection ? (
+          {activeConnections.length > 0 && !selected ? (
+            <SettingGroup>
+              <SettingRow
+                control={(
+                  <UiSelect
+                    aria-label={zh ? "GitHub 连接" : "GitHub connection"}
+                    className="projectCreateSettingField"
+                    fieldSize="default"
+                    value={connectionId}
+                    onChange={(event) => setConnectionId(event.currentTarget.value)}
+                  >
+                    {activeConnections.length > 1 ? <option value="">{zh ? "请选择连接" : "Select a connection"}</option> : null}
+                    {activeConnections.map((connection) => (
+                      <option key={connection.id} value={connection.id}>
+                        {connection.displayName ?? connection.account.login} · {connection.connectionType === "github-app" ? "GitHub App" : "PAT"}
+                      </option>
+                    ))}
+                  </UiSelect>
+                )}
+                description={activeConnections.length === 1
+                  ? (zh ? "已使用唯一可用连接" : "The only available connection is selected")
+                  : (zh ? "选择仓库所属的 GitHub 身份" : "Choose the GitHub identity that owns the repository")}
+                title={zh ? "连接" : "Connection"}
+              />
+            </SettingGroup>
+          ) : null}
+
+          {activeConnections.length === 0 ? (
             <div className="projectRepositoryState">
-              <strong>{provider?.configured ? (zh ? "尚未连接 GitHub App" : "GitHub App is not connected") : (zh ? "GitHub App 尚未配置" : "GitHub App is not configured")}</strong>
+              <strong>{provider?.methods.some((method) => method.configured) ? (zh ? "尚未连接 GitHub" : "GitHub is not connected") : (zh ? "GitHub 连接方式尚未配置" : "GitHub connection methods are not configured")}</strong>
               <span>{zh ? "请先在设置的集成页面完成连接。" : "Connect it from Settings → Integrations first."}</span>
-              {provider?.configured ? <UiActionAnchor href={connectHref} tone="solid">{zh ? "连接 GitHub" : "Connect GitHub"}</UiActionAnchor> : null}
+              {appMethod?.configured ? <UiActionAnchor href={connectHref} tone="solid">{zh ? "连接 GitHub" : "Connect GitHub"}</UiActionAnchor> : null}
+            </div>
+          ) : !activeConnection ? (
+            <div className="projectRepositoryState" role="status">
+              {zh ? "选择一个连接后再浏览仓库。" : "Select a connection before browsing repositories."}
             </div>
           ) : !selected ? (
             <section className="projectRepositoryPicker" aria-label={zh ? "选择仓库" : "Choose repository"}>
@@ -149,11 +220,45 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
             </section>
           ) : (
             <SettingGroup>
-              <SettingRow title={zh ? "关联仓库" : "Repository"} description={`${selected.fullName} · ${selected.visibility}`}><UiButton tone="soft" onClick={() => setSelected(null)}>{zh ? "更换" : "Change"}</UiButton></SettingRow>
-              <SettingRow title={zh ? "名称" : "Name"}><UiInput required value={name} onChange={(event) => setName(event.currentTarget.value)} /></SettingRow>
-              <SettingRow title="Slug"><UiInput pattern="[a-z0-9][a-z0-9-]*" required value={slug} onChange={(event) => setSlug(event.currentTarget.value)} /></SettingRow>
-              <SettingRow title={zh ? "默认 Agent" : "Default Agent"}><UiSelect value={agent} onChange={(event) => setAgent(event.currentTarget.value as "codex" | "copilot")}><option value="copilot">Copilot</option><option value="codex">Codex</option></UiSelect></SettingRow>
-              <SettingRow title={zh ? "运行时镜像" : "Runtime image"}><UiInput required value={runtimeImage} onChange={(event) => setRuntimeImage(event.currentTarget.value)} /></SettingRow>
+              <SettingRow
+                control={<span className="settingRowStatus">{activeConnection.connectionType === "github-app" ? "GitHub App" : "PAT"}</span>}
+                description={activeConnection.account.login}
+                title={zh ? "连接" : "Connection"}
+              />
+              <SettingRow
+                control={<UiButton tone="soft" onClick={() => setSelected(null)}>{zh ? "更换" : "Change"}</UiButton>}
+                description={`${selected.fullName} · ${selected.visibility}`}
+                title={zh ? "关联仓库" : "Repository"}
+              />
+              <SettingRow
+                control={(
+                  <UiInput
+                    aria-label={zh ? "Project 名称" : "Project name"}
+                    className="projectCreateSettingField"
+                    fieldSize="default"
+                    required
+                    value={name}
+                    onChange={(event) => setName(event.currentTarget.value)}
+                  />
+                )}
+                description={zh ? "显示在 Mystra 中，用于识别这个 Project" : "Shown in Mystra and used to identify this Project"}
+                title={zh ? "名称" : "Name"}
+              />
+              <SettingRow
+                control={(
+                  <UiInput
+                    aria-label="Project slug"
+                    className="projectCreateSettingField"
+                    fieldSize="default"
+                    pattern="[a-z0-9][a-z0-9-]*"
+                    required
+                    value={slug}
+                    onChange={(event) => setSlug(event.currentTarget.value)}
+                  />
+                )}
+                description={zh ? "用于 Project URL，仅支持小写字母、数字和连字符" : "Used in Project URLs; lowercase letters, numbers, and hyphens"}
+                title="Slug"
+              />
             </SettingGroup>
           )}
           {submitError ? <p className="formNotice formError" role="alert">{submitError}</p> : null}

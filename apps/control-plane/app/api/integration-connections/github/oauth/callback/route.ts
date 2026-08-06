@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
+import { assertGitHubAppAvailable } from "@/lib/integrations/deployment-capabilities";
 import { getGitHubAppService } from "@/lib/integrations/github-app";
 import {
   clearGitHubOAuthCookies,
@@ -9,16 +10,17 @@ import {
   readRequestCookies,
   safeReturnTo,
 } from "@/lib/integrations/github-oauth-cookies";
-import { IntegrationFailure } from "@/lib/integrations/errors";
+import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
 
 function resultRedirect(
   request: Request,
   returnTo: string,
-  result: { github: "connected" } | { github: "connection_failed"; reason: string },
+  result: { status: "connected" } | { status: "connection_failed"; reason: string },
 ): NextResponse {
   const url = new URL(safeReturnTo(returnTo), new URL(request.url).origin);
   url.searchParams.set("settings", "integrations");
-  url.searchParams.set("github", result.github);
+  url.searchParams.set("integration", "github");
+  url.searchParams.set("result", result.status);
   if ("reason" in result) url.searchParams.set("reason", result.reason);
   const response = NextResponse.redirect(url);
   clearGitHubOAuthCookies(response, request);
@@ -37,25 +39,30 @@ function publicReason(error: unknown): string {
 }
 
 export async function GET(request: Request) {
+  try {
+    assertGitHubAppAvailable();
+  } catch (error) {
+    return integrationErrorResponse(error);
+  }
   const query = new URL(request.url).searchParams;
   const cookies = readRequestCookies(request);
   const returnTo = safeReturnTo(cookies[githubOAuthCookieNames.returnTo]);
   if (!constantTimeEqual(cookies[githubOAuthCookieNames.state], query.get("state"))) {
-    return resultRedirect(request, returnTo, { github: "connection_failed", reason: "oauth_state_invalid" });
+    return resultRedirect(request, returnTo, { status: "connection_failed", reason: "oauth_state_invalid" });
   }
   const code = query.get("code");
   const verifier = cookies[githubOAuthCookieNames.verifier];
   const installationId = cookies[githubOAuthCookieNames.installationId];
   if (!code || !verifier || !installationId) {
-    return resultRedirect(request, returnTo, { github: "connection_failed", reason: "oauth_transaction_invalid" });
+    return resultRedirect(request, returnTo, { status: "connection_failed", reason: "oauth_transaction_invalid" });
   }
   try {
     const service = getGitHubAppService();
     const userToken = await service.exchangeOAuthCode(code, verifier);
     const activation = await service.verifyAccessibleInstallation(userToken, installationId);
     getDb().activateIntegrationConnection(activation);
-    return resultRedirect(request, returnTo, { github: "connected" });
+    return resultRedirect(request, returnTo, { status: "connected" });
   } catch (error) {
-    return resultRedirect(request, returnTo, { github: "connection_failed", reason: publicReason(error) });
+    return resultRedirect(request, returnTo, { status: "connection_failed", reason: publicReason(error) });
   }
 }

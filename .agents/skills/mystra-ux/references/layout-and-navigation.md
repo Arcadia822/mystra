@@ -10,10 +10,10 @@ This file owns Mystra shell structure, header, sidebar, navigation hierarchy, de
 - The main header is transparent on the page plane and does not add a default bottom divider.
 - Header titles are static labels, not navigation buttons. Route paths, peer tabs, and chrome actions remain separate targets.
 - Settings stays in the bottom-left utility slot and opens over the current route.
-- Primary navigation is New, Search, Inbox, Issues, and Automations. Object pages remain directly addressable without becoming primary entries.
+- Primary navigation is New, Search, Inbox, and Issues. Object pages remain directly addressable without becoming primary entries.
 - Search opens as a modal without changing the current route.
-- Automations remains presentation-only until a separate feature owns workflow behavior.
-- Projects appear directly after Automations. The Projects heading has a compact ghost add action and no count.
+- `/automations` remains directly addressable as a Coming soon placeholder until a separate feature owns workflow behavior; it is not a primary navigation entry.
+- Projects appear directly after primary navigation. The Projects heading has a compact ghost add action and no count.
 - Project-grouped Tasks follow as a separate flexible section. The Tasks heading has no count; Task status icons express latest Session state.
 - Main content header displays only the current surface/path; it does not expose a local-environment label.
 

@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
 import { bearerToken } from "@/lib/http";
-import { getGitHubAppService } from "@/lib/integrations/github-app";
+import { defaultGitHubCredentialResolver } from "@/lib/integrations/github-credential";
 
 function noStore(response: NextResponse): NextResponse {
   response.headers.set("cache-control", "no-store, private");
@@ -28,11 +28,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return noStore(NextResponse.json({ error: { code: "SESSION_ASSIGNMENT_MISMATCH", message: "Session is not assigned to this Runner" } }, { status: 404 }));
     }
     const project = db.getProjectById(claim.task.projectId);
-    const connection = project ? db.getIntegrationConnection(project.repositoryConnectionId) : undefined;
-    if (!project || !connection || project.repository.provider !== "github" || connection.provider !== "github") {
+    if (!project || project.repository.provider !== "github") {
       return noStore(NextResponse.json({ error: { code: "REPOSITORY_CREDENTIAL_UNAVAILABLE", message: "Repository credential is unavailable" } }, { status: 409 }));
     }
-    const credential = await getGitHubAppService().getInstallationCredential(connection.externalId);
+    const { credential } = await defaultGitHubCredentialResolver().resolve(project.repositoryConnectionId);
     return noStore(NextResponse.json(runnerRepositoryCredentialResponseSchema.parse({ credential })));
   } catch {
     return noStore(NextResponse.json({ error: { code: "REPOSITORY_CREDENTIAL_UNAVAILABLE", message: "Repository credential is unavailable" } }, { status: 502 }));

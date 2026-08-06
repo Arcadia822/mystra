@@ -527,8 +527,8 @@ export const projectCreateRequestSchema = z
     slug: z.string().min(1),
     repository: repositorySelectorSchema,
     baseBranch: z.string().min(1).optional(),
-    defaultAgent: agentNameSchema,
-    runtime: projectRuntimeConfigInputSchema,
+    defaultAgent: agentNameSchema.optional(),
+    runtime: projectRuntimeConfigInputSchema.optional(),
     prewarmConfig: jsonObjectSchema.default({}),
     metadata: jsonObjectSchema.default({}),
   })

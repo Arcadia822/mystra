@@ -1,7 +1,10 @@
 :root {
   color-scheme: dark;
   --font-sans: "Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --font-chat: "Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
   --font-mono: "Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --font-size-ui: 12px;
+  --font-size-chat: 12px;
   --background: #111513;
   --surface1: #181C1A;
   --surface2: #202522;
@@ -55,6 +58,7 @@
   --control-padding-header: 10px;
   --control-padding-default: 12px;
   --row-height-compact: 28px;
+  --shell-icon-stroke: 1.7;
   --touch-target: 44px;
   --page-inset-inline: 16px;
   --page-inset-inline-narrow: 12px;
@@ -132,7 +136,7 @@ body {
   background: var(--background);
   color: var(--text1);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--font-size-ui);
   line-height: 1.45;
 }
 
@@ -156,7 +160,7 @@ textarea {
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-ui);
   font-weight: 500;
   line-height: 1;
   text-decoration: none;
@@ -167,7 +171,7 @@ textarea {
 .uiAction[data-size="compact"] {
   height: var(--control-height-compact);
   padding-inline: var(--control-padding-compact);
-  font-size: 11px;
+  font-size: calc(var(--font-size-ui) - 1px);
 }
 
 .uiAction[data-size="header"] {
@@ -248,6 +252,7 @@ textarea {
 .uiFieldControl {
   height: var(--control-height-header);
   padding-inline: var(--control-padding-header);
+  font-size: var(--font-size-ui);
 }
 
 .uiFieldControl[data-size="compact"] {
@@ -280,6 +285,118 @@ textarea {
 .uiFieldControl::placeholder,
 .uiTextarea::placeholder {
   color: var(--color-text-muted);
+}
+
+.uiDropdown {
+  position: relative;
+  min-width: 0;
+}
+
+.uiDropdownTrigger {
+  max-width: 240px;
+  justify-content: flex-start;
+  color: var(--color-text-primary);
+}
+
+.uiDropdownTrigger[data-placeholder] {
+  color: var(--color-text-secondary);
+}
+
+.uiDropdownValue {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+  text-overflow: ellipsis;
+}
+
+.uiDropdownChevron {
+  width: var(--space-1);
+  height: var(--space-1);
+  flex: none;
+  margin: 0 var(--space-half) var(--space-half);
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  opacity: .72;
+  transform: rotate(45deg);
+  transition: transform 120ms ease;
+}
+
+.uiDropdownTrigger[aria-expanded="true"] .uiDropdownChevron {
+  transform: translateY(var(--space-half)) rotate(225deg);
+}
+
+.uiDropdownMenu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 30;
+  min-width: 240px;
+  max-width: min(360px, calc(100vw - var(--space-8)));
+  max-height: 280px;
+  display: grid;
+  gap: var(--space-half);
+  padding: var(--space-1);
+  overflow-y: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-popup);
+  color: var(--color-text-primary);
+}
+
+.uiDropdown[data-align="end"] .uiDropdownMenu {
+  right: 0;
+  left: auto;
+}
+
+.uiDropdownOption {
+  min-height: var(--control-height-header);
+  height: auto;
+  justify-content: space-between;
+  padding-block: var(--space-1);
+  color: var(--color-text-secondary);
+  text-align: left;
+}
+
+.uiDropdownOption > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-half);
+  overflow: hidden;
+}
+
+.uiDropdownOption strong,
+.uiDropdownOption small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uiDropdownOption strong {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.uiDropdownOption small {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.uiDropdownSelectedMark {
+  width: var(--space-4);
+  height: var(--space-4);
+  display: grid;
+  place-items: center;
+  flex: none;
+  opacity: 0;
+}
+
+.uiDropdownOption[aria-selected="true"] {
+  background: var(--color-surface-selected);
+  color: var(--color-text-primary);
+}
+
+.uiDropdownOption[aria-selected="true"] .uiDropdownSelectedMark {
+  opacity: 1;
 }
 
 .uiChoice {
@@ -446,25 +563,6 @@ dd {
   flex: 1;
 }
 
-.sidebarToggle {
-  width: var(--control-height-header);
-  height: var(--control-height-header);
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  margin-left: auto;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text3);
-}
-
-.sidebarToggle:hover {
-  background: var(--surface3);
-  color: var(--text1);
-}
-
 .brandMark {
   width: 18px;
   height: 18px;
@@ -522,26 +620,53 @@ dd {
   color: var(--text1);
 }
 
-.navIcon {
-  width: 16px;
-  height: 16px;
+.sidebarVisual {
+  width: var(--space-4);
+  height: var(--space-4);
   display: inline-grid;
   place-items: center;
   flex: none;
+  color: inherit;
 }
 
-.navIcon svg {
+.sidebarVisual[data-position="trailing"] {
+  width: var(--control-height-compact);
+  height: var(--control-height-compact);
+  margin-left: auto;
+}
+
+.sidebarVisual svg {
+  width: var(--space-4);
+  height: var(--space-4);
   display: block;
+  stroke-width: var(--shell-icon-stroke);
+}
+
+.sidebarVisual,
+.sidebarVisualButton,
+.sidebarVisual svg,
+.sidebarBadge,
+.sidebarMarkShape {
+  transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease, transform 120ms ease;
+}
+
+.sidebarVisualButton {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  color: var(--text3);
 }
 
 .sidebarBadge {
-  min-width: 18px;
-  margin-left: auto;
+  min-width: calc(var(--space-4) + var(--space-half));
+  height: calc(var(--space-4) + var(--space-half));
+  display: inline-grid;
+  place-items: center;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--surface3);
   color: var(--text2);
-  font: 600 10px/18px var(--font-sans);
+  font: 600 10px/1 var(--font-sans);
   text-align: center;
 }
 
@@ -642,21 +767,6 @@ dd {
   font-weight: 600;
 }
 
-.sidebarSectionAction {
-  width: var(--control-height-header);
-  height: var(--control-height-header);
-  display: inline-grid;
-  place-items: center;
-  border-radius: var(--radius-md);
-  color: var(--text3);
-  text-decoration: none;
-}
-
-.sidebarSectionAction:hover {
-  background: var(--surface3);
-  color: var(--text1);
-}
-
 .sidebarTaskScroll {
   min-height: 0;
   overflow-y: auto;
@@ -694,10 +804,9 @@ a.taskProjectHeader:hover,
   color: var(--text1);
 }
 
-.projectMark {
+.sidebarMarkShape {
   width: 8px;
   height: 8px;
-  flex: none;
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-compact);
   background: var(--surface2);
@@ -720,20 +829,15 @@ a.taskProjectHeader:hover,
   white-space: nowrap;
 }
 
-.taskStatusIcon {
-  width: 16px;
-  height: 16px;
-  display: inline-grid;
-  place-items: center;
-  flex: none;
+.sidebarVisual[data-visual="status"] {
   color: var(--text3);
 }
 
-.taskStatusIcon[data-status="active"] { color: var(--accent); }
-.taskStatusIcon[data-status="review"] { color: var(--warning); }
-.taskStatusIcon[data-status="success"] { color: var(--success); }
-.taskStatusIcon[data-status="error"] { color: var(--danger); }
-.taskStatusIcon[data-status="active"] svg { animation: spin 1.4s linear infinite; }
+.sidebarVisual[data-status="active"] { color: var(--accent); }
+.sidebarVisual[data-status="review"] { color: var(--warning); }
+.sidebarVisual[data-status="success"] { color: var(--success); }
+.sidebarVisual[data-status="error"] { color: var(--danger); }
+.sidebarVisual[data-status="active"] svg { animation: spin 1.4s linear infinite; }
 
 .sidebarEmpty {
   padding: var(--space-2);
@@ -1375,6 +1479,18 @@ body:has(.settingsModal[open]) {
   white-space: nowrap;
 }
 
+.settingsContentTitle {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settingsContentTitle .uiAction {
+  width: 24px;
+  padding-inline: var(--space-1);
+}
+
 .settingsCloseButton {
   width: var(--control-height-header);
   height: var(--control-height-header);
@@ -1427,7 +1543,7 @@ body:has(.settingsModal[open]) {
 .settingRowCopy h4 {
   margin: 0;
   color: var(--text1);
-  font-size: 12px;
+  font-size: var(--font-size-ui);
   line-height: 16px;
 }
 
@@ -1435,7 +1551,7 @@ body:has(.settingsModal[open]) {
 .settingRowStatus {
   margin: 0;
   color: var(--text3);
-  font-size: 12px;
+  font-size: var(--font-size-ui);
   line-height: 16px;
 }
 
@@ -1450,10 +1566,184 @@ body:has(.settingsModal[open]) {
   justify-content: flex-end;
 }
 
-.appearanceThemeControl {
+.githubIntegrationDetail {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.settingsBusinessGroup {
+  gap: var(--space-0);
+  overflow: hidden;
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+}
+
+.settingsBusinessGroup > .settingRow {
+  min-height: 58px;
+  padding: var(--space-3);
+}
+
+.settingsBusinessGroup > .settingRow + .settingRow {
+  border-top: 1px solid var(--border);
+}
+
+.githubPatForm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface2);
+}
+
+.githubPatFormActions,
+.githubConnectionActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.githubConnectionSummary {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  color: var(--text2);
+  font-size: 11px;
+}
+
+.settingsDetailState {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--border-visible);
+  border-radius: var(--radius-panel);
+  color: var(--text3);
+  font-size: 12px;
+  text-align: center;
+}
+
+.appearanceDropdown {
+  width: 240px;
+}
+
+.appearanceDropdown .uiDropdownTrigger {
+  width: 100%;
+}
+
+.appearanceSettings {
+  gap: var(--space-6);
+}
+
+.uiSegmented {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-half);
+  padding: var(--space-half);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface2);
+}
+
+.uiSegmentedOption[data-active] {
+  border-color: var(--border-visible);
+  background: var(--surface3);
+  color: var(--text1);
+}
+
+.uiRange {
+  width: 240px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--space-12);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.uiRange .uiFieldControl[type="range"] {
+  width: 100%;
+  height: var(--control-height-header);
+  padding: var(--space-0);
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent);
+}
+
+.uiRange output {
+  color: var(--text2);
+  font-size: var(--font-size-ui);
+  text-align: right;
+}
+
+.appearanceDetails {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--panel-inset);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+}
+
+.appearanceDetailsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.appearanceDetailsHeader h4,
+.appearanceDetailsHeader p {
+  margin: var(--space-0);
+}
+
+.appearanceDetailsHeader h4 {
+  color: var(--text1);
+  font-size: var(--font-size-ui);
+}
+
+.appearanceDetailsHeader p {
+  margin-top: var(--tight-gap);
+  color: var(--text3);
+  font-size: var(--font-size-ui);
+}
+
+.appearanceThemePreview {
+  min-height: var(--space-24);
+  display: grid;
+  align-content: center;
+  gap: var(--space-2);
+  padding: var(--panel-inset);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface2);
+}
+
+.appearanceThemePreview span {
+  color: var(--text3);
+  font-size: var(--font-size-ui);
+}
+
+.appearanceThemePreview strong {
+  color: var(--text1);
+  font: 600 var(--space-6)/1 var(--font-sans);
+}
+
+.appearanceThemePreview code {
+  width: fit-content;
+  padding: var(--space-2);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-control);
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family: var(--font-mono);
 }
 
 .themeInlineSwatch {
@@ -1709,6 +1999,7 @@ select {
 .projectCreateModalHeader h2 { font-size: 14px; }
 .projectCreateModalHeader span { color: var(--text3); font-size: 11px; }
 .projectCreateModalBody { display: grid; gap: var(--space-3); padding: var(--modal-inset); overflow-y: auto; }
+.projectCreateSettingField { width: min(260px, 100%); }
 .projectRepositoryPicker { display: grid; gap: var(--space-2); min-height: 220px; }
 .projectRepositoryList { display: grid; gap: var(--space-1); }
 .projectRepositoryList .uiAction { justify-content: space-between; min-height: 44px; border: 1px solid var(--border); }
@@ -2109,19 +2400,12 @@ body:has(.searchDialog[open]) {
 .newTaskLogo {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   margin-bottom: var(--space-8);
 }
 
 .newTaskLogoMark {
-  width: 32px;
-  height: 32px;
-}
-
-.newTaskLogo strong {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -.03em;
+  width: var(--space-12);
+  height: var(--space-12);
 }
 
 .newTaskComposer {
@@ -2151,11 +2435,12 @@ body:has(.searchDialog[open]) {
   display: block;
   resize: none;
   padding: var(--space-0);
+  padding-right: var(--space-half);
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--text1);
-  font: 400 12px/1.333333 var(--font-sans);
+  font: 400 var(--font-size-chat)/1.333333 var(--font-chat);
 }
 
 .newTaskComposer textarea::placeholder {
@@ -2172,7 +2457,7 @@ body:has(.searchDialog[open]) {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-0);
+  padding: var(--space-0) var(--space-half) var(--space-half) var(--space-0);
   border: 0;
   background: transparent;
 }
@@ -2218,39 +2503,82 @@ body:has(.searchDialog[open]) {
   animation: spin 1.4s linear infinite;
 }
 
-.composerSelect {
+.composerProjectDropdown .uiDropdownTrigger {
+  max-width: 260px;
+  padding-inline: var(--control-padding-compact);
+}
+
+.composerProjectDropdown .uiDropdownMenu {
+  min-width: 260px;
+}
+
+.newTaskIssueRegion {
   min-width: 0;
-  height: var(--control-height-header);
-  display: flex;
-  align-items: center;
-  gap: var(--tight-gap);
-  padding-left: var(--control-padding-compact);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text2);
-  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  border-top: 1px solid var(--color-border-soft);
 }
 
-.composerSelect:hover {
-  border-color: var(--border);
-  background: var(--surface3);
-  color: var(--text1);
+.newTaskIssueList {
+  max-height: 192px;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-half) var(--space-2) var(--space-0);
+  overflow-y: auto;
 }
 
-.composerSelect select {
+.newTaskIssueCard {
+  width: 100%;
+  min-height: var(--control-height-default);
+  height: auto;
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  justify-content: stretch;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--color-text-secondary);
+  text-align: left;
+}
+
+.newTaskIssueCard > svg {
+  color: var(--color-text-muted);
+}
+
+.newTaskIssueCard[aria-pressed="true"] > svg {
+  color: var(--color-primary);
+}
+
+.newTaskIssueCopy {
   min-width: 0;
-  max-width: 220px;
-  min-height: 26px;
-  padding: 0 var(--space-6) 0 var(--space-half);
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: inherit;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: baseline;
 }
 
-.composerSelect.muted {
-  opacity: .62;
+.newTaskIssueCopy strong,
+.newTaskIssueCopy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.newTaskIssueCopy strong {
+  color: var(--color-text-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.newTaskIssueCard small,
+.newTaskIssueState {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.newTaskIssueState {
+  padding: var(--space-2) var(--space-0);
+}
+
+.newTaskIssueState.error {
+  color: var(--color-error);
 }
 
 .newTaskNotice {
@@ -3059,8 +3387,8 @@ body:has(.searchDialog[open]) {
     overflow-x: auto;
   }
 
-  .composerSelect select {
-    max-width: 112px;
+  .composerProjectDropdown .uiDropdownTrigger {
+    max-width: 152px;
   }
 
   .castrelTableToolbar {
@@ -3176,13 +3504,21 @@ body:has(.searchDialog[open]) {
   }
 
   .uiAction[data-icon-only],
-  .sidebarToggle,
-  .sidebarSectionAction,
   .compactIconButton,
   .castrelTableSearch button,
   .inboxSearch button,
   .iconButton {
     width: var(--touch-target);
+  }
+
+  .sidebarVisual[data-position="trailing"] {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
+
+  .sidebarSectionHeader {
+    min-height: var(--touch-target);
+    height: auto;
   }
 }
 

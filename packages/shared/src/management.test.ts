@@ -94,25 +94,37 @@ describe("integration connection management contracts", () => {
     const parsed = integrationConnectionListResponseSchema.parse({
       providers: [{
         integration: "github",
-        connectionType: "github-app-installation",
-        configured: true,
-        connectUrl: "/api/integration-connections/github/connect",
+        methods: [
+          {
+            type: "github-app",
+            configured: true,
+            connectUrl: "/api/integration-connections/github/connect",
+          },
+          {
+            type: "personal-access-token",
+            configured: false,
+            createUrl: "/api/integration-connections/github/pat",
+            disabledReason: "Secret store is not configured",
+          },
+        ],
       }],
       connections: [{
         id: repositoryConnectionId,
         integration: "github",
         provider: "github",
+        connectionType: "github-app",
         externalId: "18492",
         account: { externalId: "42", login: "arcadia", type: "User" },
         repositorySelection: "selected",
         permissions: { contents: "write", pull_requests: "write" },
+        credentialState: "ready",
         status: "active",
         createdAt: "2026-08-05T08:00:00.000Z",
         updatedAt: "2026-08-05T08:00:00.000Z",
       }],
     });
     expect(parsed.connections[0]?.externalId).toBe("18492");
-    expect(JSON.stringify(parsed)).not.toMatch(/token|privateKey|clientSecret/i);
+    expect(JSON.stringify(parsed)).not.toMatch(/credentialRef|fingerprint|github_pat_|ghp_|ghs_|privateKey|clientSecret/i);
   });
 
   it("keeps the private Runner credential bounded and strict", () => {

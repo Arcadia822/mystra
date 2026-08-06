@@ -4,18 +4,20 @@
 
 025 定义 Mystra MVP 操作 Web UI 的框架层能力。它提供面向人类操作者的稳定 shell：统一导航、侧边栏、路由承载、布局范式、基础组件期望、主题与本地化脚手架、响应式行为，以及未来 Electron 宿主兼容边界。
 
-本功能刻意不把页面探索材料等同于已实现业务行为。`New`、`Search`、`Inbox`、`Issues`、`Automations`、Project-grouped Tasks 和 `Settings` 的业务语义、数据解释与操作动作，将作为 025 内独立实现切片接入这个 shell。
+本功能刻意不把页面探索材料等同于已实现业务行为。`New`、`Search`、`Inbox`、`Issues`、Project-grouped Tasks 和 `Settings` 的业务语义、数据解释与操作动作，将作为 025 内独立实现切片接入这个 shell；`/automations` 在独立实现切片出现前只保留 `Coming soon` 占位页。
 
 ## 功能地图
 
 - 建立 Mystra MVP 的操作型 Web UI shell。
-- 固定 primary navigation：`New`、`Search`、`Inbox`、`Issues`、`Automations`。
+- 固定 primary navigation：`New`、`Search`、`Inbox`、`Issues`。
+- 保留不在主菜单中的 `/automations` 直接路由，只显示 `Coming soon`。
 - 固定 secondary surfaces：Project-grouped Tasks 与 `Settings` shell modal。
 - 为已批准页面提供共享侧边栏与路由框架。
 - 为 `Inbox` 提供标准 master-detail 检查面：左侧 review Task 卡片列表，右侧选中 Task 详情。
 - 定义共享布局范式：`chatLayout`、`dashboardLayout`、`readLayout`。
 - 建立 shell 基础组件层，供后续页面复用。
-- 保留主题、英语/简体中文、本地化与响应式脚手架；默认 UI 字号为 12px。
+- 提供完整 Appearance preference：System/Light/Dark、亮暗主题分别设置、边缘线高对比模式、代码表面 variant、对比度、字体/字号、预览与复位；当前只做 versioned localStorage persistence，不创建数据库写入。
+- 保留英语/简体中文、本地化与响应式脚手架；默认 UI 字号为 12px。
 - 默认平移 Castrel UX 的结构、密度和交互模式，并采用 dark-tech 的精确 palette、统一等宽字体、语义 signal colors、0/2/4/6px radius 与 flat elevation；禁止阴影、渐变、辉光、glass 和 noise。
 - 为未来 Electron 宿主保留兼容边界，但不提前实现桌面专属能力。
 

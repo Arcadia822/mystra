@@ -11,6 +11,8 @@
 
 - `apps/control-plane/app/_components/app-shell.tsx` owns primary navigation, Projects/Tasks sections, collapse state, header inset, settings, and search modal integration.
 - `apps/control-plane/app/_components/shell-icons.tsx` owns the shared compact icon grid.
+- `apps/control-plane/app/_components/sidebar-visual.tsx` owns sidebar leading/trailing visual slots for icons, marks, status, count badges, and icon buttons.
+- `apps/control-plane/app/_components/ui-dropdown.tsx` owns the shared accessible trigger/content/item dropdown primitive.
 - `apps/control-plane/app/_components/shell-search-dialog.tsx` owns modal Task search.
 - `apps/control-plane/app/_components/new-task-composer.tsx` owns the New intake surface and canonical Task submission.
 - `apps/control-plane/app/_components/inbox-master-detail.tsx` owns the Inbox review queue and selected Task detail surface.

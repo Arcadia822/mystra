@@ -10,12 +10,12 @@ MVP shell 使用以下 route 与 shell action taxonomy：
 | `search` | `Search` | primary navigation | shell utility | modal Task filtering and navigation |
 | `inbox` | `Inbox` | primary navigation | `dashboardLayout` | master-detail review queue; latest Session waiting for review |
 | `issues` | `Issues` | primary navigation | `readLayout` | shared table over current `/tasks` object list |
-| `automations` | `Automations` | primary navigation | shell utility | presentation-only placeholder |
-| `projects` | `Projects` | secondary sidebar section | navigation list | directly below Automations; Project detail links |
+| `automations` | `Automations` | direct route only | `readLayout` | `Coming soon` placeholder |
+| `projects` | `Projects` | secondary sidebar section | navigation list | directly below primary navigation; Project detail links |
 | `project-tasks` | `Tasks` | secondary sidebar section | navigation list | grouped by Project; latest Session status icon |
 | `settings` | `Settings` | shell action/modal | `readLayout` | placeholder/inspection |
 
-本功能不得新增其他 primary entry。已完成 035/036 中的 Task、Session、Runner 和 Project object pages 保持可直接访问，不得静默删除对象页能力。`Automations` 在本切片中不拥有 API 或持久化行为。
+本功能不得新增其他 primary entry。已完成 035/036 中的 Task、Session、Runner 和 Project object pages 保持可直接访问，不得静默删除对象页能力。`Automations` 不出现在主菜单中；`/automations` 仅保留可直接访问的 `Coming soon` 占位页，在本切片中不拥有 API 或持久化行为。
 
 主侧边栏提供显式收起/展开 control，并持久化 preference。收起时 sidebar 完整压缩为 0px，不保留 icon rail；主区域 header 显示 Mystra brand、`New` action 和重新展开 control。展开时 header 只显示 surface title，不显示本地环境说明。
 

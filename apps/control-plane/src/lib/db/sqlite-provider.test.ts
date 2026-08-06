@@ -6,7 +6,7 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SqliteRdbProvider } from "./sqlite-provider";
-import { sqliteMigrations } from "./migrations";
+import { currentSchemaVersion, sqliteMigrations } from "./migrations";
 
 const openProviders: SqliteRdbProvider[] = [];
 
@@ -133,11 +133,11 @@ describe("schema recognition and destructive reset", () => {
   it("rebuilds the exact v3 schema and preserves the database file", () => {
     const dbPath = databasePath("v3.db");
     const v3Schema = sqliteMigrations
-      .replace("VALUES (1, 4)", "VALUES (1, 3)")
+      .replace(`VALUES (1, ${currentSchemaVersion})`, "VALUES (1, 3)")
       .replace(/CREATE TABLE integration_connections \([\s\S]*?\n\);\n\n/, "")
       .replace("  repository_connection_id TEXT NOT NULL REFERENCES integration_connections(id) ON DELETE RESTRICT,\n", "")
       .replace(/CREATE UNIQUE INDEX idx_integration_connections_identity[\s\S]*?;\n/, "")
-      .replace(/CREATE UNIQUE INDEX idx_integration_connections_active[\s\S]*?;\n/, "");
+      .replace(/CREATE INDEX idx_integration_connections_status[\s\S]*?;\n/, "");
     const db = new Database(dbPath);
     db.exec(v3Schema);
     db.close();
@@ -145,7 +145,7 @@ describe("schema recognition and destructive reset", () => {
     openProvider(dbPath).close();
     openProviders.pop();
     const verified = new Database(dbPath, { readonly: true });
-    expect(verified.prepare("SELECT version FROM mystra_schema").pluck().get()).toBe(4);
+    expect(verified.prepare("SELECT version FROM mystra_schema").pluck().get()).toBe(currentSchemaVersion);
     expect(verified.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='integration_connections'").pluck().get()).toBe("integration_connections");
     verified.close();
   });
@@ -171,7 +171,7 @@ describe("schema recognition and destructive reset", () => {
     openProvider(dbPath).close();
     openProviders.pop();
     const verified = new Database(dbPath, { readonly: true });
-    expect(verified.prepare("SELECT version FROM mystra_schema").pluck().get()).toBe(4);
+    expect(verified.prepare("SELECT version FROM mystra_schema").pluck().get()).toBe(currentSchemaVersion);
     expect(verified.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='tasks'").pluck().get()).toBe("tasks");
     verified.close();
   });
@@ -205,7 +205,7 @@ describe("schema recognition and destructive reset", () => {
 });
 
 describe("IntegrationConnection persistence", () => {
-  it("reactivates the same installation and atomically deactivates the previous active one", () => {
+  it("upserts the same installation while keeping other installations active", () => {
     const clock = { now: "2026-08-05T08:00:00.000Z" };
     const provider = openProvider(":memory:", clock);
     const first = provider.activateIntegrationConnection(githubConnectionActivation);
@@ -226,9 +226,93 @@ describe("IntegrationConnection persistence", () => {
       account: { externalId: "77", login: "castrel", type: "Organization" },
     });
     expect(second.status).toBe("active");
-    expect(provider.getActiveIntegrationConnection("github")?.id).toBe(second.id);
-    expect(provider.getIntegrationConnection(first.id)?.status).toBe("inactive");
+    expect(provider.getIntegrationConnection(first.id)?.status).toBe("active");
+    expect(provider.listIntegrationConnections({ integration: "github" }).filter((item) => item.status === "active"))
+      .toHaveLength(2);
     expect(provider.listIntegrationConnections()).toHaveLength(2);
+  });
+
+  it("stores PAT identity and credential references only in internal records", () => {
+    const provider = openProvider();
+    const record = provider.upsertIntegrationConnection({
+      integration: "github",
+      provider: "github",
+      connectionType: "personal-access-token",
+      providerExternalId: "pat:0123456789abcdef",
+      displayName: "Arcadia delivery",
+      account: { externalId: "42", login: "arcadia", type: "User" },
+      repositorySelection: "token",
+      permissions: { contents: "write", pull_requests: "unverified" },
+      credentialState: "ready",
+      credentialRef: "github-pat/00000000-0000-4000-8000-000000000041",
+      accessSummary: { repositoryCount: 3, pullRequests: "unverified" },
+    });
+
+    expect(record.providerExternalId).toBe("pat:0123456789abcdef");
+    expect(record.credentialRef).toContain("github-pat/");
+    const publicConnection = provider.getIntegrationConnection(record.id);
+    expect(publicConnection).toMatchObject({
+      id: record.id,
+      connectionType: "personal-access-token",
+      displayName: "Arcadia delivery",
+      repositorySelection: "token",
+      credentialState: "ready",
+    });
+    expect(publicConnection?.externalId).toBeUndefined();
+    expect(JSON.stringify(publicConnection)).not.toMatch(/credentialRef|0123456789abcdef/);
+  });
+
+  it("migrates exact v4 connection and Project ids to schema v5 without rewriting them", () => {
+    const dbPath = databasePath("v4.db");
+    const v4Schema = sqliteMigrations
+      .replace(`VALUES (1, ${currentSchemaVersion})`, "VALUES (1, 4)")
+      .replace("  connection_type TEXT NOT NULL CHECK (connection_type IN ('github-app', 'personal-access-token')),\n", "")
+      .replace("  display_name TEXT,\n", "")
+      .replace("  access_summary TEXT NOT NULL DEFAULT '{}',\n", "")
+      .replace("  credential_ref TEXT,\n", "")
+      .replace("  credential_state TEXT NOT NULL CHECK (credential_state IN ('ready', 'missing', 'invalid')),\n", "")
+      .replace("repository_selection IN ('all', 'selected', 'token')", "repository_selection IN ('all', 'selected')")
+      .replace(/,\n  CHECK \(\n    \(connection_type[\s\S]*?\n  \)/, "")
+      .replace("CREATE INDEX idx_integration_connections_status\n  ON integration_connections(integration, status);", "CREATE UNIQUE INDEX idx_integration_connections_active\n  ON integration_connections(integration)\n  WHERE status = 'active';");
+    const db = new Database(dbPath);
+    db.exec(v4Schema);
+    db.prepare(`
+      INSERT INTO integration_connections (
+        id, integration, provider, external_id, account, repository_selection,
+        permissions, status, created_at, updated_at
+      ) VALUES (?, 'github', 'github', '18492', ?, 'selected', '{}', 'active', ?, ?)
+    `).run(
+      "00000000-0000-4000-8000-000000000039",
+      JSON.stringify({ externalId: "42", login: "arcadia", type: "User" }),
+      "2026-08-05T08:00:00.000Z",
+      "2026-08-05T08:00:00.000Z",
+    );
+    db.prepare(`
+      INSERT INTO projects (
+        id, name, slug, repository_connection_id, repository_snapshot, base_branch,
+        default_agent, runtime, prewarm_config, metadata, archived_at, created_at, updated_at
+      ) VALUES (?, 'Mystra', 'mystra', ?, ?, 'main', 'copilot', ?, '{}', '{}', NULL, ?, ?)
+    `).run(
+      "00000000-0000-4000-8000-000000000040",
+      "00000000-0000-4000-8000-000000000039",
+      JSON.stringify(remoteRepository),
+      JSON.stringify({ provider: "docker", image: "mystra-runner:local" }),
+      "2026-08-05T08:00:00.000Z",
+      "2026-08-05T08:00:00.000Z",
+    );
+    db.close();
+
+    const provider = openProvider(dbPath);
+    expect(provider.getIntegrationConnection("00000000-0000-4000-8000-000000000039"))
+      .toMatchObject({ connectionType: "github-app", status: "active" });
+    expect(provider.getProjectById("00000000-0000-4000-8000-000000000040")?.repositoryConnectionId)
+      .toBe("00000000-0000-4000-8000-000000000039");
+    provider.close();
+    openProviders.pop();
+
+    const verified = new Database(dbPath, { readonly: true });
+    expect(verified.prepare("SELECT version FROM mystra_schema").pluck().get()).toBe(currentSchemaVersion);
+    verified.close();
   });
 
   it("enforces Project connection foreign keys and stores no secret-shaped columns", () => {
@@ -265,10 +349,11 @@ describe("IntegrationConnection persistence", () => {
     db.exec(sqliteMigrations);
     const columns = (db.prepare("PRAGMA table_info(integration_connections)").all() as Array<{ name: string }>).map((row) => row.name);
     expect(columns).toEqual([
-      "id", "integration", "provider", "external_id", "account", "repository_selection",
-      "permissions", "status", "created_at", "updated_at",
+      "id", "integration", "provider", "connection_type", "external_id", "display_name",
+      "account", "repository_selection", "permissions", "access_summary", "credential_ref",
+      "credential_state", "status", "created_at", "updated_at",
     ]);
-    expect(columns.join(" ")).not.toMatch(/token|secret|private|credential/i);
+    expect(columns.join(" ")).not.toMatch(/token|private/);
     db.close();
   });
 });

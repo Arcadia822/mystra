@@ -7,10 +7,17 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { TaskListItem } from "../_lib/types";
 import { useResource } from "../_lib/use-resource";
 import {
-  applyThemeToDocument,
-  getDefaultTheme,
+  APPEARANCE_STORAGE_KEY,
+  applyAppearanceToDocument,
+  getAppearanceDetailDefaults,
+  getDefaultAppearancePreferences,
   getThemeById,
+  normalizeAppearancePreferences,
+  parseAppearancePreferences,
+  resolveAppearanceTheme,
   THEME_STORAGE_KEY,
+  type AppearancePreferences,
+  type ThemeVariant,
 } from "../theme-system";
 import { SHELL_COPY, type ShellLocale } from "./shell-copy";
 import { groupTasksByProject, inboxTasks } from "./shell-model";
@@ -21,14 +28,35 @@ import { ShellTasksProvider } from "./shell-resources";
 import { MystraLogo } from "./mystra-logo";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
 import { ProjectCreateModal } from "./project-create-modal";
+import {
+  SidebarCountBadge,
+  SidebarIcon,
+  SidebarIconButton,
+  SidebarMark,
+  SidebarStatusIcon,
+} from "./sidebar-visual";
 
 const LANGUAGE_STORAGE_KEY = "mystra-control-plane-language";
 const SIDEBAR_STORAGE_KEY = "mystra-control-plane-sidebar-collapsed";
 
-type UtilityView = "automations" | null;
+function readBrowserPreference(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeBrowserPreference(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Preferences remain usable for the current tab when browser storage is unavailable.
+  }
+}
 
 const PRIMARY_ITEMS: Array<{
-  key: "new" | "search" | "inbox" | "issues" | "automations";
+  key: "new" | "search" | "inbox" | "issues";
   icon: ShellIconName;
   href?: string;
 }> = [
@@ -36,7 +64,6 @@ const PRIMARY_ITEMS: Array<{
   { key: "search", icon: "search" },
   { key: "inbox", icon: "inbox", href: "/inbox" },
   { key: "issues", icon: "issue", href: "/tasks" },
-  { key: "automations", icon: "automation" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -47,6 +74,7 @@ function routeTitle(pathname: string, locale: ShellLocale): string {
   if (pathname.startsWith("/runners/")) return zh ? "Runner 详情" : "Runner detail";
   if (pathname === "/runners") return "Runners";
   if (pathname.startsWith("/sessions/")) return zh ? "Session 详情" : "Session detail";
+  if (pathname === "/automations") return zh ? "自动化" : "Automations";
   if (pathname.startsWith("/tasks/")) return zh ? "Task 详情" : "Task detail";
   if (pathname === "/tasks") return zh ? "议题" : "Issues";
   if (pathname === "/inbox") return zh ? "收件箱" : "Inbox";
@@ -75,23 +103,37 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectCreateOpen, setProjectCreateOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("account");
-  const [themeId, setThemeId] = useState(getDefaultTheme().id);
+  const [appearance, setAppearance] = useState<AppearancePreferences>(getDefaultAppearancePreferences);
+  const [systemVariant, setSystemVariant] = useState<ThemeVariant>("dark");
   const [locale, setLocale] = useState<ShellLocale>("en");
-  const [utilityView, setUtilityView] = useState<UtilityView>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
   const [preferencesReady, setPreferencesReady] = useState(false);
-  const theme = useMemo(() => getThemeById(themeId) ?? getDefaultTheme(), [themeId]);
+  const theme = useMemo(() => resolveAppearanceTheme(appearance, systemVariant), [appearance, systemVariant]);
   const copy = SHELL_COPY[locale];
 
   useEffect(() => {
-    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    const savedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    if (savedTheme && getThemeById(savedTheme)) setThemeId(savedTheme);
+    const savedAppearance = readBrowserPreference(APPEARANCE_STORAGE_KEY);
+    const savedTheme = readBrowserPreference(THEME_STORAGE_KEY);
+    const savedLanguage = readBrowserPreference(LANGUAGE_STORAGE_KEY);
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    setSystemVariant(media.matches ? "dark" : "light");
+    if (savedAppearance) {
+      setAppearance(parseAppearancePreferences(savedAppearance));
+    } else if (savedTheme) {
+      const legacyTheme = getThemeById(savedTheme);
+      if (legacyTheme) {
+        setAppearance(normalizeAppearancePreferences({
+          ...getDefaultAppearancePreferences(),
+          mode: legacyTheme.variant,
+          [`${legacyTheme.variant}ThemeId`]: legacyTheme.id,
+        }));
+      }
+    }
     if (savedLanguage === "en" || savedLanguage === "zh-CN") setLocale(savedLanguage);
-    setSidebarCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true");
+    setSidebarCollapsed(readBrowserPreference(SIDEBAR_STORAGE_KEY) === "true");
     setPreferencesReady(true);
   }, []);
 
@@ -108,19 +150,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!preferencesReady) return;
-    applyThemeToDocument(theme);
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme.id);
-  }, [preferencesReady, theme]);
+    const normalized = normalizeAppearancePreferences(appearance);
+    applyAppearanceToDocument(normalized, systemVariant);
+    writeBrowserPreference(APPEARANCE_STORAGE_KEY, JSON.stringify(normalized));
+  }, [appearance, preferencesReady, systemVariant]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemVariant(media.matches ? "dark" : "light");
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (!preferencesReady) return;
     document.documentElement.lang = locale;
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, locale);
+    writeBrowserPreference(LANGUAGE_STORAGE_KEY, locale);
   }, [locale, preferencesReady]);
 
   useEffect(() => {
     if (!preferencesReady) return;
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
+    writeBrowserPreference(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
   }, [preferencesReady, sidebarCollapsed]);
 
   useEffect(() => {
@@ -153,7 +204,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [settingsOpen]);
 
   useEffect(() => {
-    setUtilityView(null);
     setNarrowSidebarOpen(false);
   }, [pathname]);
 
@@ -168,7 +218,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     })), [projectById, tasksResource.data?.tasks]);
 
   const inboxCount = inboxTasks(tasksResource.data?.tasks ?? []).length;
-  const shellTitle = utilityView ? copy[utilityView] : routeTitle(pathname, locale);
+  const shellTitle = routeTitle(pathname, locale);
   const sidebarHidden = isNarrow ? !narrowSidebarOpen : sidebarCollapsed;
 
   return (
@@ -178,41 +228,44 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebarHeader">
           <MystraLogo className="brandMark" />
           <span className="sidebarLabel brandText">Mystra</span>
-          <UiIconButton
+          <SidebarIconButton
             aria-controls="primary-sidebar"
             aria-label={isNarrow ? copy.collapseSidebar : sidebarCollapsed ? copy.expandSidebar : copy.collapseSidebar}
             aria-expanded={isNarrow ? narrowSidebarOpen : !sidebarCollapsed}
-            className="sidebarToggle"
-            size="compact"
+            icon={isNarrow ? "collapse" : sidebarCollapsed ? "expand" : "collapse"}
             onClick={() => isNarrow ? setNarrowSidebarOpen(false) : setSidebarCollapsed((current) => !current)}
-          >
-            <ShellIcon name={isNarrow ? "collapse" : sidebarCollapsed ? "expand" : "collapse"} />
-          </UiIconButton>
+          />
         </div>
 
         <nav aria-label="Primary navigation" className="sidebarNav">
           {PRIMARY_ITEMS.map((item) => {
             const label = copy[item.key];
-            const active = item.href
-              ? utilityView === null && isActive(pathname, item.href)
-              : item.key === "search" ? searchOpen : utilityView === item.key;
+            const active = item.href ? isActive(pathname, item.href) : searchOpen;
             const content = (
               <>
-                <span className="navIcon"><ShellIcon name={item.icon} /></span>
+                <SidebarIcon name={item.icon} />
                 <span className="sidebarLabel">{label}</span>
-                {item.key === "inbox" ? <span className="sidebarBadge">{inboxCount}</span> : null}
+                {item.key === "inbox" ? <SidebarCountBadge count={inboxCount} /> : null}
               </>
             );
 
             return item.href ? (
-              <UiActionLink active={active} aria-current={active ? "page" : undefined} aria-label={label} block className="navItem" href={item.href} key={item.key}>
+              <UiActionLink
+                active={active}
+                aria-current={active ? "page" : undefined}
+                aria-label={label}
+                block
+                className="navItem"
+                href={item.href}
+                key={item.key}
+                onClick={() => setNarrowSidebarOpen(false)}
+              >
                 {content}
               </UiActionLink>
             ) : (
               <UiButton active={active} aria-label={label} block className="navItem" key={item.key} onClick={() => {
                 setNarrowSidebarOpen(false);
-                if (item.key === "search") setSearchOpen(true);
-                else setUtilityView(item.key as UtilityView);
+                setSearchOpen(true);
               }}>
                 {content}
               </UiButton>
@@ -223,23 +276,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         <section aria-labelledby="sidebar-projects-title" className="sidebarProjectSection">
           <div className="sidebarSectionHeader">
             <h2 id="sidebar-projects-title">{copy.projects}</h2>
-            <UiIconButton
+            <SidebarIconButton
               aria-label={locale === "zh-CN" ? "添加项目" : "Add project"}
-              className="sidebarSectionAction"
-              size="compact"
+              icon="plus"
               title={locale === "zh-CN" ? "添加项目" : "Add project"}
               onClick={() => {
                 setSettingsOpen(false);
                 setProjectCreateOpen(true);
               }}
-            >
-              <ShellIcon name="plus" />
-            </UiIconButton>
+            />
           </div>
           <div className="sidebarProjectList">
             {(projectsResource.data?.projects ?? []).map((project) => (
               <UiActionLink active={pathname === `/projects/${project.slug}`} block className="sidebarProject" href={`/projects/${encodeURIComponent(project.slug)}`} key={project.id}>
-                <span className="navIcon"><ShellIcon name="project" /></span>
+                <SidebarIcon name="project" />
                 <span>{project.name}</span>
               </UiActionLink>
             ))}
@@ -255,12 +305,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="taskProjectGroup" key={group.projectId}>
                 {group.project ? (
                   <UiActionLink block className="taskProjectHeader" href={`/projects/${encodeURIComponent(group.project.slug)}`}>
-                    <span aria-hidden="true" className="projectMark" />
+                    <SidebarMark />
                     <span>{group.project.name}</span>
                   </UiActionLink>
                 ) : (
                   <div className="taskProjectHeader">
-                    <span aria-hidden="true" className="projectMark" />
+                    <SidebarMark />
                     <span>{group.tasks[0]?.repository.fullName ?? group.projectId}</span>
                   </div>
                 )}
@@ -269,9 +319,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     const status = taskStatus(task.latestSession?.state);
                     return (
                       <UiActionLink active={pathname === `/tasks/${task.id}`} block className="sidebarTask" href={`/tasks/${task.id}`} key={task.id}>
-                        <span aria-label={status.label} className="taskStatusIcon" data-status={status.kind} role="img" title={status.label}>
-                          <ShellIcon name={status.icon} />
-                        </span>
+                        <SidebarStatusIcon icon={status.icon} label={status.label} status={status.kind} />
                         <span>{task.issue?.title ?? task.objective}</span>
                       </UiActionLink>
                     );
@@ -288,7 +336,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           setSettingsSection("account");
           setSettingsOpen(true);
         }}>
-          <span className="navIcon"><ShellIcon name="settings" /></span>
+          <SidebarIcon name="settings" />
           <span className="sidebarLabel">{copy.settings}</span>
         </UiButton>
       </aside>
@@ -321,9 +369,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <ShellSettings
           initialSection={settingsSection}
           locale={locale}
+          onAppearanceChange={(change) => setAppearance((current) => ({ ...current, ...change }))}
           onClose={() => setSettingsOpen(false)}
           onLocaleChange={setLocale}
-          onThemeChange={setThemeId}
+          onResetAppearanceDetails={() => setAppearance((current) => ({
+            ...current,
+            ...getAppearanceDetailDefaults(current, systemVariant),
+          }))}
+          preferences={appearance}
+          systemVariant={systemVariant}
           theme={theme}
         />
       ) : null}

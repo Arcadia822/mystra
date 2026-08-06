@@ -22,8 +22,10 @@ targets serious, shippable software: tested, reviewed, and maintainable.
 
 The north-star is a hosted **Mystra platform** with an open-source core:
 
-- **Open-source self-hosted** — run the full platform on your own infrastructure.
-- **Hosted SaaS** — managed execution, no deployment required.
+- **Open-source self-hosted** — run the core control plane and execution stack on
+  your own infrastructure. Provider capabilities may differ from hosted Mystra.
+- **Hosted SaaS** — managed execution plus platform-operated integrations that
+  require a public callback, shared application identity, or managed secrets.
 
 ## Core model
 
@@ -61,10 +63,17 @@ In scope:
   schemas may be rebuilt; unknown or mixed schemas fail closed.
 - GitHub remote repositories and repository-scoped Issues; read-only Linear
   Issues; immutable provider-resolved Project repository snapshots.
-- One active GitHub App installation connection for the private single-node MVP:
-  OAuth verifies the installation owner, durable state stores only non-secret
-  installation metadata, and short-lived installation tokens authorize
-  repository discovery and delivery.
+- Multiple explicit GitHub connections with deployment-aware methods:
+  self-hosted Mystra supports personal access tokens behind a protected
+  SecretProvider; hosted Mystra additionally supports the platform-operated
+  Mystra GitHub App. OAuth verifies each App installation owner, installation
+  tokens remain short-lived, and every Project binds one exact connection for
+  repository discovery and delivery. The open-source tree may retain the hosted
+  GitHub App adapter and tests without making that method a supported
+  self-hosted capability.
+  Hosted App runtime activation is phased behind caller authentication, Team
+  authorization, hosted persistence, and managed secret prerequisites; those
+  prerequisites are not part of the current self-hosted MVP.
 - Atomic Issue dispatch to one Task and its initial Session.
 - Explicit creation of zero or many independent Sessions beneath a Task.
 - Stable pull-based Runner enrollment, credential rotation, heartbeat,
@@ -80,7 +89,9 @@ Out of scope:
   quality-fix loops.
 - Public activity timeline or a public internal-fact collection.
 - Claude CLI, Kubernetes sandboxes, cross-Runner shared caches, per-repository
-  secret management, and hosted RDB implementation.
+  arbitrary secret management, and hosted RDB implementation. Connection-scoped
+  GitHub PAT storage is the narrow exception required by the active GitHub
+  Integration contract.
 - Caller-login OAuth, webhooks, Issue write-back, a general-purpose Integration
   management catalog beyond the GitHub connection surface, public hosted Team
   administration, or GitLab as an enabled intake Integration.
@@ -98,7 +109,8 @@ Out of scope:
 - API, MCP, CLI, Web, persistence, and Runner protocol use only the canonical
   Task/Session/Runner model without compatibility aliases.
 - The system retains durable execution truth while preserving a path from a
-  private single-node deployment to many Team/Project lanes.
+  self-hosted single-node deployment to hosted Team/Project lanes without
+  pretending every deployment offers the same Integration methods.
 
 ## Source documents
 
