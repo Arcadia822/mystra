@@ -8,10 +8,10 @@ Mystra is a self-use coding-agent execution platform. It uses Open Agents as a
 source-authoritative framework baseline, then owns the interfaces required at
 its persistence, Integration, sandbox, Agent, and repository seams.
 
-The first useful outcome is direct: an operator or Agent selects an Issue,
-Mystra atomically creates a durable Task and an initial Session, a stable Runner
-executes that Session inside a sandbox, and the platform returns tested,
-previewable repository evidence for human review.
+The current persistence milestone is direct: an operator or Agent selects an
+Issue and Mystra creates a durable Task. Session persistence and the execution
+handoff are deferred for a separate redesign; the first Prisma schema must not
+encode the former Session/Runner model merely to keep old surfaces running.
 
 Mystra remains a headless execution control plane. It owns durable intent,
 execution truth, resource boundaries, and review handoff; it does not own a
@@ -19,11 +19,11 @@ workflow graph above the Agent.
 
 ## Business model
 
-- **Task** is durable work intent. It owns Project and immutable Repository
-  context plus optional immutable Issue provenance. It has no execution state.
-- **Session** is an independently created child of one Task. A Task may have
-  zero or many Sessions for different subtasks. Each Session owns its objective,
-  Agent, branch, runtime resolution, lifecycle, cancellation, and result.
+- **Task** is currently a durable identity under one Project. The first Prisma
+  model deliberately omits source, objective and Issue/Repository snapshots;
+  those contracts will be redesigned with Linear/Issue Integration and cache.
+- **Session** remains a future execution concept, but its persistence, Task
+  relation, fields, lifecycle and CRUD are currently undefined and deferred.
 - **Runner** is stable execution capacity with durable identity, health,
   capability, eligibility, credential rotation, and current assignments.
 - Runner protocol bookkeeping and internal execution facts are implementation
@@ -66,14 +66,16 @@ In scope:
 
 - Next.js control plane with canonical Task, Session, Runner, Project, Issue,
   Integration, Repository, and review-handoff contracts.
-- `RdbProvider` with SQLite for local development and a dialect-neutral boundary
-  for a future PG/Supabase implementation.
+- `RdbProvider` with selectable SQLite, PostgreSQL, and Supabase-backed
+  PostgreSQL deployments. Supabase reuses the PostgreSQL implementation while
+  adding explicit pooled-runtime and direct-migration connection configuration.
 - Destructive local development schema migration: precisely recognized obsolete
   schemas may be rebuilt; unknown or mixed schemas fail closed.
 - GitHub remote repositories and repository-scoped Issues; read-only Linear
-  Issues; immutable provider-resolved Project repository snapshots.
-- Atomic Issue dispatch to one Task and its initial Session.
-- Explicit creation of zero or many independent Sessions beneath a Task.
+  Issues; stable Project repository bindings. Issue/Repo Info retrieval and
+  caching remain separately designed Integration capabilities.
+- Idempotent Issue dispatch to one Task through `issueDispatchKey`.
+- Session creation and persistence are deferred for separate redesign.
 - Stable pull-based Runner enrollment, credential rotation, heartbeat,
   eligibility, capacity, claim, cancellation, and terminal completion.
 - Direct Docker sandbox and Agent execution with test, build, preview, branch,
@@ -87,7 +89,7 @@ Out of scope:
   quality-fix loops.
 - Public activity timeline or a public internal-fact collection.
 - Claude CLI, Kubernetes sandboxes, cross-Runner shared caches, per-repository
-  secret management, and hosted RDB implementation.
+  secret management, and public hosted database administration.
 - OAuth, webhooks, Issue write-back, Integration management UI, public hosted
   Team administration, or GitLab as an enabled intake Integration.
 - A workflow provider, workflow DSL, workflow marketplace, standing orders, or

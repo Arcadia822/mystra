@@ -5,7 +5,7 @@
 ## Runtime shape
 
 ```text
-apps/control-plane    Next.js management API, MCP, Web, SQLite adapter
+apps/control-plane    Next.js management API, MCP, Web, Prisma RDB adapters
 apps/runner-daemon    Stable pull-based Runner service
 packages/shared       Zod schemas, Session lifecycle, result contracts
 packages/agent-adapters
@@ -17,6 +17,9 @@ React 19, Zod 4, Vitest 4, and `better-sqlite3`.
 
 ## Canonical topology
 
+The topology below is directional. The first Prisma RDB milestone persists only
+IntegrationConnection, Project and Task; Session/Runner persistence is deferred.
+
 ```text
 Mystra platform
   -> Team
@@ -27,7 +30,8 @@ Mystra platform
           -> sandbox -> Agent -> repository review
 ```
 
-Task owns immutable Project/Repository intent and optional Issue provenance.
+The current Task RDB model owns only identity, Project relation, optional Issue
+dispatch key and metadata. Source, objective and Issue/Repository snapshots are deferred.
 Session owns all execution choices and lifecycle. Runner is stable capacity.
 Workspace means the Session-scoped working directory and context-delivery
 surface; it is never a tenancy term.
@@ -51,9 +55,11 @@ pnpm lsp:typescript
 
 - Open Agents is a source-authoritative reference baseline, not an assumed
   packaged runtime dependency.
-- Every Project binds one provider-resolved immutable remote Repository
-  snapshot. Local paths and caller-supplied clone URLs are invalid inputs.
-- Task owns that snapshot; Session cannot replace Project or Repository context.
+- Every Project binds one IntegrationConnection plus a provider-stable remote Repository external ID.
+  Mutable repository metadata is not Project persistence; Repo Info retrieval/cache is separately specified.
+  Local paths and caller-supplied clone URLs are invalid inputs.
+- Task does not persist source, objective or Issue/Repository snapshots. Current external information will use a
+  future Integration-owned cache contract; 040 does not define that cache.
 - A Task has no state, result, Agent, branch, runtime allocation, or Runner.
 - Every Session belongs to exactly one Task and owns its independent objective,
   Agent, branch, resolved runtime, lifecycle, cancellation, and result.
@@ -64,8 +70,13 @@ pnpm lsp:typescript
 - Internal execution facts support diagnostics and transactional persistence but
   have no independent management API, MCP tool, CLI group, or Web object page.
 - Headless operation is mandatory; Web remains a secondary client.
-- SQLite is the first source of truth behind `RdbProvider`; the provider contract
-  must not leak SQLite dialect.
+- SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable at process
+  startup behind `RdbProvider`; the provider contract must not leak database
+  dialect, Prisma-generated types, connection URLs, or pool handles.
+- Supabase uses the PostgreSQL Prisma client and migration history. Runtime may
+  use a pooler URL while migration commands use an explicit direct URL.
+- Database provider selection is startup configuration. Hot switching a live
+  process between databases is not supported.
 - Runner hosts initiate outbound connections. Sandbox containers never mount
   the host Docker socket or host home.
 - Runtime secrets are injected through environment variables or read-only files.
@@ -78,7 +89,7 @@ pnpm lsp:typescript
 ## Provider boundaries
 
 ```text
-RdbProvider           local SQLite first; cloud RDB later
+RdbProvider           SQLite, PostgreSQL, or Supabase-backed PostgreSQL
 IntegrationPlugin     named repository and/or Issue capabilities
 RepoProvider          remote repository discovery and identity
 IssueProvider         GitHub repository-scoped; Linear read-only
