@@ -123,10 +123,24 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect([left.created, right.created].sort()).toEqual([false, true]);
     expect(left.task.id).toBe(right.task.id);
     expect(await db.getTaskByIssueDispatchKey(key)).toEqual(left.task);
-    expect((await db.listTasks({ projectId: parent.id })).map(({ id }) => id)).toEqual([
+
+    const distinctKeys = [`linear:ENG-2:${parent.id}`, `linear:ENG-3:${parent.id}`];
+    const distinct = await Promise.all(distinctKeys.map((issueDispatchKey) => db.dispatchIssue({
+      projectId: parent.id,
+      issueDispatchKey,
+      metadata: { source: "linear" },
+    })));
+    expect(distinct.map(({ created }) => created)).toEqual([true, true]);
+    expect(new Set(distinct.map(({ task }) => task.id)).size).toBe(2);
+
+    const listedTaskIds = (await db.listTasks({ projectId: parent.id })).map(({ id }) => id);
+    expect(listedTaskIds).toHaveLength(4);
+    expect(new Set(listedTaskIds)).toEqual(new Set([
+      distinct[0]!.task.id,
+      distinct[1]!.task.id,
       left.task.id,
       ordinary.id,
-    ]);
+    ]));
 
     await db.archiveProject(parent.slug);
     await expect(db.dispatchIssue({
@@ -134,6 +148,12 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       issueDispatchKey: key,
       metadata: { ignoredOnReplay: true },
     })).resolves.toEqual({ task: left.task, created: false });
+    await expect(db.dispatchIssue({
+      projectId: parent.id,
+      issueDispatchKey: `linear:ENG-4:${parent.id}`,
+      metadata: {},
+    })).rejects.toMatchObject({ code: "RDB_RELATION_CONFLICT" });
+    expect(await db.getTaskByIssueDispatchKey(`linear:ENG-4:${parent.id}`)).toBeUndefined();
   });
 
   it("normalizes slug, foreign-key, and dispatch conflicts", async () => {

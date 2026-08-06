@@ -13,12 +13,18 @@ import type {
   Project as PrismaProject,
   Task as PrismaTask,
 } from "../../generated/prisma/sqlite/client";
+import { RdbError } from "./prisma-errors";
 import type { IntegrationConnectionRecord } from "./rdb-provider";
 
 function parseJsonObject(value: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(value);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new RdbError("RDB_UNAVAILABLE", "Persisted JSON value is invalid");
+  }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("Persisted JSON value is not an object");
+    throw new RdbError("RDB_UNAVAILABLE", "Persisted JSON value is invalid");
   }
   return parsed as Record<string, unknown>;
 }

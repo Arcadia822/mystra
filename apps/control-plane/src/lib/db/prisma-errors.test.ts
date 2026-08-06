@@ -33,5 +33,9 @@ describe("Prisma database error boundary", () => {
     );
     expect(unavailable.message).toBe("RDB_UNAVAILABLE: Database operation failed");
     expect(unavailable.message).not.toMatch(/secret|private-host/iu);
+
+    const serializationFailure = normalizeDatabaseError({ code: "P2034" });
+    expect(serializationFailure.code).toBe("RDB_UNAVAILABLE");
+    expect(serializationFailure.message).toBe("RDB_UNAVAILABLE: Database operation failed");
   });
 });

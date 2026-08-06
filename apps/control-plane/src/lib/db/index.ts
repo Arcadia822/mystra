@@ -6,6 +6,7 @@ import {
   createSqlitePrismaClient,
   type MystraPrismaClient,
 } from "./prisma-client";
+import { normalizeDatabaseError } from "./prisma-errors";
 import { PrismaRdbProvider } from "./prisma-provider";
 import { parseRdbConfiguration, type RdbConfiguration } from "./rdb-config";
 import type { RdbProvider } from "./rdb-provider";
@@ -38,30 +39,30 @@ export async function shutdownDb(): Promise<void> {
 }
 
 async function initializeProvider(configuration: RdbConfiguration): Promise<RdbProvider> {
-  let client: MystraPrismaClient;
-  if (configuration.provider === "sqlite") {
-    if (configuration.databasePath !== ":memory:") {
-      mkdirSync(path.dirname(configuration.databasePath), { recursive: true });
-    }
-    client = createSqlitePrismaClient({
-      databaseUrl: configuration.databasePath === ":memory:"
-        ? ":memory:"
-        : `file:${configuration.databasePath}`,
-    });
-  } else {
-    client = createPostgresqlPrismaClient({
-      databaseUrl: configuration.runtimeUrl,
-      maxConnections: configuration.pool.max,
-      connectionTimeoutMs: configuration.pool.connectionTimeoutMillis,
-      idleTimeoutMs: configuration.pool.idleTimeoutMillis,
-    });
-  }
-
+  let client: MystraPrismaClient | undefined;
   try {
+    if (configuration.provider === "sqlite") {
+      if (configuration.databasePath !== ":memory:") {
+        mkdirSync(path.dirname(configuration.databasePath), { recursive: true });
+      }
+      client = createSqlitePrismaClient({
+        databaseUrl: configuration.databasePath === ":memory:"
+          ? ":memory:"
+          : `file:${configuration.databasePath}`,
+      });
+    } else {
+      client = createPostgresqlPrismaClient({
+        databaseUrl: configuration.runtimeUrl,
+        maxConnections: configuration.pool.max,
+        connectionTimeoutMs: configuration.pool.connectionTimeoutMillis,
+        idleTimeoutMs: configuration.pool.idleTimeoutMillis,
+      });
+    }
+
     await client.connect();
     return new PrismaRdbProvider(client);
   } catch (error) {
-    await client.disconnect().catch(() => undefined);
-    throw error;
+    await client?.disconnect().catch(() => undefined);
+    throw normalizeDatabaseError(error);
   }
 }

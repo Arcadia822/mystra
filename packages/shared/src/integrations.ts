@@ -1,25 +1,7 @@
 import { z } from "zod";
 
-export const integrationConnectionAccountSchema = z
-  .object({
-    externalId: z.string().trim().min(1).max(255),
-    login: z.string().trim().min(1).max(255),
-    type: z.string().trim().min(1).max(64),
-    avatarUrl: z.string().url().optional(),
-  })
-  .strict();
-export type IntegrationConnectionAccount = z.infer<typeof integrationConnectionAccountSchema>;
-
-export const integrationConnectionRepositorySelectionSchema = z.enum(["all", "selected", "token"]);
-export type IntegrationConnectionRepositorySelection = z.infer<
-  typeof integrationConnectionRepositorySelectionSchema
->;
-
 export const integrationConnectionStatusSchema = z.enum(["active", "inactive"]);
 export type IntegrationConnectionStatus = z.infer<typeof integrationConnectionStatusSchema>;
-
-export const integrationConnectionTypeSchema = z.enum(["github-app", "personal-access-token"]);
-export type IntegrationConnectionType = z.infer<typeof integrationConnectionTypeSchema>;
 
 export const integrationCredentialStateSchema = z.enum(["ready", "missing", "invalid"]);
 export type IntegrationCredentialState = z.infer<typeof integrationCredentialStateSchema>;

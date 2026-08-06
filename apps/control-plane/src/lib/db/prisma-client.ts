@@ -10,6 +10,7 @@ import {
   type Project,
   type Task,
 } from "../../generated/prisma/sqlite/client";
+import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 
 type CountResult = { count: number };
 type SortOrder = "asc" | "desc";
@@ -57,7 +58,7 @@ export function createSqlitePrismaClient(input: {
 }): MystraPrismaClient {
   const adapter = new PrismaBetterSqlite3({ url: input.databaseUrl });
   const client = new SqlitePrismaClient({ adapter });
-  return {
+  const delegates = protectDelegates({
     integrationConnection: {
       upsert: async (args) => client.integrationConnection.upsert(args),
       updateMany: async (args) => client.integrationConnection.updateMany(args),
@@ -76,7 +77,10 @@ export function createSqlitePrismaClient(input: {
       findUnique: async (args) => client.task.findUnique(args),
       findMany: async (args) => client.task.findMany(args),
     },
-    transaction: async (operation) => client.$transaction(async (transaction) => operation({
+  });
+  return {
+    ...delegates,
+    transaction: async (operation) => safeClientOperation(() => client.$transaction(async (transaction) => operation(protectDelegates({
       integrationConnection: {
         upsert: async (args) => transaction.integrationConnection.upsert(args),
         updateMany: async (args) => transaction.integrationConnection.updateMany(args),
@@ -95,8 +99,8 @@ export function createSqlitePrismaClient(input: {
         findUnique: async (args) => transaction.task.findUnique(args),
         findMany: async (args) => transaction.task.findMany(args),
       },
-    }), { isolationLevel: "Serializable" }),
-    connect: async () => client.$connect(),
+    })), { isolationLevel: "Serializable" })),
+    connect: async () => safeClientOperation(() => client.$connect()),
     disconnect: async () => client.$disconnect(),
   };
 }
@@ -114,7 +118,7 @@ export function createPostgresqlPrismaClient(input: {
     idleTimeoutMillis: input.idleTimeoutMs,
   });
   const client = new PostgresqlPrismaClient({ adapter });
-  return {
+  const delegates = protectDelegates({
     integrationConnection: {
       upsert: async (args) => client.integrationConnection.upsert(args),
       updateMany: async (args) => client.integrationConnection.updateMany(args),
@@ -133,7 +137,10 @@ export function createPostgresqlPrismaClient(input: {
       findUnique: async (args) => client.task.findUnique(args),
       findMany: async (args) => client.task.findMany(args),
     },
-    transaction: async (operation) => client.$transaction(async (transaction) => operation({
+  });
+  return {
+    ...delegates,
+    transaction: async (operation) => safeClientOperation(() => client.$transaction(async (transaction) => operation(protectDelegates({
       integrationConnection: {
         upsert: async (args) => transaction.integrationConnection.upsert(args),
         updateMany: async (args) => transaction.integrationConnection.updateMany(args),
@@ -152,8 +159,45 @@ export function createPostgresqlPrismaClient(input: {
         findUnique: async (args) => transaction.task.findUnique(args),
         findMany: async (args) => transaction.task.findMany(args),
       },
-    }), { isolationLevel: "Serializable" }),
-    connect: async () => client.$connect(),
+    })), { isolationLevel: "Serializable" })),
+    connect: async () => safeClientOperation(() => client.$connect()),
     disconnect: async () => client.$disconnect(),
   };
+}
+
+function protectDelegates(delegates: MystraPrismaDelegates): MystraPrismaDelegates {
+  return {
+    integrationConnection: {
+      upsert: (args) => safeClientOperation(() => delegates.integrationConnection.upsert(args)),
+      updateMany: (args) => safeClientOperation(() => delegates.integrationConnection.updateMany(args)),
+      findUnique: (args) => safeClientOperation(() => delegates.integrationConnection.findUnique(args)),
+      findMany: (args) => safeClientOperation(() => delegates.integrationConnection.findMany(args)),
+      deleteMany: (args) => safeClientOperation(() => delegates.integrationConnection.deleteMany(args)),
+    },
+    project: {
+      create: (args) => safeClientOperation(() => delegates.project.create(args)),
+      updateMany: (args) => safeClientOperation(() => delegates.project.updateMany(args)),
+      findUnique: (args) => safeClientOperation(() => delegates.project.findUnique(args)),
+      findMany: (args) => safeClientOperation(() => delegates.project.findMany(args)),
+    },
+    task: {
+      create: (args) => safeClientOperation(() => delegates.task.create(args)),
+      findUnique: (args) => safeClientOperation(() => delegates.task.findUnique(args)),
+      findMany: (args) => safeClientOperation(() => delegates.task.findMany(args)),
+    },
+  };
+}
+
+async function safeClientOperation<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (
+      error instanceof RdbError
+      || ["P2002", "P2003", "P2014", "P2025", "P2034"].some((code) => isDatabaseErrorCode(error, code))
+    ) {
+      throw error;
+    }
+    throw normalizeDatabaseError(error);
+  }
 }

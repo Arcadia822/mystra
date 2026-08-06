@@ -34,6 +34,10 @@ function databaseErrorCode(error: unknown): string | undefined {
   return typeof error.code === "string" ? error.code : undefined;
 }
 
+export function isDatabaseErrorCode(error: unknown, code: string): boolean {
+  return databaseErrorCode(error) === code;
+}
+
 /**
  * Converts driver and Prisma failures into safe domain errors.
  *

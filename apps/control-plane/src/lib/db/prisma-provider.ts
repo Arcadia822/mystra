@@ -20,7 +20,7 @@ import {
 } from "@mystra/shared";
 
 import type { MystraPrismaClient, MystraPrismaDelegates } from "./prisma-client";
-import { normalizeDatabaseError, RdbError } from "./prisma-errors";
+import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 import {
   mapIntegrationConnectionRecord,
   mapProject,
@@ -278,10 +278,14 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async createTask(input: TaskCreateRequest): Promise<TaskRecord> {
     const parsed = taskCreateRequestSchema.parse(input);
-    return this.#client.transaction(async (transaction) => {
-      await this.#requireActiveProject(parsed.projectId, transaction);
-      return this.#insertTask(parsed, transaction);
-    });
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        await this.#requireActiveProject(parsed.projectId, transaction);
+        return this.#insertTask(parsed, transaction);
+      });
+    } catch (error) {
+      throw normalizeDatabaseError(error);
+    }
   }
 
   async dispatchIssue(
@@ -295,22 +299,32 @@ export class PrismaRdbProvider implements RdbProvider {
       }
       return { task: existing, created: false };
     }
-    try {
-      const task = await this.#client.transaction(async (transaction) => {
-        await this.#requireActiveProject(parsed.projectId, transaction);
-        return this.#insertTask(parsed, transaction);
-      });
-      return { task, created: true };
-    } catch (error) {
-      if (!(error instanceof RdbError) || error.code !== "DISPATCH_CONFLICT") {
-        throw error;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const task = await this.#client.transaction(async (transaction) => {
+          await this.#requireActiveProject(parsed.projectId, transaction);
+          return this.#insertTask(parsed, transaction);
+        });
+        return { task, created: true };
+      } catch (error) {
+        if (isDatabaseErrorCode(error, "P2034") && attempt < 2) {
+          continue;
+        }
+        const normalized = normalizeDatabaseError(error, {
+          conflictCode: "DISPATCH_CONFLICT",
+          conflictMessage: "Issue dispatch key already exists",
+        });
+        if (normalized.code !== "DISPATCH_CONFLICT") {
+          throw normalized;
+        }
+        const raced = await this.getTaskByIssueDispatchKey(input.issueDispatchKey);
+        if (!raced || raced.projectId !== parsed.projectId) {
+          throw normalized;
+        }
+        return { task: raced, created: false };
       }
-      const existing = await this.getTaskByIssueDispatchKey(input.issueDispatchKey);
-      if (!existing || existing.projectId !== parsed.projectId) {
-        throw error;
-      }
-      return { task: existing, created: false };
     }
+    throw new RdbError("RDB_UNAVAILABLE", "Issue dispatch transaction could not be serialized");
   }
 
   async getTask(id: string): Promise<TaskRecord | undefined> {
@@ -349,6 +363,9 @@ export class PrismaRdbProvider implements RdbProvider {
       });
       return mapTask(row);
     } catch (error) {
+      if (isDatabaseErrorCode(error, "P2034")) {
+        throw error;
+      }
       throw normalizeDatabaseError(error, {
         conflictCode: "DISPATCH_CONFLICT",
         conflictMessage: "Issue dispatch key already exists",
