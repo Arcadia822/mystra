@@ -14,6 +14,12 @@
     "dev:runner": "pnpm --filter @mystra/runner-daemon dev",
     "doctor": "./scripts/doctor-local.sh",
     "deploy:dev": "bash ./scripts/deploy-dev-machine.sh",
+    "db:generate": "pnpm --filter @mystra/control-plane db:generate",
+    "db:migrate:deploy": "node ./scripts/migrate-rdb.mjs deploy",
+    "db:migrate:dev": "node ./scripts/migrate-rdb.mjs dev",
+    "db:migrate:status": "node ./scripts/migrate-rdb.mjs status",
+    "db:test:postgresql": "pnpm --filter @mystra/control-plane db:test:postgresql",
+    "db:validate": "pnpm --filter @mystra/control-plane db:validate",
     "operator:cli": "node ./scripts/operator-cli.mjs",
     "preview": "node ./scripts/preview-containers.mjs",
     "runner:image:build": "bash ./scripts/build-runner-image.sh",
@@ -28,5 +34,12 @@
     "typescript": "^5.9.3",
     "typescript-language-server": "^5.2.0",
     "vitest": "^4.0.14"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "better-sqlite3",
+      "prisma"
+    ]
   }
 }

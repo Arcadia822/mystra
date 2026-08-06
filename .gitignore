@@ -23,3 +23,6 @@ supabase/.temp/
 
 # Local data
 data/
+
+# Prisma clients are deterministic build outputs generated from tracked schemas.
+apps/control-plane/src/generated/prisma/

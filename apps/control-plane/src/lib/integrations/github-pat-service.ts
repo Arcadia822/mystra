@@ -48,9 +48,9 @@ export class GitHubPatConnectionService {
   async create(input: PersonalAccessTokenConnectionInput): Promise<IntegrationConnection> {
     const request = personalAccessTokenConnectionInputSchema.parse(input);
     const validation = await this.#validate(request.token);
-    const existing = this.#db.listIntegrationConnectionRecords({ integration: "github" })
+    const existing = (await this.#db.listIntegrationConnectionRecords({ integration: "github" }))
       .find((connection) => (
-        connection.connectionType === "personal-access-token"
+        connection.authMethod === "personal-access-token"
         && connection.providerExternalId === validation.providerExternalId
       ));
     const id = existing?.id ?? this.#newId();
@@ -58,13 +58,13 @@ export class GitHubPatConnectionService {
     const secrets = this.#requireSecrets();
     await secrets.put(credentialRef, request.token);
     try {
-      const record = this.#db.upsertIntegrationConnection(this.#upsertInput(
+      const record = await this.#db.upsertIntegrationConnection(this.#upsertInput(
         id,
         credentialRef,
         request.displayName ?? existing?.displayName,
         validation,
       ));
-      return this.#publicConnection(record.id);
+      return await this.#publicConnection(record.id);
     } catch (error) {
       if (!existing) {
         await secrets.delete(credentialRef).catch(() => undefined);
@@ -77,7 +77,7 @@ export class GitHubPatConnectionService {
     id: string,
     input: PersonalAccessTokenConnectionInput,
   ): Promise<IntegrationConnection> {
-    const current = this.#requirePatRecord(id);
+    const current = await this.#requirePatRecord(id);
     const request = personalAccessTokenConnectionInputSchema.parse(input);
     const validation = await this.#validate(request.token);
     const credentialRef = current.credentialRef;
@@ -88,7 +88,7 @@ export class GitHubPatConnectionService {
       });
     }
     await this.#requireSecrets().put(credentialRef, request.token);
-    const replaced = this.#db.replaceIntegrationConnection(id, this.#upsertInput(
+    const replaced = await this.#db.replaceIntegrationConnection(id, this.#upsertInput(
       id,
       credentialRef,
       request.displayName ?? current.displayName,
@@ -104,14 +104,14 @@ export class GitHubPatConnectionService {
   }
 
   async delete(id: string): Promise<void> {
-    const current = this.#db.getIntegrationConnectionRecord(id);
+    const current = await this.#db.getIntegrationConnectionRecord(id);
     if (!current) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
         message: "Integration connection not found",
       });
     }
-    const projects = this.#db.listProjectsForIntegrationConnection(id);
+    const projects = await this.#db.listProjectsForIntegrationConnection(id);
     if (projects.length > 0) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_IN_USE",
@@ -119,8 +119,8 @@ export class GitHubPatConnectionService {
         details: { projects: projects.map((project) => ({ id: project.id, slug: project.slug })) },
       });
     }
-    this.#db.setIntegrationConnectionStatus(id, "inactive");
-    if (current.connectionType === "personal-access-token" && current.credentialRef) {
+    await this.#db.setIntegrationConnectionStatus(id, "inactive");
+    if (current.authMethod === "personal-access-token" && current.credentialRef) {
       try {
         await this.#requireSecrets().delete(current.credentialRef);
       } catch {
@@ -130,41 +130,48 @@ export class GitHubPatConnectionService {
         });
       }
     }
-    this.#db.deleteIntegrationConnection(id);
+    await this.#db.deleteIntegrationConnection(id);
   }
 
   #upsertInput(
     id: string,
     credentialRef: string,
-    displayName: string | undefined,
+    displayName: string | null | undefined,
     validation: GitHubPatValidation,
   ): IntegrationConnectionUpsert {
     return {
       id,
       integration: "github",
       provider: "github",
-      connectionType: "personal-access-token",
+      authMethod: "personal-access-token",
       providerExternalId: validation.providerExternalId,
-      ...(displayName ? { displayName } : {}),
-      account: validation.account,
-      repositorySelection: validation.repositorySelection,
-      permissions: validation.permissions,
+      displayName: displayName ?? null,
+      providerSubject: validation.account,
+      connectionConfig: {},
+      capabilities: {
+        repositories: {
+          state: "enabled",
+          config: { selection: validation.repositorySelection },
+          permissions: validation.permissions,
+          accessSummary: validation.accessSummary,
+          verifiedAt: new Date().toISOString(),
+        },
+      },
       credentialState: "ready",
       credentialRef,
-      accessSummary: validation.accessSummary,
       status: "active",
     };
   }
 
-  #requirePatRecord(id: string): IntegrationConnectionRecord {
-    const record = this.#db.getIntegrationConnectionRecord(id);
+  async #requirePatRecord(id: string): Promise<IntegrationConnectionRecord> {
+    const record = await this.#db.getIntegrationConnectionRecord(id);
     if (!record) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
         message: "Integration connection not found",
       });
     }
-    if (record.connectionType !== "personal-access-token") {
+    if (record.authMethod !== "personal-access-token") {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_MISMATCH",
         message: "Only a PAT connection can replace a personal access token",
@@ -173,8 +180,8 @@ export class GitHubPatConnectionService {
     return record;
   }
 
-  #publicConnection(id: string): IntegrationConnection {
-    const connection = this.#db.getIntegrationConnection(id);
+  async #publicConnection(id: string): Promise<IntegrationConnection> {
+    const connection = await this.#db.getIntegrationConnection(id);
     if (!connection) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
