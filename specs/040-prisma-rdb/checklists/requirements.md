@@ -45,10 +45,10 @@
 
 Notes:
 
-- Ready for owner ER review；not ready for implementation。
+- Owner ER approved；engineering re-review clear；ready for task generation。
 - 采用低层 persistence change 的技术场景，而不是伪造消费型用户故事。
 - owner 已明确将范围扩展为 SQLite、PostgreSQL、Supabase、provider 切换配置和 Installation 文档。
-- 040 的实现必须先获得 owner ER approval，并 reconcile 已落在 `main@10750ca` 的 039/041 schema。
+- 040 已获得 Owner ER approval，并已 reconcile `main@10750ca` 的 039/041 schema。
 - Session persistence、Session events、Artifacts、event-derived Session summary、`artifactId` 与 Task child
   Session projections 已明确进入删除面，后续由新规格重新设计。
 - IntegrationConnection 已按 owner 方向修订为 provider-neutral connection + 单一 capabilities JSON；
@@ -56,7 +56,7 @@ Notes:
 - Project 已按 owner 方向删除完整 Repository snapshot，改存 stable external ID；Task source、objective、
   Issue/Repository snapshots 同步删除，Issue/Repo Info cache 明确延后。
 - Project execution defaults、Session、ContextBundle 与 Runner persistence 已移出第一期；三表逐字段说明和枚举已
-  写入 `data-model.md`，仍等待第四轮 ER approval。
+  写入 `data-model.md`，第四轮 ER 已批准。
 - 批准删除面导致的既有上层功能报错不纳入 040 修复，必须列为后续适配项且不得保留旧 SQL fallback。
 - Supabase 作为 PostgreSQL deployment profile 复用同一实现；运行时热切库、自动跨库搬迁与 public multi-tenancy 仍不在范围内。
 

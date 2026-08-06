@@ -1,7 +1,7 @@
 # 数据模型：Prisma 多数据库 RDB
 
-**Status**: Awaiting fourth owner ER approval
-**Audited baseline**: `main@10750ca`（包含 039 与 041）
+**Status**: Owner approved
+**Audited baseline**: merged `main@10750ca`（包含 039 与 041）
 **Audited on**: 2026-08-06
 **Current-schema coverage**: 当前 schema 的 84 个业务列已完成 84/84 审计；根据 Owner 最新反馈，
 Prisma 第一期候选模型收缩为 3 张业务表、30 个候选字段。
@@ -296,9 +296,9 @@ SQLite 与 PostgreSQL 使用独立 datasource、client 与 migration history，�
 允许差异仅包括 datasource provider、generator output、底层 migration SQL、SQLite pragmas 和
 PostgreSQL connection/pool configuration。
 
-## Owner approval gate
+## Owner approval record
 
-实施前需要 Owner 对第四轮 ER 确认：
+Owner 已批准以下第四轮 ER 决定，并要求进入开发：
 
 1. `integration_connections.capabilities` 使用单一动态 JSON，不建立 capability 子表，也不按能力加列。
 2. Prisma 第一期采用上述 3 张、30 字段模型。
@@ -311,4 +311,5 @@ PostgreSQL connection/pool configuration。
 7. 已批准项保持不变：保留 `projects.repository_connection_id`；删除 `session_events`、`artifacts`、
    `mystra_schema`、event-derived summary 和 `artifactId`。
 
-Owner 确认前不生成 Prisma schema、migration、implementation tasks 或业务代码。
+批准记录：2026-08-06。后续实现若改变三表、30 字段、关系、枚举或明确删除面，必须重新提交 Owner
+审批；实现任务和代码不得自行扩表。

@@ -4,15 +4,15 @@
 
 - [x] 用户已明确要求实现 PostgreSQL、Supabase、切换配置与 Installation 文档。
 - [x] 已将 hosted RDB 从排除项修订为批准部署目标。
-- [ ] 确认 Supabase 复用 PostgreSQL provider，而不是引入 Supabase Data API CRUD。
-- [ ] 确认切换只在进程启动时发生，不支持运行中热切库。
-- [ ] 确认 `RdbProvider` 内部异步化；除遗留删除面与 Integration capability 修订外，其他外部 payload 不变。
+- [x] 确认 Supabase 复用 PostgreSQL provider，而不是引入 Supabase Data API CRUD。
+- [x] 确认切换只在进程启动时发生，不支持运行中热切库。
+- [x] 确认 `RdbProvider` 内部异步化；批准删除面造成的上层失败只登记，不保留兼容 SQL。
 - [x] Owner 已要求 Prisma 第一期只采用 3 张业务表，并删除 `sessions`、`context_bundles`、`runners`、`session_events`、`artifacts`、`mystra_schema`。
 - [x] Owner 已明确 IntegrationConnection 只表达通用连接；repository、issue、PR、code review、CI、deploy 是零到多项 capability。
 - [x] Owner 已否决 capability 联动表；第一期使用 `integration_connections.capabilities` 单一 JSON 字段。
-- [ ] 确认 capability JSON 的统一 envelope 与枚举：`state=enabled|disabled|unavailable`。
-- [ ] 确认删除 event-derived Session coordination summary，不增加 phase/summary 替代字段。
-- [ ] 确认删除 `ExecutionContractReference.artifactId`，并将 `ExecutionSpecArtifact` 改为
+- [x] 确认 capability JSON 的统一 envelope 与枚举：`state=enabled|disabled|unavailable`。
+- [x] 确认删除 event-derived Session coordination summary，不增加 phase/summary 替代字段。
+- [x] 确认删除 `ExecutionContractReference.artifactId`，并将 `ExecutionSpecArtifact` 改为
   `ExecutionSpecSnapshot`，不设置替代 Artifact identity。
 - [x] Owner 已要求 `projects.base_branch` 改为 `repository_base_branch`。
 - [x] Owner 已要求删除 Project 的 `default_agent`、`runtime_config`、`prewarm_config`。
@@ -37,8 +37,9 @@
 ## 后续工程检查
 
 - [x] `/speckit.plan` 锁定 Prisma 版本与双 schema/migration 结构。
-- [ ] `plan-eng-review` 审查 CRITICAL 异步化 blast radius、事务、迁移恢复、pool lifecycle 与性能。
-- [ ] GitNexus 逐项分析 `RdbProvider`、`getDb`、provider factory、事务方法和全部消费者。
-- [ ] `/speckit.tasks` 仅在 owner ER approval、main sync 与 engineering re-review 后生成。
+- [x] `plan-eng-review` 审查 CRITICAL 异步化 blast radius、事务、迁移恢复、pool lifecycle 与性能。
+- [x] GitNexus 分析 `RdbProvider`、`SqliteRdbProvider`、`getDb`、`ensureCurrentSchema` 和执行流。
+- [x] `/speckit.tasks` 在 owner ER approval、main sync 与 engineering re-review 后生成，共 60 项且格式检查通过。
+- [x] `/speckit.analyze` 验证 40/40 requirements 有任务覆盖，0 constitution 冲突、0 未映射任务、0 CRITICAL/HIGH 不一致。
 - [ ] SQLite 与真实 PostgreSQL 运行同一 contract suite。
 - [ ] Supabase 外部 connectivity 若缺少 project credentials，证据必须明确标记未执行。

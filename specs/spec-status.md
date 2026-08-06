@@ -36,7 +36,7 @@
 | 039-github-project-onboarding      | ✓     | ✓  | ✓   | ● 24/44 (54%) |
 | 040-github-integration-connections | -       | -    | -     | -         |
 | 041-github-integration-connections | ✓     | ✓  | ✓   | ● 5/55 (9%) |
-| 040-prisma-rdb                     | ✓     | ✓  | -     | -         |
+| 040-prisma-rdb                     | ✓     | ✓  | ✓   | ● 0/60 (0%) |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -71,4 +71,4 @@
 <!-- feature: 039-github-project-onboarding has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=44 tasks_completed=24 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 040-github-integration-connections has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
 <!-- feature: 041-github-integration-connections has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=55 tasks_completed=5 checklist_files=requirements.md -->
-<!-- feature: 040-prisma-rdb has_spec=true has_plan=true has_tasks=false has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 040-prisma-rdb has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=60 tasks_completed=0 checklist_files=engineering-review.md,requirements.md -->

@@ -32,7 +32,7 @@ Prisma 成为 Mystra SQLite 与 PostgreSQL 持久化的 schema、migration、类
 
 ## 分阶段能力图
 
-1. owner 确认三表 ER、Integration capabilities JSON、逐字段说明与删除面，并同步 `main@10750ca` 的 039/041 contracts。
+1. 已完成：Owner 确认三表 ER、Integration capabilities JSON、逐字段说明与删除面，并同步 `main@10750ca` 的 039/041 contracts。
 2. 建立 SQLite/PostgreSQL Prisma schema、生成 client、迁移历史和 parity gate。
 3. 将 `RdbProvider` 异步化并迁移全部调用者与事务行为。
 4. 增加 provider config/factory、PostgreSQL 与 Supabase connection lifecycle。

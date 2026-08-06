@@ -2,7 +2,7 @@
 
 **Reviewed**: 2026-08-06
 **Plan**: [plan.md](../plan.md)
-**Status**: Re-review required，implementation blocked by owner ER approval and main sync
+**Status**: CLEAR，task decomposition approved
 
 ## Step 0：Scope Challenge
 
@@ -37,7 +37,7 @@
 040 HEAD `712f685` 只有 schema v3；`main@10750ca` 已增加 IntegrationConnection、Project FK、
 SecretProvider reference 和 schema v5。现在生成 Prisma baseline 会永久遗漏已批准合同。
 
-**Recommendation**: owner 批准 ER 后同步 `main@10750ca`；在此之前关闭 implementation gate。
+**Resolution**: Owner 已批准 ER，040 已 merge `main@10750ca`；039/041 contracts 已复核。
 
 ### A2 [P1] 双 generated client 共享实现需要三层 parity，confidence 9/10
 
@@ -67,11 +67,11 @@ clean build 需要在无 PG credentials 时 generate，但可连接的假 URL �
 summary；这与代码中 optional `IntegrationPlugin.capabilities` 矛盾，也不能表达 Linear issue-only 或
 Jenkins CI/deployment-only connection。
 
-**Owner revision, fourth approval pending**: 保留单一 provider-neutral `integration_connections`，以
+**Owner-approved revision**: 保留单一 provider-neutral `integration_connections`，以
 Zod-validated `capabilities` JSON 保存所有 capability envelope，不建立联动表。现有 GitHub repository
 fields 在 adoption 中无损合并；Project repository binding 增加 enabled `repositories` capability guard。
 同时移除 Project execution defaults、ContextBundle/Runner persistence。该修订再次改变
-plan/schema/API shape，因此旧 engineering verdict 失效，owner 批准后必须完整 re-review。
+plan/schema/API shape；最终复审未发现新的结构决策。
 
 ### A6 [P1] Project Repository snapshot 会制造 Provider 同步义务，confidence 10/10
 
@@ -191,7 +191,7 @@ migration implementation。两 lane，1 个主体 sequential，1 个有限 paral
 ## Completion Summary
 
 - Step 0: scope accepted as explicit owner scope，已排除非必要 hosted features。
-- Architecture Review: 8 findings，6 resolved/superseded in plan，2 open（第四轮 owner ER approval 与 main sync）。
+- Architecture Review: 8 findings，all resolved/superseded in plan；0 open。
 - Code Quality Review: 3 findings，all incorporated。
 - Test Review: diagram produced，0 unhandled gaps。
 - Performance Review: 2 findings，all incorporated。
@@ -205,6 +205,7 @@ migration implementation。两 lane，1 个主体 sequential，1 个有限 paral
 
 ## Verdict
 
-**RE_REVIEW_REQUIRED**。数据模型已按 owner 新决定整体移除 Session persistence，并保留先前批准删除的
-Session summary 与 `artifactId`；owner ER
-approval 与 main sync 后必须重跑 engineering review，implementation 继续关闭。
+**CLEAR**。最终三表模型已获 Owner 批准并同步主线；GitNexus 复审确认 `RdbProvider` 影响 95 个符号、
+39 条执行流、6 个模块，属于预期 CRITICAL blast radius。计划已经把保留的三表/Integration 凭据链列为
+核心验收，并把 Session/Runtime/Runner/ContextBundle/event/artifact 等批准删除面造成的失败限定为适配
+清单。0 unresolved decisions，0 critical silent gaps；可生成 implementation tasks。

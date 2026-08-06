@@ -11,7 +11,8 @@ PostgreSQL 使用独立 Prisma schema/config/generated client/migration history�
 PostgreSQL 资产，通过 pooled runtime URL 与 direct migration URL 配置。现有 `RdbProvider`
 领域方法全面异步化，所有内部调用者显式 `await`。除明确删除 Session persistence、event-derived
 Session summary、`artifactId`、Project execution defaults、Project Repository snapshot persistence、ContextBundle/Runner persistence，并修订
-IntegrationConnection capability payload 外，未删除的外部 payload 不变。
+IntegrationConnection capability payload 外，保留的三表领域合同保持稳定；批准删除面造成的上层
+payload/typecheck 失败只登记，不以兼容层修复。
 
 实现前强制同步 `main@10750ca` 中 039/041 的最终 IntegrationConnection、Project 与 SecretProvider
 contracts。SQLite 既有数据库
@@ -26,14 +27,14 @@ contracts。SQLite 既有数据库
 **Target Platform**: local macOS/Linux development，Node.js control-plane container/VM，Supabase network endpoint
 **Project Type**: pnpm monorepo，Next.js web service + MCP/CLI clients；Session/Runner persistence integration deferred
 **Performance Goals**: provider change不增加 N+1；PostgreSQL pool 有界；Task dispatch 维持原子性；常规单记录操作不超过现有查询数量级
-**Constraints**: 除已批准合同修订外 payload 不变；Prisma/driver types 不越界；SQLite 三张候选表获批字段无损，backfill connection capabilities JSON，并将 Project snapshot 的 stable external ID 提升为列；未知 schema fail closed；owner ER approval 与 main baseline sync 必须先完成
+**Constraints**: 三表 ER 已获批；Prisma/driver types 不越界；SQLite 三张获批表字段无损，backfill connection capabilities JSON，并将 Project snapshot 的 stable external ID 提升为列；未知 schema fail closed；批准删除面不保留兼容 SQL
 **Scale/Scope**: 3 张业务表；移除 Session、event/summary/artifact、ContextBundle/Runner persistence、Project execution defaults 和 Project Repository snapshot；Repo Info 获取/缓存不在本功能；三种启动 profiles
 
 ## Constitution Check
 
 ### Pre-research gate
 
-- **I. Specification Owns Product Boundaries**: PASS。constitution 2.3.0 已在 2026-08-06 显式批准 PostgreSQL 与 Supabase-backed PostgreSQL，同时继续排除 public multi-tenancy。
+- **I. Specification Owns Product Boundaries**: PASS。constitution 2.6.0 已在 2026-08-06 显式批准 PostgreSQL 与 Supabase-backed PostgreSQL，同时继续排除 public multi-tenancy。
 - **II. Typed Contracts**: PASS。配置由内部 Zod discriminated union 校验；domain objects 保持 `@mystra/shared`。
 - **III. Replaceable Providers**: PASS。保留 `RdbProvider`；Supabase 不成为第二条 Data API persistence path。
 - **IV. Secret Hygiene**: PASS。URL 只从环境注入，错误和日志必须 sanitize。
@@ -41,9 +42,9 @@ contracts。SQLite 既有数据库
 
 ### Post-design gate
 
-PASS with two hard gates：owner 尚未批准 ER；040 当前 HEAD 尚未同步已落在
-`main@10750ca` 的 039/041 persistence/shared-contract changes。baseline generation 与代码
-implementation 在两项解决前不得开始。
+PASS。Owner 已批准三表 ER；040 已 merge `main@10750ca` 并复核 039/041 persistence、GitHub
+connection 与 SecretProvider contracts。GitNexus final impact 显示 `RdbProvider` 为 CRITICAL：95 个
+符号、39 条执行流、6 个模块，实施按三表核心通过、批准删除面失败登记的边界分 slice。
 
 ## Architecture
 
@@ -186,8 +187,8 @@ Prisma datasource/migration 限制导致的必要复杂度。
 
 ### Phase 0：冻结 baseline 与工具链
 
-1. owner 批准 ER 后，将 `main@10750ca` merge/rebase 到 040；再次审计 039/041 的
-   IntegrationConnection、Project FK、SecretProvider ref 与 schema v5。
+1. 已 merge `main@10750ca`，并再次审计 039/041 的 IntegrationConnection、Project FK、
+   SecretProvider ref 与 schema v5。
 2. 锁定 Prisma/adapter/pg 版本与 pnpm lockfile。
 3. 建立 SQLite/PostgreSQL schema、provider-specific config、generated outputs 和 parity script。
 4. 从最终 3 表模型生成并审查两套 baseline migrations；SQLite adoption 将现有 connection 的
@@ -374,13 +375,15 @@ Lane B: Installation draft（可在 D 稳定前并行，但最终 verification �
 
 ## Implementation Gate
 
-**当前状态：CLOSED。** 解除条件：
+**当前状态：OPEN FOR IMPLEMENTATION。** 已完成：
 
-1. owner 批准 `data-model.md` 中的 ER、字段改名与移除面；
-2. 040 merge/rebase `main@10750ca` 后确认 schema v5 + 039/041 contracts；
-3. 重新运行 GitNexus analyze/impact；
-4. plan-eng-review 通过；
-5. `/speckit.tasks` 与 `/speckit.analyze` 完成。
+1. Owner 批准 `data-model.md` 中的 ER、字段改名与移除面；
+2. 040 merge `main@10750ca` 后确认 schema v5 + 039/041 contracts；
+3. 重新运行 GitNexus query/impact；
+4. plan-eng-review 复审通过。
+
+`/speckit.tasks` 已生成 60 项；只读 `/speckit.analyze` 对 40/40 requirements 建立任务映射，发现 0
+constitution 冲突、0 未映射任务、0 CRITICAL/HIGH 不一致。进入 TDD implementation。
 
 ## GSTACK REVIEW REPORT
 
@@ -388,9 +391,9 @@ Lane B: Installation draft（可在 D 稳定前并行，但最终 verification �
 |---|---|---|---:|---|---|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | 当前 reviewer 即 Codex，未启动未授权 sub-agent |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | RE_REVIEW_REQUIRED | Session 整表退出后的三表 ER 使旧 verdict 失效 |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | CLEAR | 11 个既有发现均已纳入 plan；0 unresolved，0 critical silent gaps |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | N/A | backend-only feature |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | Installation/quickstart 已纳入 eng review |
 
-**UNRESOLVED:** 2，owner ER approval 与 main baseline sync。
-**VERDICT:** design ready for owner ER review；implementation gate remains closed。
+**UNRESOLVED:** 0。
+**VERDICT:** ENG CLEARED；生成 tasks 并通过 consistency analysis 后进入实现。

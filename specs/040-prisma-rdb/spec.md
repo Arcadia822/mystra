@@ -3,7 +3,7 @@
 **Feature Branch**: `040-prisma-rdb`
 **Created**: 2026-08-05
 **Revised**: 2026-08-06
-**Status**: Awaiting fourth owner ER approval
+**Status**: Approved for implementation
 **Input**: 由 Prisma 接管 RDB，并实现 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL；提供启动时 provider 切换配置、独立迁移配置及 `INSTALLATION.md` 安装说明。Owner 反馈要求 capability 以内嵌 JSON 保存，不提前建立联动表；第一期同时移除待重做的 Project execution defaults、ContextBundle、Runner 与 Session persistence。Project 只保存 stable Repository identity；Task 只保留 identity、Project relation、Issue dispatch 幂等键和通用元数据，Issue/Repository snapshot 与 cache 设计留给后续 Integration 规格。
 
 ## User Scenarios & Testing
@@ -143,7 +143,7 @@ SQLite 或 `pg` 类型泄漏。
   `$queryRaw`、`$executeRaw`、`pg.query` 或 `better-sqlite3` 业务查询。Prisma Migrate 生成或审查的
   migration SQL 与旧 SQLite 接管前只读 fingerprint 不属于运行时业务 CRUD。
 - **FR-007**: Mystra MUST 保留 `RdbProvider` 作为 API、MCP、CLI、Web 与持久化实现之间的领域合同。
-- **FR-008**: `RdbProvider` MUST 迁移为异步方法以匹配 Prisma；所有内部调用者 MUST 显式 `await`。
+- **FR-008**: `RdbProvider` MUST 迁移为异步方法以匹配 Prisma；所有保留的内部调用者 MUST 显式 `await`。
   除 FR-029 至 FR-040 的明确删除、重命名、Repository identity 和 Integration capability 合同修订外，未删除的外部
   HTTP/MCP/CLI/Web payload 不得改变。
 - **FR-009**: Prisma model、input、transaction client、错误类、adapter、connection URL 和 pool 类型 MUST NOT 出现在 shared contracts 或 service boundaries。
