@@ -16,10 +16,12 @@ MYSTRA_EXECUTOR=docker
 MYSTRA_RUNNER_NAME=local-docker
 MYSTRA_RUNNER_CONCURRENCY=1
 COPILOT_GITHUB_TOKEN=...
-MYSTRA_GITHUB_TOKEN=...
 ```
 
 Repository and Agent credentials are scoped to the phases that require them.
+`COPILOT_GITHUB_TOKEN` authenticates the Agent only. GitHub repository clone,
+push, and review use a short-lived installation token obtained from the control
+plane for each phase; the Runner has no repository PAT environment variable.
 The base sandbox receives neither by default. Sandbox containers must not mount
 the host Docker socket or host home.
 

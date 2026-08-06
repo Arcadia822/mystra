@@ -492,6 +492,7 @@ export const projectSchema = z
     id: z.string().uuid(),
     name: z.string().min(1),
     slug: z.string().min(1),
+    repositoryConnectionId: z.string().uuid(),
     repository: repositorySnapshotSchema,
     baseBranch: z.string().min(1).default("main"),
     defaultAgent: agentNameSchema,
@@ -509,6 +510,7 @@ export const projectCreateSchema = z
   .object({
     name: z.string().min(1),
     slug: z.string().min(1),
+    repositoryConnectionId: z.string().uuid(),
     repository: repositorySnapshotSchema,
     baseBranch: z.string().min(1).default("main"),
     defaultAgent: agentNameSchema,
@@ -537,6 +539,7 @@ export const projectUpdateSchema = z
   .object({
     name: z.string().min(1).optional(),
     slug: z.string().min(1).optional(),
+    repositoryConnectionId: z.string().uuid().optional(),
     repository: repositorySnapshotSchema.optional(),
     baseBranch: z.string().min(1).optional(),
     defaultAgent: agentNameSchema.optional(),

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Mystra</title>
+  <desc id="desc">Mystra logo</desc>
+  <style>
+    .surface { fill: #2B312D; }
+    .foreground { fill: #E7ECE8; }
+
+    @media (prefers-color-scheme: dark) {
+      .surface { fill: #E7ECE8; }
+      .foreground { fill: #2B312D; }
+    }
+  </style>
+  <rect class="surface" x="192" y="192" width="640" height="640" rx="136"/>
+  <circle class="foreground" cx="568" cy="456" r="208"/>
+  <path
+    class="surface"
+    d="M 691.47 360.65 A 156 156 0 0 1 472.65 579.47 Q 457.69 566.31 471.83 552.17 L 664.17 359.83 Q 678.31 345.69 691.47 360.65 Z"
+  />
+</svg>

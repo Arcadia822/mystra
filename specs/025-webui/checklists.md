@@ -2,11 +2,12 @@
 
 ## Owner 评审
 
-- [ ] 确认 primary navigation 严格为 `Overview`、`Inbox`、`New Task`、`Projects`，并确认 `Settings` modal 与 `Recent Sessions` secondary route 的可达性。
+- [ ] 确认 primary navigation 严格为 `New`、`Search`、`Inbox`、`Issues`、`Automations`，并确认 Project-grouped Tasks 与 `Settings` modal 可达。
 - [ ] 确认 025 只负责 shell/framework 范围，不吞并页面级业务行为。
 - [ ] 确认并入 025 的页面探索材料仍与已实现行为分离，后续按独立实现切片推进。
 - [ ] 确认 Web UI shell 仍低于 API、Skill/MCP 和 CLI 等管理事实来源。
-- [ ] 确认 `prototype.md` 已提供可打开的独立 HTML 原型入口，而不是把文字说明伪装成原型。
+- [ ] 确认 `prototype.md` 已提供可运行 Control Plane 入口，并把旧独立 HTML 明确标为历史探索材料。
+- [ ] 确认 Inbox 使用左侧 review Task 卡片列表与右侧选中 Task 详情，Issues 继续保留 Task table，并验证窄屏堆叠。
 
 ## Spec 就绪度
 

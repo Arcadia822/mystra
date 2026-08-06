@@ -18,8 +18,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const parsed = projectCreateRequestSchema.parse(await request.json());
-    const resolved = await resolveProjectCreateInput(parsed, defaultIntegrationRegistry());
-    const project = getDb().createProject(resolved);
+    const db = getDb();
+    const resolved = await resolveProjectCreateInput(
+      parsed,
+      defaultIntegrationRegistry({ githubConnectionId: parsed.repository.connectionId }),
+      db,
+    );
+    const project = db.createProject(resolved);
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     if (error instanceof IntegrationFailure) {

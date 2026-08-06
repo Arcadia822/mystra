@@ -582,6 +582,7 @@ describe("projectSchema", () => {
       id: "00000000-0000-4000-8000-000000000010",
       name: "Castrel AI",
       slug: "castrel-ai",
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
       repository: remoteRepository,
       defaultAgent: "copilot",
       runtime: {
@@ -603,6 +604,7 @@ describe("projectSchema", () => {
     const parsed = projectCreateSchema.parse({
       name: "Castrel AI",
       slug: "castrel-ai",
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
       repository: remoteRepository,
       defaultAgent: "codex",
       runtime: {
@@ -620,6 +622,7 @@ describe("projectSchema", () => {
       slug: "remote-fixture",
       repository: {
         integration: "github",
+        connectionId: "00000000-0000-4000-8000-000000000039",
         identifier: "Arcadia822/mystra-remote-e2e",
       },
       defaultAgent: "copilot",
@@ -648,6 +651,7 @@ describe("projectSchema", () => {
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
+        repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
         repository: remoteRepository,
         defaultAgent: "codex",
       }),
@@ -660,6 +664,7 @@ describe("projectSchema", () => {
         id: "00000000-0000-4000-8000-000000000011",
         name: "Castrel AI",
         slug: "castrel-ai",
+        repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
         repository: remoteRepository,
         defaultAgent: "codex",
         runtime: {
@@ -685,6 +690,7 @@ describe("projectSchema", () => {
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
+        repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
         repository: remoteRepository,
         defaultAgent: "codex",
         runtime: {

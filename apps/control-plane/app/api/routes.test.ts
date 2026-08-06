@@ -1,10 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { generateKeyPairSync } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getDb, resetDbForTests } from "@/lib/db";
+import { resetGitHubAppServiceForTests } from "@/lib/integrations/github-app";
 import { POST as dispatchIntegrationIssue } from "./integrations/[integration]/issues/[identifier]/dispatch/route";
 import { POST as callMcp } from "./mcp/route";
 import { POST as postProject } from "./projects/route";
@@ -15,6 +17,7 @@ import { POST as registerRunner } from "./runner/register/route";
 import { POST as appendSessionEvent } from "./runner/sessions/[id]/events/route";
 import { POST as completeSession } from "./runner/sessions/[id]/result/route";
 import { GET as inspectAssignedSession } from "./runner/sessions/[id]/route";
+import { POST as getRepositoryCredential } from "./runner/sessions/[id]/repository-credential/route";
 import { POST as claimSession } from "./runner/sessions/route";
 import { POST as cancelSession } from "./sessions/[id]/cancel/route";
 import { GET as getSession } from "./sessions/[id]/route";
@@ -24,6 +27,7 @@ import { GET as listTaskSessions, POST as postTaskSession } from "./tasks/[id]/s
 import { GET as listTasks, POST as postTask } from "./tasks/route";
 
 let tempDir: string;
+const { privateKey: githubAppPrivateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 
 function jsonRequest(url: string, body: unknown, authorization?: string): Request {
   return new Request(url, {
@@ -65,11 +69,29 @@ const linearIssuePayload = {
   updatedAt: "2026-07-23T02:00:00.000Z",
 };
 
+const githubConnectionActivation = {
+  integration: "github",
+  provider: "github",
+  externalId: "18492",
+  account: { externalId: "42", login: "arcadia", type: "User" },
+  repositorySelection: "selected",
+  permissions: { contents: "write", pull_requests: "write" },
+} as const;
+
+function repositoryConnectionId(): string {
+  return getDb().getActiveIntegrationConnection("github")?.id
+    ?? getDb().activateIntegrationConnection(githubConnectionActivation).id;
+}
+
 function projectPayload(slug = "local-fixture") {
   return {
     name: "Local Fixture",
     slug,
-    repository: { integration: "github", identifier: "arcadia/mystra-fixture" },
+    repository: {
+      integration: "github",
+      connectionId: repositoryConnectionId(),
+      identifier: "arcadia/mystra-fixture",
+    },
     baseBranch: "main",
     defaultAgent: "codex",
     runtime: {
@@ -141,25 +163,34 @@ async function enrollRunner(runnerName = "runner-a") {
 beforeEach(async () => {
   tempDir = await mkdtemp(path.join(tmpdir(), "mystra-routes-"));
   process.env.MYSTRA_DB_PATH = path.join(tempDir, "mystra.db");
-  process.env.MYSTRA_GITHUB_TOKEN = "github-route-test-key";
+  process.env.MYSTRA_GITHUB_APP_ID = "12345";
+  process.env.MYSTRA_GITHUB_APP_CLIENT_ID = "Iv1.fixture";
+  process.env.MYSTRA_GITHUB_APP_CLIENT_SECRET = "client-secret";
+  process.env.MYSTRA_GITHUB_APP_SLUG = "mystra-fixture";
+  process.env.MYSTRA_GITHUB_APP_PRIVATE_KEY = githubAppPrivateKey.export({ type: "pkcs8", format: "pem" }).toString();
+  process.env.MYSTRA_GITHUB_APP_CALLBACK_URL = "http://localhost/api/integration-connections/github/oauth/callback";
   process.env.MYSTRA_RUNNER_REGISTRATION_SECRET = "enroll-test-secret";
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     const body = url.includes("api.linear.app")
       ? { data: { issue: linearIssuePayload } }
-      : githubRepositoryPayload;
+      : url.includes("/access_tokens")
+        ? { token: "ghs_route_test", expires_at: "2099-08-05T09:00:00.000Z" }
+        : githubRepositoryPayload;
     return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
   }));
   process.env.LINEAR_API_KEY = "linear-route-test-key";
   resetDbForTests();
+  resetGitHubAppServiceForTests();
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   resetDbForTests();
+  resetGitHubAppServiceForTests();
   delete process.env.MYSTRA_DB_PATH;
-  delete process.env.MYSTRA_GITHUB_TOKEN;
+  for (const key of Object.keys(process.env).filter((key) => key.startsWith("MYSTRA_GITHUB_APP_"))) delete process.env[key];
   delete process.env.MYSTRA_RUNNER_REGISTRATION_SECRET;
   delete process.env.LINEAR_API_KEY;
   await rm(tempDir, { force: true, recursive: true });
@@ -374,6 +405,22 @@ describe("stable Runner protocol and management routes", () => {
       { params: Promise.resolve({ id: session.id }) },
     );
     expect(inspected.status).toBe(200);
+
+    const credentialResponse = await getRepositoryCredential(jsonRequest(
+      `http://localhost/api/runner/sessions/${session.id}/repository-credential`,
+      { purpose: "clone" },
+      registration.credential,
+    ), { params: Promise.resolve({ id: session.id }) });
+    expect(credentialResponse.status).toBe(200);
+    expect(credentialResponse.headers.get("cache-control")).toBe("no-store, private");
+    expect(await json(credentialResponse)).toEqual({
+      credential: {
+        provider: "github",
+        username: "x-access-token",
+        secret: "ghs_route_test",
+        expiresAt: "2099-08-05T09:00:00.000Z",
+      },
+    });
 
     const observed = await appendSessionEvent(jsonRequest(
       `http://localhost/api/runner/sessions/${session.id}/events`,

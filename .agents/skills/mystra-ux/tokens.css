@@ -1,35 +1,71 @@
 :root {
-  --mystra-page: var(--page);
-  --mystra-sidebar: var(--sidebar);
-  --mystra-header: var(--header);
-  --mystra-panel: var(--panel);
-  --mystra-panel-muted: var(--panel-muted);
-  --mystra-input: var(--input);
+  --mystra-page: var(--background, #111513);
+  --mystra-sidebar: var(--surface1, #181c1a);
+  --mystra-header: var(--background, #111513);
+  --mystra-panel: var(--surface2, #202522);
+  --mystra-panel-muted: var(--surface1, #181c1a);
+  --mystra-popup: var(--surface2, #202522);
+  --mystra-input: var(--surface1, #181c1a);
+  --mystra-selected: var(--surface3, #2b312d);
 
-  --mystra-text: var(--text);
-  --mystra-text-secondary: var(--text-secondary);
-  --mystra-text-muted: var(--text-muted);
-  --mystra-text-inverse: var(--text-inverse);
+  --mystra-text: var(--text1, #e7ece8);
+  --mystra-text-secondary: var(--text2, #aab4ad);
+  --mystra-text-muted: var(--text3, #76817a);
+  --mystra-text-inverse: var(--accent-contrast, #111513);
 
-  --mystra-border: var(--border);
-  --mystra-border-strong: var(--border-strong);
-  --mystra-focus: var(--focus);
+  --mystra-border: var(--border, rgba(118, 129, 122, 0.17));
+  --mystra-border-strong: var(--border-visible, rgba(118, 129, 122, 0.3));
+  --mystra-focus: var(--accent, #74b98b);
 
-  --mystra-primary: var(--primary);
-  --mystra-primary-hover: var(--primary-hover);
-  --mystra-primary-soft: var(--primary-soft);
-  --mystra-primary-text: var(--primary-text);
+  --mystra-primary: var(--accent, #74b98b);
+  --mystra-primary-soft: var(--accent-soft, rgba(116, 185, 139, 0.18));
+  --mystra-success: var(--success, #5caa76);
+  --mystra-warning: var(--warning, #c7a45c);
+  --mystra-error: var(--danger, #c36f56);
+  --mystra-info: var(--signal-function, #5e86b7);
+  --mystra-attention: var(--signal-attention, #bb6677);
 
-  --mystra-success: var(--success);
-  --mystra-warning: var(--warning);
-  --mystra-error: var(--error);
+  --mystra-signal-keyword: var(--signal-keyword, #9478c0);
+  --mystra-signal-number: var(--signal-number, #c7a45c);
+  --mystra-signal-type: var(--signal-type, #499e95);
+  --mystra-signal-function: var(--signal-function, #5e86b7);
+  --mystra-signal-string: var(--signal-string, #5caa76);
 
-  --mystra-hover: var(--hover);
-  --mystra-selected: var(--selected);
-  --mystra-pressed: var(--pressed);
+  --mystra-hover: var(--surface2, #202522);
+  --mystra-pressed: var(--surface3, #2b312d);
 
-  --mystra-radius-compact: 6px;
-  --mystra-radius-panel: 8px;
-  --mystra-sidebar-width: 260px;
-  --mystra-header-height: 44px;
+  --mystra-radius-xs: 2px;
+  --mystra-radius-compact: 4px;
+  --mystra-radius-elevated: 6px;
+  --mystra-space-1: 4px;
+  --mystra-space-2: 8px;
+  --mystra-space-3: 12px;
+  --mystra-space-4: 16px;
+  --mystra-space-6: 24px;
+  --mystra-space-8: 32px;
+  --mystra-space-12: 48px;
+  --mystra-space-24: 96px;
+  --mystra-page-inset-inline: 16px;
+  --mystra-page-inset-inline-narrow: 12px;
+  --mystra-page-inset-top: 12px;
+  --mystra-page-inset-bottom: 32px;
+  --mystra-panel-inset-inline: 12px;
+  --mystra-compact-row-inset-inline: 8px;
+  --mystra-reading-body-inset: 24px;
+  --mystra-reading-body-inset-narrow: 16px;
+  --mystra-layout-gap: 12px;
+  --mystra-stack-gap: 8px;
+  --mystra-tight-gap: 4px;
+  --mystra-control-height-compact: 24px;
+  --mystra-control-height-header: 28px;
+  --mystra-control-height-standard: 32px;
+  --mystra-field-height-standard: 36px;
+  --mystra-control-height-touch: 44px;
+  --mystra-sidebar-width: 300px;
+  --mystra-sidebar-min-width: 240px;
+  --mystra-sidebar-max-width: 440px;
+  --mystra-header-height: 46px;
+  --mystra-row-height: 28px;
+  --mystra-font-size-ui: 12px;
+  --mystra-icon-size: 16px;
 }

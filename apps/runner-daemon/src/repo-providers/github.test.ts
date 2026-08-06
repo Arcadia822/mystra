@@ -4,7 +4,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { reviewRequestSchema } from "@mystra/shared";
 
-import { githubRepoProvider } from "./github.js";
+import { githubRepoProvider as rawGitHubRepoProvider } from "./github.js";
+
+const ephemeralCredential = {
+  provider: "github" as const,
+  username: "x-access-token" as const,
+  secret: "top-secret",
+  expiresAt: "2099-08-05T09:00:00.000Z",
+};
+
+const githubRepoProvider = {
+  ...rawGitHubRepoProvider,
+  pushBranch: (input: Parameters<typeof rawGitHubRepoProvider.pushBranch>[0]) => rawGitHubRepoProvider.pushBranch(input, ephemeralCredential),
+  createReview: (input: Parameters<typeof rawGitHubRepoProvider.createReview>[0]) => rawGitHubRepoProvider.createReview(input, ephemeralCredential),
+};
 
 const spawnMock = vi.hoisted(() => vi.fn());
 
@@ -77,9 +90,9 @@ describe("github repo provider", () => {
       baseBranch: "main",
       commitMessage: "Mystra task 500",
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       metadata: {
@@ -119,9 +132,9 @@ describe("github repo provider", () => {
       baseBranch: "main",
       commitMessage: "Mystra task 501",
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       metadata: {
@@ -152,9 +165,9 @@ describe("github repo provider", () => {
         "https://github.enterprise.example/acme/project.git",
       ),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {
@@ -207,9 +220,9 @@ describe("github repo provider", () => {
       reviewRequestSchema.parse({
         target: repositoryTarget("00000000-0000-4000-8000-000000000506"),
         auth: {
-          kind: "runner-env",
+          kind: "runtime-ref",
           provider: "github",
-          reference: "MYSTRA_GITHUB_TOKEN",
+          reference: "github-app-installation",
           metadata: {},
         },
         branch: {
@@ -223,13 +236,13 @@ describe("github repo provider", () => {
     ).toThrow("Review creation requires a pushed branch receipt");
   });
 
-  it("returns auth_invalid when the configured GitHub runner-env token is missing", async () => {
-    const result = await githubRepoProvider.createReview({
+  it("returns auth_invalid when the ephemeral installation credential is missing", async () => {
+    const result = await rawGitHubRepoProvider.createReview({
       target: repositoryTarget("00000000-0000-4000-8000-000000000507"),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {
@@ -248,7 +261,7 @@ describe("github repo provider", () => {
         branchName: "mystra/task-507",
       },
       errorCode: "auth_invalid",
-      errorMessage: "Missing GitHub auth token in MYSTRA_GITHUB_TOKEN",
+      errorMessage: "GitHub review creation requires an ephemeral installation credential",
       metadata: {},
     });
   });
@@ -266,9 +279,9 @@ describe("github repo provider", () => {
       baseBranch: "main",
       commitMessage: "Mystra task 508",
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       metadata: {
@@ -294,9 +307,9 @@ describe("github repo provider", () => {
     const result = await githubRepoProvider.createReview({
       target: repositoryTarget("00000000-0000-4000-8000-000000000509"),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {
@@ -337,9 +350,9 @@ describe("github repo provider", () => {
     const result = await githubRepoProvider.createReview({
       target: repositoryTarget("00000000-0000-4000-8000-000000000519"),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {
@@ -387,9 +400,9 @@ describe("github repo provider", () => {
       const result = await githubRepoProvider.createReview({
         target: repositoryTarget("00000000-0000-4000-8000-000000000520"),
         auth: {
-          kind: "runner-env",
+          kind: "runtime-ref",
           provider: "github",
-          reference: "MYSTRA_GITHUB_TOKEN",
+          reference: "github-app-installation",
           metadata: {},
         },
         branch: {
@@ -425,9 +438,9 @@ describe("github repo provider", () => {
         "https://github.com/acme/project/",
       ),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {
@@ -473,9 +486,9 @@ describe("github repo provider", () => {
     const result = await githubRepoProvider.createReview({
       target: repositoryTarget("00000000-0000-4000-8000-000000000503"),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {
@@ -562,9 +575,9 @@ describe("github repo provider", () => {
     const result = await githubRepoProvider.createReview({
       target: repositoryTarget("00000000-0000-4000-8000-000000000505"),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {
@@ -636,9 +649,9 @@ describe("github repo provider", () => {
     await githubRepoProvider.createReview({
       target: repositoryTarget("00000000-0000-4000-8000-000000000504"),
       auth: {
-        kind: "runner-env",
+        kind: "runtime-ref",
         provider: "github",
-        reference: "MYSTRA_GITHUB_TOKEN",
+        reference: "github-app-installation",
         metadata: {},
       },
       branch: {

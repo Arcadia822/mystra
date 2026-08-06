@@ -1,6 +1,6 @@
 # Mystra Platform
 
-> Issue-driven execution of coding agents, with reviewable evidence.
+> Ship software with agents.
 
 ## Runtime shape
 
@@ -80,6 +80,7 @@ pnpm lsp:typescript
 ```text
 RdbProvider           local SQLite first; cloud RDB later
 IntegrationPlugin     named repository and/or Issue capabilities
+IntegrationConnection durable non-secret binding to one provider installation
 RepoProvider          remote repository discovery and identity
 IssueProvider         GitHub repository-scoped; Linear read-only
 SandboxProvider       single-machine Docker first
@@ -90,12 +91,22 @@ AgentProvider         adapter-backed Agent execution
 GitLab may remain a replaceable Runner-side delivery implementation. It is not
 an enabled/default MVP intake Integration.
 
+The private single-node MVP has one active GitHub App installation connection.
+GitHub OAuth is used only to verify that the operator can access the selected
+installation. The OAuth user token is discarded after verification. GitHub App
+identity secrets remain server-side configuration; installation access tokens
+are minted on demand, expire quickly, and authorize both RepoProvider discovery
+and RepoDeliveryProvider clone/push/review. No GitHub personal-token fallback is
+part of the active contract.
+
 ## Client surfaces
 
 The Web API is canonical. MCP and CLI are thin adapters; Web is a secondary
-operator client. Current object navigation exposes Control Plane, Tasks,
-Runners, and Projects. Task detail owns child Session creation/listing; Session
-detail owns lifecycle and review evidence.
+operator client. The demo shell exposes New, Search, Inbox, Issues, and
+Automations, followed by Project-grouped Tasks whose icons show latest Session
+state. Existing Task, Session, Runner, and Project object routes remain directly
+reachable. The Automations menu item is presentation-only and adds no workflow
+runtime or persistence contract.
 
 ## Deployment direction
 

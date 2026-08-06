@@ -2,6 +2,7 @@ export * from "./cache.js";
 export * from "./coordination-session-summary.js";
 export * from "./events.js";
 export * from "./issue.js";
+export * from "./integrations.js";
 export * from "./management.js";
 export * from "./repository.js";
 export * from "./result.js";

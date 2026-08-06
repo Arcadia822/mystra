@@ -4,7 +4,7 @@
 
 ### I. Specification Owns Product Boundaries
 
-Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. Do not introduce caller auth, logs API or persistence, retry API, callback URLs, quality-gate fix loops, OAuth/webhooks/Issue write-back, Integration management UI, public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, per-repository secret management, hosted RDB, standing orders, or platform-owned workflow automation as incidental work.
+Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. The private single-node MVP permits one narrow GitHub App installation connection flow: OAuth verifies the installation owner, durable state stores only non-secret installation metadata, and short-lived installation tokens authorize repository discovery and delivery. Do not introduce caller auth, caller-login OAuth, logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, per-repository secret management, hosted RDB, standing orders, or platform-owned workflow automation as incidental work.
 
 ### II. Typed Contracts at Service Boundaries
 
@@ -29,6 +29,11 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Cloud services are provider implementations, not product architecture assumptions.
 - GitHub and Linear are the enabled MVP Integrations: GitHub provides remote
   repositories and repository-scoped Issues; Linear provides read-only Issues.
+- GitHub repository discovery and delivery MUST use the same active GitHub App
+  installation connection. OAuth user tokens are verification-only and MUST
+  not be persisted; installation access tokens are short-lived and MUST NOT
+  appear in durable state, logs, public responses, or evidence. A personal
+  access token fallback is intentionally absent.
 - GitLab is not an enabled/default Integration or control-plane RepoProvider.
   Its existing runner-side RepoDeliveryProvider may remain as a replaceable
   delivery implementation.
@@ -37,9 +42,11 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   repository inputs.
 - Mystra remote MCP is the primary submission path for other agents and skills.
 - Web API is the canonical management implementation; CLI and MCP are thin adapters over the same contracts.
-- Web UI is a secondary client. Its current object navigation exposes Control
-  Plane, Tasks, Runners, and Projects; Task detail creates child Sessions and
-  Session detail owns lifecycle and review evidence.
+- Web UI is a secondary client. Its demo shell exposes New, Search, Inbox,
+  Issues, and Automations, followed by Project-grouped Tasks with latest-Session
+  status icons. Existing Task, Session, Runner, and Project object routes remain
+  directly reachable. Automations is presentation-only in this shell slice and
+  does not create platform-owned workflow orchestration.
 - Runner output may influence internal execution facts and final Session
   results, but public activity timelines and stdout/stderr storage are out of scope.
 - Branch names and review titles/bodies belong to Session execution context.
@@ -48,6 +55,15 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 
 ## Amendment Notes
 
+- 2026-08-05: Approved a narrow GitHub App installation connection exception
+  for Project onboarding. OAuth is limited to installation-owner verification;
+  repository discovery and Runner delivery share short-lived installation
+  tokens without a personal-token fallback. Caller auth, webhooks, Issue
+  write-back, and a general Integration management catalog remain excluded.
+- 2026-08-05: Updated the 025 demo shell taxonomy to the owner-approved
+  Castrel-inspired menu and Project-grouped Task list, while keeping existing
+  object routes reachable and preserving the exclusion of platform-owned
+  workflow automation.
 - 2026-08-03: Reconciled the durable MVP boundary with landed features 033,
   035, 036, and 037 and the remaining 025 UI work. Current intake uses GitHub
   and Linear Integrations, every Project repository is remote and
@@ -78,4 +94,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.2.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-03
+**Version**: 2.3.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-05

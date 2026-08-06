@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mystra · GitHub Project Onboarding Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b0d;
+      --panel: #0d1114;
+      --panel-2: #11171b;
+      --panel-3: #151c21;
+      --line: #263038;
+      --line-strong: #394650;
+      --text: #ecf2f5;
+      --muted: #8c9aa4;
+      --quiet: #5f6c75;
+      --accent: #98f5cc;
+      --accent-ink: #07120d;
+      --danger: #ff8b8b;
+      --warning: #e8c56b;
+      --focus: #91c8ff;
+      --sidebar: 228px;
+      font-family: "SFMono-Regular", "Cascadia Code", "Roboto Mono", monospace;
+      font-size: 12px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; background: var(--bg); color: var(--text); }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px solid var(--focus); outline-offset: 2px; }
+
+    .app { min-height: 100vh; display: grid; grid-template-columns: var(--sidebar) 1fr; }
+    .sidebar { border-right: 1px solid var(--line); background: #0a0e11; padding: 14px 10px; display: flex; flex-direction: column; gap: 18px; }
+    .brand { height: 30px; display: flex; align-items: center; gap: 9px; padding: 0 7px; font-weight: 700; letter-spacing: .08em; }
+    .mark { width: 17px; height: 17px; border: 1px solid var(--accent); display: grid; place-items: center; color: var(--accent); }
+    .nav { display: grid; gap: 3px; }
+    .nav-label { padding: 0 7px 6px; color: var(--quiet); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; }
+    .nav-item { width: 100%; min-height: 30px; border: 0; background: transparent; display: flex; align-items: center; gap: 9px; padding: 0 8px; color: var(--muted); text-align: left; border-radius: 4px; }
+    .nav-item:hover, .nav-item.active { background: var(--panel-2); color: var(--text); }
+    .nav-glyph { width: 16px; color: var(--quiet); text-align: center; }
+    .project-head { display: flex; align-items: center; justify-content: space-between; padding-right: 4px; }
+    .icon-btn { width: 28px; height: 28px; border: 1px solid transparent; background: transparent; color: var(--muted); display: grid; place-items: center; border-radius: 4px; }
+    .icon-btn:hover { border-color: var(--line); background: var(--panel-2); color: var(--text); }
+    .settings-launch { margin-top: auto; }
+
+    .main { min-width: 0; }
+    .main-head { height: 45px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
+    .crumb { color: var(--muted); }
+    .main-body { padding: 28px; }
+    .hero { max-width: 850px; margin: 56px auto; border: 1px solid var(--line); background: var(--panel); padding: 24px; }
+    .hero h1 { font-size: 18px; margin: 0 0 8px; }
+    .hero p { color: var(--muted); line-height: 1.7; margin: 0; max-width: 620px; }
+    .demo-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; }
+
+    .button { min-height: 30px; border: 1px solid var(--line-strong); background: var(--panel-2); padding: 0 11px; border-radius: 4px; }
+    .button:hover { background: var(--panel-3); border-color: #53616b; }
+    .button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+    .button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+    .button.danger { color: var(--danger); }
+    .button:disabled { opacity: .42; cursor: not-allowed; }
+
+    .scrim { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .67); display: grid; place-items: center; padding: 22px; }
+    .scrim[hidden] { display: none; }
+    .modal { width: min(760px, 100%); max-height: min(820px, calc(100vh - 44px)); border: 1px solid var(--line-strong); background: var(--panel); display: flex; flex-direction: column; border-radius: 6px; }
+    .modal.settings { width: min(920px, 100%); height: min(760px, calc(100vh - 44px)); display: grid; grid-template-columns: 240px 1fr; }
+    .modal-head { min-height: 44px; border-bottom: 1px solid var(--line); padding: 0 14px 0 18px; display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-weight: 700; }
+    .modal-kicker { color: var(--quiet); margin-left: 8px; font-weight: 400; }
+    .modal-body { overflow: auto; padding: 20px; }
+    .modal-foot { min-height: 55px; border-top: 1px solid var(--line); padding: 11px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .foot-status { color: var(--muted); }
+    .foot-actions { display: flex; gap: 7px; }
+
+    .settings-nav { min-width: 0; border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 16px; }
+    .identity { padding: 2px 6px 10px; display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--line); }
+    .avatar { width: 27px; height: 27px; border: 1px solid var(--line-strong); background: var(--panel-3); display: grid; place-items: center; border-radius: 4px; }
+    .identity-meta small { display: block; color: var(--quiet); margin-top: 3px; }
+    .settings-pane { min-width: 0; display: flex; flex-direction: column; }
+    .settings-content { padding: 26px 28px; overflow: auto; }
+    .section-intro { margin-bottom: 24px; }
+    .section-intro h2 { margin: 0 0 7px; font-size: 15px; }
+    .section-intro p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .setting-group { display: grid; gap: 0; border-top: 1px solid var(--line); }
+    .setting-row { min-height: 72px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: center; padding: 14px 0; }
+    .setting-copy strong { display: block; font-weight: 600; margin-bottom: 5px; }
+    .setting-copy span { color: var(--muted); line-height: 1.5; }
+    .setting-control { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 210px; }
+    .connection { text-align: right; }
+    .connection strong { display: block; color: var(--accent); font-weight: 600; }
+    .connection small { color: var(--quiet); display: block; margin-top: 4px; }
+    .status-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; }
+
+    .source-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+    .source-tab { min-width: 112px; height: 36px; border: 1px solid var(--line); background: transparent; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border-radius: 4px; color: var(--muted); }
+    .source-tab.active { border-color: var(--line-strong); background: var(--panel-2); color: var(--text); }
+    .source-tab:disabled { opacity: .38; }
+    .soon { color: var(--quiet); font-size: 9px; text-transform: uppercase; }
+    .repo-picker { border: 1px solid var(--line); background: #0a0e11; }
+    .picker-head { min-height: 50px; border-bottom: 1px solid var(--line); padding: 9px 10px; display: flex; align-items: center; gap: 9px; }
+    .input, .select { min-height: 30px; border: 1px solid var(--line-strong); background: var(--bg); padding: 0 9px; border-radius: 3px; }
+    .input { width: 100%; }
+    .repo-list { max-height: 302px; overflow: auto; }
+    .repo-item { width: 100%; min-height: 58px; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; }
+    .repo-item:last-child { border-bottom: 0; }
+    .repo-item:hover { background: var(--panel-2); }
+    .repo-name { font-weight: 600; }
+    .repo-meta { color: var(--quiet); margin-top: 5px; }
+    .badge { border: 1px solid var(--line); color: var(--muted); padding: 3px 6px; border-radius: 3px; font-size: 10px; }
+    .state { min-height: 190px; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); line-height: 1.6; }
+    .state strong { color: var(--text); display: block; margin-bottom: 7px; }
+    .state .button { margin-top: 12px; }
+    .spinner { width: 17px; height: 17px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .config { display: none; }
+    .config.visible { display: block; }
+    .config .setting-group { margin-top: 2px; }
+    .repo-link { text-align: right; }
+    .repo-link strong { display: block; }
+    .repo-link small { display: block; margin-top: 4px; color: var(--quiet); }
+    .field { width: 230px; }
+    .error-strip { display: none; margin-top: 14px; border: 1px solid #6b3838; background: #1b1011; color: var(--danger); padding: 10px 12px; line-height: 1.5; }
+    .error-strip.visible { display: block; }
+    .prototype-note { position: fixed; right: 12px; bottom: 12px; z-index: 60; border: 1px solid var(--line); background: var(--panel); color: var(--quiet); padding: 7px 9px; }
+
+    @media (max-width: 720px) {
+      :root { --sidebar: 0px; }
+      .sidebar { display: none; }
+      .main-body { padding: 14px; }
+      .hero { margin: 18px auto; }
+      .scrim { padding: 8px; align-items: stretch; }
+      .modal, .modal.settings { width: 100%; max-height: none; height: 100%; border-radius: 0; }
+      .modal.settings { grid-template-columns: 1fr; }
+      .settings-nav { display: none; }
+      .settings-content { padding: 18px; }
+      .setting-row { grid-template-columns: 1fr; gap: 10px; }
+      .setting-control { min-width: 0; justify-content: flex-start; }
+      .connection, .repo-link { text-align: left; }
+      .field { width: 100%; }
+      .source-tabs { overflow: auto; }
+      .modal-body { padding: 14px; }
+      .modal-foot { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">M</span> MYSTRA</div>
+      <nav class="nav" aria-label="Primary">
+        <button class="nav-item active"><span class="nav-glyph">+</span>New</button>
+        <button class="nav-item"><span class="nav-glyph">/</span>Search</button>
+        <button class="nav-item"><span class="nav-glyph">↓</span>Inbox</button>
+        <button class="nav-item"><span class="nav-glyph">◇</span>Issues</button>
+        <button class="nav-item"><span class="nav-glyph">↻</span>Automations</button>
+      </nav>
+      <div class="nav">
+        <div class="project-head">
+          <div class="nav-label">Projects</div>
+          <button class="icon-btn" id="addProjectSide" aria-label="Add Project">+</button>
+        </div>
+        <button class="nav-item"><span class="nav-glyph">□</span>mystra</button>
+        <button class="nav-item"><span class="nav-glyph">□</span>control-plane</button>
+      </div>
+      <button class="nav-item settings-launch" id="openSettings"><span class="nav-glyph">⌁</span>Settings</button>
+    </aside>
+
+    <main class="main">
+      <header class="main-head">
+        <span class="crumb">New task</span>
+        <button class="button" id="addProjectTop">Add Project</button>
+      </header>
+      <div class="main-body">
+        <section class="hero">
+          <h1>GitHub Project onboarding</h1>
+          <p>This review surface preserves the current route while Settings and Add Project open as modals. Use the controls below to force repository picker states.</p>
+          <div class="demo-toolbar" aria-label="Prototype states">
+            <button class="button" data-state="list">Repositories</button>
+            <button class="button" data-state="loading">Loading</button>
+            <button class="button" data-state="empty">Empty</button>
+            <button class="button" data-state="error">Error</button>
+            <button class="button danger" data-action="disconnect">Disconnect demo</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="scrim" id="settingsScrim" hidden>
+    <section class="modal settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <aside class="settings-nav">
+        <div class="identity"><div class="avatar">A</div><div class="identity-meta">Arcadia<small>Local operator</small></div></div>
+        <nav class="nav">
+          <button class="nav-item">Appearance</button>
+          <button class="nav-item">Language</button>
+          <button class="nav-item active">Integrations</button>
+        </nav>
+      </aside>
+      <div class="settings-pane">
+        <header class="modal-head"><span class="modal-title" id="settingsTitle">Settings <span class="modal-kicker">/ Integrations</span></span><button class="icon-btn" data-close="settings" aria-label="Close">×</button></header>
+        <div class="settings-content">
+          <div class="section-intro"><h2>Integrations</h2><p>Connect services Mystra uses to discover repositories and deliver agent work.</p></div>
+          <div class="setting-group">
+            <div class="setting-row">
+              <div class="setting-copy"><strong>GitHub App</strong><span>Repository access for project discovery, clone, push, and pull requests.</span></div>
+              <div class="setting-control" id="githubDisconnected">
+                <div class="connection"><strong style="color:var(--muted)">Not connected</strong><small>Required for GitHub projects</small></div>
+                <button class="button primary" id="connectGithub">Connect</button>
+              </div>
+              <div class="setting-control" id="githubConnected" hidden>
+                <span class="status-dot" aria-hidden="true"></span>
+                <div class="connection"><strong>Connected</strong><small>arcadia · installation #18492</small></div>
+                <button class="button" id="reconnectGithub">Reconnect</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-copy"><strong>Repository access</strong><span>Controlled by the selected GitHub App installation.</span></div>
+              <div class="setting-control"><span class="badge" id="accessBadge">Unavailable</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="scrim" id="projectScrim" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="projectTitle">
+      <header class="modal-head"><span class="modal-title" id="projectTitle">Add Project <span class="modal-kicker">Bind a remote repository</span></span><button class="icon-btn" data-close="project" aria-label="Close">×</button></header>
+      <div class="modal-body">
+        <div class="source-tabs" aria-label="Project source">
+          <button class="source-tab active" aria-pressed="true"><span>GitHub</span><span>Selected</span></button>
+          <button class="source-tab" disabled><span>GitLab</span><span class="soon">Later</span></button>
+          <button class="source-tab" disabled><span>Other</span><span class="soon">Later</span></button>
+        </div>
+
+        <div id="notConnected" class="repo-picker" hidden>
+          <div class="state"><div><strong>Connect GitHub first</strong>Mystra needs a verified GitHub App installation before it can list repositories.<br><button class="button primary" id="settingsFromProject">Open Settings</button></div></div>
+        </div>
+
+        <div id="picker" class="repo-picker">
+          <div class="picker-head"><input class="input" id="repoSearch" aria-label="Search repositories" placeholder="Filter repositories by owner or name" /></div>
+          <div class="repo-list" id="repoList"></div>
+          <div class="state" id="loadingState" hidden><div><div class="spinner"></div><strong>Loading repositories</strong>Reading the current GitHub App installation scope.</div></div>
+          <div class="state" id="emptyState" hidden><div><strong>No repositories found</strong>The current installation has no matching repository access.<br><button class="button" data-state="list">Clear filter</button></div></div>
+          <div class="state" id="errorState" hidden><div><strong>Repositories unavailable</strong>GitHub returned a temporary error. Your modal state is intact.<br><button class="button" data-state="list">Retry</button></div></div>
+        </div>
+
+        <div class="config" id="config">
+          <div class="setting-group">
+            <div class="setting-row">
+              <div class="setting-copy"><strong>Repository</strong><span>The immutable remote source for this Project.</span></div>
+              <div class="setting-control"><div class="repo-link"><strong id="selectedRepo">arcadia/mystra</strong><small>Private · main</small></div><button class="button" id="changeRepo">Change</button></div>
+            </div>
+            <div class="setting-row">
+              <label class="setting-copy" for="projectName"><strong>Project name</strong><span>Human-readable label used throughout Mystra.</span></label>
+              <div class="setting-control"><input class="input field" id="projectName" value="Mystra" /></div>
+            </div>
+            <div class="setting-row">
+              <label class="setting-copy" for="projectSlug"><strong>Slug</strong><span>Stable identifier used by API and routes.</span></label>
+              <div class="setting-control"><input class="input field" id="projectSlug" value="mystra" /></div>
+            </div>
+            <div class="setting-row">
+              <label class="setting-copy" for="defaultAgent"><strong>Default Agent</strong><span>Preselected when a Task starts a Session.</span></label>
+              <div class="setting-control"><select class="select field" id="defaultAgent"><option>Codex</option><option>Copilot</option></select></div>
+            </div>
+            <div class="setting-row">
+              <label class="setting-copy" for="runtime"><strong>Runtime</strong><span>Execution profile resolved by the Runner.</span></label>
+              <div class="setting-control"><select class="select field" id="runtime"><option>Default Docker</option><option>Node 24</option></select></div>
+            </div>
+          </div>
+          <div class="error-strip" id="submitError">The repository is no longer accessible to this GitHub App installation. Choose another repository or reconnect GitHub.</div>
+        </div>
+      </div>
+      <footer class="modal-foot"><span class="foot-status" id="footStatus">Choose a repository to continue</span><div class="foot-actions"><button class="button ghost" data-close="project">Cancel</button><button class="button primary" id="createProject" disabled>Create Project</button></div></footer>
+    </section>
+  </div>
+
+  <div class="prototype-note">Interactive prototype · no real GitHub calls</div>
+
+  <script>
+    const repositories = [
+      { name: "arcadia/mystra", visibility: "Private", branch: "main" },
+      { name: "arcadia/castrel-ai", visibility: "Private", branch: "main" },
+      { name: "arcadia/open-agents-lab", visibility: "Public", branch: "main" },
+      { name: "castrel/control-plane", visibility: "Private", branch: "release" }
+    ];
+    let connected = true;
+    let pickerState = "list";
+
+    const byId = (id) => document.getElementById(id);
+    const show = (id) => { byId(id).hidden = false; requestAnimationFrame(() => byId(id).querySelector("button, input, select")?.focus()); };
+    const hide = (id) => { byId(id).hidden = true; };
+
+    function renderConnection() {
+      byId("githubDisconnected").hidden = connected;
+      byId("githubConnected").hidden = !connected;
+      byId("accessBadge").textContent = connected ? "4 repositories" : "Unavailable";
+    }
+
+    function renderRepos(filter = "") {
+      const list = byId("repoList");
+      const matches = repositories.filter((repo) => repo.name.toLowerCase().includes(filter.toLowerCase()));
+      list.innerHTML = "";
+      matches.forEach((repo) => {
+        const button = document.createElement("button");
+        button.className = "repo-item";
+        button.innerHTML = `<span><span class="repo-name">${repo.name}</span><span class="repo-meta">${repo.branch} · Updated recently</span></span><span class="badge">${repo.visibility}</span>`;
+        button.addEventListener("click", () => selectRepo(repo));
+        list.appendChild(button);
+      });
+      if (pickerState === "list" && !matches.length) setPickerState("empty");
+    }
+
+    function setPickerState(state) {
+      pickerState = state;
+      byId("picker").hidden = false;
+      byId("repoList").hidden = state !== "list";
+      byId("loadingState").hidden = state !== "loading";
+      byId("emptyState").hidden = state !== "empty";
+      byId("errorState").hidden = state !== "error";
+      if (state === "list") {
+        byId("repoSearch").value = "";
+        renderRepos();
+      }
+    }
+
+    function openProject() {
+      byId("config").classList.remove("visible");
+      byId("submitError").classList.remove("visible");
+      byId("createProject").disabled = true;
+      byId("footStatus").textContent = connected ? "Choose a repository to continue" : "GitHub connection required";
+      byId("notConnected").hidden = connected;
+      byId("picker").hidden = !connected;
+      if (connected) setPickerState(pickerState);
+      show("projectScrim");
+    }
+
+    function selectRepo(repo) {
+      byId("picker").hidden = true;
+      byId("selectedRepo").textContent = repo.name;
+      const shortName = repo.name.split("/")[1];
+      byId("projectName").value = shortName === "mystra" ? "Mystra" : shortName;
+      byId("projectSlug").value = shortName;
+      byId("config").classList.add("visible");
+      byId("createProject").disabled = false;
+      byId("footStatus").textContent = "Repository selected · ready to create";
+    }
+
+    document.querySelectorAll("[data-state]").forEach((button) => button.addEventListener("click", () => {
+      const state = button.dataset.state;
+      if (byId("projectScrim").hidden) openProject();
+      setPickerState(state);
+    }));
+    document.querySelectorAll("[data-close='settings']").forEach((button) => button.addEventListener("click", () => hide("settingsScrim")));
+    document.querySelectorAll("[data-close='project']").forEach((button) => button.addEventListener("click", () => hide("projectScrim")));
+    document.querySelectorAll("[data-action='disconnect']").forEach((button) => button.addEventListener("click", () => { connected = false; renderConnection(); openProject(); }));
+    byId("openSettings").addEventListener("click", () => show("settingsScrim"));
+    byId("addProjectTop").addEventListener("click", openProject);
+    byId("addProjectSide").addEventListener("click", openProject);
+    byId("connectGithub").addEventListener("click", () => { connected = true; renderConnection(); });
+    byId("reconnectGithub").addEventListener("click", () => { connected = false; renderConnection(); setTimeout(() => { connected = true; renderConnection(); }, 550); });
+    byId("settingsFromProject").addEventListener("click", () => { hide("projectScrim"); show("settingsScrim"); });
+    byId("changeRepo").addEventListener("click", () => { byId("config").classList.remove("visible"); byId("createProject").disabled = true; byId("footStatus").textContent = "Choose a repository to continue"; setPickerState("list"); });
+    byId("repoSearch").addEventListener("input", (event) => { pickerState = "list"; renderRepos(event.target.value); });
+    byId("createProject").addEventListener("click", () => { byId("submitError").classList.add("visible"); byId("footStatus").textContent = "Creation failed · your configuration is preserved"; });
+    ["settingsScrim", "projectScrim"].forEach((id) => byId(id).addEventListener("click", (event) => { if (event.target === byId(id)) hide(id); }));
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") { hide("settingsScrim"); hide("projectScrim"); } });
+    renderConnection();
+    renderRepos();
+  </script>
+</body>
+</html>

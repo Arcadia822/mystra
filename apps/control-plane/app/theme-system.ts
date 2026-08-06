@@ -1,5 +1,22 @@
 export type ThemeVariant = "light" | "dark";
 
+interface ExplicitThemeTokens {
+  canvas: string;
+  hairline: string;
+  hairlineSoft: string;
+  inkMuted: string;
+  inkSubtle: string;
+  onPrimary: string;
+  signalAttention: string;
+  signalFunction: string;
+  signalKeyword: string;
+  signalNumber: string;
+  signalType: string;
+  surface1: string;
+  surface2: string;
+  surface3: string;
+}
+
 export interface ControlPlaneThemeDefinition {
   id: string;
   label: string;
@@ -15,6 +32,7 @@ export interface ControlPlaneThemeDefinition {
     };
     ink: string;
     opaqueWindows: boolean;
+    tokens?: ExplicitThemeTokens;
     semanticColors: {
       diffAdded: string;
       diffRemoved: string;
@@ -24,12 +42,123 @@ export interface ControlPlaneThemeDefinition {
   };
 }
 
-const DEFAULT_UI_FONT =
-  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-const DEFAULT_CODE_FONT =
-  '"SFMono-Regular", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+const GRAPHITE_SIGNAL_FONT =
+  '"Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace';
+const DEFAULT_UI_FONT = GRAPHITE_SIGNAL_FONT;
+const DEFAULT_CODE_FONT = GRAPHITE_SIGNAL_FONT;
+
+export const THEME_STORAGE_KEY = "mystra-control-plane-theme-v2";
+
+export const CONTROL_PLANE_FOUNDATION_TOKENS = {
+  "--space-0": "0px",
+  "--space-half": "2px",
+  "--space-1": "4px",
+  "--space-row-gap": "4px",
+  "--space-control-gap": "6px",
+  "--space-2": "8px",
+  "--space-header-inset": "10px",
+  "--space-3": "12px",
+  "--space-4": "16px",
+  "--space-5": "20px",
+  "--space-6": "24px",
+  "--space-8": "32px",
+  "--space-12": "48px",
+  "--space-24": "96px",
+  "--control-height-compact": "24px",
+  "--control-height-header": "28px",
+  "--control-height-default": "32px",
+  "--field-height-default": "36px",
+  "--control-padding-compact": "8px",
+  "--control-padding-header": "10px",
+  "--control-padding-default": "12px",
+  "--row-height-compact": "28px",
+  "--touch-target": "44px",
+  "--page-inset-inline": "16px",
+  "--page-inset-inline-narrow": "12px",
+  "--page-inset-top": "12px",
+  "--page-inset-bottom": "32px",
+  "--content-inset": "12px",
+  "--panel-inset": "16px",
+  "--reading-body-inset": "24px",
+  "--reading-body-inset-narrow": "16px",
+  "--modal-inset": "20px",
+  "--popup-inset": "16px",
+  "--layout-gap": "12px",
+  "--stack-gap": "8px",
+  "--tight-gap": "4px",
+  "--composer-inset-top": "9px",
+  "--composer-inset-right": "7px",
+  "--composer-inset-bottom": "7px",
+  "--composer-inset-left": "9px",
+  "--sidebar-width-expanded": "300px",
+  "--shell-header-height": "46px",
+  "--radius-compact": "2px",
+  "--radius-control": "4px",
+  "--radius-panel": "6px",
+  "--radius-round": "999px",
+} as const;
+
+const CONTROL_PLANE_SEMANTIC_ALIASES = {
+  "--color-canvas": "var(--background)",
+  "--color-surface-panel": "var(--surface2)",
+  "--color-surface-popup": "var(--surface1)",
+  "--color-surface-hover": "var(--surface3)",
+  "--color-surface-selected": "var(--surface3)",
+  "--color-text-primary": "var(--text1)",
+  "--color-text-secondary": "var(--text2)",
+  "--color-text-muted": "var(--text3)",
+  "--color-border-soft": "var(--border)",
+  "--color-border-strong": "var(--border-visible)",
+  "--color-focus": "var(--accent)",
+  "--color-primary": "var(--accent)",
+  "--color-primary-foreground": "var(--accent-contrast)",
+  "--color-success": "var(--success)",
+  "--color-review": "var(--warning)",
+  "--color-error": "var(--danger)",
+  "--color-info": "var(--signal-function)",
+  "--color-backdrop": "rgb(0 0 0 / 56%)",
+} as const;
 
 export const CONTROL_PLANE_THEMES: ControlPlaneThemeDefinition[] = [
+  {
+    id: "graphite-signal",
+    label: "Graphite Signal",
+    description: "Mineral graphite surfaces with monospaced type and semantic system signals.",
+    codeThemeId: "graphite-signal",
+    variant: "dark",
+    theme: {
+      accent: "#74B98B",
+      contrast: 72,
+      fonts: {
+        code: GRAPHITE_SIGNAL_FONT,
+        ui: GRAPHITE_SIGNAL_FONT,
+      },
+      ink: "#E7ECE8",
+      opaqueWindows: true,
+      tokens: {
+        canvas: "#111513",
+        surface1: "#181C1A",
+        surface2: "#202522",
+        surface3: "#2B312D",
+        hairline: "rgba(118, 129, 122, 0.30)",
+        hairlineSoft: "rgba(118, 129, 122, 0.17)",
+        inkMuted: "#AAB4AD",
+        inkSubtle: "#76817A",
+        onPrimary: "#111513",
+        signalKeyword: "#9478C0",
+        signalNumber: "#C7A45C",
+        signalType: "#499E95",
+        signalFunction: "#5E86B7",
+        signalAttention: "#BB6677",
+      },
+      semanticColors: {
+        diffAdded: "#5CAA76",
+        diffRemoved: "#C36F56",
+        skill: "#9478C0",
+      },
+      surface: "#111513",
+    },
+  },
   {
     id: "notion-light",
     label: "Notion / Light",
@@ -178,7 +307,56 @@ export function getThemeById(themeId: string): ControlPlaneThemeDefinition | und
 }
 
 export function buildThemeCssVariables(themeDefinition: ControlPlaneThemeDefinition): Record<string, string> {
-  const { accent, contrast, fonts, ink, opaqueWindows, semanticColors, surface } = themeDefinition.theme;
+  const { accent, contrast, fonts, ink, opaqueWindows, semanticColors, surface, tokens } = themeDefinition.theme;
+
+  if (tokens) {
+    return {
+      ...CONTROL_PLANE_FOUNDATION_TOKENS,
+      ...CONTROL_PLANE_SEMANTIC_ALIASES,
+      "--font-sans": fonts.ui ?? DEFAULT_UI_FONT,
+      "--font-mono": fonts.code ?? DEFAULT_CODE_FONT,
+      "--background": tokens.canvas,
+      "--surface1": tokens.surface1,
+      "--surface2": tokens.surface2,
+      "--surface3": tokens.surface3,
+      "--surface-inset": tokens.surface1,
+      "--border": tokens.hairlineSoft,
+      "--border-visible": tokens.hairline,
+      "--text1": ink,
+      "--text2": tokens.inkMuted,
+      "--text3": tokens.inkSubtle,
+      "--accent": accent,
+      "--accent-soft": alpha(accent, 0.18),
+      "--accent-contrast": tokens.onPrimary,
+      "--success": semanticColors.diffAdded,
+      "--success-bg": alpha(semanticColors.diffAdded, 0.16),
+      "--success-border": alpha(semanticColors.diffAdded, 0.28),
+      "--warning": tokens.signalNumber,
+      "--warning-bg": alpha(tokens.signalNumber, 0.18),
+      "--warning-border": alpha(tokens.signalNumber, 0.28),
+      "--danger": semanticColors.diffRemoved,
+      "--danger-bg": alpha(semanticColors.diffRemoved, 0.16),
+      "--danger-border": alpha(semanticColors.diffRemoved, 0.28),
+      "--skill-accent": tokens.signalKeyword,
+      "--signal-keyword": tokens.signalKeyword,
+      "--signal-number": tokens.signalNumber,
+      "--signal-type": tokens.signalType,
+      "--signal-function": tokens.signalFunction,
+      "--signal-string": semanticColors.diffAdded,
+      "--signal-attention": tokens.signalAttention,
+      "--radius-xs": "2px",
+      "--radius-sm": "2px",
+      "--radius-md": "4px",
+      "--radius-elevated": "6px",
+      "--radius": "4px",
+      "--shadow-1": "none",
+      "--shadow-2": "none",
+      "--code-bg": tokens.surface1,
+      "--code-border": tokens.hairline,
+      "--code-text": ink,
+    };
+  }
+
   const depth = clamp(contrast / 100, 0, 1);
   const background = themeDefinition.variant === "light"
     ? mix(surface, ink, 0.025 + depth * 0.05)
@@ -198,6 +376,8 @@ export function buildThemeCssVariables(themeDefinition: ControlPlaneThemeDefinit
   const warning = mix(semanticColors.diffRemoved, accent, 0.55);
 
   return {
+    ...CONTROL_PLANE_FOUNDATION_TOKENS,
+    ...CONTROL_PLANE_SEMANTIC_ALIASES,
     "--font-sans": fonts.ui ?? DEFAULT_UI_FONT,
     "--font-mono": fonts.code ?? DEFAULT_CODE_FONT,
     "--background": background,
@@ -223,24 +403,19 @@ export function buildThemeCssVariables(themeDefinition: ControlPlaneThemeDefinit
     "--danger-bg": alpha(semanticColors.diffRemoved, themeDefinition.variant === "light" ? 0.12 : 0.16),
     "--danger-border": alpha(semanticColors.diffRemoved, themeDefinition.variant === "light" ? 0.24 : 0.28),
     "--skill-accent": semanticColors.skill,
-    "--page-glow": alpha(
-      themeDefinition.variant === "light" ? mix(surface, "#ffffff", 0.8) : accent,
-      themeDefinition.variant === "light" ? 0.42 : 0.12,
-    ),
-    "--page-wash": alpha(
-      themeDefinition.variant === "light" ? mix(surface, "#ffffff", 0.55) : surface,
-      themeDefinition.variant === "light" ? 0.14 : 0.04,
-    ),
-    "--theme-swatch-border": alpha(
-      themeDefinition.variant === "light" ? mix(surface, ink, 0.12) : accent,
-      themeDefinition.variant === "light" ? 0.22 : 0.28,
-    ),
-    "--shadow-1": themeDefinition.variant === "light"
-      ? `0 1px 2px ${alpha(ink, 0.04)}, 0 16px 40px ${alpha(ink, 0.05)}`
-      : `0 1px 2px ${alpha("#000000", 0.25)}, 0 16px 44px ${alpha("#000000", 0.24)}`,
-    "--shadow-2": themeDefinition.variant === "light"
-      ? `0 22px 64px ${alpha(ink, 0.1)}`
-      : `0 22px 70px ${alpha("#000000", 0.34)}`,
+    "--signal-keyword": semanticColors.skill,
+    "--signal-number": warning,
+    "--signal-type": accent,
+    "--signal-function": accent,
+    "--signal-string": semanticColors.diffAdded,
+    "--signal-attention": warning,
+    "--radius-xs": "2px",
+    "--radius-sm": "2px",
+    "--radius-md": "4px",
+    "--radius-elevated": "6px",
+    "--radius": "4px",
+    "--shadow-1": "none",
+    "--shadow-2": "none",
     "--code-bg": mix(surface, "#000000", themeDefinition.variant === "light" ? 0.88 : 0.34),
     "--code-border": border,
     "--code-text": themeDefinition.variant === "light" ? "#e8edf4" : "#d7deea",
@@ -259,10 +434,22 @@ export function applyThemeToDocument(themeDefinition: ControlPlaneThemeDefinitio
   }
 }
 
-export function buildThemeSwatch(themeDefinition: ControlPlaneThemeDefinition): string {
-  const accentGlow = alpha(themeDefinition.theme.accent, themeDefinition.variant === "light" ? 0.22 : 0.28);
-  const base = themeDefinition.theme.surface;
-  const secondary = mix(base, themeDefinition.theme.ink, themeDefinition.variant === "light" ? 0.08 : 0.18);
+export function buildThemeBootstrapScript(): string {
+  const presets = Object.fromEntries(CONTROL_PLANE_THEMES.map((theme) => [
+    theme.id,
+    {
+      codeThemeId: theme.codeThemeId,
+      id: theme.id,
+      variables: buildThemeCssVariables(theme),
+      variant: theme.variant,
+    },
+  ]));
+  const serializedPresets = JSON.stringify(presets).replaceAll("<", "\\u003c");
+  const serializedStorageKey = JSON.stringify(THEME_STORAGE_KEY);
 
-  return `linear-gradient(135deg, ${alpha(themeDefinition.theme.surface, themeDefinition.variant === "light" ? 0.96 : 0.9)}, transparent), linear-gradient(160deg, ${secondary}, ${accentGlow})`;
+  return `(()=>{try{const presets=${serializedPresets};const saved=localStorage.getItem(${serializedStorageKey});const theme=saved?presets[saved]:null;if(!theme)return;const root=document.documentElement;root.dataset.themeId=theme.codeThemeId;root.dataset.themeVariant=theme.variant;root.dataset.themePreset=theme.id;for(const [name,value] of Object.entries(theme.variables)){root.style.setProperty(name,value)}}catch{}})();`;
+}
+
+export function buildThemeSwatch(themeDefinition: ControlPlaneThemeDefinition): string {
+  return themeDefinition.theme.surface;
 }

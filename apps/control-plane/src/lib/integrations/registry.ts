@@ -8,6 +8,8 @@ import type {
   IssueProvider,
   RepoProvider,
 } from "./types";
+import { getDb } from "../db";
+import { getGitHubAppService } from "./github-app";
 
 export class IntegrationRegistry {
   private readonly integrations = new Map<string, IntegrationPlugin>();
@@ -76,10 +78,23 @@ export class IntegrationRegistry {
   }
 }
 
-export function defaultIntegrationRegistry(): IntegrationRegistry {
+export function defaultIntegrationRegistry(options: { githubConnectionId?: string } = {}): IntegrationRegistry {
   return new IntegrationRegistry([
     createGitHubIntegration({
-      token: process.env.MYSTRA_GITHUB_TOKEN,
+      token: undefined,
+      credentialSource: async () => {
+        const db = getDb();
+        const connection = options.githubConnectionId
+          ? db.getIntegrationConnection(options.githubConnectionId)
+          : db.getActiveIntegrationConnection("github");
+        if (!connection || connection.integration !== "github" || connection.provider !== "github") {
+          throw new IntegrationFailure({
+            code: "INTEGRATION_CONNECTION_NOT_FOUND",
+            message: "GitHub App connection is not available",
+          });
+        }
+        return (await getGitHubAppService().getInstallationCredential(connection.externalId)).secret;
+      },
       fetchImpl: globalThis.fetch,
     }),
     createLinearIntegration({

@@ -1,6 +1,6 @@
 # Mystra Process
 
-> Orchestration of the coding agents, for the coding agents, by the coding agents.
+> Ship software with agents.
 
 ## Context Loading
 
@@ -21,6 +21,9 @@ GitHub RepoProvider plus repository-scoped IssueProvider, read-only Linear
 IssueProvider, direct Agent execution, and a single-machine sandbox path. Every
 Project repository is remote and provider-resolved. Product runtime MUST NOT
 depend on a WorkflowProvider, workflow blueprint or workflow node graph.
+The approved GitHub App connection exception uses OAuth only to verify an
+installation and uses short-lived installation tokens for both discovery and
+delivery; it does not introduce caller auth or a general Integration catalog.
 
 1. Use `AGENTS.md` to route the work through `aaa-spec-kit` and identify the relevant project-local skill/process.
 2. Use the 5xP root files for stable project context:

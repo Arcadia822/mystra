@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-interface ResourceState<T> {
+export interface ResourceState<T> {
   data: T | null;
   error: string | null;
   isLoading: boolean;

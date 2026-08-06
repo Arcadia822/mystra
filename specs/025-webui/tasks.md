@@ -7,27 +7,27 @@
 
 ## 阶段 1：准备
 
-- [ ] T001 审查 `specs/025-webui/contracts/shell-contract.md`，在编辑 `apps/control-plane/app/_components/app-shell.tsx` 前确认已批准 route taxonomy 与 035/036 对象页迁移策略
-- [ ] T002 [P] 审查 `apps/control-plane/app/theme-system.ts` 中的当前 theme contract
-- [ ] T003 [P] 审查 `apps/control-plane/app/globals.css` 中的当前 shell styles
+- [x] T001 审查 `specs/025-webui/contracts/shell-contract.md`，在编辑 `apps/control-plane/app/_components/app-shell.tsx` 前确认已批准 route taxonomy 与 035/036 对象页迁移策略
+- [x] T002 [P] 审查 `apps/control-plane/app/theme-system.ts` 中的当前 theme contract
+- [x] T003 [P] 审查 `apps/control-plane/app/globals.css` 中的当前 shell styles
 - [ ] T004 [P] 打开 `specs/025-webui/prototype.md` 指向的独立 HTML 原型，确认实现前参考表面可访问
 
 ## 阶段 2：基础 Shell 模型
 
-- [ ] T005 在 `apps/control-plane/app/_components/app-shell.tsx` 中定义四个 primary routes、Settings action、Recent Sessions secondary route、labels、layout archetypes 与 placeholder state
-- [ ] T006 在 `apps/control-plane/app/_components/app-shell.tsx` 中增加 framework-owned locale copy scaffolding，用于 route labels 和 placeholder text
-- [ ] T007 在 `apps/control-plane/app/globals.css` 中更新 shell 层 CSS primitives，用于 navigation、active route state、route content frames 与 narrow viewport navigation
+- [x] T005 在 `apps/control-plane/app/_components/app-shell.tsx` 中定义 `New`、`Search`、`Inbox`、`Issues`、`Automations`、Project-grouped Tasks、Settings action 与 framework-owned labels
+- [x] T006 在 shell components 中增加 framework-owned locale copy scaffolding，用于 navigation 与 Settings 文案
+- [x] T007 在 `apps/control-plane/app/globals.css` 中更新 shell 层 CSS primitives，用于 12px typography、navigation、Task status icon、active state 与 narrow viewport navigation
 
 ## 阶段 3：用户故事 1 - 操作员使用已批准的 Shell 框架（优先级：P1）
 
 **目标**：Operator 可以打开 shell，只看到已批准顶层 routes，并在 shell-valid page frames 之间导航。
 
-**独立测试**：在 desktop 与 narrow viewport 打开 app，确认 primary navigation 只包含 `Overview`、`Inbox`、`New Task`、`Projects`，并确认 Settings modal 与 Recent Sessions secondary route 可达。
+**独立测试**：在 desktop 与 narrow viewport 打开 app，确认 primary navigation 只包含 `New`、`Search`、`Inbox`、`Issues`、`Automations`，并确认 Project-grouped Tasks 与 Settings modal 可达。
 
-- [ ] T008 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 中用已批准 primary/secondary taxonomy 替换当前 rail taxonomy
+- [x] T008 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 中用已批准 primary/secondary taxonomy 替换当前 rail taxonomy
 - [ ] T009 [US1] 在 `apps/control-plane/app/_components/app-shell.tsx` 与现有 route pages 中为每个已批准 surface 渲染一致 route frame
 - [ ] T010 [US1] 确保尚无实现切片的 route page 显示 placeholder 或 read-only framing，同时保留 035/036 已交付对象页
-- [ ] T011 [US1] 在浏览器中验证 desktop 与 narrow viewport navigation 行为
+- [x] T011 [US1] 在浏览器中验证 desktop 与 narrow viewport navigation 行为
 
 ## 阶段 4：用户故事 2 - 后续页面实现切片接入 Shell 而不重新定义 Shell（优先级：P1）
 
@@ -45,10 +45,10 @@
 
 **独立测试**：切换 themes，检查 framework-owned copy，并在 desktop 与 narrow viewport 验证 shell。
 
-- [ ] T015 [US3] 在 `apps/control-plane/app/_components/app-shell.tsx` 中保留现有 theme persistence，并应用到新的 shell route frames
-- [ ] T016 [US3] 在 `apps/control-plane/app/_components/app-shell.tsx` 中把 locale scaffolding 应用到 framework-owned labels 与 placeholder text
-- [ ] T017 [US3] 在 `apps/control-plane/app/globals.css` 中更新 narrow viewport navigation 的 responsive shell styling
-- [ ] T018 [US3] 用浏览器验证 theme switching 与 narrow viewport 行为
+- [x] T015 [US3] 在 `apps/control-plane/app/_components/app-shell.tsx` 中保留现有 theme persistence，并应用到新的 shell route frames
+- [x] T016 [US3] 在 shell components 中把 locale scaffolding 应用到 framework-owned labels 与 Settings text
+- [x] T017 [US3] 在 `apps/control-plane/app/globals.css` 中更新 narrow viewport navigation 的 responsive shell styling
+- [x] T018 [US3] 用浏览器验证 theme switching 与 narrow viewport 行为
 
 ## 阶段 6：用户故事 4 - 前端维护者复用共享布局和组件（优先级：P2）
 
@@ -71,10 +71,43 @@
 
 ## 阶段 8：验证
 
-- [ ] T024 运行 `pnpm --filter @mystra/control-plane typecheck`
-- [ ] T025 运行 `pnpm --filter @mystra/control-plane test`
-- [ ] T026 使用 `node scripts/render-spec-view.mjs --feature 025-webui` 重新渲染 `specs/025-webui/index.html`
+- [x] T024 运行 `pnpm --filter @mystra/control-plane typecheck`
+- [x] T025 运行 `pnpm --filter @mystra/control-plane test`
+- [x] T026 使用 `node scripts/render-spec-view.mjs --feature 025-webui` 重新渲染 `specs/025-webui/index.html`
 - [ ] T027 在 Codex browser 中验证 `SPEC`、`FEATURES`、`CHECKLISTS`、`PROTOTYPE`、`PLAN`、`TASKS` tabs
+- [x] T028 [US3] 在 `apps/control-plane/app/theme-system.ts` 中增加 Graphite Signal explicit token preset、设为默认，并用单元测试验证源 token 与 flat swatch
+- [x] T029 [US4] 将 Graphite Signal 的 token、monospaced typography、0–4px radius、flat elevation 与 reduced-motion 规则同步到 `globals.css` 和 `.agents/skills/mystra-ux/`
+- [x] T030 用真实浏览器验证 Graphite Signal 默认主题、Settings theme 切换、320/768/1024/1440px 视口、console 和窄视口可访问名称
+- [x] T031 [US1] 实现居中 New composer，并按批准顺序呈现附件、Repository、Issue、语音与发送 controls
+- [x] T032 [US1] 将 Search 实现为 native dialog modal，并复用 Task filter model
+- [x] T033 [US1] 实现可持久化的 sidebar 收起/展开，并在 Automations 后增加 Project list
+- [x] T034 [US1] 为 Inbox 新增 route，并让 Inbox 与 Issues 复用 Castrel-aligned Task table component
+- [x] T035 [US1] 从主区域 header 移除本地控制平面环境说明
+- [x] T036 为 shell filter、Inbox selection 和 Project grouping 增加聚焦单元测试
+- [x] T037 运行最终 control-plane typecheck/test/build、GitNexus change detection、HTTP 与真实浏览器回归
+- [x] T038 [US1] 将 Inbox 从共享 table 改为响应式 master-detail 布局，左侧呈现 review Task 卡片列表，右侧呈现选中 Task 详情，并保留搜索、刷新、加载、空态与完整 Task 导航
+- [x] T039 [US4] 将 Castrel UX 的结构、密度、层级和交互规则平移到 `.agents/skills/mystra-ux/`，并以 dark-tech design system 替换具体配色
+- [x] T040 [US1] 将 New composer 收敛到 Castrel 的 3 行高度、9/7/7/9px 输入 padding 与无分隔线 ghost footer
+- [x] T041 [US1] 移除 Projects/Tasks heading count，并为 Projects heading 增加 ghost add action
+- [x] T042 [US1] 将 sidebar collapse 改为完整 0px 隐藏，并在主 header 提供 brand、New 与重新展开 control
+- [x] T043 运行 skill validation、control-plane typecheck/test/build、GitNexus change detection、HTTP 与真实浏览器回归
+- [x] T044 [US4] 以 `component-migration.md` 固定 Castrel v2 来源提交、当前表面迁移边界、源到目标组件映射和 token 约束
+- [x] T045 [US3] 扩展 `theme-system.ts` 与 `globals.css` 的 semantic token 输出，覆盖通用 spacing、control height、padding、radius、modal/popup inset 和 composer 特殊 inset，并增加自动测试
+- [x] T046 [US4] 建立 Mystra-owned action、surface、dialog、field 与 state 共享组件，保留原生 button/link/input/select/dialog 语义
+- [x] T047 [US1] 用共享组件替换 shell、New、Search、Inbox、Issues 和 Settings 当前页面级原语，同时保留现有 API、路由和业务状态行为
+- [x] T048 [US3] 审计上述表面的可见 color、background、border、focus、padding、gap、height 与 radius，消除新增页面级裸值并验证主题切换
+- [x] T049 运行聚焦测试、control-plane typecheck/test/build、GitNexus `detect_changes`、HTTP 与 320/768/1024/1440px 真实浏览器回归；79/79 tests、typecheck、production build、HTTP 200、四档 breakpoint、theme/modal/sidebar/accessibility 与零 console error/warning 均通过
+- [x] T050 [US3] 将 spacing/radius/control-height/responsive role token 与首帧主题合同写入 025 UX Intent 和 `.agents/skills/mystra-ux/`
+- [x] T051 [US3] 用主题测试锁定所有 preset 的 monospace、0/2/4/6px radius 与 hydration 前保存主题 bootstrap
+- [x] T052 [US1] 将 `<=1024px` sidebar 改为默认关闭的 accessible overlay，并让 shell、Inbox 与 Issues 复用单一 `/api/tasks` 轮询资源
+- [x] T053 [US3] 用命名 role token 收敛 shell、Search、Inbox、table、Settings、Projects 与共享 page frame 的 padding、gap、radius 和 control density，保留 composer 9/7/7/9px 特例
+- [x] T054 重新渲染 025 Spec View，并运行 control-plane test/typecheck/build、GitNexus `detect_changes`、HTTP 与 320/768/1024/1440px 真实浏览器回归
+- [x] T055 [US3] 将 Castrel Settings Modal 的 920×760 双栏容器、240px identity/search/tab 导航、44px 内容标题栏与 responsive reflow 迁移到 `shell-settings.tsx` 和 `globals.css`，同时保留 Mystra Theme/Language 契约与 dark-tech token
+- [x] T056 更新 Settings 专用独立 HTML 原型并重新渲染 025 Spec View
+- [x] T057 运行 control-plane typecheck/test/build、GitNexus change detection、HTTP 与真实浏览器 Settings 回归；76/76 tests、production build、1280 桌面与 320/768/1024/1440 responsive、tab/search/Escape/backdrop 和 accessibility tree 均通过。Settings 交互未产生 console 错误；页面仍有一条来自并发 `layout.tsx` theme bootstrap `<script>` 的 React console error，本切片未越界修改该启动路径
+- [x] T058 [US4] 按 owner feedback 移除所有 input/textarea/select 及 Settings/New/Inbox field container 的 focus accent border、outline 与 halo，保留非输入命令控件的 keyboard-visible focus，并完成自动测试和真实浏览器回归；80/80 tests、New/Search/Settings/Inbox/Issues computed-style 验证与零 console error/warning 均通过
+- [x] T059 [US3] 按 owner feedback 将 Settings 重组为 `Account`、`Appearance`、`Team`、`Integrations` 四个 Tab，把 Theme/Language 收入 Appearance、GitHub connection 保留在 Integrations，并用 Mystra-owned `SettingGroup` / `SettingRow` 对齐 Castrel v2 设置行 anatomy；Account/Team 未支持写操作保持诚实只读。
+- [x] T060 重新渲染 025/039 Spec View，并运行 11/11 focused tests、96/96 control-plane tests、typecheck、production build、`git diff --check` 与真实浏览器回归；四 Tab、搜索、Theme/Language、GitHub 状态、320/768/1024/1440px、accessibility tree 和 0 console error/warning 均通过。本地 `file://` Spec View 被应用内浏览器安全策略拒绝，未规避策略。
 
 ## 依赖与执行顺序
 

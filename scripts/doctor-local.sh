@@ -68,6 +68,14 @@ for secret_name in MYSTRA_RUNNER_REGISTRATION_SECRET MYSTRA_GITLAB_TOKEN COPILOT
   fi
 done
 
+for app_secret_name in MYSTRA_GITHUB_APP_ID MYSTRA_GITHUB_APP_CLIENT_ID MYSTRA_GITHUB_APP_CLIENT_SECRET MYSTRA_GITHUB_APP_SLUG MYSTRA_GITHUB_APP_PRIVATE_KEY MYSTRA_GITHUB_APP_CALLBACK_URL; do
+  if [ -n "${!app_secret_name:-}" ]; then
+    ok "$app_secret_name=<set>"
+  else
+    warn "$app_secret_name is not set in the control-plane environment"
+  fi
+done
+
 if curl --noproxy '*' -fsS "$CONTROL_PLANE_URL/api/runners" >/tmp/mystra-runners.json; then
   ok "control plane reachable: $CONTROL_PLANE_URL"
   node <<'NODE'

@@ -15,7 +15,7 @@ MVP shell 中已批准的 route 或 shell action。
 
 字段：
 
-- `id`：稳定 surface id，例如 `overview`、`inbox`、`new-task`、`projects`、`settings` 或 `recent-sessions`。
+- `id`：稳定 surface id，例如 `new`、`search`、`inbox`、`issues`、`automations`、`project-tasks` 或 `settings`。
 - `label`：框架拥有的展示标签。
 - `placement`：`primary`、`secondary` 或 `shell-action`。
 - `layout`：已批准的布局范式之一。
@@ -24,7 +24,7 @@ MVP shell 中已批准的 route 或 shell action。
 
 校验：
 
-- 025 中只有四个 primary routes、一个 secondary route 和一个 shell action 是有效的。
+- 025 中只有五个 primary menu entries、一个 Project-grouped Tasks section 和一个 Settings shell action 是有效的。
 - route label 属于框架拥有的 copy，必须为后续本地化做好准备。
 - 除非 025 的后续实现切片明确拥有页面行为，否则不得添加页面业务行为。
 
@@ -57,6 +57,12 @@ shell 层页面承载模型。
 
 - preference 只属于本地 UI concern。
 - preference 不得变成产品租户、项目或 runtime state。
+
+## SidebarTaskGroup
+
+由 `projectId` 标识的侧边栏导航分组，显示 Project label 与其 Tasks。每个
+Task row 使用最新 Session state 派生 icon；没有 Session 时使用 idle icon。
+它只消费现有 Project/Task API，不创建新的服务合同。
 
 ## PlaceholderRouteState
 

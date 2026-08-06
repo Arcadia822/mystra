@@ -14,6 +14,8 @@ import {
   projectSelectionViewSchema,
   runnerDetailResponseSchema,
   runnerListResponseSchema,
+  runnerRepositoryCredentialRequestSchema,
+  runnerRepositoryCredentialResponseSchema,
   sessionDetailResponseSchema,
   sessionListResponseSchema,
   sessionRecordSchema,
@@ -22,6 +24,7 @@ import {
   taskDetailResponseSchema,
   taskListResponseSchema,
   taskRecordSchema,
+  integrationConnectionListResponseSchema,
 } from "./management.js";
 
 const remoteRepository = {
@@ -84,6 +87,52 @@ const session = {
   finishedAt: "2026-05-15T00:02:00.000Z",
 } as const;
 
+const repositoryConnectionId = "00000000-0000-4000-8000-000000000039";
+
+describe("integration connection management contracts", () => {
+  it("returns provider readiness and non-secret connection metadata", () => {
+    const parsed = integrationConnectionListResponseSchema.parse({
+      providers: [{
+        integration: "github",
+        connectionType: "github-app-installation",
+        configured: true,
+        connectUrl: "/api/integration-connections/github/connect",
+      }],
+      connections: [{
+        id: repositoryConnectionId,
+        integration: "github",
+        provider: "github",
+        externalId: "18492",
+        account: { externalId: "42", login: "arcadia", type: "User" },
+        repositorySelection: "selected",
+        permissions: { contents: "write", pull_requests: "write" },
+        status: "active",
+        createdAt: "2026-08-05T08:00:00.000Z",
+        updatedAt: "2026-08-05T08:00:00.000Z",
+      }],
+    });
+    expect(parsed.connections[0]?.externalId).toBe("18492");
+    expect(JSON.stringify(parsed)).not.toMatch(/token|privateKey|clientSecret/i);
+  });
+
+  it("keeps the private Runner credential bounded and strict", () => {
+    expect(runnerRepositoryCredentialRequestSchema.parse({ purpose: "clone" })).toEqual({ purpose: "clone" });
+    const parsed = runnerRepositoryCredentialResponseSchema.parse({
+      credential: {
+        provider: "github",
+        username: "x-access-token",
+        secret: "ghs_ephemeral",
+        expiresAt: "2026-08-05T09:00:00.000Z",
+      },
+    });
+    expect(parsed.credential.expiresAt).toBe("2026-08-05T09:00:00.000Z");
+    expect(() => runnerRepositoryCredentialRequestSchema.parse({ purpose: "shell" })).toThrow();
+    expect(() => runnerRepositoryCredentialResponseSchema.parse({
+      credential: { ...parsed.credential, refreshToken: "must-not-exist" },
+    })).toThrow();
+  });
+});
+
 describe("management errors", () => {
   it("accepts shared Task and Session errors", () => {
     expect(managementErrorSchema.parse({
@@ -109,6 +158,7 @@ describe("Project management views", () => {
     id: task.projectId,
     name: "Mystra",
     slug: "mystra",
+    repositoryConnectionId,
     repository: remoteRepository,
     baseBranch: "main",
     defaultAgent: "copilot",

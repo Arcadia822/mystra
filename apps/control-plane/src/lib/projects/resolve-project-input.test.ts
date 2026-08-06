@@ -20,6 +20,25 @@ const repository = {
   fetchedAt: "2026-07-25T00:00:00.000Z",
 };
 
+const connection = {
+  id: "00000000-0000-4000-8000-000000000039",
+  integration: "github",
+  provider: "github",
+  externalId: "18492",
+  account: { externalId: "42", login: "arcadia", type: "User" },
+  repositorySelection: "selected" as const,
+  permissions: { contents: "write", pull_requests: "write" },
+  status: "active" as const,
+  createdAt: "2026-08-05T08:00:00.000Z",
+  updatedAt: "2026-08-05T08:00:00.000Z",
+};
+
+const connections = {
+  getIntegrationConnection(id: string) {
+    return id === connection.id ? connection : undefined;
+  },
+};
+
 function registry(resolved = repository): IntegrationRegistry {
   const plugin: IntegrationPlugin = {
     descriptor: {
@@ -47,6 +66,7 @@ const createRequest = {
   slug: "fixture",
   repository: {
     integration: "github",
+    connectionId: connection.id,
     identifier: "arcadia/mystra-fixture",
   },
   defaultAgent: "copilot" as const,
@@ -58,8 +78,9 @@ const createRequest = {
 
 describe("Project request resolution", () => {
   it("resolves a selector and defaults the base branch from the remote snapshot", async () => {
-    await expect(resolveProjectCreateInput(createRequest, registry())).resolves.toEqual(
+    await expect(resolveProjectCreateInput(createRequest, registry(), connections)).resolves.toEqual(
       expect.objectContaining({
+        repositoryConnectionId: connection.id,
         repository,
         baseBranch: "trunk",
       }),
@@ -70,12 +91,13 @@ describe("Project request resolution", () => {
     await expect(resolveProjectCreateInput({
       ...createRequest,
       baseBranch: "release",
-    }, registry())).resolves.toEqual(expect.objectContaining({
+    }, registry(), connections)).resolves.toEqual(expect.objectContaining({
       baseBranch: "release",
     }));
     await expect(resolveProjectUpdateInput({
       repository: createRequest.repository,
-    }, registry())).resolves.toEqual({
+    }, registry(), connections)).resolves.toEqual({
+      repositoryConnectionId: connection.id,
       repository,
       baseBranch: "trunk",
     });
@@ -84,12 +106,28 @@ describe("Project request resolution", () => {
   it("rejects missing and archived repositories before persistence", async () => {
     await expect(resolveProjectCreateInput({
       ...createRequest,
-      repository: { integration: "github", identifier: "arcadia/missing" },
-    }, registry())).rejects.toMatchObject({ code: "REPOSITORY_NOT_FOUND" });
+      repository: { ...createRequest.repository, identifier: "arcadia/missing" },
+    }, registry(), connections)).rejects.toMatchObject({ code: "REPOSITORY_NOT_FOUND" });
 
     await expect(resolveProjectCreateInput(
       createRequest,
       registry({ ...repository, isArchived: true }),
+      connections,
     )).rejects.toThrow(/INVALID_PROJECT.*archived/i);
+  });
+
+  it("rejects missing, inactive and provider-mismatched connections", async () => {
+    await expect(resolveProjectCreateInput({
+      ...createRequest,
+      repository: { ...createRequest.repository, connectionId: "00000000-0000-4000-8000-000000000099" },
+    }, registry(), connections)).rejects.toMatchObject({ code: "INTEGRATION_CONNECTION_NOT_FOUND" });
+
+    await expect(resolveProjectCreateInput(createRequest, registry(), {
+      getIntegrationConnection: () => ({ ...connection, status: "inactive" as const }),
+    })).rejects.toMatchObject({ code: "INTEGRATION_CONNECTION_INACTIVE" });
+
+    await expect(resolveProjectCreateInput(createRequest, registry(), {
+      getIntegrationConnection: () => ({ ...connection, provider: "gitlab" }),
+    })).rejects.toMatchObject({ code: "INTEGRATION_CONNECTION_MISMATCH" });
   });
 });

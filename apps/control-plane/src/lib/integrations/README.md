@@ -26,13 +26,37 @@ The default registry contains exactly:
   branch; subsequent sibling Sessions may make independent selections.
 - The HTTP API is the canonical implementation. The operator CLI only calls
   those routes and does not import provider or persistence code.
-- `MYSTRA_GITHUB_TOKEN` and `LINEAR_API_KEY` are read by the control plane only;
-  values are never included in API responses, events, evidence, or logs.
+- GitHub repository discovery and delivery use short-lived GitHub App
+  installation tokens only. There is no repository PAT fallback.
+- `LINEAR_API_KEY` and GitHub App deployment secrets are read by the control
+  plane only; values are never included in API responses, events, evidence, or
+  logs.
+
+## GitHub App deployment
+
+```text
+MYSTRA_GITHUB_APP_ID
+MYSTRA_GITHUB_APP_CLIENT_ID
+MYSTRA_GITHUB_APP_CLIENT_SECRET
+MYSTRA_GITHUB_APP_SLUG
+MYSTRA_GITHUB_APP_PRIVATE_KEY
+MYSTRA_GITHUB_APP_CALLBACK_URL
+```
+
+Set the GitHub App Setup URL to
+`/api/integration-connections/github/setup` and the OAuth callback URL to the
+absolute value of `MYSTRA_GITHUB_APP_CALLBACK_URL`. Keep "Request user
+authorization (OAuth) during installation" disabled because GitHub treats that
+option and the Setup URL as mutually exclusive.
 
 ## Canonical routes
 
 ```text
 GET  /api/integrations
+GET  /api/integration-connections
+GET  /api/integration-connections/github/connect
+GET  /api/integration-connections/github/setup
+GET  /api/integration-connections/github/oauth/callback
 GET  /api/integrations/:integration/repositories
 POST /api/integrations/:integration/repositories/resolve
 GET  /api/integrations/:integration/issues

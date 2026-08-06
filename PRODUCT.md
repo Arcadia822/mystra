@@ -1,64 +1,53 @@
 # Mystra Product
 
-> Issue-driven execution of coding agents, with reviewable evidence.
+> Ship software with agents.
 
 ## Purpose
 
-Mystra is a self-use coding-agent execution platform. It uses Open Agents as a
-source-authoritative framework baseline, then owns the interfaces required at
-its persistence, Integration, sandbox, Agent, and repository seams.
+Mystra is an open-source platform for autonomous software delivery. You describe
+what you want built; agents handle the full software development lifecycle —
+planning, implementation, testing, and pull request delivery.
 
-The first useful outcome is direct: an operator or Agent selects an Issue,
-Mystra atomically creates a durable Task and an initial Session, a stable Runner
-executes that Session inside a sandbox, and the platform returns tested,
-previewable repository evidence for human review.
-
-Mystra remains a headless execution control plane. It owns durable intent,
-execution truth, resource boundaries, and review handoff; it does not own a
-workflow graph above the Agent.
-
-## Business model
-
-- **Task** is durable work intent. It owns Project and immutable Repository
-  context plus optional immutable Issue provenance. It has no execution state.
-- **Session** is an independently created child of one Task. A Task may have
-  zero or many Sessions for different subtasks. Each Session owns its objective,
-  Agent, branch, runtime resolution, lifecycle, cancellation, and result.
-- **Runner** is stable execution capacity with durable identity, health,
-  capability, eligibility, credential rotation, and current assignments.
-- Runner protocol bookkeeping and internal execution facts are implementation
-  details, not business objects. A public activity timeline remains undecided.
-
-## North-star operating model
-
-Mystra's long-term model is a hosted **Mystra platform** serving many independent
-**Teams**. Each Team may contain multiple Projects with their own Integrations,
-Agent profiles, runtime images, product routes, user stories, and acceptance
-criteria while sharing platform-owned provider pools.
-
-```text
-Mystra platform
-  -> Team
-    -> Project
-      -> Task
-        -> Session (0..N)
-          -> review evidence / artifacts
-      -> Issue Integration / Agent profile / runtime defaults
-```
-
-The intended experience is similar in spirit to Stripe Minion: fast intake,
-clear Agent execution ownership, and reviewable output without turning Mystra
-into a competing Agent or workflow engine.
+Tools that turn ideas into code already exist. They produce prototypes. Mystra
+targets serious, shippable software: tested, reviewed, and maintainable.
 
 ## Users
 
-- Internal operators who provision and observe Runners.
-- Internal engineers or Agents that create Tasks and Sessions through HTTP,
-  CLI, remote MCP, or the secondary Web client.
-- Reviewers who inspect repository artifacts.
-- Future hosted operators managing many Teams and Projects.
+- People with ideas who want working software without managing the build process.
+- Teams that already use coding agents and want structured dispatch, execution,
+  and delivery across projects.
+- Organizations that want agent workloads running on infrastructure they control.
 
-Public hosted multi-tenancy is not part of the MVP.
+## Business model
+
+The north-star is a hosted **Mystra platform** with an open-source core:
+
+- **Open-source self-hosted** — run the full platform on your own infrastructure.
+- **Hosted SaaS** — managed execution, no deployment required.
+
+## Core model
+
+- **Task** — durable work intent. Owns Project context and optional Issue
+  provenance. Has no execution state.
+- **Session** — an independently executable child of a Task. Owns objective,
+  Agent, branch, lifecycle, and result. A Task may have zero or many Sessions.
+- **Runner** — stable execution capacity with durable identity, health, and
+  credential rotation.
+
+## Platform topology
+
+```text
+Mystra platform
+  → Team
+    → Project
+      → Task
+        → Session (0..N)
+          → sandbox → Agent → tested PR
+```
+
+Each Team may contain multiple Projects with their own integrations, agent
+profiles, and runtime configuration, while sharing platform-owned execution
+pools.
 
 ## MVP scope
 
@@ -72,6 +61,10 @@ In scope:
   schemas may be rebuilt; unknown or mixed schemas fail closed.
 - GitHub remote repositories and repository-scoped Issues; read-only Linear
   Issues; immutable provider-resolved Project repository snapshots.
+- One active GitHub App installation connection for the private single-node MVP:
+  OAuth verifies the installation owner, durable state stores only non-secret
+  installation metadata, and short-lived installation tokens authorize
+  repository discovery and delivery.
 - Atomic Issue dispatch to one Task and its initial Session.
 - Explicit creation of zero or many independent Sessions beneath a Task.
 - Stable pull-based Runner enrollment, credential rotation, heartbeat,
@@ -88,8 +81,9 @@ Out of scope:
 - Public activity timeline or a public internal-fact collection.
 - Claude CLI, Kubernetes sandboxes, cross-Runner shared caches, per-repository
   secret management, and hosted RDB implementation.
-- OAuth, webhooks, Issue write-back, Integration management UI, public hosted
-  Team administration, or GitLab as an enabled intake Integration.
+- Caller-login OAuth, webhooks, Issue write-back, a general-purpose Integration
+  management catalog beyond the GitHub connection surface, public hosted Team
+  administration, or GitLab as an enabled intake Integration.
 - A workflow provider, workflow DSL, workflow marketplace, standing orders, or
   platform-owned orchestration above the Agent.
 

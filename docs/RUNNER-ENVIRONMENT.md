@@ -49,6 +49,10 @@ Observed on the host before additional setup:
 
 ### GitHub Copilot CLI
 
+`COPILOT_GITHUB_TOKEN` is an Agent credential only. Repository clone, push, and
+pull-request creation receive a short-lived GitHub App installation credential
+from the control plane; `MYSTRA_GITHUB_TOKEN` is not a supported Runner input.
+
 - Installed path: `/usr/local/bin/copilot`
 - Installed version: `GitHub Copilot CLI 1.0.39`
 - Install source used during setup:

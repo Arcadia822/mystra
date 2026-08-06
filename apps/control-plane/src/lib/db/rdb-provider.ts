@@ -3,6 +3,8 @@ import type {
   CoordinationSessionSummary,
   ContextBundle,
   ContextBundleCreate,
+  IntegrationConnection,
+  IntegrationConnectionActivation,
   PlatformCapabilities,
   Project,
   ProjectCreate,
@@ -70,6 +72,11 @@ export type IssueDispatchResult = {
 
 export interface RdbProvider {
   close(): void;
+
+  activateIntegrationConnection(input: IntegrationConnectionActivation): IntegrationConnection;
+  getIntegrationConnection(id: string): IntegrationConnection | undefined;
+  getActiveIntegrationConnection(integration: string): IntegrationConnection | undefined;
+  listIntegrationConnections(options?: { integration?: string }): IntegrationConnection[];
 
   createProject(input: ProjectCreate): Project;
   listProjects(options?: { includeArchived?: boolean }): Project[];

@@ -8,6 +8,8 @@ import {
   executionContractReferenceSchema,
   executionSpecArtifactSchema,
   issueSnapshotSchema,
+  integrationConnectionActivationSchema,
+  integrationConnectionSchema,
   platformCapabilitiesSchema,
   projectCreateSchema,
   projectRuntimeConfigSchema,
@@ -30,6 +32,8 @@ import {
   type ContextBundle,
   type CoordinationSessionSummary,
   type ContextBundleCreate,
+  type IntegrationConnection,
+  type IntegrationConnectionActivation,
   type PlatformCapabilities,
   type Project,
   type ProjectCreate,
@@ -211,6 +215,90 @@ export class SqliteRdbProvider implements RdbProvider {
     }
   }
 
+  activateIntegrationConnection(input: IntegrationConnectionActivation): IntegrationConnection {
+    const parsed = integrationConnectionActivationSchema.parse(input);
+    const timestamp = this.now();
+    const activate = this.db.transaction(() => {
+      const existing = this.db.prepare(
+        "SELECT * FROM integration_connections WHERE integration = ? AND external_id = ?",
+      ).get(parsed.integration, parsed.externalId) as Row | undefined;
+
+      this.db.prepare(`
+        UPDATE integration_connections
+        SET status = 'inactive', updated_at = ?
+        WHERE integration = ? AND status = 'active'
+      `).run(timestamp, parsed.integration);
+
+      if (existing) {
+        this.db.prepare(`
+          UPDATE integration_connections SET
+            provider = @provider,
+            account = @account,
+            repository_selection = @repositorySelection,
+            permissions = @permissions,
+            status = 'active',
+            updated_at = @updatedAt
+          WHERE id = @id
+        `).run({
+          id: stringField(existing, "id"),
+          provider: parsed.provider,
+          account: jsonStringify(parsed.account),
+          repositorySelection: parsed.repositorySelection,
+          permissions: jsonStringify(parsed.permissions),
+          updatedAt: timestamp,
+        });
+        return stringField(existing, "id");
+      }
+
+      const id = randomUUID();
+      this.db.prepare(`
+        INSERT INTO integration_connections (
+          id, integration, provider, external_id, account, repository_selection,
+          permissions, status, created_at, updated_at
+        ) VALUES (
+          @id, @integration, @provider, @externalId, @account, @repositorySelection,
+          @permissions, 'active', @createdAt, @updatedAt
+        )
+      `).run({
+        id,
+        integration: parsed.integration,
+        provider: parsed.provider,
+        externalId: parsed.externalId,
+        account: jsonStringify(parsed.account),
+        repositorySelection: parsed.repositorySelection,
+        permissions: jsonStringify(parsed.permissions),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return id;
+    });
+    const id = activate.immediate();
+    const connection = this.getIntegrationConnection(id);
+    if (!connection) {
+      throw new Error("INTEGRATION_CONNECTION_NOT_FOUND: activated connection was not persisted");
+    }
+    return connection;
+  }
+
+  getIntegrationConnection(id: string): IntegrationConnection | undefined {
+    const row = this.db.prepare("SELECT * FROM integration_connections WHERE id = ?").get(id) as Row | undefined;
+    return row ? this.integrationConnectionFromRow(row) : undefined;
+  }
+
+  getActiveIntegrationConnection(integration: string): IntegrationConnection | undefined {
+    const row = this.db.prepare(
+      "SELECT * FROM integration_connections WHERE integration = ? AND status = 'active'",
+    ).get(integration) as Row | undefined;
+    return row ? this.integrationConnectionFromRow(row) : undefined;
+  }
+
+  listIntegrationConnections(options: { integration?: string } = {}): IntegrationConnection[] {
+    const rows = (options.integration
+      ? this.db.prepare("SELECT * FROM integration_connections WHERE integration = ? ORDER BY created_at DESC, id DESC").all(options.integration)
+      : this.db.prepare("SELECT * FROM integration_connections ORDER BY created_at DESC, id DESC").all()) as Row[];
+    return rows.map((row) => this.integrationConnectionFromRow(row));
+  }
+
   createProject(input: ProjectCreate): Project {
     const parsed = projectCreateSchema.parse(input);
     const timestamp = this.now();
@@ -225,16 +313,17 @@ export class SqliteRdbProvider implements RdbProvider {
     try {
       this.db.prepare(`
         INSERT INTO projects (
-          id, name, slug, repository_snapshot, base_branch, default_agent, runtime,
+          id, name, slug, repository_connection_id, repository_snapshot, base_branch, default_agent, runtime,
           prewarm_config, metadata, archived_at, created_at, updated_at
         ) VALUES (
-          @id, @name, @slug, @repositorySnapshot, @baseBranch, @defaultAgent, @runtime,
+          @id, @name, @slug, @repositoryConnectionId, @repositorySnapshot, @baseBranch, @defaultAgent, @runtime,
           @prewarmConfig, @metadata, @archivedAt, @createdAt, @updatedAt
         )
       `).run({
         id: project.id,
         name: project.name,
         slug: project.slug,
+        repositoryConnectionId: project.repositoryConnectionId,
         repositorySnapshot: jsonStringify(project.repository),
         baseBranch: project.baseBranch,
         defaultAgent: project.defaultAgent,
@@ -286,7 +375,7 @@ export class SqliteRdbProvider implements RdbProvider {
     try {
       this.db.prepare(`
         UPDATE projects SET
-          name=@name, slug=@slug, repository_snapshot=@repositorySnapshot,
+          name=@name, slug=@slug, repository_connection_id=@repositoryConnectionId, repository_snapshot=@repositorySnapshot,
           base_branch=@baseBranch, default_agent=@defaultAgent, runtime=@runtime,
           prewarm_config=@prewarmConfig, metadata=@metadata, archived_at=@archivedAt,
           updated_at=@updatedAt
@@ -295,6 +384,7 @@ export class SqliteRdbProvider implements RdbProvider {
         id: next.id,
         name: next.name,
         slug: next.slug,
+        repositoryConnectionId: next.repositoryConnectionId,
         repositorySnapshot: jsonStringify(next.repository),
         baseBranch: next.baseBranch,
         defaultAgent: next.defaultAgent,
@@ -969,6 +1059,7 @@ export class SqliteRdbProvider implements RdbProvider {
       id,
       name: stringField(row, "name"),
       slug: stringField(row, "slug"),
+      repositoryConnectionId: stringField(row, "repository_connection_id"),
       repository: parseJson(row, "repository_snapshot", id),
       baseBranch: stringField(row, "base_branch"),
       defaultAgent: stringField(row, "default_agent"),
@@ -976,6 +1067,22 @@ export class SqliteRdbProvider implements RdbProvider {
       prewarmConfig: parseJson(row, "prewarm_config", id),
       metadata: parseJson(row, "metadata", id),
       archivedAt: nullableStringField(row, "archived_at") ?? null,
+      createdAt: stringField(row, "created_at"),
+      updatedAt: stringField(row, "updated_at"),
+    });
+  }
+
+  private integrationConnectionFromRow(row: Row): IntegrationConnection {
+    const id = stringField(row, "id");
+    return integrationConnectionSchema.parse({
+      id,
+      integration: stringField(row, "integration"),
+      provider: stringField(row, "provider"),
+      externalId: stringField(row, "external_id"),
+      account: parseJson(row, "account", id),
+      repositorySelection: stringField(row, "repository_selection"),
+      permissions: parseJson(row, "permissions", id),
+      status: stringField(row, "status"),
       createdAt: stringField(row, "created_at"),
       updatedAt: stringField(row, "updated_at"),
     });

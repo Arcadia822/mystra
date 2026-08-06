@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 3;
+export const currentSchemaVersion = 4;
 
 export const sqliteMigrations = `
 CREATE TABLE mystra_schema (
@@ -9,10 +9,25 @@ CREATE TABLE mystra_schema (
 );
 INSERT INTO mystra_schema (id, version) VALUES (1, ${currentSchemaVersion});
 
+CREATE TABLE integration_connections (
+  id TEXT PRIMARY KEY,
+  integration TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  account TEXT NOT NULL,
+  repository_selection TEXT NOT NULL CHECK (repository_selection IN ('all', 'selected')),
+  permissions TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(integration, external_id)
+);
+
 CREATE TABLE projects (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
+  repository_connection_id TEXT NOT NULL REFERENCES integration_connections(id) ON DELETE RESTRICT,
   repository_snapshot TEXT NOT NULL,
   base_branch TEXT NOT NULL DEFAULT 'main',
   default_agent TEXT NOT NULL CHECK (default_agent IN ('codex', 'copilot')),
@@ -117,6 +132,11 @@ CREATE TABLE artifacts (
 );
 
 CREATE INDEX idx_projects_slug ON projects(slug);
+CREATE UNIQUE INDEX idx_integration_connections_identity
+  ON integration_connections(integration, external_id);
+CREATE UNIQUE INDEX idx_integration_connections_active
+  ON integration_connections(integration)
+  WHERE status = 'active';
 CREATE INDEX idx_context_bundles_slug ON context_bundles(slug);
 CREATE INDEX idx_tasks_project_id ON tasks(project_id);
 CREATE INDEX idx_tasks_created_at ON tasks(created_at, id);
@@ -133,6 +153,7 @@ CREATE INDEX idx_runners_last_heartbeat ON runners(last_heartbeat_at);
 const currentTables = new Set([
   "artifacts",
   "context_bundles",
+  "integration_connections",
   "mystra_schema",
   "projects",
   "runners",
@@ -140,6 +161,45 @@ const currentTables = new Set([
   "sessions",
   "tasks",
 ]);
+
+const schemaV3Tables = new Set([
+  "artifacts",
+  "context_bundles",
+  "mystra_schema",
+  "projects",
+  "runners",
+  "session_events",
+  "sessions",
+  "tasks",
+]);
+
+const schemaV3Columns: Record<string, Set<string>> = {
+  mystra_schema: new Set(["id", "version"]),
+  projects: new Set([
+    "id", "name", "slug", "repository_snapshot", "base_branch", "default_agent", "runtime",
+    "prewarm_config", "metadata", "archived_at", "created_at", "updated_at",
+  ]),
+  context_bundles: new Set([
+    "id", "slug", "display_name", "source", "access_mode", "mount_path", "freshness",
+    "failure_mode", "metadata", "archived_at", "created_at", "updated_at",
+  ]),
+  tasks: new Set([
+    "id", "project_id", "source", "objective", "issue_snapshot", "dispatch_key",
+    "repository_snapshot", "metadata", "created_at", "updated_at",
+  ]),
+  runners: new Set([
+    "id", "name", "credential_hash", "capabilities", "max_concurrency", "stale_after_seconds",
+    "eligible_project_ids", "eligible_runtime_providers", "last_heartbeat_at", "created_at", "updated_at",
+  ]),
+  sessions: new Set([
+    "id", "task_id", "initial_dispatch_key", "title", "objective", "agent", "branch",
+    "repository_key", "merge_request", "runtime_override", "resolved_runtime", "state",
+    "assigned_runner_id", "result", "failure_reason", "cancellation_request", "stale_reason",
+    "stale_marked_at", "metadata", "created_at", "updated_at", "started_at", "finished_at",
+  ]),
+  session_events: new Set(["id", "session_id", "task_id", "type", "severity", "data", "created_at"]),
+  artifacts: new Set(["id", "session_id", "task_id", "kind", "name", "uri", "metadata", "created_at"]),
+};
 
 const legacyTables = new Set([
   "artifacts",
@@ -167,6 +227,16 @@ function sameSet(values: string[], expected: Set<string>): boolean {
 
 function columns(db: Database.Database, table: string): Set<string> {
   return new Set((db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((row) => row.name));
+}
+
+function isExactSchemaV3Fingerprint(db: Database.Database, tables: string[]): boolean {
+  if (!sameSet(tables, schemaV3Tables)) {
+    return false;
+  }
+  const version = db.prepare("SELECT version FROM mystra_schema WHERE id = 1").pluck().get();
+  return version === 3 && Object.entries(schemaV3Columns).every(([table, expected]) => (
+    sameSet([...columns(db, table)], expected)
+  ));
 }
 
 function isExactLegacyFingerprint(db: Database.Database, tables: string[]): boolean {
@@ -230,6 +300,31 @@ function rebuildExactLegacySchema(db: Database.Database): void {
   verifyForeignKeys(db);
 }
 
+function rebuildExactSchemaV3(db: Database.Database): void {
+  db.pragma("foreign_keys = OFF");
+  const rebuild = db.transaction(() => {
+    for (const table of [
+      "artifacts",
+      "session_events",
+      "sessions",
+      "tasks",
+      "runners",
+      "context_bundles",
+      "projects",
+      "mystra_schema",
+    ]) {
+      db.exec(`DROP TABLE ${table}`);
+    }
+    createCurrentSchema(db);
+  });
+  try {
+    rebuild.immediate();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+  verifyForeignKeys(db);
+}
+
 export function ensureCurrentSchema(db: Database.Database): void {
   const tables = userTables(db);
   if (tables.length === 0) {
@@ -243,6 +338,10 @@ export function ensureCurrentSchema(db: Database.Database): void {
       throw new Error(`UNKNOWN_DATABASE_SCHEMA: unsupported schema version ${String(version)}`);
     }
     verifyForeignKeys(db);
+    return;
+  }
+  if (isExactSchemaV3Fingerprint(db, tables)) {
+    rebuildExactSchemaV3(db);
     return;
   }
   if (isExactLegacyFingerprint(db, tables)) {

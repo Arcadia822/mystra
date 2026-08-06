@@ -168,9 +168,13 @@ MCP, or the secondary Web client. Mystra starts the selected Agent directly in
 the sandbox, performs bounded test/build/preview/review delivery, and returns a
 GitHub PR plus durable `waiting_for_review` evidence.
 
-The active MVP UI exposes Control Plane, Tasks, Runners, and Projects. Task
-detail creates and lists child Sessions; Session detail owns lifecycle and
-review evidence. Web remains secondary to API, MCP, and CLI.
+The active MVP demo UI uses a Castrel-inspired primary menu: New, Search,
+Inbox, Issues, and Automations, followed by a Tasks section grouped by Project.
+Task icons reflect the latest Session state. Existing Task, Session, Runner, and
+Project object routes remain directly reachable even when they are not primary
+menu items. Automations is a presentation-only shell entry in this slice and
+does not introduce platform-owned workflow orchestration. Web remains secondary
+to API, MCP, and CLI.
 
 Task is durable intent and has no execution state. A Task may have zero or many
 independent child Sessions for distinct subtasks. Session owns objective, Agent,
@@ -193,9 +197,14 @@ The intended long-term experience is similar in spirit to **Stripe Minion**:
 fast task intake, clear Agent execution ownership, reviewable outputs, and
 strong platform seams between Issue intake, runtime, Agent, and repository layers.
 
-Mystra MVP excludes caller auth, logs API/persistence, retry API, callback URLs,
-quality-gate fix loops, OAuth/webhooks/Issue write-back, Integration management
-UI, public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
+Mystra MVP permits one active GitHub App installation connection in the private
+single-node path: OAuth verifies installation ownership, only non-secret
+installation metadata is durable, and short-lived installation tokens serve
+both repository discovery and delivery without a personal-token fallback.
+Mystra MVP otherwise excludes caller auth, caller-login OAuth, logs
+API/persistence, retry API, arbitrary callback URLs, quality-gate fix loops,
+webhooks/Issue write-back, a general-purpose Integration management catalog,
+public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
 cross-runner shared caches, per-repository secret management, hosted RDB
 implementation, GitLab as an enabled/default Integration, and standing-order or
 agent-operated workflow orchestration above the Agent. GitLab may remain as a
@@ -219,25 +228,24 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (4862 symbols, 7627 relationships, 254 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (5841 symbols, 8820 relationships, 267 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `impact` on it.
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit changes without running `detect_changes()` to check affected scope.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
 
 ## Resources
 
@@ -274,6 +282,8 @@ This project is indexed by GitNexus as **mystra** (4862 symbols, 7627 relationsh
   rebuild without compatibility aliases.
 - TypeScript 5.9, Node.js 24.14.0 + Next.js 16 Route Handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, Node `child_process`, existing provider/adapters (038-task-session-model)
 - SQLite through `RdbProvider`; schema remains dialect-neutral at the provider contract (038-task-session-model)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto`、GitHub REST API、现有 Integration/Runner provider contracts (039-github-project-onboarding)
+- SQLite via `RdbProvider`；只保存 IntegrationConnection 非秘密元数据和 Project connection reference (039-github-project-onboarding)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

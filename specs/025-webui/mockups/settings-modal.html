@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mystra Settings Modal Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111513;
+      --s1: #181c1a;
+      --s3: #2b312d;
+      --line: rgba(118, 129, 122, .3);
+      --soft: rgba(118, 129, 122, .17);
+      --t1: #e7ece8;
+      --t2: #aab4ad;
+      --t3: #76817a;
+      --accent: #74b98b;
+      font: 12px/1.45 "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 16px; background: #080a09; color: var(--t1); }
+    button, input, select { color: inherit; font: inherit; }
+    .modal { width: min(920px, calc(100vw - 32px)); height: min(760px, calc(100vh - 32px)); display: grid; grid-template-columns: 240px minmax(0, 1fr); overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+    aside { padding: 12px 13px; border-right: 1px solid var(--line); background: var(--s1); }
+    .identity { height: 44px; display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: center; margin-bottom: 8px; padding: 4px 6px; }
+    .mark { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; color: var(--accent); font-weight: 700; }
+    .identity div { min-width: 0; display: grid; }
+    .identity span { color: var(--t3); font-size: 11px; }
+    .search { height: 28px; display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: center; margin-bottom: 12px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--t3); }
+    .search input { min-width: 0; border: 0; outline: 0; background: transparent; }
+    .tabs { display: grid; gap: 2px; }
+    .tab { height: 28px; display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: center; padding: 3px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--t2); text-align: left; }
+    .tab.active, .tab:hover { background: var(--s3); color: var(--t1); }
+    .tab b { color: var(--accent); }
+    main { min-width: 0; display: grid; grid-template-rows: 44px 1fr; }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 16px; border-bottom: 1px solid var(--soft); }
+    .close { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; }
+    .close:hover { background: var(--s3); }
+    .content { padding: 22px 16px; overflow: auto; }
+    .group { display: grid; gap: 32px; }
+    .row { min-height: 28px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: center; }
+    .rowCopy { min-width: 0; display: grid; gap: 4px; }
+    .rowCopy p { margin: 0; color: var(--t3); }
+    .control { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    .control select { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--s1); }
+    .swatch { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: #111513; font-size: 10px; }
+
+    @media (max-width: 700px) {
+      .modal { width: calc(100vw - 16px); height: calc(100vh - 16px); grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      aside { display: grid; grid-template-columns: 1fr minmax(120px, .8fr); gap: 8px 12px; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .identity, .search { margin: 0; }
+      .tabs { grid-column: 1 / -1; grid-template-columns: repeat(2, 1fr); }
+      .row { grid-template-columns: 1fr; gap: 12px; align-items: start; }
+      .control { justify-content: flex-start; }
+    }
+
+    @media (max-width: 420px) {
+      aside { grid-template-columns: 1fr; }
+      .tabs { grid-column: 1; }
+      .content { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <section aria-label="设置" class="modal" role="dialog">
+    <aside>
+      <div class="identity"><div class="mark">M</div><div><strong>Mystra</strong><span>账户 · Team</span></div></div>
+      <label class="search"><span>⌕</span><input aria-label="搜索设置" placeholder="搜索设置" /></label>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab"><b>○</b><span>账户</span></button>
+        <button aria-selected="true" class="tab active" role="tab"><b>◐</b><span>外观</span></button>
+        <button class="tab" role="tab"><b>◎</b><span>Team</span></button>
+        <button class="tab" role="tab"><b>◇</b><span>集成</span></button>
+      </div>
+    </aside>
+    <main>
+      <header class="header"><strong>外观</strong><button aria-label="关闭" class="close">×</button></header>
+      <div class="content">
+        <section class="group">
+          <div class="row"><div class="rowCopy"><strong>语言</strong><p>选择框架界面语言。</p></div><div class="control"><select aria-label="语言"><option>简体中文</option><option>English</option></select></div></div>
+          <div class="row"><div class="rowCopy"><strong>主题</strong><p>选择此浏览器使用的界面主题。</p></div><div class="control"><span class="swatch">Aa</span><select aria-label="主题"><option>Graphite Signal</option><option>Notion / Light</option><option>Linen / Light</option><option>Notion / Dark</option></select></div></div>
+        </section>
+      </div>
+    </main>
+  </section>
+</body>
+</html>

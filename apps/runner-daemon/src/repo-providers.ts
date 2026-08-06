@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import type {
   BranchDeliveryRequest,
   BranchDeliveryReceipt,
+  EphemeralRepositoryCredential,
   RepoProviderKind,
   RepositorySnapshot,
   RepositoryTarget,
@@ -16,8 +17,8 @@ import { gitlabRepoProvider } from "./repo-providers/gitlab.js";
 export interface RepoDeliveryProvider {
   readonly providerName: RepoProviderKind;
   supports(repository: RepositorySnapshot): boolean;
-  pushBranch(input: BranchDeliveryRequest): Promise<BranchDeliveryReceipt>;
-  createReview(input: ReviewRequest): Promise<ReviewResult>;
+  pushBranch(input: BranchDeliveryRequest, credential?: EphemeralRepositoryCredential): Promise<BranchDeliveryReceipt>;
+  createReview(input: ReviewRequest, credential?: EphemeralRepositoryCredential): Promise<ReviewResult>;
 }
 
 type RepoProviderModuleRecord = Record<string, RepoDeliveryProvider>;

@@ -38,9 +38,9 @@ describe("GitHubIntegrationProvider repositories", () => {
   it("lists and gets normalized remote repositories with opaque pagination", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([githubRepository], {
+      .mockResolvedValueOnce(jsonResponse({ repositories: [githubRepository] }, {
         headers: {
-          link: '<https://api.github.com/user/repos?per_page=10&page=3>; rel="next"',
+          link: '<https://api.github.com/installation/repositories?per_page=10&page=3>; rel="next"',
         },
       }))
       .mockResolvedValueOnce(jsonResponse(githubRepository));
@@ -67,7 +67,7 @@ describe("GitHubIntegrationProvider repositories", () => {
       fullName: "arcadia/mystra-fixture",
     }));
     expect(fetchImpl.mock.calls[0]?.[0]).toBe(
-      "https://api.github.com/user/repos?per_page=10&page=2&sort=updated",
+      "https://api.github.com/installation/repositories?per_page=10&page=2",
     );
     expect(fetchImpl.mock.calls[1]?.[0]).toBe(
       "https://api.github.com/repos/arcadia/mystra-fixture",
@@ -131,7 +131,7 @@ describe("GitHubIntegrationProvider repositories", () => {
 
     const invalidShape = new GitHubIntegrationProvider({
       token: "token",
-      fetchImpl: vi.fn(async () => jsonResponse([{ ...githubRepository, clone_url: "/tmp/local" }])),
+      fetchImpl: vi.fn(async () => jsonResponse({ repositories: [{ ...githubRepository, clone_url: "/tmp/local" }] })),
     });
     await expect(invalidShape.listRepositories({ first: 25 })).rejects.toMatchObject({
       code: "INTEGRATION_INVALID_RESPONSE",

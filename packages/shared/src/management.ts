@@ -14,6 +14,7 @@ import {
   taskSourceSchema,
 } from "./schemas.js";
 import { issueSnapshotSchema } from "./issue-core.js";
+import { integrationConnectionSchema, integrationProviderStatusSchema } from "./integrations.js";
 import { repositorySnapshotSchema } from "./repository.js";
 import { sessionStateSchema } from "./state.js";
 
@@ -35,6 +36,15 @@ export const managementErrorCodeSchema = z.enum([
   "DISPATCH_CONFLICT",
   "RESULT_NOT_READY",
   "RESULT_UNAVAILABLE",
+  "GITHUB_APP_NOT_CONFIGURED",
+  "GITHUB_OAUTH_INVALID",
+  "GITHUB_INSTALLATION_UNVERIFIED",
+  "INTEGRATION_CONNECTION_NOT_FOUND",
+  "INTEGRATION_CONNECTION_MISMATCH",
+  "INTEGRATION_TIMEOUT",
+  "INTEGRATION_RATE_LIMITED",
+  "INTEGRATION_UPSTREAM_ERROR",
+  "REPOSITORY_CREDENTIAL_UNAVAILABLE",
 ]);
 export type ManagementErrorCode = z.infer<typeof managementErrorCodeSchema>;
 
@@ -57,6 +67,7 @@ export const projectSelectionViewSchema = projectSchema
     id: true,
     name: true,
     slug: true,
+    repositoryConnectionId: true,
     repository: true,
     baseBranch: true,
     defaultAgent: true,
@@ -85,6 +96,7 @@ export const executionContextViewSchema = projectSchema
     id: true,
     name: true,
     slug: true,
+    repositoryConnectionId: true,
     repository: true,
     baseBranch: true,
     defaultAgent: true,
@@ -234,6 +246,14 @@ export type ProjectDetailResponse = z.infer<typeof projectDetailResponseSchema>;
 export const projectCreateResponseSchema = z.object({ project: projectSchema }).strict();
 export type ProjectCreateResponse = z.infer<typeof projectCreateResponseSchema>;
 
+export const integrationConnectionListResponseSchema = z
+  .object({
+    providers: z.array(integrationProviderStatusSchema),
+    connections: z.array(integrationConnectionSchema),
+  })
+  .strict();
+export type IntegrationConnectionListResponse = z.infer<typeof integrationConnectionListResponseSchema>;
+
 export const contextBundleCreateResponseSchema = z.object({ contextBundle: contextBundleSchema }).strict();
 export type ContextBundleCreateResponse = z.infer<typeof contextBundleCreateResponseSchema>;
 
@@ -273,6 +293,26 @@ export const runnerClaimResponseSchema = z
   })
   .strict();
 export type RunnerClaimResponse = z.infer<typeof runnerClaimResponseSchema>;
+
+export const runnerRepositoryCredentialRequestSchema = z
+  .object({ purpose: z.enum(["clone", "push", "review"]) })
+  .strict();
+export type RunnerRepositoryCredentialRequest = z.infer<typeof runnerRepositoryCredentialRequestSchema>;
+
+export const ephemeralRepositoryCredentialSchema = z
+  .object({
+    provider: z.literal("github"),
+    username: z.literal("x-access-token"),
+    secret: z.string().min(1),
+    expiresAt: z.string().datetime(),
+  })
+  .strict();
+export type EphemeralRepositoryCredential = z.infer<typeof ephemeralRepositoryCredentialSchema>;
+
+export const runnerRepositoryCredentialResponseSchema = z
+  .object({ credential: ephemeralRepositoryCredentialSchema })
+  .strict();
+export type RunnerRepositoryCredentialResponse = z.infer<typeof runnerRepositoryCredentialResponseSchema>;
 
 export const cancelSessionResponseSchema = z
   .object({ outcome: z.enum(["canceled", "cancellation_requested"]), session: sessionRecordSchema })
