@@ -59,9 +59,6 @@ const projectRuntime = {
 const task = {
   id: "00000000-0000-4000-8000-000000000010",
   projectId: "00000000-0000-4000-8000-000000000001",
-  source: "api",
-  objective: "Improve repository onboarding",
-  repository: remoteRepository,
   metadata: {},
   createdAt: "2026-05-15T00:00:00.000Z",
   updatedAt: "2026-05-15T00:00:00.000Z",
@@ -112,18 +109,27 @@ describe("integration connection management contracts", () => {
         id: repositoryConnectionId,
         integration: "github",
         provider: "github",
-        connectionType: "github-app",
-        externalId: "18492",
-        account: { externalId: "42", login: "arcadia", type: "User" },
-        repositorySelection: "selected",
-        permissions: { contents: "write", pull_requests: "write" },
+        authMethod: "github-app",
+        providerExternalId: "18492",
+        displayName: null,
+        providerSubject: { externalId: "42", login: "arcadia", type: "User" },
+        connectionConfig: {},
+        capabilities: {
+          repositories: {
+            state: "enabled",
+            config: { selection: "selected" },
+            permissions: { contents: "write", pull_requests: "write" },
+            accessSummary: {},
+            verifiedAt: "2026-08-05T08:00:00.000Z",
+          },
+        },
         credentialState: "ready",
         status: "active",
         createdAt: "2026-08-05T08:00:00.000Z",
         updatedAt: "2026-08-05T08:00:00.000Z",
       }],
     });
-    expect(parsed.connections[0]?.externalId).toBe("18492");
+    expect(parsed.connections[0]?.providerExternalId).toBe("18492");
     expect(JSON.stringify(parsed)).not.toMatch(/credentialRef|fingerprint|github_pat_|ghp_|ghs_|privateKey|clientSecret/i);
   });
 
@@ -171,9 +177,8 @@ describe("Project management views", () => {
     name: "Mystra",
     slug: "mystra",
     repositoryConnectionId,
-    repository: remoteRepository,
-    baseBranch: "main",
-    defaultAgent: "copilot",
+    repositoryExternalId: remoteRepository.externalId,
+    repositoryBaseBranch: "main",
     archivedAt: null,
     createdAt: "2026-05-15T00:00:00.000Z",
     updatedAt: "2026-05-15T00:00:00.000Z",
@@ -185,13 +190,11 @@ describe("Project management views", () => {
 
     const context = executionContextViewSchema.parse({
       ...projectSelection,
-      runtime: projectRuntime,
-      prewarmConfig: { manager: "pnpm" },
       metadata: { projectLane: "mystra" },
       lane: {
-        repository: remoteRepository,
-        baseBranch: "main",
-        defaultAgent: "copilot",
+        repositoryConnectionId,
+        repositoryExternalId: remoteRepository.externalId,
+        repositoryBaseBranch: "main",
         runtime: projectRuntime,
         contextBundleRefs: [],
         prewarmConfig: { manager: "pnpm" },
@@ -199,7 +202,7 @@ describe("Project management views", () => {
       },
     });
 
-    expect(context.runtime.image).toBe(projectRuntime.image);
+    expect(context.lane.runtime.image).toBe(projectRuntime.image);
     expect("workflow" in context.lane).toBe(false);
   });
 
@@ -207,17 +210,15 @@ describe("Project management views", () => {
     const created = projectCreateResponseSchema.parse({
       project: {
         ...projectSelection,
-        runtime: projectRuntime,
-        prewarmConfig: {},
         metadata: {},
       },
     });
     expect(created.project.slug).toBe("mystra");
 
     const lane = laneInspectionViewSchema.parse({
-      repository: remoteRepository,
-      baseBranch: "develop",
-      defaultAgent: "copilot",
+      repositoryConnectionId,
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "develop",
       runtime: projectRuntime,
       contextBundleRefs: [],
     });
@@ -250,9 +251,9 @@ describe("Project management views", () => {
     const parsed = submittedLaneSnapshotSchema.parse({
       projectId: task.projectId,
       projectSlug: "mystra",
-      repository: remoteRepository,
-      baseBranch: "main",
-      defaultAgent: "copilot",
+      repositoryConnectionId,
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
       runtime: {
         provider: "docker",
         environment: { image: projectRuntime.image, metadata: {} },
@@ -277,34 +278,16 @@ describe("Project management views", () => {
 
 describe("Task and Session management views", () => {
   it("allows a Task to exist with zero Sessions and no lifecycle state", () => {
-    expect(taskRecordSchema.parse(task).objective).toBe(task.objective);
-    const detail = taskDetailResponseSchema.parse({
-      task,
-      sessionSummary: { sessionCount: 0, activeSessionCount: 0 },
-    });
-    expect(detail.sessionSummary.sessionCount).toBe(0);
+    expect(taskRecordSchema.parse(task).metadata).toEqual({});
+    const detail = taskDetailResponseSchema.parse({ task });
     expect("state" in detail.task).toBe(false);
     expect("result" in detail.task).toBe(false);
     expect(taskCreateResponseSchema.parse({ task }).task.id).toBe(task.id);
   });
 
-  it("returns Session projections without making them Task state", () => {
-    const latestSession = {
-      id: session.id,
-      taskId: task.id,
-      title: session.title,
-      state: session.state,
-      agent: session.agent,
-      branch: session.branch,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      startedAt: session.startedAt,
-      finishedAt: session.finishedAt,
-    };
-    const listed = taskListResponseSchema.parse({
-      tasks: [{ ...task, sessionCount: 1, activeSessionCount: 0, latestSession }],
-    });
-    expect(listed.tasks[0]?.latestSession?.id).toBe(session.id);
+  it("does not project Session summaries into Task list items", () => {
+    const listed = taskListResponseSchema.parse({ tasks: [task] });
+    expect(listed.tasks[0]?.id).toBe(task.id);
     expect("state" in (listed.tasks[0] ?? {})).toBe(false);
   });
 

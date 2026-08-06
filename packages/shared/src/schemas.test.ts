@@ -5,7 +5,7 @@ import {
   cancelSessionOutcomeSchema,
   cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
-  executionSpecArtifactSchema,
+  executionSpecSnapshotSchema,
   executionSpecBundleSlug,
   executionSpecMountPath,
   contextBundleSchema,
@@ -44,47 +44,23 @@ const remoteRepository = {
 } as const;
 
 describe("Task and Session schemas", () => {
-  it("accepts an Issue-driven Task only with an immutable snapshot and dispatch key", () => {
+  it("accepts an Issue dispatch identity without persisting Issue snapshots", () => {
     const parsed = taskCreateSchema.parse({
-      source: "issue",
       projectId: "00000000-0000-4000-8000-000000000001",
-      repository: remoteRepository,
-      objective: "Implement the frozen Linear Issue",
-      issue: {
-        reference: {
-          integration: "linear",
-          provider: "linear",
-          externalId: "issue-id",
-          identifier: "ENG-123",
-          url: "https://linear.app/example/issue/ENG-123/example",
-        },
-        title: "Add a health indicator",
-        description: null,
-        state: { id: "state-1", name: "Todo" },
-        priority: null,
-        assignee: null,
-        labels: [],
-        createdAt: "2026-07-22T00:00:00.000Z",
-        updatedAt: "2026-07-23T00:00:00.000Z",
-        fetchedAt: "2026-07-23T01:00:00.000Z",
-      },
-      dispatchKey: "linear:issue-id:project-id:codex/eng-123",
+      issueDispatchKey: "linear:issue-id:project-id",
+      metadata: {},
     });
 
-    expect(parsed.source).toBe("issue");
-    expect(parsed.issue?.reference.identifier).toBe("ENG-123");
-    expect(parsed.dispatchKey).toBe("linear:issue-id:project-id:codex/eng-123");
+    expect(parsed.issueDispatchKey).toBe("linear:issue-id:project-id");
     expect(() => taskCreateSchema.parse({
       ...parsed,
-      issue: undefined,
-    })).toThrow(/Issue-driven Tasks/);
+      issue: { identifier: "ENG-123" },
+    })).toThrow();
   });
 
   it("accepts a minimal manual Task without execution ownership", () => {
     const parsed = taskCreateRequestSchema.parse({
-      source: "api",
       projectId: "00000000-0000-4000-8000-000000000001",
-      objective: "Update the README",
     });
 
     expect(parsed.projectId).toBe("00000000-0000-4000-8000-000000000001");
@@ -121,9 +97,7 @@ describe("Task and Session schemas", () => {
   it("rejects Task-owned execution fields and Session-owned project context", () => {
     expect(() =>
       taskCreateRequestSchema.parse({
-        source: "api",
         projectId: "00000000-0000-4000-8000-000000000003",
-        objective: "Update the README",
         branch: "feature/forbidden",
       }),
     ).toThrow();
@@ -311,8 +285,7 @@ describe("runtime schemas", () => {
       contextBundles: [],
       executionContract: {
         kind: "execution-spec",
-        artifactId: "00000000-0000-4000-8000-000000000080",
-        uri: "mystra://sessions/session-1/artifacts/execution-spec.json",
+        uri: "mystra://sessions/session-1/execution-spec.json",
         bundleSlug: "execution-spec",
         mountPath: "/mystra/context/execution-spec",
         filePath: "/mystra/context/execution-spec/execution-spec.json",
@@ -397,13 +370,13 @@ describe("runtime schemas", () => {
     ).toThrow();
   });
 
-  it("accepts execution-spec artifacts and safe inline bundle payloads", () => {
+  it("accepts execution-spec snapshots and safe inline bundle payloads", () => {
     const payload = sessionInlineContextBundlePayloadSchema.parse({
       files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
     });
     expect(payload.files[0]?.path).toBe("execution-spec.json");
 
-    const artifact = executionSpecArtifactSchema.parse({
+    const snapshot = executionSpecSnapshotSchema.parse({
       version: 3,
       kind: "execution-spec",
       taskId: "00000000-0000-4000-8000-000000000091",
@@ -419,17 +392,16 @@ describe("runtime schemas", () => {
       frozenAt: "2026-05-18T00:00:00.000Z",
       executionContract: {
         kind: "execution-spec",
-        artifactId: "00000000-0000-4000-8000-000000000094",
-        uri: "mystra://sessions/00000000-0000-4000-8000-000000000092/artifacts/execution-spec.json",
+        uri: "mystra://sessions/00000000-0000-4000-8000-000000000092/execution-spec.json",
         bundleSlug: "execution-spec",
         mountPath: "/mystra/context/execution-spec",
         filePath: "/mystra/context/execution-spec/execution-spec.json",
         frozenAt: "2026-05-18T00:00:00.000Z",
       },
     });
-    expect(artifact.executionContract.filePath).toContain("execution-spec.json");
-    expect(() => executionSpecArtifactSchema.parse({
-      ...artifact,
+    expect(snapshot.executionContract.filePath).toContain("execution-spec.json");
+    expect(() => executionSpecSnapshotSchema.parse({
+      ...snapshot,
       version: 2,
     })).toThrow();
   });
@@ -583,94 +555,65 @@ describe("projectSchema", () => {
       name: "Castrel AI",
       slug: "castrel-ai",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-      repository: remoteRepository,
-      defaultAgent: "copilot",
-      runtime: {
-        provider: "docker",
-        image: "registry.example.com/castrel/runtime:latest",
-      },
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
       createdAt: "2026-05-09T00:00:00.000Z",
       updatedAt: "2026-05-09T00:00:00.000Z",
     });
 
-    expect(parsed.baseBranch).toBe("main");
+    expect(parsed.repositoryBaseBranch).toBe("main");
     expect(parsed.archivedAt).toBeNull();
-    expect(parsed.prewarmConfig).toEqual({});
     expect(parsed.metadata).toEqual({});
-    expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
   });
 
-  it("accepts resolved project create payloads with runtime.image", () => {
+  it("accepts resolved project create payloads with stable repository identity", () => {
     const parsed = projectCreateSchema.parse({
       name: "Castrel AI",
       slug: "castrel-ai",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-      repository: remoteRepository,
-      defaultAgent: "codex",
-      runtime: {
-        provider: "docker",
-        image: "registry.example.com/castrel/runtime:latest",
-      },
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
     });
 
-    expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
+    expect(parsed.repositoryExternalId).toBe(remoteRepository.externalId);
   });
 
-  it("accepts only a provider selector on public project create requests and omits advanced defaults", () => {
+  it("accepts only stable repository identity on public project create requests", () => {
     const parsed = projectCreateRequestSchema.parse({
       name: "Remote fixture",
       slug: "remote-fixture",
-      repository: {
-        integration: "github",
-        connectionId: "00000000-0000-4000-8000-000000000039",
-        identifier: "Arcadia822/mystra-remote-e2e",
-      },
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
     });
 
-    expect(parsed.repository.identifier).toBe("Arcadia822/mystra-remote-e2e");
-    expect(parsed.defaultAgent).toBeUndefined();
-    expect(parsed.runtime).toBeUndefined();
+    expect(parsed.repositoryExternalId).toBe(remoteRepository.externalId);
     expect(() => projectCreateRequestSchema.parse({
       ...parsed,
       repo: "legacy-value",
     })).toThrow();
-    expect(() => projectCreateRequestSchema.parse({
-      ...parsed,
-      repository: {
-        integration: "github",
-        identifier: "/Users/arcadia/Documents/mystra",
-      },
-    })).toThrow();
   });
 
-  it("keeps Agent and runtime as optional advanced API overrides", () => {
-    const parsed = projectCreateRequestSchema.parse({
+  it("rejects deferred Agent and runtime Project defaults", () => {
+    expect(() => projectCreateRequestSchema.parse({
       name: "Remote fixture",
       slug: "remote-fixture",
-      repository: {
-        integration: "github",
-        connectionId: "00000000-0000-4000-8000-000000000039",
-        identifier: "Arcadia822/mystra-remote-e2e",
-      },
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
+      repositoryExternalId: remoteRepository.externalId,
       defaultAgent: "copilot",
       runtime: {
         provider: "docker",
         image: "mystra-copilot:fixture",
       },
-    });
-
-    expect(parsed.defaultAgent).toBe("copilot");
-    expect(parsed.runtime?.image).toBe("mystra-copilot:fixture");
+    })).toThrow();
   });
 
-  it("rejects project create payloads without runtime.image", () => {
+  it("rejects project create payloads without stable repository identity", () => {
     expect(() =>
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
         repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-        repository: remoteRepository,
-        defaultAgent: "codex",
       }),
     ).toThrow();
   });
@@ -682,12 +625,7 @@ describe("projectSchema", () => {
         name: "Castrel AI",
         slug: "castrel-ai",
         repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-        repository: remoteRepository,
-        defaultAgent: "codex",
-        runtime: {
-          provider: "docker",
-          image: "registry.example.com/castrel/runtime:latest",
-        },
+        repositoryExternalId: remoteRepository.externalId,
       }),
     ).toThrow();
   });
@@ -695,11 +633,11 @@ describe("projectSchema", () => {
   it("accepts update payloads that restore archived projects", () => {
     const parsed = projectUpdateSchema.parse({
       archivedAt: null,
-      defaultAgent: "copilot",
+      repositoryBaseBranch: "develop",
     });
 
     expect(parsed.archivedAt).toBeNull();
-    expect(parsed.defaultAgent).toBe("copilot");
+    expect(parsed.repositoryBaseBranch).toBe("develop");
   });
 
   it("rejects platform capability fields", () => {
@@ -708,12 +646,7 @@ describe("projectSchema", () => {
         name: "Castrel AI",
         slug: "castrel-ai",
         repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-        repository: remoteRepository,
-        defaultAgent: "codex",
-        runtime: {
-          provider: "docker",
-          image: "ghcr.io/acme/mystra-runner:latest",
-        },
+        repositoryExternalId: remoteRepository.externalId,
         executor: "docker",
       }),
     ).toThrow();
