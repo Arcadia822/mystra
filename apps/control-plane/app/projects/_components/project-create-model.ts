@@ -2,10 +2,17 @@ export type ProjectDraft = {
   name: string;
   slug: string;
   integration: string;
+  connectionId: string;
   repository: string;
-  agent: "codex" | "copilot";
-  runtimeImage: string;
 };
+
+export function defaultProjectConnectionId(activeConnectionIds: string[]): string {
+  return activeConnectionIds.length === 1 ? activeConnectionIds[0]! : "";
+}
+
+export function changeProjectConnection(draft: ProjectDraft, connectionId: string): ProjectDraft {
+  return { ...draft, connectionId, repository: "" };
+}
 
 export function canSubmitProject(input: {
   draft: ProjectDraft;
@@ -17,6 +24,6 @@ export function canSubmitProject(input: {
     && draft.name.trim().length > 0
     && draft.slug.trim().length > 0
     && draft.integration.trim().length > 0
-    && draft.runtimeImage.trim().length > 0
+    && draft.connectionId.trim().length > 0
     && input.repositoryIdentifiers.includes(draft.repository);
 }

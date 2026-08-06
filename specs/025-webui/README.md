@@ -59,11 +59,11 @@ GitNexus 已重新索引当前工作树，用于校准管理 API、MCP、runner�
 
 ## 视觉方向
 
-- 背景：浅灰 `#e6e7eb`，左 rail 稍深，内容 sheet 稍亮。
-- 字体：系统 UI 字体，代码/ID 使用 mono。
-- 布局：桌面优先，固定左 rail；主要内容最大宽度受控；详情页允许右 inspector。
-- 控件：pill、segmented control、细边框输入框、低饱和状态 badge。
-- 卡片：半径不超过 8px；阴影极弱；层级主要靠间距和边框。
+- 背景：dark-tech canvas `#111513`；surface 依次使用 `#181C1A`、`#202522`、`#2B312D`。
+- 字体：默认使用 `Fira Code` / `Maple Mono` / platform monospace 统一字体栈。
+- 布局：平移 Castrel UX 的桌面密度与分层；sidebar 展开为 300px，收起为完整 0px，主要内容最大宽度受控。
+- 控件：紧凑 ghost actions、细边框输入框、低饱和状态 badge；New composer 使用 ghost footer。
+- 卡片：使用 0/2/4/6px radius；不使用阴影、渐变、辉光、glass 或 noise；层级靠 surface、间距和 hairline。
 - 状态色：绿色/蓝色/橙色/红色只用于状态，不成为主题。
 - 避免：大面积紫蓝渐变、营销 hero、装饰性图形、解释性长文嵌在 UI 中。
 

@@ -8,6 +8,8 @@ import type {
   IssueProvider,
   RepoProvider,
 } from "./types";
+import { getDb } from "../db";
+import { defaultGitHubCredentialResolver } from "./github-credential";
 
 export class IntegrationRegistry {
   private readonly integrations = new Map<string, IntegrationPlugin>();
@@ -76,10 +78,23 @@ export class IntegrationRegistry {
   }
 }
 
-export function defaultIntegrationRegistry(): IntegrationRegistry {
+export function defaultIntegrationRegistry(options: { githubConnectionId?: string } = {}): IntegrationRegistry {
+  const db = getDb();
+  const selectedConnection = options.githubConnectionId
+    ? db.getIntegrationConnectionRecord(options.githubConnectionId)
+    : db.listIntegrationConnectionRecords({ integration: "github" })
+      .filter((connection) => connection.status === "active")
+      .at(0);
+  const credentialResolver = defaultGitHubCredentialResolver();
   return new IntegrationRegistry([
     createGitHubIntegration({
-      token: process.env.MYSTRA_GITHUB_TOKEN,
+      token: undefined,
+      repositoryListingMode: selectedConnection?.connectionType === "personal-access-token"
+        ? "authenticated-user"
+        : "installation",
+      credentialSource: async () => {
+        return (await credentialResolver.resolve(options.githubConnectionId)).credential.secret;
+      },
       fetchImpl: globalThis.fetch,
     }),
     createLinearIntegration({

@@ -178,11 +178,16 @@ MCP, or the secondary Web client. Mystra starts the selected Agent directly in
 the sandbox, performs bounded test/build/preview/review delivery, and returns a
 GitHub PR plus durable `waiting_for_review` evidence.
 
-The existing UI may still expose Control Plane, Tasks, Runners, Projects and
-Session-derived views, but `040-prisma-rdb` does not preserve those views as a
-persistence requirement. Its first schema contains only IntegrationConnection,
-Project and Task; resulting upper-layer failures are deferred. Web remains
-secondary to API, MCP, and CLI.
+The active MVP demo UI uses a Castrel-inspired primary menu: New, Search,
+Inbox, and Issues, followed by Projects and a Tasks section grouped by Project.
+Task icons reflect the latest Session state. Existing Task, Session, Runner, and
+Project object routes remain directly reachable even when they are not primary
+menu items. `/automations` remains directly reachable as a Coming soon
+placeholder, but it is not a primary menu entry and does not introduce
+platform-owned workflow orchestration. The first Prisma schema does not preserve
+Session-, Runner-, or ContextBundle-derived views as persistence requirements;
+resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
+and CLI.
 
 Task is currently a durable Project-scoped identity with optional Issue dispatch key and metadata; source,
 objective and external snapshots are deferred. Session remains the intended
@@ -206,12 +211,29 @@ The intended long-term experience is similar in spirit to **Stripe Minion**:
 fast task intake, clear Agent execution ownership, reviewable outputs, and
 strong platform seams between Issue intake, runtime, Agent, and repository layers.
 
-Mystra MVP excludes caller auth, logs API/persistence, retry API, callback URLs,
-quality-gate fix loops, OAuth/webhooks/Issue write-back, Integration management
-UI, public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
-cross-runner shared caches, per-repository secret management, public hosted RDB administration
-implementation, GitLab as an enabled/default Integration, and standing-order or
-agent-operated workflow orchestration above the Agent. GitLab may remain as a
+GitHub connection methods are deployment-aware. Self-hosted Mystra supports
+explicit personal access token connections behind `SecretProvider`; the Mystra
+GitHub App is a hosted capability. The open-source tree may retain the App
+adapter, routes, and tests, but self-hosted management and credential entry
+points must fail closed with a stable `hosted-only` capability result. Hosted
+OAuth verifies that an authenticated actor may bind an installation to a Team;
+the OAuth user token is discarded after verification, App identity secrets stay
+platform-owned, and installation tokens are short-lived. App and PAT modes
+never silently fall back to one another. Repository discovery and
+RepoDeliveryProvider clone/push/review always resolve the exact connection bound
+by the Project.
+The current self-hosted MVP does not implement the hosted caller/Team/RDB/secret
+prerequisites; until they land, hosted App capability remains unavailable.
+The current self-hosted MVP otherwise excludes caller auth, caller-login OAuth, logs
+API/persistence, retry API, arbitrary callback URLs, quality-gate fix loops,
+webhooks/Issue write-back, a general-purpose Integration management catalog,
+public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
+cross-runner shared caches, per-repository secret management, and managed hosted
+RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
+PostgreSQL remain approved deployment targets. Hosted platform persistence
+management remains a separate phase. GitLab is not an enabled/default
+Integration, and standing-order or agent-operated workflow orchestration above
+the Agent remains excluded. GitLab may remain as a
 runner-side `RepoDeliveryProvider`; that does not make it an active Project
 repository Integration. PostgreSQL and Supabase-backed PostgreSQL are approved
 deployment targets; the `RdbProvider` interface must not leak database dialect,
@@ -233,25 +255,24 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (4862 symbols, 7627 relationships, 254 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (6686 symbols, 10539 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `impact` on it.
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit changes without running `detect_changes()` to check affected scope.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
 
 ## Resources
 
@@ -290,6 +311,10 @@ This project is indexed by GitNexus as **mystra** (4862 symbols, 7627 relationsh
 - SQLite through `RdbProvider`; schema remains dialect-neutral at the provider contract (038-task-session-model)
 - TypeScript 5.9，Node.js 24.14.0 + Prisma ORM/Client 7.9.1，`@prisma/adapter-better-sqlite3` 7.9.1，`@prisma/adapter-pg` 7.9.1，`pg`，Zod 4，Next.js 16 (040-prisma-rdb)
 - SQLite；PostgreSQL；Supabase-backed PostgreSQL (040-prisma-rdb)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto`、GitHub REST API、现有 Integration/Runner provider contracts (039-github-project-onboarding)
+- SQLite via `RdbProvider`；只保存 IntegrationConnection 非秘密元数据和 Project connection reference (039-github-project-onboarding)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto` / `fs`、GitHub REST API、现有 `better-sqlite3` (041-github-integration-connections)
+- SQLite schema v5 via `RdbProvider`；PAT ciphertext 通过 `SecretProvider` 存于受保护文件目录，RDB 只保存 opaque reference (041-github-integration-connections)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mystra Settings Modal Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111513;
+      --s1: #181c1a;
+      --s3: #2b312d;
+      --line: rgba(118, 129, 122, .3);
+      --soft: rgba(118, 129, 122, .17);
+      --t1: #e7ece8;
+      --t2: #aab4ad;
+      --t3: #76817a;
+      --accent: #74b98b;
+      font: 12px/1.45 "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 16px; background: #080a09; color: var(--t1); }
+    button, input, select { color: inherit; font: inherit; }
+    .modal { width: min(920px, calc(100vw - 32px)); height: min(760px, calc(100vh - 32px)); display: grid; grid-template-columns: 240px minmax(0, 1fr); overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+    aside { padding: 12px 13px; border-right: 1px solid var(--line); background: var(--s1); }
+    .identity { height: 44px; display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: center; margin-bottom: 8px; padding: 4px 6px; }
+    .mark { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; color: var(--accent); font-weight: 700; }
+    .identity div { min-width: 0; display: grid; }
+    .identity span { color: var(--t3); font-size: 11px; }
+    .search { height: 28px; display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: center; margin-bottom: 12px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--t3); }
+    .search input { min-width: 0; border: 0; outline: 0; background: transparent; }
+    .tabs { display: grid; gap: 2px; }
+    .tab { height: 28px; display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: center; padding: 3px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--t2); text-align: left; }
+    .tab.active, .tab:hover { background: var(--s3); color: var(--t1); }
+    .tab b { color: var(--accent); }
+    main { min-width: 0; display: grid; grid-template-rows: 44px 1fr; }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 16px; border-bottom: 1px solid var(--soft); }
+    .close { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; }
+    .close:hover { background: var(--s3); }
+    .content { padding: 16px; overflow: auto; }
+    .group { display: grid; gap: 20px; }
+    .row { min-height: 28px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: center; }
+    .rowCopy { min-width: 0; display: grid; gap: 4px; }
+    .rowCopy p { margin: 0; color: var(--t3); }
+    .control { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    .control select { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--s1); }
+    .swatch { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: #111513; font-size: 10px; }
+    .segmented { display: flex; padding: 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--s1); }
+    .segmented button { min-width: 56px; height: 24px; padding: 0 8px; border: 0; border-radius: 2px; background: transparent; color: var(--t2); }
+    .segmented button.active { background: var(--s3); color: var(--t1); }
+    .details { grid-column: 1 / -1; display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--s1); }
+    .detailsHeader { display: flex; align-items: center; justify-content: space-between; }
+    .reset { width: 28px; height: 28px; border: 0; border-radius: 4px; background: transparent; color: var(--t2); }
+    .reset:hover { background: var(--s3); color: var(--t1); }
+    .preview { min-width: 0; padding: 8px 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; background: #0c0f0d; color: var(--t2); text-overflow: ellipsis; white-space: nowrap; }
+    .detailRow { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: center; }
+    .detailRow input[type="text"] { width: 100%; height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+    .range { display: grid; grid-template-columns: minmax(120px, 1fr) 40px; gap: 8px; align-items: center; }
+    .range input { accent-color: var(--accent); }
+    .range output { color: var(--t2); text-align: right; }
+
+    @media (max-width: 700px) {
+      .modal { width: calc(100vw - 16px); height: calc(100vh - 16px); grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      aside { display: grid; grid-template-columns: 1fr minmax(120px, .8fr); gap: 8px 12px; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .identity, .search { margin: 0; }
+      .tabs { grid-column: 1 / -1; grid-template-columns: repeat(2, 1fr); }
+      .row { grid-template-columns: 1fr; gap: 12px; align-items: start; }
+      .control { justify-content: flex-start; }
+      .details { grid-column: 1; }
+    }
+
+    @media (max-width: 420px) {
+      aside { grid-template-columns: 1fr; }
+      .tabs { grid-column: 1; }
+      .content { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <section aria-label="设置" class="modal" role="dialog">
+    <aside>
+      <div class="identity"><div class="mark">M</div><div><strong>Mystra</strong><span>账户 · Team</span></div></div>
+      <label class="search"><span>⌕</span><input aria-label="搜索设置" placeholder="搜索设置" /></label>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab"><b>○</b><span>账户</span></button>
+        <button aria-selected="true" class="tab active" role="tab"><b>◐</b><span>外观</span></button>
+        <button class="tab" role="tab"><b>◎</b><span>Team</span></button>
+        <button class="tab" role="tab"><b>◇</b><span>集成</span></button>
+      </div>
+    </aside>
+    <main>
+      <header class="header"><strong>外观</strong><button aria-label="关闭" class="close">×</button></header>
+      <div class="content">
+        <section class="group">
+          <div class="row"><div class="rowCopy"><strong>语言</strong><p>选择框架界面语言。</p></div><div class="control"><select aria-label="语言"><option>简体中文</option><option>English</option></select></div></div>
+          <div class="row"><div class="rowCopy"><strong>主题模式</strong><p>选择跟随系统、浅色或深色外观，并设置边缘线强度。</p></div><div class="control"><select aria-label="边缘线模式"><option>默认</option><option>高对比</option><option>彩色高对比</option></select><div aria-label="主题模式" class="segmented" role="group"><button class="active">系统</button><button>浅色</button><button>深色</button></div></div></div>
+          <div class="row"><div class="rowCopy"><strong>代码与终端主题</strong><p>选择代码内容使用浅色或深色表面。</p></div><div aria-label="代码与终端主题" class="control segmented" role="group"><button>浅色</button><button class="active">深色</button></div></div>
+          <div class="row"><div class="rowCopy"><strong>浅色主题</strong><p>选择浅色模式使用的主题方案。</p></div><div class="control"><span class="swatch" style="background:#fff;color:#3183d8">NL</span><select aria-label="浅色主题"><option>Notion / Light</option><option>Linen / Light</option></select></div></div>
+          <div class="row"><div class="rowCopy"><strong>深色主题</strong><p>选择深色模式使用的主题方案。</p></div><div class="control"><span class="swatch">GS</span><select aria-label="深色主题"><option>Graphite Signal</option><option>Notion / Dark</option></select></div></div>
+          <section class="details">
+            <header class="detailsHeader"><strong>主题细节</strong><button aria-label="复位主题细节" class="reset">↺</button></header>
+            <div aria-label="代码与终端主题预览" class="preview">$ mystra task create --project mystra  # preview</div>
+            <label class="detailRow"><span>对比度</span><span class="range"><input aria-label="对比度" max="100" type="range" value="72" /><output>72</output></span></label>
+            <label class="detailRow"><span>UI 字体</span><input aria-label="UI 字体" type="text" value="Fira Code, Maple Mono, monospace" /></label>
+            <label class="detailRow"><span>对话字体</span><input aria-label="对话字体" type="text" value="Fira Code, Maple Mono, monospace" /></label>
+            <label class="detailRow"><span>代码字体</span><input aria-label="代码字体" type="text" value="Fira Code, Maple Mono, monospace" /></label>
+            <label class="detailRow"><span>界面字号</span><span class="range"><input aria-label="界面字号" max="14" min="12" type="range" value="12" /><output>12px</output></span></label>
+            <label class="detailRow"><span>对话字号</span><span class="range"><input aria-label="对话字号" max="16" min="12" type="range" value="12" /><output>12px</output></span></label>
+          </section>
+        </section>
+      </div>
+    </main>
+  </section>
+</body>
+</html>

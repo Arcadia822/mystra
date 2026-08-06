@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>042-runtime-sandbox-capacity</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"042-runtime-sandbox-capacity","title":"042-runtime-sandbox-capacity","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T07:23:11.707Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：Runtime Sandbox 能力提供方\n\n**Feature Branch**: `042-runtime-sandbox-capacity`（逻辑 feature id；本次未创建或切换分支）  \n**Created**: 2026-08-06  \n**Status**: Deferred；仅记录规格，不进入规划或实现  \n**Input**: Runtime 应代表能够为 Agent 提供 Sandbox 的执行后端，包括安装 Mystra Runner 的主机、Kubernetes，以及未来通过 API 接入的 Sandbox 云服务；Runner 只是部分 Runtime 使用的可选连接方式。当前 `runners` 表和既有 Runner 行为保持不变，后续另行设计和迁移。\n\n## User Scenarios & Testing *(mandatory)*\n\n本功能是延期的架构边界记录，不对应当前可交付的用户流程。以下使用具名技术场景，目的是让后续 Runtime 设计不会把自托管 Runner 的连接细节错误地推广到 Kubernetes 和云 Sandbox。\n\n### Technical Scenario 1 - 操作者以统一概念选择 Sandbox 能力提供方 (Priority: P1)\n\n平台操作者能够把 Runtime 理解为“为 Agent Session 提供 Sandbox 能力的执行后端”，而不是某个必须安装 Mystra Runner 的进程或主机。\n\n**Why this priority**: 这是后续主机、Kubernetes 和云 Sandbox 共存时的核心产品边界。若该边界不稳定，连接方式会继续冒充业务实体。\n\n**Independent Test**: 使用一个安装 Runner 的自托管主机和一个无需 Runner 的托管 Sandbox 服务审阅规格；两者都能被描述为 Runtime，且不需要改变 Runtime 的业务含义。\n\n**Acceptance Scenarios**:\n\n1. **Given** 一个安装 Mystra Runner 的主机能够创建 Agent Sandbox，**When** 操作者查看其平台归类，**Then** 它被视为一种 Runtime，Runner 只负责建立连接和上报运行状态。\n2. **Given** 一个通过服务端 API 创建 Sandbox 的云服务，**When** 操作者查看其平台归类，**Then** 它同样被视为 Runtime，且不要求安装或模拟 Mystra Runner。\n3. **Given** 一个 Kubernetes 执行环境，**When** 后续实现选择直接连接集群或通过连接组件接入，**Then** 连接方式不改变它作为 Runtime 的业务身份。\n\n---\n\n### Technical Scenario 2 - Runner 保持为可选连接机制 (Priority: P1)\n\nRuntime 接入者可以根据网络拓扑和服务能力选择 Runner 连接或直接连接，而不会让 Runner 成为所有 Runtime 的强制前提。\n\n**Why this priority**: 自托管主机适合由本地组件反向连接；Kubernetes 和云服务通常可以由 Control Plane 直接访问。把一种拓扑写成所有实现的合同，只会让未来 Provider 伪装成本地主机。\n\n**Independent Test**: 审阅至少一种 connector 模式和一种 direct 模式；两者都能建立可用 Runtime，同时只有 connector 模式需要 Runner 心跳。\n\n**Acceptance Scenarios**:\n\n1. **Given** Runtime 位于 Control Plane 无法主动访问的主机，**When** 操作者选择 Runner 连接，**Then** Runner 可以承担认证、心跳、容量上报和 Session 领取。\n2. **Given** Runtime 提供可直接访问的受信 API，**When** Control Plane 建立直接连接，**Then** Runtime 不需要 Runner 注册、Runner 凭证或 Runner 心跳。\n3. **Given** 两种连接方式都可提供相同 Sandbox 能力，**When** 上层 Task 和 Session 使用 Runtime，**Then** 它们不需要理解底层连接方式。\n\n---\n\n### Technical Scenario 3 - Runtime、Sandbox 规格与 Sandbox 实例保持分离 (Priority: P1)\n\n平台设计者能够明确区分能力提供方、期望的执行环境以及某次 Session 实际创建的隔离环境。\n\n**Why this priority**: 当前 `runtime` 一词还用于描述镜像、挂载和 ContextBundle。若不拆分语义，未来会同时表示“哪家服务”和“容器里装什么”，从而获得一种罕见的双重含义。\n\n**Independent Test**: 选择同一个 Runtime，使用两种不同的 Sandbox 规格启动两个 Session；再选择两个不同 Runtime，使用等价 Sandbox 规格启动 Session。所有对象仍能被无歧义地识别。\n\n**Acceptance Scenarios**:\n\n1. **Given** 一个 Runtime 支持多个镜像和挂载组合，**When** 不同 Session 请求不同执行环境，**Then** Runtime 身份保持不变，差异由 Sandbox 规格表达。\n2. **Given** 一个 Session 已选择 Runtime，**When** Runtime 为其创建实际隔离环境，**Then** 该环境作为 Sandbox 实例被追踪，而不是覆盖 Runtime 的身份或配置。\n3. **Given** 两个 Runtime 都支持同一 Sandbox 规格，**When** 调度选择其中一个，**Then** Session 能记录实际选择的 Runtime 和最终解析的 Sandbox 规格。\n\n---\n\n### Technical Scenario 4 - 延期设计不改变当前 Runner MVP (Priority: P1)\n\n当前自托管 MVP 可以继续使用既有 Runner、Runner 心跳和 Session 领取流程，直到 Runtime 规格完成后续澄清、规划、工程评审和迁移设计。\n\n**Why this priority**: 本 Spec 的授权范围只是记录未来边界。延期设计不应通过命名热情偷偷修改正在工作的系统。\n\n**Independent Test**: 比较创建本 Spec 前后的代码、数据库和运行接口；除 `specs/042-runtime-sandbox-capacity/` 外不存在行为或合同变化。\n\n**Acceptance Scenarios**:\n\n1. **Given** 当前数据库存在 `runners` 表，**When** 本 Spec 创建完成，**Then** 表名、字段和迁移保持不变。\n2. **Given** 当前 Runner 使用注册、认证、心跳和 Session claim 接口，**When** 本 Spec 创建完成，**Then**这些接口及行为保持不变。\n3. **Given** 后续团队准备实现 Runtime，**When** 尚未完成 `/speckit.clarify`、`/speckit.plan` 和工程评审，**Then** 不得把本 Spec 解释为已授权迁移或实现。\n\n### Edge Cases\n\n- 一个 Runtime 由多个主机节点共同提供容量时，Runtime 身份与节点心跳如何区分？\n- 云 Sandbox 服务没有可持久观察的节点，也不提供心跳时，Runtime 健康如何表达？\n- Kubernetes Runtime 是集群级、命名空间级还是 RuntimeClass 级资源？本 Spec 暂不选择。\n- Runtime 暂时不可用但已经存在运行中的 Sandbox 时，新的 Session 与既有 Session 如何分别处理？\n- Runtime 能力和容量是静态声明、动态查询还是连接组件上报？本 Spec 暂不选择。\n- Team 自有 Runtime 与平台共享 Runtime 如何授权和隔离？本 Spec 暂不选择。\n- 同一 Runtime 同时支持 direct 和 connector 两种连接方式时，如何选择并避免重复调度？\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: Mystra MUST 将 Runtime 定义为能够为 Agent Session 提供 Sandbox 能力的执行后端。\n- **FR-002**: Runtime 概念 MUST 能覆盖安装 Mystra Runner 的主机、Kubernetes，以及不安装 Runner 的 Sandbox 云服务。\n- **FR-003**: Runner MUST 被定义为部分 Runtime 可选的连接和执行组件，而不是 Runtime 成立的必要条件。\n- **FR-004**: Runtime 的业务身份 MUST 与其连接方式分离，使 connector、direct API 或未来其他连接方式不会泄漏到 Task 和 Session 的上层合同。\n- **FR-005**: Runtime MUST 与 Sandbox 规格分离；镜像、挂载、ContextBundle、Secret、端口和资源要求描述 Sandbox 应当如何构造，而不是 Runtime 本身是谁。\n- **FR-006**: Runtime MUST 与 Sandbox 实例分离；Sandbox 实例表示为某个 Session 实际创建的隔离执行环境。\n- **FR-007**: 后续设计 MUST 允许 Session 记录实际选择的 Runtime，并保存足以解释本次执行环境的最终 Sandbox 规格。\n- **FR-008**: 只有采用 Runner/connector 模式的 Runtime 才 MAY 依赖 Runner 注册、凭证、心跳、容量上报和反向 Session 领取。\n- **FR-009**: 直接连接的 Runtime MUST NOT 被要求伪造 Runner、Runner 心跳或 Runner 凭证才能满足统一 Runtime 合同。\n- **FR-010**: Runtime 的秘密连接材料 MUST 通过不透明引用交给秘密管理边界，而不是成为公开 Runtime 数据。\n- **FR-011**: Runtime 的健康、能力和可用性语义 MUST 能同时表达有心跳连接和无心跳 API Provider，不得以 `lastHeartbeatAt` 作为所有 Runtime 的普遍前提。\n- **FR-012**: 本 Spec MUST NOT 修改、重命名或删除当前 `runners` 表、Runner API、Runner 协议、Session 分配字段或现有运行行为。\n- **FR-013**: 本 Spec MUST NOT 创建 Runtime 数据库迁移、Runtime 管理 API、Runtime UI、Kubernetes Adapter、云 Sandbox Adapter、安装流程、技术计划或实现任务。\n- **FR-014**: 本 Spec MUST NOT 同时承担 PG/Supabase、Task Activity、Agent 消息历史或 Artifact 重设计；这些边界需要独立规格。\n- **FR-015**: 任何 Runtime 实现 MUST 在后续独立授权下依次完成澄清、技术计划、工程评审、任务拆分和迁移验证。\n\n### Key Entities\n\n- **Runtime**: 能够为 Agent Session 提供 Sandbox 能力的已配置执行后端。其身份不等同于某个 Runner 进程、节点或 Sandbox 实例。\n- **Runtime Connection**: Mystra 与 Runtime 建立控制和状态通道的方式。可能由 Runner/connector 提供，也可能是 Control Plane 直接访问的 Provider API。\n- **Runner**: connector 模式下可选的本地组件，负责认证、心跳、容量上报、Session 领取和本地执行协调；不是所有 Runtime 的共同实体前提。\n- **Sandbox Spec**: 某次执行期望的镜像、挂载、ContextBundle、Secret、端口、资源和策略集合。\n- **Sandbox Instance**: Runtime 针对一个 Session 创建的实际隔离环境，具有 Provider 返回的实例引用和生命周期。\n- **Session Runtime Selection**: Session 对实际 Runtime 和最终 Sandbox 规格的可解释绑定。\n\n### Assumptions\n\n- 当前 Runner MVP 继续作为唯一已实现执行路径，本 Spec 不改变其支持状态。\n- Runtime 的所有权、Team 绑定、平台共享池、调度、计费、容量和健康聚合均延后澄清。\n- Kubernetes 和云 Sandbox 仅作为必须容纳的未来技术场景，不代表当前支持承诺。\n- 后续设计可能将当前代码中的 `runtime` 配置重新命名为 Sandbox Spec；本 Spec 不授权该重命名。\n- 本 Spec 的技术场景用于锁定领域边界，因此不要求 UI Prototype。\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: 评审者能够在一次规格评审中准确区分 Runtime、Runner、Runtime Connection、Sandbox Spec 和 Sandbox Instance，且不存在同一术语承担两个角色的必要解释。\n- **SC-002**: 至少一个需要 Runner 的自托管主机场景和一个不需要 Runner 的直接 API 场景能够满足同一 Runtime 业务定义。\n- **SC-003**: 至少两个不同 Sandbox 规格可以由同一 Runtime 提供，而不需要复制或改变 Runtime 身份。\n- **SC-004**: 创建本 Spec 后，现有数据库、公共合同、Runner 协议和运行行为的变更数量为零。\n- **SC-005**: 在 Owner 明确恢复该功能前，不生成 plan、tasks、migration 或实现代码。\n\n## Deferred Decisions\n\n以下问题被有意保留给未来 `/speckit.clarify`，当前没有默认答案：\n\n- Runtime 是 Team 自有资源、平台共享资源，还是同时支持两者。\n- Runtime 的具体分类、Provider/driver 命名和 capability schema。\n- direct 与 connector 模式是否可以在同一 Runtime 上共存。\n- Runtime 与 Runtime node/connection 是否需要分别持久化。\n- Session 在何时选择 Runtime，以及失败时是否允许重新选择。\n- Sandbox Instance 是否成为持久化实体，以及其保留周期。\n- 当前 `runners` 数据如何迁移，或是否仅作为 connector 运行记录保留。\n\n## Explicit Non-Authorization\n\n本 Spec 只记录未来领域方向。它不是实现授权，也不代表当前 MVP 边界已经改变。除本目录中的 Spec-Kit 评审产物外，不得据此修改任何代码、数据库、API、MCP、CLI、Web、Runner、Sandbox 或安装文档。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：Runtime Sandbox 能力提供方\n\n## 摘要\n\nRuntime 是能够为 Agent Session 提供 Sandbox 的执行后端。它可以是安装 Mystra Runner 的主机、Kubernetes，或未来通过 API 接入的 Sandbox 云服务。Runner 只是部分 Runtime 使用的可选连接组件，不是所有 Runtime 的共同前提。\n\n本功能当前只记录领域边界。现有 `runners` 表、Runner 协议、Session 分配和执行行为保持不变。\n\n## 功能地图\n\n- Runtime：提供 Sandbox 能力的业务实体。\n- Runtime Connection：Mystra 与 Runtime 建立控制通道的方式，可以是 Runner/connector，也可以是 direct API。\n- Runner：connector 模式下负责认证、心跳、容量上报和 Session 领取的可选组件。\n- Sandbox Spec：描述镜像、挂载、ContextBundle、Secret、端口和资源要求。\n- Sandbox Instance：Runtime 为某个 Session 实际创建的隔离环境。\n- Session Runtime Selection：记录 Session 实际使用的 Runtime 和最终 Sandbox 规格。\n\n## 边界\n\n- Runtime 不等于 Runner、单台主机、容器镜像或 Sandbox 实例。\n- 无需 Runner 的 Kubernetes 或云 Sandbox 不得被迫伪造 Runner 心跳。\n- 当前代码中的 `runtime` 配置未来可能需要改称 Sandbox Spec，但本规格不授权重命名。\n- 本规格不包含数据库迁移、管理 API、UI、Provider Adapter、安装流程或实现任务。\n- PG/Supabase、Task Activity、Agent 消息历史和 Artifact 重设计不属于本功能。\n\n## 分阶段能力图\n\n1. 当前阶段：只记录 Runtime、Runner、连接方式和 Sandbox 的领域边界。\n2. 未来澄清：确定 Runtime 所有权、连接模式、健康、容量、调度和持久化边界。\n3. 未来规划：设计迁移、Provider 合同、Session 选择与 Sandbox Instance 生命周期。\n4. 未来实现：在独立授权和工程评审后增加自托管、Kubernetes 或云 Sandbox Runtime。\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：Runtime Sandbox 能力提供方\n\n## Owner 评审\n\n- [x] Runtime 表示能够提供 Agent Sandbox 的执行后端。\n- [x] 安装 Mystra Runner 的主机只是 Runtime 的一种实现形态。\n- [x] Kubernetes 和未来 Sandbox 云服务可以不安装 Runner。\n- [x] Runner 被降为可选连接组件，而不是所有 Runtime 的一等前提。\n- [x] 当前 `runners` 表和既有 Runner 行为暂不改动。\n- [x] 本次只创建新 Spec，不进入 plan、tasks 或 implementation。\n- [ ] 未来恢复设计时确认 Runtime 的 Team/平台所有权边界。\n- [ ] 未来恢复设计时确认 Runtime 健康、容量和调度语义。\n\n## Spec 就绪度\n\n- [x] Runtime、Runner、Runtime Connection、Sandbox Spec 和 Sandbox Instance 的边界已分开。\n- [x] connector 与 direct API 两种连接形态均被纳入。\n- [x] 当前行为零变更被写成可验证成功标准。\n- [x] 未把 PG/Supabase、Task Activity 或 Artifact 重设计混入本 Spec。\n- [ ] Owner 尚未授权 `/speckit.clarify`。\n- [ ] Owner 尚未授权 `/speckit.plan`。\n- [ ] 本功能不应生成 `tasks.md` 或实现代码。\n\n## 后续插件检查\n\n- [ ] 恢复设计时重新核对 Kubernetes 与候选云 Sandbox Provider 的官方能力。\n- [ ] 规划前执行 GitNexus impact analysis，覆盖 Runner、Session claim、SandboxProvider 和 Runtime 配置合同。\n- [ ] 规划后执行 `plan-eng-review`，重点审查 push/direct 与 pull/connector 两类执行拓扑。\n- [ ] 在实施前设计可回滚的数据迁移和既有 self-hosted Runner 兼容路径。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/042-runtime-sandbox-capacity/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Plan\n\n_specs/042-runtime-sandbox-capacity/plan.md is not present for this spec yet._"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks\n\n_specs/042-runtime-sandbox-capacity/tasks.md is not present for this spec yet._"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

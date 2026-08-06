@@ -33,6 +33,10 @@ const rawRepositorySchema = z.object({
   archived: z.boolean(),
 }).passthrough();
 
+const rawRepositoryListSchema = z.object({
+  repositories: z.array(rawRepositorySchema),
+}).passthrough();
+
 const rawIssueSchema = z.object({
   id: z.union([z.number().int(), z.string().min(1)]),
   number: z.number().int().positive(),
@@ -152,29 +156,38 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
   readonly providerName = "github";
   readonly repositoryScope = "required";
   private readonly token: string | undefined;
+  private readonly credentialSource: (() => Promise<string>) | undefined;
+  private readonly repositoryListingMode: "installation" | "authenticated-user";
   private readonly fetchImpl: Fetch;
   private readonly timeoutMs: number;
 
   constructor(input: {
     token: string | undefined;
+    credentialSource?: () => Promise<string>;
+    repositoryListingMode?: "installation" | "authenticated-user";
     fetchImpl?: Fetch;
     timeoutMs?: number;
   }) {
     this.token = input.token;
+    this.credentialSource = input.credentialSource;
+    this.repositoryListingMode = input.repositoryListingMode ?? "installation";
     this.fetchImpl = input.fetchImpl ?? globalThis.fetch;
     this.timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   async listRepositories(input: RepositoryListRequest): Promise<RepositoryListResponse> {
     const page = input.after ?? "1";
-    const response = await this.request(
-      `/user/repos?per_page=${input.first}&page=${encodeURIComponent(page)}&sort=updated`,
-    );
-    const raw = await this.parseJson(z.array(rawRepositorySchema), response);
+    const path = this.repositoryListingMode === "authenticated-user"
+      ? `/user/repos?per_page=${input.first}&page=${encodeURIComponent(page)}&affiliation=owner%2Ccollaborator%2Corganization_member`
+      : `/installation/repositories?per_page=${input.first}&page=${encodeURIComponent(page)}`;
+    const response = await this.request(path);
+    const repositories = this.repositoryListingMode === "authenticated-user"
+      ? await this.parseJson(z.array(rawRepositorySchema), response)
+      : (await this.parseJson(rawRepositoryListSchema, response)).repositories;
     const fetchedAt = new Date().toISOString();
     const endCursor = nextPage(response);
     return repositoryListResponseSchema.parse({
-      items: raw.map((repository) => normalizeRepository(repository, fetchedAt)),
+      items: repositories.map((repository) => normalizeRepository(repository, fetchedAt)),
       pageInfo: {
         hasNextPage: endCursor !== undefined,
         ...(endCursor ? { endCursor } : {}),
@@ -271,7 +284,8 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
     path: string,
     options: { allowNotFound?: boolean } = {},
   ): Promise<Response> {
-    if (!this.token) {
+    const token = this.credentialSource ? await this.credentialSource() : this.token;
+    if (!token) {
       throw new IntegrationFailure({
         code: "INTEGRATION_NOT_CONFIGURED",
         message: "GitHub Integration is not configured",
@@ -283,7 +297,7 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
       response = await this.fetchImpl(`${GITHUB_API_URL}${path}`, {
         headers: {
           accept: "application/vnd.github+json",
-          authorization: `Bearer ${this.token}`,
+          authorization: `Bearer ${token}`,
           "x-github-api-version": "2022-11-28",
         },
         signal: AbortSignal.timeout(this.timeoutMs),
@@ -336,6 +350,8 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
 
 export function createGitHubIntegration(input: {
   token: string | undefined;
+  credentialSource?: () => Promise<string>;
+  repositoryListingMode?: "installation" | "authenticated-user";
   fetchImpl?: Fetch;
   timeoutMs?: number;
 }): IntegrationPlugin {

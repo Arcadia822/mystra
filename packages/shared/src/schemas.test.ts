@@ -582,6 +582,7 @@ describe("projectSchema", () => {
       id: "00000000-0000-4000-8000-000000000010",
       name: "Castrel AI",
       slug: "castrel-ai",
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
       repository: remoteRepository,
       defaultAgent: "copilot",
       runtime: {
@@ -603,6 +604,7 @@ describe("projectSchema", () => {
     const parsed = projectCreateSchema.parse({
       name: "Castrel AI",
       slug: "castrel-ai",
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
       repository: remoteRepository,
       defaultAgent: "codex",
       runtime: {
@@ -614,22 +616,20 @@ describe("projectSchema", () => {
     expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
   });
 
-  it("accepts only a provider selector on public project create requests", () => {
+  it("accepts only a provider selector on public project create requests and omits advanced defaults", () => {
     const parsed = projectCreateRequestSchema.parse({
       name: "Remote fixture",
       slug: "remote-fixture",
       repository: {
         integration: "github",
+        connectionId: "00000000-0000-4000-8000-000000000039",
         identifier: "Arcadia822/mystra-remote-e2e",
-      },
-      defaultAgent: "copilot",
-      runtime: {
-        provider: "docker",
-        image: "mystra-copilot:fixture",
       },
     });
 
     expect(parsed.repository.identifier).toBe("Arcadia822/mystra-remote-e2e");
+    expect(parsed.defaultAgent).toBeUndefined();
+    expect(parsed.runtime).toBeUndefined();
     expect(() => projectCreateRequestSchema.parse({
       ...parsed,
       repo: "legacy-value",
@@ -643,11 +643,32 @@ describe("projectSchema", () => {
     })).toThrow();
   });
 
+  it("keeps Agent and runtime as optional advanced API overrides", () => {
+    const parsed = projectCreateRequestSchema.parse({
+      name: "Remote fixture",
+      slug: "remote-fixture",
+      repository: {
+        integration: "github",
+        connectionId: "00000000-0000-4000-8000-000000000039",
+        identifier: "Arcadia822/mystra-remote-e2e",
+      },
+      defaultAgent: "copilot",
+      runtime: {
+        provider: "docker",
+        image: "mystra-copilot:fixture",
+      },
+    });
+
+    expect(parsed.defaultAgent).toBe("copilot");
+    expect(parsed.runtime?.image).toBe("mystra-copilot:fixture");
+  });
+
   it("rejects project create payloads without runtime.image", () => {
     expect(() =>
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
+        repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
         repository: remoteRepository,
         defaultAgent: "codex",
       }),
@@ -660,6 +681,7 @@ describe("projectSchema", () => {
         id: "00000000-0000-4000-8000-000000000011",
         name: "Castrel AI",
         slug: "castrel-ai",
+        repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
         repository: remoteRepository,
         defaultAgent: "codex",
         runtime: {
@@ -685,6 +707,7 @@ describe("projectSchema", () => {
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
+        repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
         repository: remoteRepository,
         defaultAgent: "codex",
         runtime: {

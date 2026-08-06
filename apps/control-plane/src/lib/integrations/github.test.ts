@@ -38,9 +38,9 @@ describe("GitHubIntegrationProvider repositories", () => {
   it("lists and gets normalized remote repositories with opaque pagination", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([githubRepository], {
+      .mockResolvedValueOnce(jsonResponse({ repositories: [githubRepository] }, {
         headers: {
-          link: '<https://api.github.com/user/repos?per_page=10&page=3>; rel="next"',
+          link: '<https://api.github.com/installation/repositories?per_page=10&page=3>; rel="next"',
         },
       }))
       .mockResolvedValueOnce(jsonResponse(githubRepository));
@@ -67,7 +67,7 @@ describe("GitHubIntegrationProvider repositories", () => {
       fullName: "arcadia/mystra-fixture",
     }));
     expect(fetchImpl.mock.calls[0]?.[0]).toBe(
-      "https://api.github.com/user/repos?per_page=10&page=2&sort=updated",
+      "https://api.github.com/installation/repositories?per_page=10&page=2",
     );
     expect(fetchImpl.mock.calls[1]?.[0]).toBe(
       "https://api.github.com/repos/arcadia/mystra-fixture",
@@ -81,6 +81,25 @@ describe("GitHubIntegrationProvider repositories", () => {
     });
 
     await expect(provider.getRepository("arcadia/missing")).resolves.toBeUndefined();
+  });
+
+  it("lists PAT-visible repositories from the authenticated-user endpoint", async () => {
+    const fetchImpl = vi.fn(async (_input: URL | RequestInfo) => jsonResponse([{
+      ...githubRepository,
+      permissions: { pull: true, push: true, admin: false },
+    }]));
+    const provider = new GitHubIntegrationProvider({
+      token: "github_pat_exact",
+      repositoryListingMode: "authenticated-user",
+      fetchImpl,
+    });
+
+    const result = await provider.listRepositories({ first: 25 });
+
+    expect(result.items[0]?.fullName).toBe("arcadia/mystra-fixture");
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe(
+      "https://api.github.com/user/repos?per_page=25&page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
+    );
   });
 
   it.each([
@@ -131,7 +150,7 @@ describe("GitHubIntegrationProvider repositories", () => {
 
     const invalidShape = new GitHubIntegrationProvider({
       token: "token",
-      fetchImpl: vi.fn(async () => jsonResponse([{ ...githubRepository, clone_url: "/tmp/local" }])),
+      fetchImpl: vi.fn(async () => jsonResponse({ repositories: [{ ...githubRepository, clone_url: "/tmp/local" }] })),
     });
     await expect(invalidShape.listRepositories({ first: 25 })).rejects.toMatchObject({
       code: "INTEGRATION_INVALID_RESPONSE",

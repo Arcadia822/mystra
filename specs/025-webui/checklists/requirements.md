@@ -45,7 +45,7 @@
 
 - 就绪结论：可以进入 planning；本切片是 shell/framework 规格，不是完整页面行为规格。
 - 主要假设：MVP UI 仍是二级 operations surface；API 是事实来源，skill/MCP 与 CLI 的管理优先级高于 UI。
-- 主要假设：唯一已批准 primary navigation 是 `Overview`、`Inbox`、`New Task` 和 `Projects`；`Settings` 是 shell modal，`Recent Sessions` 是 secondary route。
+- 主要假设：唯一已批准 primary navigation 是 `New`、`Search`、`Inbox` 和 `Issues`；其下是 Projects 与 Project-grouped Tasks，`Settings` 是 shell modal；`/automations` 仅保留可直接访问的 `Coming soon` 占位页。
 - 主要假设：shell-level 范围明确包括与 Claude design-system 方向对齐的主题支持、国际化、主侧边栏、`chatLayout`/`dashboardLayout`/`readLayout`、共享基础组件、响应式行为和未来 Electron 兼容。
 - 主要假设：appearance、theme、locale、layouts、components 与 host compatibility 保持为 framework concerns；页面数据、动作和操作解释保持在 framework spec 之外，除非后续显式提升。
 - 剩余 planning 提醒：025 的后续实现切片应定义各 surface 的具体行为，同时不改变已批准 shell taxonomy、framework-owned layouts/components 或 Electron-compatible shell boundary；035/036 已实现对象页必须显式迁移，不能由导航重构意外丢失。

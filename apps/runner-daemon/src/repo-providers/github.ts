@@ -236,23 +236,16 @@ export const githubRepoProvider: RepoDeliveryProvider = {
   supports(repository) {
     return repository.provider === "github";
   },
-  async pushBranch(input) {
-    if (input.auth.provider !== "github" || input.auth.kind !== "runner-env") {
+  async pushBranch(input, credential) {
+    if (input.auth.provider !== "github" || input.auth.kind !== "runtime-ref" || credential?.provider !== "github") {
       return branchFailure(
         input,
         "auth_invalid",
-        "GitHub branch delivery requires runner-env GitHub auth",
+        "GitHub branch delivery requires an ephemeral installation credential",
       );
     }
 
-    const token = process.env[input.auth.reference];
-    if (!token) {
-      return branchFailure(
-        input,
-        "auth_invalid",
-        `Missing GitHub auth token in ${input.auth.reference}`,
-      );
-    }
+    const token = credential.secret;
 
     const metadata = pushMetadata(input);
     if (!metadata.localRepoPath) {
@@ -304,25 +297,17 @@ export const githubRepoProvider: RepoDeliveryProvider = {
       );
     }
   },
-  async createReview(input) {
-    if (input.auth.provider !== "github" || input.auth.kind !== "runner-env") {
+  async createReview(input, credential) {
+    if (input.auth.provider !== "github" || input.auth.kind !== "runtime-ref" || credential?.provider !== "github") {
       return reviewFailure(
         input,
         "auth_invalid",
-        "GitHub review creation requires runner-env GitHub auth",
+        "GitHub review creation requires an ephemeral installation credential",
         "auth_invalid",
       );
     }
 
-    const token = process.env[input.auth.reference];
-    if (!token) {
-      return reviewFailure(
-        input,
-        "auth_invalid",
-        `Missing GitHub auth token in ${input.auth.reference}`,
-        "auth_invalid",
-      );
-    }
+    const token = credential.secret;
 
     const metadata = reviewMetadata(input);
 

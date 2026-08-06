@@ -1,6 +1,6 @@
 # Mystra Platform
 
-> Issue-driven execution of coding agents, with reviewable evidence.
+> Ship software with agents.
 
 ## Runtime shape
 
@@ -91,6 +91,8 @@ pnpm lsp:typescript
 ```text
 RdbProvider           SQLite, PostgreSQL, or Supabase-backed PostgreSQL
 IntegrationPlugin     named repository and/or Issue capabilities
+IntegrationConnection durable non-secret binding to one provider authorization
+SecretProvider        protected credential material resolved by opaque reference
 RepoProvider          remote repository discovery and identity
 IssueProvider         GitHub repository-scoped; Linear read-only
 SandboxProvider       single-machine Docker first
@@ -101,15 +103,77 @@ AgentProvider         adapter-backed Agent execution
 GitLab may remain a replaceable Runner-side delivery implementation. It is not
 an enabled/default MVP intake Integration.
 
+GitHub connection methods are deployment capabilities, not merely the presence
+of environment variables. Self-hosted Mystra supports explicit personal access
+token connections behind `SecretProvider`; the platform-operated Mystra GitHub
+App is a hosted capability. The open-source repository retains the GitHub App
+adapter, routes, and tests so hosted and local development use one codebase, but
+the stock self-hosted public method projection omits GitHub App entirely and
+every App start, callback, credential-minting, repository-discovery, and
+delivery entry point fails closed with the internal `hosted-only` reason.
+
+Hosted GitHub OAuth is used only to verify that an authenticated actor may bind
+an installation to the selected Team. OAuth transactions bind a one-time nonce,
+actor, Team, installation intent, expiry, and safe return path in server-side
+state. OAuth user tokens are discarded after verification. GitHub App identity
+secrets are platform-owned; installation access tokens are minted on demand and
+expire quickly. PAT plaintext is stored only behind the deployment's
+`SecretProvider`; RDB keeps non-secret connection metadata and an opaque secret
+reference. App and PAT modes never silently fall back to one another, and
+repository discovery plus RepoDeliveryProvider clone/push/review always resolve
+the exact connection bound by the Project.
+
+Deployment capability checks belong at Integration management and credential
+resolution boundaries. They must not make `IntegrationRegistry` return a
+different provider graph per deployment. Existing unsupported connection records
+remain inspectable, but are never silently treated as operable.
+
+Deployment shape is selected by the server composition root, not by request data
+or an operator-facing mode flag. The open-source entrypoint always assembles
+self-hosted services and does not construct a GitHub App identity provider. The
+managed Mystra Cloud entrypoint assembles hosted caller authentication, Team
+authorization, durable OAuth transaction state, managed SecretProvider/KMS, and
+the platform GitHub App identity. App environment variables are inputs to that
+hosted assembly only; they are not a deployment-mode switch. A partial hosted
+assembly reports `PREREQUISITE_UNAVAILABLE` and fails closed.
+
+The Hosted composition root, Cloud-only adapters, infrastructure manifests, and
+final image pipeline live in a separate private distribution project. That
+project pins an immutable OSS revision and consumes a versioned deployment
+contract; it is not a private fork and must not patch OSS source during routine
+builds. Published Cloud images record both OSS and distribution revisions.
+
+This is a supported-product boundary rather than copy protection. Because the
+source is open, an operator can fork and replace the composition root; the stock
+self-hosted distribution nevertheless never advertises or activates the hosted
+GitHub App path.
+
+Project creation keeps execution defaults out of repository onboarding. The
+control plane resolves `MYSTRA_DEFAULT_AGENT` (default `copilot`) and
+`MYSTRA_DEFAULT_DEV_IMAGE` (default `mystra-runner:local`) server-side and
+persists the resolved values. Add Project therefore asks only for the exact
+connection, repository, Project name, and slug.
+
 ## Client surfaces
 
 The Web API is canonical. MCP and CLI are thin adapters; Web is a secondary
-operator client. Current object navigation exposes Control Plane, Tasks,
-Runners, and Projects. Task detail owns child Session creation/listing; Session
-detail owns lifecycle and review evidence.
+operator client. The demo shell exposes New, Search, Inbox, Issues, and
+Automations, followed by Project-grouped Tasks whose icons show latest Session
+state. Existing Task, Session, Runner, and Project object routes remain directly
+reachable. The Automations menu item is presentation-only and adds no workflow
+runtime or persistence contract.
 
 ## Deployment direction
 
-The MVP is a real private single-node product shape. Future hosted operation may
-add Team-scoped defaults and shared provider pools without changing the
-Task/Session/Runner contracts.
+| Capability | Self-hosted | Hosted |
+|---|---|---|
+| GitHub PAT connection | Supported when a SecretProvider is configured | Supported by policy |
+| Mystra GitHub App connection | Unsupported; code may remain present | Supported when cloud prerequisites are healthy |
+| GitHub App identity secrets | Not distributed | Platform-owned secret/KMS boundary |
+| OAuth transaction state | Not used for App connections | Durable, one-time, actor- and Team-bound |
+| Installation tokens | Never minted | Short-lived and never durable |
+
+Self-hosted is a real single-node product shape, not a simulation of Mystra
+Cloud. Hosted operation adds Team authorization, managed secrets, durable OAuth
+transactions, and shared provider pools without changing Task, Session, Runner,
+or Project repository provenance contracts.

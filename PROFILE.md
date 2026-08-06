@@ -1,6 +1,6 @@
 # Mystra Profile
 
-> Orchestration of the coding agents, for the coding agents, by the coding agents.
+> Ship software with agents.
 
 ## Collaboration Style
 

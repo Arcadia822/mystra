@@ -1,12 +1,12 @@
 # Mystra Product
 
-> Issue-driven execution of coding agents, with reviewable evidence.
+> Ship software with agents.
 
 ## Purpose
 
-Mystra is a self-use coding-agent execution platform. It uses Open Agents as a
-source-authoritative framework baseline, then owns the interfaces required at
-its persistence, Integration, sandbox, Agent, and repository seams.
+Mystra is an open-source platform for autonomous software delivery. You describe
+what you want built; agents handle the full software development lifecycle —
+planning, implementation, testing, and pull request delivery.
 
 The current persistence milestone is direct: an operator or Agent selects an
 Issue and Mystra creates a durable Task. Session persistence and the execution
@@ -17,15 +17,15 @@ Mystra remains a headless execution control plane. It owns durable intent,
 execution truth, resource boundaries, and review handoff; it does not own a
 workflow graph above the Agent.
 
-## Business model
+## Current domain boundary
 
 - **Task** is currently a durable identity under one Project. The first Prisma
   model deliberately omits source, objective and Issue/Repository snapshots;
   those contracts will be redesigned with Linear/Issue Integration and cache.
 - **Session** remains a future execution concept, but its persistence, Task
   relation, fields, lifecycle and CRUD are currently undefined and deferred.
-- **Runner** is stable execution capacity with durable identity, health,
-  capability, eligibility, credential rotation, and current assignments.
+- **Runtime/Runner** persistence is deferred for a separate capacity and sandbox
+  provider design; the first Prisma schema does not define either table.
 - Runner protocol bookkeeping and internal execution facts are implementation
   details, not business objects. A public activity timeline remains undecided.
 
@@ -41,8 +41,8 @@ Mystra platform
   -> Team
     -> Project
       -> Task
-        -> Session (0..N)
-          -> review evidence / artifacts
+        -> Session (future, 0..N)
+          -> review evidence (future)
       -> Issue Integration / Agent profile / runtime defaults
 ```
 
@@ -50,22 +50,61 @@ The intended experience is similar in spirit to Stripe Minion: fast intake,
 clear Agent execution ownership, and reviewable output without turning Mystra
 into a competing Agent or workflow engine.
 
+Tools that turn ideas into code already exist. They produce prototypes. Mystra
+targets serious, shippable software: tested, reviewed, and maintainable.
+
 ## Users
 
-- Internal operators who provision and observe Runners.
-- Internal engineers or Agents that create Tasks and Sessions through HTTP,
-  CLI, remote MCP, or the secondary Web client.
-- Reviewers who inspect repository artifacts.
-- Future hosted operators managing many Teams and Projects.
+- People with ideas who want working software without managing the build process.
+- Teams that already use coding agents and want structured dispatch, execution,
+  and delivery across projects.
+- Organizations that want agent workloads running on infrastructure they control.
 
-Public hosted multi-tenancy is not part of the MVP.
+## Business model
+
+The north-star is a hosted **Mystra platform** with an open-source core:
+
+- **Open-source self-hosted** — run the core control plane and execution stack on
+  your own infrastructure. Provider capabilities may differ from hosted Mystra.
+- **Hosted SaaS** — managed execution plus platform-operated integrations that
+  require a public callback, shared application identity, or managed secrets.
+
+## Core model
+
+- **IntegrationConnection** — provider-neutral Integration account or
+  installation metadata, capability configuration, and an opaque credential
+  reference. It never stores credential plaintext.
+- **Project** — durable product/repository binding through one exact connection
+  and provider-stable repository external ID. Mutable repository information is
+  not persisted on Project.
+- **Task** — durable Project-scoped identity with optional Issue dispatch key
+  and metadata. It has no execution state.
+- **Session** and **Runtime/Runner** remain future execution-capacity concepts;
+  their persistence contracts are intentionally absent from the first Prisma
+  schema.
+
+## Platform topology
+
+```text
+Mystra platform
+  → Team
+    → Project
+      → Task
+        → Session (0..N)
+          → sandbox → Agent → tested PR
+```
+
+Each Team may contain multiple Projects with their own integrations, agent
+profiles, and runtime configuration, while sharing platform-owned execution
+pools.
 
 ## MVP scope
 
 In scope:
 
 - Next.js control plane with canonical Task, Session, Runner, Project, Issue,
-  Integration, Repository, and review-handoff contracts.
+  Integration, Repository, and review-handoff contracts. Existing Session and
+  Runner callers are not persistence requirements for the first Prisma schema.
 - `RdbProvider` with selectable SQLite, PostgreSQL, and Supabase-backed
   PostgreSQL deployments. Supabase reuses the PostgreSQL implementation while
   adding explicit pooled-runtime and direct-migration connection configuration.
@@ -76,6 +115,17 @@ In scope:
   caching remain separately designed Integration capabilities.
 - Idempotent Issue dispatch to one Task through `issueDispatchKey`.
 - Session creation and persistence are deferred for separate redesign.
+- Multiple explicit GitHub connections with deployment-aware methods:
+  self-hosted Mystra supports personal access tokens behind a protected
+  SecretProvider; hosted Mystra additionally supports the platform-operated
+  Mystra GitHub App. OAuth verifies each App installation owner, installation
+  tokens remain short-lived, and every Project binds one exact connection for
+  repository discovery and delivery. The open-source tree may retain the hosted
+  GitHub App adapter and tests without making that method a supported
+  self-hosted capability.
+  Hosted App runtime activation is phased behind caller authentication, Team
+  authorization, hosted persistence, and managed secret prerequisites; those
+  prerequisites are not part of the current self-hosted MVP.
 - Stable pull-based Runner enrollment, credential rotation, heartbeat,
   eligibility, capacity, claim, cancellation, and terminal completion.
 - Direct Docker sandbox and Agent execution with test, build, preview, branch,
@@ -89,24 +139,27 @@ Out of scope:
   quality-fix loops.
 - Public activity timeline or a public internal-fact collection.
 - Claude CLI, Kubernetes sandboxes, cross-Runner shared caches, per-repository
-  secret management, and public hosted database administration.
-- OAuth, webhooks, Issue write-back, Integration management UI, public hosted
-  Team administration, or GitLab as an enabled intake Integration.
+  arbitrary secret management, and managed hosted RDB provisioning or
+  administration. Connection-scoped GitHub PAT storage is the narrow exception
+  required by the active GitHub Integration contract.
+- Caller-login OAuth, webhooks, Issue write-back, a general-purpose Integration
+  management catalog beyond the GitHub connection surface, public hosted Team
+  administration, or GitLab as an enabled intake Integration.
 - A workflow provider, workflow DSL, workflow marketplace, standing orders, or
   platform-owned orchestration above the Agent.
 
 ## Success measures
 
-- A Task remains valid and inspectable with zero Sessions.
-- Ten sibling Sessions can coexist without coupled lifecycle changes.
-- Repeating identical Issue dispatch returns the same Task/initial Session pair;
-  contradictory dispatch fails explicitly.
-- A stable Runner can claim one Session, execute it, release capacity, and
-  persist review evidence transactionally.
-- API, MCP, CLI, Web, persistence, and Runner protocol use only the canonical
-  Task/Session/Runner model without compatibility aliases.
-- The system retains durable execution truth while preserving a path from a
-  private single-node deployment to many Team/Project lanes.
+- SQLite, PostgreSQL, and Supabase-backed PostgreSQL expose the same
+  IntegrationConnection, Project, and Task CRUD behavior through `RdbProvider`.
+- Repeating the same Issue dispatch key returns one Task; conflicting ownership
+  fails explicitly.
+- Mutable Issue and repository information is never persisted as Task or Project
+  snapshots.
+- Database selection is explicit at installation time and credentials never
+  appear in RDB records, logs, public responses, or operator-visible errors.
+- Removed Session, Runtime/Runner, ContextBundle, event, and artifact persistence
+  cannot re-enter through compatibility tables or raw SQL.
 
 ## Source documents
 

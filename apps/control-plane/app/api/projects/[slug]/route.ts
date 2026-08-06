@@ -23,8 +23,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ slug:
   try {
     const { slug } = await context.params;
     const parsed = projectUpdateRequestSchema.parse(await request.json());
-    const resolved = await resolveProjectUpdateInput(parsed, defaultIntegrationRegistry());
-    const project = getDb().updateProject(slug, resolved);
+    const db = getDb();
+    const current = db.getProjectBySlug(slug);
+    if (!current) {
+      return projectError("PROJECT_NOT_FOUND", `Project not found: ${slug}`, 404);
+    }
+    const resolved = await resolveProjectUpdateInput(
+      parsed,
+      defaultIntegrationRegistry(parsed.repository
+        ? { githubConnectionId: parsed.repository.connectionId }
+        : {}),
+      db,
+      current.repositoryConnectionId,
+    );
+    const project = db.updateProject(slug, resolved);
     if (!project) {
       return projectError("PROJECT_NOT_FOUND", `Project not found: ${slug}`, 404);
     }

@@ -336,11 +336,11 @@ async function dockerTaskScript(): Promise<string> {
 
 function repositoryAuthBinding(providerName: RepoProviderKind) {
   return {
-    kind: "runner-env" as const,
+    kind: providerName === "gitlab" ? "runner-env" as const : "runtime-ref" as const,
     provider: providerName,
     reference: providerName === "gitlab"
       ? "MYSTRA_GITLAB_TOKEN"
-      : "MYSTRA_GITHUB_TOKEN",
+      : "github-app-installation",
     metadata: {},
   };
 }
@@ -361,10 +361,13 @@ function repositoryMetadata(
 function repositoryPhaseEnvironment(
   config: RunnerConfig,
   providerName: RepoProviderKind,
+  repositoryToken?: string,
 ): NodeJS.ProcessEnv {
   const auth = repositoryAuthBinding(providerName);
   return {
-    [auth.reference]: requiredEnv(auth.reference),
+    ...(providerName === "gitlab"
+      ? { [auth.reference]: requiredEnv(auth.reference) }
+      : { MYSTRA_REPOSITORY_TOKEN: repositoryToken ?? "" }),
     MYSTRA_REPOSITORY_PROVIDER: providerName,
     MYSTRA_REPOSITORY_AUTH_REFERENCE: auth.reference,
     MYSTRA_REPOSITORY_AUTH_USERNAME: providerName === "gitlab"
@@ -377,6 +380,19 @@ function repositoryPhaseEnvironment(
       ? { MYSTRA_REPOSITORY_HTTP_BASE_URL: config.githubHttpBaseUrl }
       : {}),
   };
+}
+
+async function fetchRepositoryCredential(
+  config: RunnerConfig,
+  runnerCredential: string,
+  sessionId: string,
+  purpose: "clone" | "push" | "review",
+) {
+  return await postJson<import("@mystra/shared").RunnerRepositoryCredentialResponse>(
+    apiUrl(config, `/api/runner/sessions/${encodeURIComponent(sessionId)}/repository-credential`),
+    { purpose },
+    runnerCredential,
+  );
 }
 
 function phaseOutputHostPath(workspace: string, phase: string): string {
@@ -728,14 +744,18 @@ async function executeDockerSession(
   }
 
   try {
+    const cloneCredential = repoProvider.providerName === "github"
+      ? (await fetchRepositoryCredential(config, token, session.id, "clone")).credential
+      : undefined;
     const repositoryEnvironment = repositoryPhaseEnvironment(
       config,
       repoProvider.providerName,
+      cloneCredential?.secret,
     );
     const direct = await executeDirectExecution({
       repositorySecret: {
-        name: repositoryAuthBinding(repoProvider.providerName).reference,
-        value: requiredEnv(repositoryAuthBinding(repoProvider.providerName).reference),
+        name: repoProvider.providerName === "github" ? "MYSTRA_REPOSITORY_TOKEN" : repositoryAuthBinding(repoProvider.providerName).reference,
+        value: repoProvider.providerName === "github" ? cloneCredential!.secret : requiredEnv(repositoryAuthBinding(repoProvider.providerName).reference),
       },
       agentSecret: {
         name: "COPILOT_GITHUB_TOKEN",
@@ -918,6 +938,9 @@ async function executeDockerSession(
       signal: executionAbort.signal,
     });
     const auth = repositoryAuthBinding(repoProvider.providerName);
+    const pushCredential = repoProvider.providerName === "github"
+      ? (await fetchRepositoryCredential(config, token, session.id, "push")).credential
+      : undefined;
     const branchReceipt: BranchDeliveryReceipt = await repoProvider.pushBranch({
       target,
       branchName: commit.branchName,
@@ -928,7 +951,7 @@ async function executeDockerSession(
         localRepoPath: path.join(workspace, "repo"),
         ...repositoryMetadata(config, repoProvider.providerName),
       },
-    });
+    }, pushCredential);
     if (branchReceipt.status !== "pushed") {
       throw new Error(branchReceipt.errorMessage ?? "Branch delivery failed");
     }
@@ -937,6 +960,9 @@ async function executeDockerSession(
       commitSha: branchReceipt.commitSha ?? commit.commitSha,
     });
 
+    const reviewCredential = repoProvider.providerName === "github"
+      ? (await fetchRepositoryCredential(config, token, session.id, "review")).credential
+      : undefined;
     const reviewResult = await repoProvider.createReview({
       target,
       auth,
@@ -953,7 +979,7 @@ async function executeDockerSession(
         },
         ...repositoryMetadata(config, repoProvider.providerName),
       },
-    });
+    }, reviewCredential);
     if (reviewResult.status !== "review_created" || !reviewResult.review) {
       throw new Error(reviewResult.errorMessage ?? "Review creation failed");
     }

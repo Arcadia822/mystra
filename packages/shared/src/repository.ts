@@ -11,6 +11,7 @@ export type RepoProviderKind = z.infer<typeof repoProviderKindSchema>;
 export const repositorySelectorSchema = z
   .object({
     integration: repoProviderKindSchema,
+    connectionId: z.string().uuid(),
     identifier: z.string().trim().min(1).max(255),
   })
   .strict()

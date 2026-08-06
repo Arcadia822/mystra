@@ -39,12 +39,26 @@ describe("repository provider schemas", () => {
   it("accepts a provider selector and a resolved remote repository snapshot", () => {
     expect(repositorySelectorSchema.parse({
       integration: "github",
+      connectionId: "00000000-0000-4000-8000-000000000039",
       identifier: "Arcadia822/mystra-remote-e2e",
     })).toEqual({
       integration: "github",
+      connectionId: "00000000-0000-4000-8000-000000000039",
       identifier: "Arcadia822/mystra-remote-e2e",
     });
     expect(repositorySnapshotSchema.parse(githubRepository)).toEqual(githubRepository);
+  });
+
+  it("requires an explicit connection identity", () => {
+    expect(() => repositorySelectorSchema.parse({
+      integration: "github",
+      identifier: "Arcadia822/mystra-remote-e2e",
+    })).toThrow();
+    expect(() => repositorySelectorSchema.parse({
+      integration: "github",
+      connectionId: "not-a-uuid",
+      identifier: "Arcadia822/mystra-remote-e2e",
+    })).toThrow();
   });
 
   it("rejects local, file, ssh, and provider-leaking repository snapshots", () => {
