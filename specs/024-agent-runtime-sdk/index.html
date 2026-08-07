@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>024-agent-runtime-sdk</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"024-agent-runtime-sdk","title":"024-agent-runtime-sdk","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:50:30.607Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: Agent Runtime SDK\n\n**Feature Branch**: `024-agent-runtime-sdk`  \n**Created**: 2026-05-15  \n**Status**: Cancelled; retained for historical context  \n**Deprecation Notice (2026-08-06)**: This entire standalone SDK proposal is cancelled. It MUST NOT be scheduled, implemented, or treated as a current package/API commitment. The canonical management API, local Mystra skills, and thin MCP adapter remain the intended boundary. Task remains current intent terminology, while `040-prisma-rdb` excludes Session persistence pending a separate redesign; do not derive a Session API from `038-task-session-model` or this document.\n**Dependency Note**: Build after `014-management-api-truth`. This feature defines the default typed agent runtime layer for OpenClaw and similar coordinators. It should consume the canonical management API rather than creating a competing surface.\n**Input**: User description: \"Mystra should expose a typed SDK for coordinating agents. The preferred model is skill as policy, API as truth, SDK as the agent runtime surface, and MCP as a thin adapter.\"\n**Cancellation Note**: This feature is no longer planned as a standalone MVP slice. The desired agent-facing behavior is being carried by the management API, local skills, MCP surface, and adjacent runtime integration work, so this spec is preserved only as a record of the superseded direction.\n\n## User Scenarios & Testing *(mandatory)*\n\n### User Story 1 - Coordinating Agent Uses A Typed Runtime Surface (Priority: P1)\n\nAs the coordinating agent, I want a typed runtime surface for the core Mystra management actions I use frequently, so that I do not have to guess at free-form output or load long tool descriptions into context.\n\n**Why this priority**: This is the main reason to prefer an SDK over raw CLI or verbose MCP descriptions. It makes the Debian-server coordination path practical for OpenClaw.\n\n**Independent Test**: Use the typed agent runtime surface to list projects, inspect a selected project, submit work, observe a run, and retrieve the final result without consulting a UI.\n\n**Acceptance Scenarios**:\n\n1. **Given** the coordinating agent needs to choose a target project, **When** it uses the typed runtime surface, **Then** it receives a typed project listing and typed project details suitable for immediate use.\n2. **Given** the coordinating agent submits work, **When** the runtime surface returns, **Then** the returned submission state is typed and sufficient for polling.\n3. **Given** the coordinating agent retrieves final results, **When** the runtime surface responds, **Then** result references and summary facts are returned in a typed form instead of free-form shell text.\n\n---\n\n### User Story 2 - Skill Logic Delegates To Runtime Calls Instead Of Re-Explaining The System (Priority: P1)\n\nAs a skill author, I want the runtime surface to hold the callable management contract, so that the skill can focus on policy, sequencing, fallback, and output wording rather than embedding large Mystra tool manuals.\n\n**Why this priority**: This keeps the model's context small and aligns with the chosen \"skill as policy, runtime as execution\" design.\n\n**Independent Test**: Write or review a coordinating skill that depends on the runtime surface; confirm the skill can orchestrate its flow without duplicating the management contract in natural language.\n\n**Acceptance Scenarios**:\n\n1. **Given** a coordinating skill needs to submit work and poll results, **When** it uses the typed runtime surface, **Then** the skill can focus on decision logic instead of parsing ad hoc transport details.\n2. **Given** the runtime surface returns an error, **When** the skill handles it, **Then** the error is already structured enough for policy-level fallback and user reporting.\n\n---\n\n### User Story 3 - Agent Integrator Pays Only For The Calls They Need (Priority: P2)\n\nAs an agent integrator, I want to use only the management calls relevant to my current task, so that adopting Mystra does not require loading every possible management action into model context up front.\n\n**Why this priority**: This is the token-efficiency and composability benefit that motivated the API truth plus SDK runtime decision.\n\n**Independent Test**: Use the runtime surface for one narrow coordination flow and confirm that only the directly relevant management capabilities are required.\n\n**Acceptance Scenarios**:\n\n1. **Given** the integrator only needs project inspection and run polling, **When** they use the runtime surface, **Then** they are not forced into unrelated management behaviors or bloated tool descriptions.\n2. **Given** the integrator later adds more Mystra actions, **When** they extend their usage, **Then** the new calls compose with the same runtime surface instead of requiring a new transport model.\n\n---\n\n### Edge Cases\n\n- What happens when the canonical management API returns a structured failure? The runtime surface should preserve that structure for the skill and agent.\n- What happens when the external agent needs only one narrow call? The runtime surface should not require loading unrelated management concepts first.\n- What happens when UI behavior diverges from the runtime surface? The runtime surface should stay aligned to the canonical management API rather than inheriting UI-only assumptions.\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: The system MUST provide a typed agent runtime surface over the canonical Mystra management API.\n- **FR-002**: The typed runtime surface MUST support the core coordination actions: project inspection, work submission, run observation, and final result retrieval.\n- **FR-003**: The typed runtime surface MUST preserve structured success and error data from the canonical management API.\n- **FR-004**: The typed runtime surface MUST allow coordinating skills to use Mystra without embedding long transport-specific manuals in their own prompt text.\n- **FR-005**: The typed runtime surface MUST remain aligned with the canonical management API rather than introducing a separate competing product truth.\n- **FR-006**: The typed runtime surface MUST support narrow usage where an integrator needs only a subset of the management actions.\n\n### Key Entities *(include if feature involves data)*\n\n- **AgentRuntimeSDK**: The typed runtime surface used by OpenClaw and similar coordinating agents.\n- **TypedManagementCall**: A typed operation over the canonical management API, such as listing projects or retrieving a run result.\n- **TypedManagementError**: A structured error returned by the runtime surface for skills and agents to interpret.\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: A coordinating agent can use the typed runtime surface to inspect projects, submit work, observe runs, and retrieve final results without using the UI.\n- **SC-002**: A coordinating skill can delegate execution calls to the runtime surface instead of embedding large Mystra transport explanations in its own prompt text.\n- **SC-003**: Structured errors and results from the canonical management API remain usable through the typed runtime surface without being flattened into free-form text.\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/024-agent-runtime-sdk/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/024-agent-runtime-sdk/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/024-agent-runtime-sdk/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Agent Runtime SDK\n\n**Branch**: `024-agent-runtime-sdk` | **Date**: 2026-05-19 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/024-agent-runtime-sdk/spec.md`\n\n## Summary\n\n`024` is cancelled as a standalone feature. The repository should preserve the\nspecification as historical product context while making the cancellation\nexplicit so Spec-Kit surfaces stop treating the feature as accidentally\nunfinished.\n\n## Closeout Scope\n\n1. Mark the feature as cancelled in `spec.md`.\n2. Record why the standalone SDK slice is no longer being pursued.\n3. Add minimal `plan.md` and `tasks.md` artifacts so Spec-Kit health checks\n   reflect an intentional closeout rather than a missing-plan error.\n\n## Constraints\n\n- Do not implement a new SDK package or runtime surface in this closeout.\n- Do not delete the feature directory; keep the spec as durable history.\n- Keep the closeout limited to documentation and Spec-Kit artifact hygiene.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Agent Runtime SDK\n\n**Input**: Design documents from `/specs/024-agent-runtime-sdk/`\n**Prerequisites**: spec.md, requirements checklist\n\n**Closeout note**: This feature was cancelled as a standalone slice. The task\nlist records the closure work needed to keep repository history and Spec-Kit\nstate aligned.\n\n## Completed Tasks\n\n- [x] T001 Mark `specs/024-agent-runtime-sdk/spec.md` as cancelled and retain the rationale in the spec itself\n- [x] T002 Preserve the feature directory as historical product context rather than deleting it\n- [x] T003 Add minimal Spec-Kit `plan.md` and `tasks.md` artifacts so doctor/status treat the feature as intentionally closed\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>021-product-surface-positioning</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"021-product-surface-positioning","title":"021-product-surface-positioning","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:50:30.574Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: Product Surface Positioning\n\n**Feature Branch**: `021-product-surface-positioning`  \n**Created**: 2026-05-18  \n**Status**: Superseded; retained for historical context\n**Supersession Notice (2026-08-06)**: This document is no longer the current Mystra object model. Its `Task -> Run`, `Workflow`, `Artifact`, `Review`, and `Runner Node` ownership model was superseded by later decisions. `040-prisma-rdb` currently persists Task but excludes Session and Runner persistence; both require later redesign. Workflow orchestration is removed; Task Activity and Artifact remain deferred. The Team-versus-workspace rationale remains historical background, but this Spec MUST NOT be used as an authoritative entity inventory, ER model, API contract, or implementation input.\n**Dependency Note**: This feature amends product terminology and information architecture expectations that currently conflict with the durable 5xP wording around `workspace`. It does not add new MVP runtime capabilities; it clarifies the product contract future specs and docs must follow.  \n**Input**: User description: \"整理 issue 9 的产品对象、对象从属、术语边界与页面功能，用程序化语言写清 Team / Project / Task / Run / Workflow / Workspace / Sandbox / Agent / Context Bundle / Artifact / Review / Runner Node 的职责、关系与约束\"\n\n## User Scenarios & Testing *(mandatory)*\n\n### User Story 1 - Operators Can Read One Stable Object Model (Priority: P1)\n\nAs a platform operator or future contributor, I want one authoritative object model for Mystra's product surface, so that I can tell which object owns which responsibility without inferring it from scattered docs.\n\n**Why this priority**: If the ownership model is ambiguous, every later spec, API contract, control-plane screen, and review artifact inherits the ambiguity.\n\n**Independent Test**: Read the spec alone and verify that a reviewer can explain the role, parent object, child objects, and boundary of Team, Project, Task, Run, Workflow, Workspace, Sandbox, Agent, Context Bundle, Artifact, Review, and Runner Node without consulting chat history.\n\n**Acceptance Scenarios**:\n\n1. **Given** a reviewer opens the product-surface specification, **When** they inspect the object definitions, **Then** each object has a stated purpose, owner or parent, and relationship to adjacent objects.\n2. **Given** the reviewer compares lifecycle objects with runtime objects, **When** they inspect the definitions, **Then** Task and Run remain lifecycle objects while Workspace and Sandbox remain runtime-delivery objects.\n\n---\n\n### User Story 2 - Team And Workspace Mean Different Things Everywhere (Priority: P1)\n\nAs a documentation author, API designer, or UI designer, I want `Team` and `workspace` to have non-overlapping meanings, so that tenancy and runtime working-directory concepts do not collapse into the same word.\n\n**Why this priority**: The current collision between tenancy and runtime terminology makes page naming, requirements writing, and future contract design unreliable.\n\n**Independent Test**: Review the terminology rules and confirm that `Team` is the tenancy and ownership object while `workspace` is reserved for the run-scoped working directory and mounted execution context.\n\n**Acceptance Scenarios**:\n\n1. **Given** a product artifact describes who owns projects and policies, **When** it names that object, **Then** it uses `Team` rather than `workspace`.\n2. **Given** a product artifact describes the files, mounts, prompts, and injected context visible during execution, **When** it names that object, **Then** it uses `workspace` rather than `Team`.\n\n---\n\n### User Story 3 - External Agent Can Submit Text-Backed Work Without Ambiguity (Priority: P1)\n\nAs an external coordinating agent, I want to submit a plain-text work request, so that Mystra can create a durable Task and Run without requiring issue-system integration in the MVP intake path.\n\n**Why this priority**: This is the smallest useful agent-first MVP intake path. If the object model cannot represent submitted text as first-class Task input, the platform can queue work but still cannot explain exactly what request a given run executed.\n\n**Independent Test**: Submit a work request through the management API or MCP with project selection and plain-text requirement content; then inspect the resulting Task and Run and verify the submitted text remains attributable and is available as execution input.\n\n**Acceptance Scenarios**:\n\n1. **Given** an external agent submits work with plain-text requirement content, **When** Mystra accepts intake, **Then** the Task stores that text separately from the submission surface used to call Mystra.\n2. **Given** the Task later produces a Run and execution workspace, **When** execution begins, **Then** the submitted text can be materialized as workflow or agent input without needing any upstream issue lookup.\n3. **Given** the caller later submits revised text as a new request, **When** the operator inspects the old and new Tasks or Runs, **Then** each one remains attributable to the exact text that was submitted for that request.\n\n---\n\n### User Story 4 - Control-Plane Pages Map Cleanly To Product Objects (Priority: P2)\n\nAs a control-plane designer or operator, I want each management page to map to a primary product object and capability, so that the UI can observe and control the system without inventing a second incompatible model.\n\n**Why this priority**: The UI should reflect the product contract rather than improvising new nouns when the underlying model is already unclear.\n\n**Independent Test**: Inspect the page inventory and confirm each page has a defined purpose, primary object, and supported operator question or action.\n\n**Acceptance Scenarios**:\n\n1. **Given** the page list for the management surface, **When** a reviewer inspects it, **Then** each page can be traced back to one or more defined product objects.\n2. **Given** a run-detail or review page, **When** a reviewer reads the description, **Then** the page distinguishes Task, Run, Workflow, Workspace, and Sandbox instead of flattening them into one execution blob.\n\n---\n\n### Edge Cases\n\n- What happens when older docs still use `workspace` as a tenancy synonym? The spec must classify those usages as legacy wording to be corrected rather than a valid parallel term.\n- What happens when a Task exists before any execution environment is prepared? The object model must allow Task and Run lifecycle state to exist before a Workspace or Sandbox is materialized.\n- What happens when a Run finishes without producing a review artifact or requiring human review? Artifact and Review must remain optional downstream objects rather than mandatory parents of Run.\n- What happens when a Team has no active Projects or a Project has no active Tasks? Parent-child ownership must still remain valid without implying that empty parents disappear.\n- What happens when the caller submits ambiguous or incomplete plain text? The platform should still preserve the exact submitted text rather than silently rewriting the request.\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: The system specification MUST define `Team` as the product-layer tenancy and ownership object for projects, defaults, collaboration scope, and shared policy.\n- **FR-002**: The system specification MUST define `Project` as the repository and execution-configuration object owned by one Team.\n- **FR-003**: The system specification MUST define `Task` as the business request object that targets one Project and expresses requested work and delivery intent.\n- **FR-004**: The system specification MUST define `Run` as one execution attempt for one Task and as the primary lifecycle and observability object.\n- **FR-005**: The system specification MUST define `Workflow` as the orchestration path a Run follows from intake to terminal outcome, without treating Workflow as the execution environment itself.\n- **FR-006**: The system specification MUST define `workspace` as the run-scoped working directory and execution-context delivery surface that may contain repository content, prompts, context artifacts, and step outputs.\n- **FR-007**: The system specification MUST define `Sandbox` as the isolated compute environment used during execution and MUST keep it separate from Task and Run lifecycle ownership.\n- **FR-008**: The system specification MUST define `Agent` as the execution adapter used inside a Run, separate from the Sandbox and separate from the business request object.\n- **FR-009**: The system specification MUST define `Context Bundle` as a reusable context asset that can be attached to execution and materialized through the Workspace.\n- **FR-010**: The system specification MUST define `Artifact` as a reviewable or inspectable output attributable to a Run.\n- **FR-011**: The system specification MUST define `Review` as the human decision object that may be attached to a Run and its artifacts, rather than as a synonym for Run completion.\n- **FR-012**: The system specification MUST define `Runner Node` as the execution-capacity provider that claims eligible Runs, prepares Workspaces, and launches Sandboxes.\n- **FR-013**: The specification MUST express object ownership using an unambiguous parent-child model equivalent to: Team owns Projects; Project owns Tasks; Task owns Runs; Run may reference Workflow, Workspace, Sandbox, Agent, Context Bundles, Artifacts, and Reviews; Runner Node serves Runs but does not own them.\n- **FR-014**: The specification MUST distinguish management-boundary objects (`Team`, `Project`, `Task`, `Run`) from runtime-boundary objects (`Workflow`, `Workspace`, `Sandbox`, `Agent`, `Context Bundle`) and result-boundary objects (`Artifact`, `Review`).\n- **FR-015**: The specification MUST state that Mystra management surfaces are prioritized in the order `API -> skill/MCP -> CLI -> UI`, and page descriptions must be consistent with that priority.\n- **FR-016**: The specification MUST enumerate the minimum management pages needed for the MVP and map each page to the product objects and operator questions it serves.\n- **FR-017**: The MVP page inventory MUST include Overview or Workbench, Teams, Team Detail, Projects, Project Detail or Configuration, Task Submit, Task Queue, Run Detail, Review Queue or Review Detail, Runner Nodes, and MCP or API Explorer.\n- **FR-018**: The extended page inventory SHOULD include Context Bundles, Artifacts, Workflow Templates or Blueprints, Sandbox Runtime View, Execution Trace or Timeline, and Audit or History for later phases.\n- **FR-019**: The specification MUST explicitly mark caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Kubernetes sandboxes, and other current MVP exclusions as out of scope for this feature.\n- **FR-020**: The requirements artifact MUST be detailed enough that future agents can derive naming, documentation, page IA, and contract terminology from the spec without relying on issue comments.\n- **FR-021**: The specification MUST define Task intake provenance strongly enough to distinguish the submission surface (`api`, `mcp`, or future surfaces) from the submitted plain-text request content.\n- **FR-022**: The MVP object model MUST allow an external agent to create a Task using at minimum a selected Project and a plain-text requirement payload.\n- **FR-023**: The specification MUST treat submitted plain-text request content as Task-owned intake data or a Task-linked value object, rather than as Team, Project, or Sandbox state.\n- **FR-024**: The object model MUST allow workflow or agent execution to receive the submitted plain-text request as execution input through the Run and Workspace path.\n- **FR-025**: Upstream issue-id-based hydration MAY be added later, but it MUST NOT be required for the MVP text-based intake path.\n\n### Key Entities *(include if feature involves data)*\n\n- **Team**: The tenancy and ownership root. Cardinality: one Team owns zero or more Projects. Team carries shared policy, shared defaults, and collaboration scope. Team never means a runtime working directory.\n- **Project**: The repository-facing execution configuration object. Cardinality: one Project belongs to one Team and owns zero or more Tasks. Project is the configuration root for repository identity, default agent choice, runtime defaults, workflow defaults, and attached context references.\n- **Task**: The requested-work object. Cardinality: one Task belongs to one Project and owns one or more Runs over time. Task describes intent, target branch or delivery direction, the request content being executed, and the intake provenance needed to tie the request back to its submitted plain-text input.\n- **Run**: The attempt object and lifecycle truth. Cardinality: one Run belongs to one Task and may reference zero or one Workflow, zero or one Workspace, zero or one Sandbox, zero or one Agent adapter, zero or more Context Bundles, zero or more Artifacts, and zero or more Reviews. Run remains valid before all downstream references exist.\n- **Workflow**: The orchestration definition or execution path used by a Run. Workflow controls sequencing, gates, and transitions. It is referenced by Run but does not own the Run.\n- **Workspace**: The run-scoped working directory and mount surface exposed to execution. Workspace may contain repository checkout content, prompts, injected context, frozen requirement artifacts, gate outputs, and intermediate files. Workspace belongs to execution for one Run rather than to Team tenancy.\n- **Sandbox**: The isolated compute environment used for a Run phase. Sandbox provides execution isolation and resources. Sandbox serves the Run but is not the Run's lifecycle owner.\n- **Agent**: The code-execution adapter chosen for a Run, such as a CLI-backed agent integration. Agent is the worker identity inside execution, not the policy owner.\n- **Context Bundle**: A reusable context asset that may be attached at Team or Project policy level and materialized into the Workspace for a specific Run.\n- **Artifact**: A result object produced by a Run, such as a branch, pull request, frozen requirements packet, summary, or other reviewable output. Artifact never owns the Run that produced it.\n- **Review**: A human decision object associated with a Run or its Artifacts. Review records approve, reject, or feedback decisions and may be absent for fully automated terminal paths.\n- **Runner Node**: The execution-capacity object that polls for eligible Runs, claims work, prepares runtime prerequisites, and reports capacity and health. Runner Node serves many Runs over time but does not become their ownership parent.\n- **TaskRequestText**: A Task-linked value object, or an explicit Task-owned field, containing the plain-text requirement payload submitted at intake time. It is the authoritative MVP request input.\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: A reviewer can read the resulting specification and correctly identify the parent object, child objects, and boundary of all twelve named product objects without consulting issue comments or chat history.\n- **SC-002**: The resulting requirements contain zero ambiguous cases where `workspace` refers to both tenancy and runtime working-directory concepts.\n- **SC-003**: The MVP page inventory maps every required page to at least one explicitly defined product object and operator question.\n- **SC-004**: Future documentation updates can use the specification as a single terminology source without adding new contradictory tenancy or runtime nouns for the same concept.\n- **SC-005**: An external agent can submit a plain-text request, and Mystra's object model can explain where submitted request text, run lifecycle state, and final artifacts each belong.\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/021-product-surface-positioning/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/021-product-surface-positioning/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/021-product-surface-positioning/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Product Surface Positioning\n\n**Branch**: `021-product-surface-positioning` | **Date**: 2026-05-19 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/021-product-surface-positioning/spec.md`\n\n## Summary\n\nComplete `021` as a documentation and terminology-alignment slice. The landed\nscope is not a runtime or API redesign; it is a durable object-model cleanup so\nfuture specs, docs, and UI planning stop conflating tenancy with execution\nworkspace semantics.\n\nThe closeout scope is:\n\n1. Treat **Team** as the tenancy and ownership root.\n2. Reserve **workspace** for the run-scoped working directory and execution\n   context.\n3. Keep the management surface hierarchy explicit: `API -> skill/MCP -> CLI -> UI`.\n4. Restore the missing Spec-Kit planning/task artifacts so the completed feature\n   is no longer tracked as partially undocumented.\n\n## Technical Context\n\n- **Language/Version**: Markdown documentation, TypeScript-adjacent repository conventions, Node.js 24 runtime assumptions\n- **Primary Dependencies**: 5xP files, `specs/021-product-surface-positioning/spec.md`, `specs/025-webui/`, current management-surface docs\n- **Storage**: Durable repository docs only; no runtime persistence change\n- **Testing**: Terminology consistency review plus `spec-kit-status` / `spec-kit-doctor`\n- **Constraints**: No API rename, no workflow/runtime rewrite, no UI implementation work in this slice\n\n## Constitution Check\n\n- **Specification Owns Product Boundaries**: PASS. This slice clarifies object ownership and terminology without expanding MVP scope.\n- **Typed Contracts at Service Boundaries**: PASS. No service boundary changes land here.\n- **Verification And Documentation Before Delivery**: PASS. Delivery is documentation-first and verified through Spec-Kit health/status plus terminology consistency across 5xP.\n\n## Planned Touch Points\n\n```text\nPRODUCT.md\nPLATFORM.md\nPROCESS.md\nAGENTS.md\ndocs/LOCAL-USAGE.md\nspecs/021-product-surface-positioning/\nspecs/025-webui/\n```\n\n## Implementation Order\n\n1. Re-read `021` spec and keep the object/term boundaries explicit.\n2. Correct 5xP tenancy wording so `workspace` is no longer used as the hosted tenancy term.\n3. Preserve the management surface hierarchy in durable docs.\n4. Restore `021` Spec-Kit `plan.md` and `tasks.md`, then refresh status/doctor output.\n\n## Verification Checkpoints\n\n| Check | Evidence |\n|---|---|\n| Tenancy wording corrected | `PRODUCT.md`, `PLATFORM.md`, `PROCESS.md`, `AGENTS.md` use `Team` for tenancy and `workspace` for execution context |\n| Surface hierarchy preserved | durable docs still state `API -> skill/MCP -> CLI -> UI` |\n| Feature artifacts restored | `specs/021-product-surface-positioning/plan.md` and `tasks.md` exist |\n| Spec-Kit health updated | `spec-kit-status` and `spec-kit-doctor` reflect the restored artifacts |\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Product Surface Positioning\n\n**Input**: Design documents from `/specs/021-product-surface-positioning/`\n**Prerequisites**: spec.md, requirements checklist\n\n**Backfill note**: This task list was reconstructed against the landed\ndocumentation state after the original `021` plan/tasks artifacts were lost from\n`main`. It records the completed closeout scope rather than a future work plan.\n\n## Completed Tasks\n\n- [x] T001 Reconcile the product-surface object model in `specs/021-product-surface-positioning/spec.md` and `specs/021-product-surface-positioning/checklists/requirements.md`\n- [x] T002 Correct 5xP tenancy wording in `PRODUCT.md`, `PLATFORM.md`, `PROCESS.md`, and `AGENTS.md` so `Team` owns projects and `workspace` is reserved for run-scoped execution context\n- [x] T003 Preserve the management-surface hierarchy (`API -> skill/MCP -> CLI -> UI`) in durable repository docs\n- [x] T004 Keep `specs/025-webui/` aligned with the same object-model and surface-priority language\n- [x] T005 Restore the missing Spec-Kit planning/task artifacts for `021`\n- [x] T006 Refresh Spec-Kit status/doctor surfaces after the artifact restore\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

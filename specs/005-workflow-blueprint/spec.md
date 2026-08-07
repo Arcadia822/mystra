@@ -2,7 +2,8 @@
 
 **Feature Branch**: `005-workflow-blueprint`
 **Created**: 2026-05-14
-**Status**: Draft
+**Status**: Deprecated; retained for historical context
+**Deprecation Notice (2026-08-06)**: This entire Spec is deprecated and MUST NOT be used for planning, tasks, implementation, schema design, or acceptance. Mystra no longer defines `WorkflowProvider`, workflow blueprints, workflow DAGs, or workflow nodes as platform contracts. The direct Agent execution boundary remains directional, but `038-task-session-model` is no longer current persistence authority: `040-prisma-rdb` keeps Task and excludes Session persistence pending a separate redesign. The original text below is retained only to explain the rejected design.
 **Dependency Note**: Initialize from `specs/001-project-and-sqlite/` for Project and `RdbProvider` ownership, `specs/002-runtime-profile-context/` for resolved runtime/context-bundle contracts, `specs/003-config-first-runner-durability/` for runner claim/event/result and durable state boundaries, and `specs/004-open-agents-framework/contracts/framework-alignment.md`, `contracts/module-inventory.md`, `contracts/provider-seams.md`, and `research.md` divergence records before introducing workflow contracts or replacing `container-task.sh`.
 **Input**: The current task lifecycle is hardcoded in `container-task.sh` as a flat bash script. Stripe Minions demonstrates that a blueprint architecture (deterministic + agentic nodes in a DAG) is the correct model for reliable, scalable, auditable agent orchestration. Mystra needs a workflow provider interface with a local workflow adapter that replaces the hardcoded script with structured DAG execution.
 **Implementation Note**: Mystra MVP scope remains unchanged. The implementation path is to design Mystra-owned extensible interfaces and SDK surfaces directly, using Open Agents, Stripe Minions, and other coding-agent harnesses only as reference architectures rather than adoption targets.

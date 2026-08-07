@@ -3,6 +3,7 @@ import "@fontsource/fira-code/400.css";
 import "@fontsource/fira-code/600.css";
 import "@fontsource/fira-code/700.css";
 import { AppShell } from "./_components/app-shell";
+import { ScrollbarActivity } from "./_components/scrollbar-activity";
 import { siteMetadata } from "./site-metadata";
 import { buildThemeBootstrapScript } from "./theme-system";
 import "./globals.css";
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: buildThemeBootstrapScript() }} />
       </head>
-      <body className="appBody"><AppShell>{children}</AppShell></body>
+      <body className="appBody">
+        <ScrollbarActivity />
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

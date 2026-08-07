@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
+import { AiComposer } from "./ai-composer";
 import { MystraLogo } from "./mystra-logo";
 import { ShellIcon } from "./shell-icons";
 import { UiIconButton } from "./ui-actions";
 import { UiDropdown } from "./ui-dropdown";
-import { UiTextarea } from "./ui-fields";
 
 interface TaskCreateResponse {
   task?: { id?: string };
@@ -55,6 +55,57 @@ export function NewTaskComposer() {
     }
   }
 
+  const tools = (
+    <>
+      <UiIconButton
+        aria-label="Attach file"
+        disabled
+        size="compact"
+        title="Attachments are not connected to the Task API yet"
+      >
+        <ShellIcon name="attachment" />
+      </UiIconButton>
+      <UiDropdown
+        aria-label="Project"
+        className="composerProjectDropdown"
+        disabled={projectsResource.isLoading || projects.length === 0}
+        icon={<ShellIcon name="project" />}
+        onValueChange={setProjectId}
+        options={projects.map((project) => ({
+          value: project.id,
+          label: project.name,
+          description: project.repositoryExternalId,
+        }))}
+        placeholder="Project"
+        value={projectId}
+      />
+    </>
+  );
+
+  const actions = (
+    <>
+      <UiIconButton
+        aria-label="Voice input"
+        disabled
+        size="compact"
+        title="Voice input is not available"
+      >
+        <ShellIcon name="microphone" />
+      </UiIconButton>
+      <UiIconButton
+        aria-label="Create Task"
+        className="composerSendButton"
+        data-loading={isSubmitting || undefined}
+        disabled={!canSubmit}
+        size="header"
+        tone="solid"
+        type="submit"
+      >
+        <ShellIcon name={isSubmitting ? "spinner" : "arrow-up"} />
+      </UiIconButton>
+    </>
+  );
+
   return (
     <section aria-labelledby="new-task-heading" className="newTaskSurface">
       <div className="newTaskLogo">
@@ -62,59 +113,22 @@ export function NewTaskComposer() {
       </div>
       <h1 className="srOnly" id="new-task-heading">Create a new Task</h1>
 
-      <form
+      <label className="newTaskInputLabel" htmlFor="new-task-title">Task label</label>
+      <AiComposer
+        actions={actions}
+        canSubmit={canSubmit}
         className="newTaskComposer"
+        inputId="new-task-title"
+        placeholder="Name this Task"
+        submitOnEnter
+        tools={tools}
+        value={title}
+        onChange={setTitle}
         onSubmit={(event) => {
           event.preventDefault();
           void createTask();
         }}
-      >
-        <label className="newTaskInputLabel" htmlFor="new-task-title">Task label</label>
-        <UiTextarea
-          autoFocus
-          id="new-task-title"
-          placeholder="Name this Task"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey && canSubmit) {
-              event.preventDefault();
-              void createTask();
-            }
-          }}
-        />
-
-        <footer className="newTaskComposerFooter">
-          <div className="composerTools">
-            <UiIconButton aria-label="Attach file" className="composerIconButton" disabled size="header" title="Attachments are not available">
-              <ShellIcon name="attachment" />
-            </UiIconButton>
-            <UiDropdown
-              aria-label="Project"
-              className="composerProjectDropdown"
-              disabled={projectsResource.isLoading || projects.length === 0}
-              icon={<ShellIcon name="project" />}
-              onValueChange={setProjectId}
-              options={projects.map((project) => ({
-                value: project.id,
-                label: project.name,
-                description: project.repositoryExternalId,
-              }))}
-              placeholder="Project"
-              value={projectId}
-            />
-          </div>
-
-          <div className="composerActions">
-            <UiIconButton aria-label="Voice input" className="composerIconButton" disabled size="header" title="Voice input is not available">
-              <ShellIcon name="microphone" />
-            </UiIconButton>
-            <UiIconButton aria-label="Create Task" className="composerSendButton" data-loading={isSubmitting || undefined} disabled={!canSubmit} size="default" tone="solid" type="submit">
-              <ShellIcon name={isSubmitting ? "spinner" : "send"} />
-            </UiIconButton>
-          </div>
-        </footer>
-      </form>
+      />
 
       {projectsResource.error ? <p className="newTaskNotice error" role="alert">{projectsResource.error}</p> : null}
       {error ? <p className="newTaskNotice error" role="alert">{error}</p> : null}

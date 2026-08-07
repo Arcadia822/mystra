@@ -1,17 +1,17 @@
 ---
 name: mystra-ux
-description: Use when refining Mystra UI patterns, shell navigation, page families, component behavior, theming, tokens, localization, accessibility, prototypes, or reusable UX rules. Applies Castrel's compact operational interaction language with the dark-tech color system.
+description: Use when refining Mystra shell navigation, New Task intake, Search, Settings, Appearance preferences, sidebar visuals, modal/dropdown behavior, page families, themes, tokens, localization, accessibility, prototypes, or reusable UX rules. Applies Castrel's compact operational interaction language through Mystra-owned components and product boundaries.
 ---
 
 # Mystra UX
 
-Mystra UX is the reusable product design-system entrypoint for the control plane. Its structural and interaction language follows the proven Castrel UX system: calm tool density, shared shell first, fixed page families, ghost/soft/solid action levels, complete states, and keyboard parity. Its default visual palette is dark-tech: mineral graphite surfaces, monospaced typography, restrained semantic signals, crisp rules, and no decorative effects.
+Mystra UX is the reusable product design-system entrypoint for the control plane. Its structural and interaction language follows the proven Castrel UX system: calm tool density, shared shell first, fixed page families, ghost/soft/solid action levels, complete states, and keyboard parity. Its default visual identity is the Mystra theme family: paired light/dark mineral graphite surfaces, explicit UI/content/code typography roles, restrained semantic signals, crisp rules, and no decorative effects.
 
 ## Workflow
 
 1. Collect the design inputs from `references/design-system-overview.md`: user and business goals, affected routes, required states, density, shell impact, responsive behavior, accessibility, localization, and source references.
 2. Classify the change. Small page-local polish does not need a new design artifact. A cross-page shell, component-family, or theme change requires a short UX Intent in the active Spec-Kit feature artifact before implementation.
-3. Read only the relevant reference files and inspect the current code assets before inventing a new pattern.
+3. Read only the relevant reference files, inspect current Mystra code, and verify any named Castrel source before inventing a new pattern.
 4. Reuse Mystra rules for shell density, fully hidden sidebar collapse, header inset, reading/full-bleed page families, action levels, shared components, state completeness, and localization.
 5. Map all component colors to semantic roles from the dark-tech token system. Do not copy Castrel's concrete palette.
 6. Validate expanded/collapsed shell, loading/empty/full/error/disabled states, keyboard access, and 320/768/1024/1440px widths.
@@ -19,7 +19,6 @@ Mystra UX is the reusable product design-system entrypoint for the control plane
 
 ## Rule Index
 
-- `DESIGN.md`: compact product-facing design-system overview.
 - `tokens.css`: implementation-facing semantic token aliases.
 - `references/design-system-overview.md`: scope, principles, inputs, UX Intent, page families, and known gaps.
 - `references/layout-and-navigation.md`: shell, header, sidebar, collapse behavior, navigation hierarchy, density, page widths, and responsive rules.
@@ -35,10 +34,14 @@ Mystra UX is the reusable product design-system entrypoint for the control plane
 - The shared shell is defined before page-local structure.
 - Desktop sidebar width is `300px`; menu rows are `h-7 / text-12`; shell header is `46px`.
 - Collapsing the sidebar hides it completely. Brand, New, and reopen controls move into the main header; no icon rail remains.
+- Route links are authoritative. Local modal, selection, or utility state must not intercept a real navigation target or require an intermediate route before the destination works.
 - Configuration and management pages default to a fixed reading width. Spatial workbenches and immersive intake may be full-bleed.
 - Ghost is for navigation and lightweight actions, soft for secondary actions, and solid for the current primary commit.
-- The default palette is dark-tech. Every visible color resolves through semantic tokens; signal colors have one defined meaning each.
-- Use monospaced typography, 0/2/4/6px radii, flat surfaces, quiet hairlines, and no gradients, glow, glass, texture, or decorative shadows.
+- Reuse shared icon buttons, close glyphs, dropdowns, sidebar visual slots, segmented controls, and range controls. Page-local lookalikes are drift even when their screenshots happen to align.
+- Appearance is a versioned browser preference until server persistence is explicitly owned. It includes System/Light/Dark mode, separate light/dark schemes, border contrast, code surface, theme details, and first-paint hydration without inventing API or database state.
+- The default palette is the paired Mystra light/dark family. Every visible color resolves through semantic tokens; signal colors have one defined meaning each.
+- Typography has exactly three internal roles: UI, content, and code. Each role stores one primary family; the runtime appends role-specific browser/system generic fallbacks. A Codex v1 import maps `theme.fonts.ui` to both UI and content, and `theme.fonts.code` to code without extending the external schema.
+- All themes keep 0/2/4/6px radii, flat surfaces, quiet hairlines, and no gradients, glow, glass, texture, or decorative shadows.
 - New UI copy must provide Chinese and English values or use a predictable fallback while the current shell scaffolding is migrated.
 
 ## Acceptance Checklist
@@ -47,6 +50,7 @@ Mystra UX is the reusable product design-system entrypoint for the control plane
 - Loading, empty, full, error, disabled, selected, and permission-limited states are explicit where relevant.
 - Colors, surfaces, borders, focus, and semantic states come from dark-tech roles rather than page-local values.
 - An existing shared component or pattern is reused before a parallel local system is created.
+- Direct navigation works from every current route, modal close controls share one icon-button contract, and browser-local preferences survive refresh without pretending to be account settings.
 - Cross-page changes update the active Spec-Kit UX Intent and the smallest durable Mystra UX reference.
 
 ## Maintenance

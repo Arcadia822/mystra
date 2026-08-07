@@ -66,8 +66,8 @@ apps/control-plane/
 - 在 `_components` 下建立 Mystra-owned 共享 UI 原语，并用它替换 shell、New、Search、Inbox、Issues 与 Settings 中的页面级 action、surface、field、dialog 和 state 实现。
 - spacing、control height、padding、radius、surface、text、border、focus 和 semantic signal 全部通过 `theme-system.ts` 输出的 CSS token 消费；Castrel 的 `9/7/7/9px` composer inset 等非 4px 特殊值必须使用命名 token。
 - 在 `_components/app-shell.tsx` 中定义小型 shell model：已批准菜单项、Project-grouped Task navigation、框架自有 label 和 placeholder state。
-- 保留 `theme-system.ts` 的 config-driven 架构；默认暗色 preset 继续使用不经混色的 explicit token map，并以 dark-tech palette 为颜色事实来源；保留其他 preset 以满足 025 的 light/dark theme scaffold。
-- 将 Castrel UX 的布局、密度和交互规则与 dark-tech 的 monospaced typography、0/2/4/6px radius、flat elevation、signal semantics、reduced-motion 规则同步到 `globals.css` 和 `mystra-ux` durable reference。
+- 保留 `theme-system.ts` 的 config-driven 架构；默认 Mystra family 用同一 `codeThemeId` 提供 light/dark explicit token map，dark 原样保留 Graphite，light 使用配套矿物灰语法；其他 preset 来自带版本的 Codex catalog。
+- 将 Castrel UX 的布局、密度和交互规则与 Mystra 的 UI/Content/Code 三角色 typography、0/2/4/6px radius、flat elevation、signal semantics、reduced-motion 规则同步到 `globals.css` 和 `mystra-ux` durable reference。
 - 为框架自有文案引入 i18n 脚手架，不在本切片翻译页面级业务行为。
 - 将现有 Task、Session、Runner 与 Project 对象页保留为直接可达 routes；不通过导航重构删除已交付能力。
 - 代码现实依据：现有 shell 在 `apps/control-plane/app/_components/app-shell.tsx`，overview 在 `apps/control-plane/app/page.tsx`，主题在 `apps/control-plane/app/theme-system.ts`，视觉方向和 shell mockup 函数在 `specs/025-webui/mockups/render-mockups.cjs`。
@@ -87,7 +87,7 @@ apps/control-plane/
 - **体验问题**：当前 shell 在 768px 仍保留 300px sidebar，在 320px 初始覆盖内容；页面、搜索、Inbox、表格和设置多次叠加 inset，桌面按钮统一膨胀到 44px；主题切换还存在首帧回退到默认色和非默认 preset 改用比例字体的问题。
 - **影响表面**：共享 shell/header/sidebar、New、Search、Inbox、Issues/Tasks table、Projects 与对象页的通用 page frame、Settings、所有 selectable theme preset，以及 loading/empty/error/selected/focus 状态。
 - **固定规则**：使用 4/8/12/16/20/24/32/48/96px spacing scale；page inline 为桌面 16px/窄屏 12px，page top 12px、bottom 32px，panel 16px、modal 20px、popup 16px，layout gap 12px，stack gap 8px；composer 的 9/7/7/9px 是明确来源特例。radius 只允许 0/2/4/6px。Castrel-derived action 为 compact 24px、header/navigation 28px、default 32px，standard field 36px，coarse pointer hit target 44px。
-- **主题规则**：所有 preset 保持 Fira Code/Maple Mono monospace；保存的主题必须在 React hydration 前同步应用，hydration 未读取 preference 前不得回写默认主题。
+- **主题规则**：Mystra light/dark 统一使用 UI Arial、Content Georgia、Code Courier New，每个角色只保存一个 primary family；CSS 追加角色对应的 browser/system generic fallback。兼容 Codex v1 的主题把 payload UI font 同步到 UI/Content，把 code font 映射到 Code。保存的主题必须在 React hydration 前同步应用，hydration 未读取 preference 前不得回写默认主题。
 - **响应式与无障碍**：`<=1024px` sidebar 变为默认关闭的 overlay，由共享 header 打开，带关闭按钮、backdrop 和 route-change dismissal；`<=700px` 内容列堆叠。桌面视觉密度不得以牺牲 44px touch hit area、focus、ARIA name 或键盘关闭能力为代价。
 - **数据与性能**：shell、Inbox 与 Issues 对 `/api/tasks` 使用同一共享轮询资源，避免三个组件独立请求相同数据；不改变 API、缓存或持久化合同。
 - **风险与验证**：GitNexus 对 `AppShell`、`RootLayout`、`buildThemeCssVariables`、`applyThemeToDocument`、`TasksPage` 和 `InboxPage` 的 upstream 风险均为 LOW。用主题单测、control-plane 全量 test/typecheck/build、GitNexus change detection、HTTP 200，以及 1440/1024/768/320px 真实浏览器检查首帧主题、字体、sidebar、overflow、control height、focus 与 console。
@@ -98,8 +98,8 @@ apps/control-plane/
 - **能力范围**：语言；`System` / `Light` / `Dark`；`Default` / `High Contrast` / `Color High Contrast`；代码表面 `Light` / `Dark`；浅色主题和深色主题分别选择；预览；0–100 对比度；UI/Chat/Code 字体；UI 12–14px 与 Chat 12–16px 字号；复位主题细节。
 - **状态模型**：`AppearancePreferences` 是纯浏览器 preference，不是业务实体。`AppShell` 持有 normalized state，`prefers-color-scheme` 只负责把 `System` 解析为当前 variant。状态变化即时应用到 `documentElement`，并写入单一 versioned localStorage JSON；首帧 bootstrap 使用同一 normalization/default contract 的序列化数据。
 - **数据流**：`localStorage -> parse/normalize -> resolve active variant -> resolve variant theme -> build semantic CSS variables -> documentElement dataset/style`。Settings 控件只发送 partial preference update，不直接操作 DOM 或选择 palette。
-- **复用与隔离**：扩展现有 `theme-system.ts`，不引入 Zustand、`next-themes`、Castrel service API 或数据库表。`UiDropdown` 继续承担 theme select；在 Mystra-owned field/action primitives 中补充 segmented 与 range anatomy，字体使用现有 input。运行时只消费 Mystra 的四个现有 theme presets，不复制 Castrel 全量主题目录。
-- **失败策略**：损坏 JSON、未知 mode/border/variant、跨 variant theme id、非有限数值和越界字号必须逐字段回退；`System` listener 必须清理；localStorage 不可用时仍能以 Graphite Signal 默认值启动。Appearance 未产生网络、API 或 RDB failure state。
+- **复用与隔离**：扩展现有 `theme-system.ts`，不引入 Zustand、`next-themes`、Castrel service API 或数据库表。`UiDropdown` 继续承担 theme select；在 Mystra-owned field/action primitives 中补充 segmented 与 range anatomy，字体使用现有 input。运行时通过同一 Codex v1 adapter 消费 Mystra 双变体和静态 Codex catalog，不复制 Castrel 主题目录。
+- **失败策略**：损坏 JSON、未知 mode/border/variant、跨 variant theme id、非有限数值和越界字号必须逐字段回退；`System` listener 必须清理；localStorage 不可用时仍能以 Mystra 对应 variant 启动。Appearance 未产生网络、API 或 RDB failure state。
 - **性能**：所有变更是 O(theme token count) 的同步浏览器操作；只在 preference 或 system variant 变化时写 CSS variables，不引入轮询或渲染期存储读取。
 - **NOT in scope**：服务端/RDB persistence、账户同步、多设备同步、Castrel SDK theme override、通知 toast、外部字体下载、Castrel 全量 theme preset 迁移，以及当前 Mystra 尚不存在的独立 terminal/chat product surface。
 - **验证**：主题纯函数单测覆盖 normalization、variant resolution、bootstrap、contrast/border/code surface/font token；组件契约测试覆盖共享 controls；真实浏览器覆盖 mode/theme 分离、system media change、preview/reset、local refresh、320/768/1024/1440px、键盘与 console。
@@ -138,6 +138,62 @@ semantic CSS variables + dataset
 - **Failure modes**：非法本地值由单元测试覆盖并 fail closed；localStorage 不可用时保留默认主题；没有网络错误路径或 silent critical gap。
 - **Parallelization**：顺序实施，无独立 worktree lane；theme model -> shared controls -> shell/settings wiring -> browser/full verification。
 
+### 技术场景：Codex Theme v1 完整兼容
+
+- **Actor / goal**：主题维护者提供 `codex-theme-v1:{JSON}` 字符串，希望 Mystra 原样理解该 schema，同时不把 schema version 误当主题 ID。
+- **合同**：`CODEX_THEME_SCHEMA_VERSION = "codex-theme-v1"`；payload 严格包含 `codeThemeId`、`theme`、`variant`。`codeThemeId` 是 canonical ID；Mystra `label`、`description` 与 explicit tokens 是 adapter metadata，不进入 Codex payload。
+- **查找语义**：同一 `codeThemeId` 可以分别存在于 light/dark variant，registry、Appearance、Settings 与 bootstrap 都通过 `(variant, codeThemeId)` 解析，不再维护第二个 `id`。
+- **迁移**：旧 `notion-light`、`linen-light`、`notion-dark`、`graphite-signal` 仅在 localStorage parse/bootstrap 边界映射为 `notion`、`notion`、`notion`、`mystra`；normalized preference 与 DOM dataset 只输出 `codeThemeId`。
+- **失败策略**：未知 schema version、JSON 损坏、额外 synthetic `id`、字段缺失、非法 variant/contrast/font/color value 抛出稳定 `TypeError`；Appearance 损坏值仍 fail closed 到 variant default。
+- **性能**：45 个固定 variant 在模块初始化时解析一次；运行态查找与 bootstrap 仍为固定规模 O(theme count)，不引入网络、RDB 或额外 client store。production build 与真实浏览器必须验证增加 catalog 后的首帧脚本仍可用。
+- **NOT in scope**：主题文件选择器、远端主题 catalog、数据库同步、Codex app 私有业务 API，以及扩大 Codex v1 schema。
+
+```text
+codex-theme-v1:{JSON}
+        |
+        v
+schema version guard + exact payload validation
+        |
+        v
+CodexThemeV1Payload(codeThemeId, variant, theme)
+        |
+        +--> serialize --> codex-theme-v1:{JSON}
+        |
+        v
+Mystra metadata adapter(label, description, explicit tokens)
+        |
+        v
+(variant, codeThemeId) --> Appearance/bootstrap --> CSS variables + dataset
+```
+
+### 工程评审结论：Codex Theme v1 兼容
+
+- **Scope Challenge**：复用单一 `theme-system.ts`、现有 registry/Appearance/bootstrap/Settings，只新增纯静态 `codex-theme-catalog.ts` 数据文件，不增加第二套 theme store、运行时 app-bundle 读取或网络 catalog。
+- **Architecture**：0 个未解决问题。schema parser/serializer 是导入边界；Mystra metadata 明确在 payload 外；首帧与 hydration 使用同一 canonical ID 规则。
+- **Code Quality**：0 个未解决问题。删除双 ID，而不是新增 alias field；legacy alias 只存在于受限迁移表。
+- **Tests**：Everforest exact round-trip、unknown version、synthetic `id` rejection、built-in round-trip、variant duplicate、legacy migration、bootstrap dataset 与全量回归均纳入 tasks。
+- **Performance**：0 个问题。无 I/O、轮询或随数据增长的集合。
+- **What already exists**：`CONTROL_PLANE_THEMES`、`buildThemeCssVariables`、`normalizeAppearancePreferences`、`buildThemeBootstrapScript`、`AppearanceSettingsPanel` 全部复用。
+- **Failure modes**：错误 version/payload 明确抛错；损坏 browser preference fail closed；没有无测试且静默的 critical gap。
+- **Parallelization**：顺序实施，无独立 worktree lane；contract tests -> parser/registry -> migration/bootstrap/UI -> full verification。
+
+### 技术场景：Codex 完整主题目录与 Mystra 双变体
+
+- **来源事实**：本机签名 `/Applications/ChatGPT.app` 中承载 Codex bundle，版本 26.730.61639 / build 6234；从 `app.asar` 的 code-theme registry 与 theme modules 提取 28 个 family、43 个实际注册 variant。
+- **静态边界**：提取结果落在 `codex-theme-catalog.ts`，运行时不读取 Codex 安装包，不依赖私有 IPC，不联网更新。source version 与 family/variant count 由测试锁定。
+- **Mystra identity**：原 Graphite dark payload 和 explicit tokens 改用 `codeThemeId: "mystra"`、label `Mystra`；新增 light variant，保持矿物灰层级、绿色 accent、restrained semantic signals、monospace 与 flat geometry。
+- **选择器顺序**：Mystra 在 light/dark 列表均置顶；其余 Codex themes 按 display label 排序，只出现在其实际注册的 variant 下。
+- **迁移**：`graphite-signal` 只在 dark preference/bootstrap 入口映射为 `mystra`；被移除的 `linen-light` 映射到有效的官方 Notion light，避免已保存偏好失效。
+- **测试地图**：catalog family/count/known payload、Mystra 双 variant/default、legacy migration、exact v1 round-trip、bootstrap dataset、全量 theme CSS variables、typecheck/test/build 与真实浏览器 dropdown/refresh/console。
+
+### 技术场景：UI / Content / Code 字体合同
+
+- **外部边界**：`codex-theme-v1` 继续严格只有 `fonts.ui` 与 `fonts.code`，parser/serializer 不增加 `content`，保证既有主题字符串 exact round-trip。
+- **内部 adapter**：`ControlPlaneThemeDefinition.fontRoles` 固定为 `{ ui, content, code }`。Codex `ui` 取首个 primary family 后同时写入 UI/Content；Codex `code` 写入 Code。Mystra metadata 可独立指定 Content。
+- **fallback**：primary family 只保存一个值；运行时分别追加 `system-ui, sans-serif`、`ui-serif, serif`、`ui-monospace, monospace`，不持久化 OS-specific 列表。
+- **迁移**：旧 `chatFont` / `chatFontSize` 仅作为 localStorage 输入迁移为 Content；旧 Graphite 默认多 family stack 回到 Mystra 新默认，显式单 family 不被抹除。
+- **风险**：字体变量参与首帧 bootstrap、RootLayout 与运行时 Settings，必须同时测试服务端变量、bootstrap、hydration 后变量和真实浏览器 computed style。
+
 ### UX Intent：Sidebar Visual Slot 一致性修复
 
 - **体验问题**：sidebar 的 leading icon、Task status、section mark、trailing count badge 和 icon button 分别维护尺寸、padding 与位置，导致同一右侧列的 badge 与按钮中心线漂移，图标视觉规范也无法由一个组件合同保证。
@@ -155,6 +211,15 @@ semantic CSS variables + dataset
 - **几何规则**：Logo 使用 48px token 且不带相邻文案。composer 保留 9/7/7/9px 基础 inset，在 textarea 右侧和 footer 右侧/底部各补偿 2px，使四边有效视觉 inset 都为 9px；send action 保持共享 32px solid action。
 - **状态与无障碍**：Project 未选定时不请求或显示 Issue；Project dropdown 支持 button/listbox 语义、方向键、Home/End、Escape、外部点击和显式 label。Issue 卡片使用真实 button、`aria-pressed`、selected surface，并覆盖 loading/error 状态。无 Project 时只保持 disabled Project trigger，不显示额外引导句。
 - **风险与验证**：GitNexus 对 `NewTaskComposer` upstream 风险为 LOW，只有首页 `Page` 一个直接调用者。用先红后绿的 composer contract test、control-plane typecheck/test/build、HTTP、真实浏览器 computed-style、accessibility tree、responsive 与 console 检查验证。
+
+### UX Intent：可选全局 Right Panel
+
+- **体验问题**：当前全局 shell 只有 Sidebar 与 Main，Sidebar 内部已有 header/content 语义，Main 则把 route children 直接放在 header 后；页面需要检查器或辅助操作时只能在 Main 内临时造第二列，无法获得与 shell header 对齐的稳定 Right Panel。
+- **目标结构**：共享 grid 固定表达 `Sidebar | Main | Right Panel?`，三列分别拆成 Header 与 Content。Right Panel 由页面通过共享 `ShellRightPanel` seam 注册，未注册、组件卸载或跨 route 后不渲染且不占宽度。
+- **首个切片**：Task 详情把现有 `Create Session` 表单从 Main 的 `detailGrid` 迁入 Right Panel；表单状态、提交函数与 canonical `/api/tasks/:id/sessions` 请求保持页面所有权，不新增 API、RDB 或 shell-owned business state。
+- **响应式**：桌面三列；Sidebar 收起只释放左列。`<=1024px` 继续使用现有 Sidebar overlay，Main 与 Right Panel 相邻；`<=700px` Right Panel 在 Main 后堆叠，避免横向 overflow。
+- **工程评审**：GitNexus 对 `AppShell` 与 `TaskDetailPage` 的 upstream 风险均为 LOW；唯一跨层调用是 `RootLayout -> AppShell`。复用现有 AppShell、Task form 与 theme tokens，新增一个局部注册 context，不采用 pathname switch 或 Next parallel route。测试覆盖无 panel、注册、内容更新、卸载清理、Task 接入和 1440/1024/768/320px 浏览器布局；无网络、持久化或随数据量增长的性能路径。
+- **不在范围**：Right Panel resize/persistence、用户手动开合、多个 panel tab、跨 route 保留、Inbox 详情迁移和新的业务内容均延后；本切片只建立全局 anatomy 与一个真实 opt-in 用例。
 
 ## 阶段 0：研究
 

@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>033-issue-agent-execution</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"033-issue-agent-execution","title":"033-issue-agent-execution","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:50:30.639Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：Issue 驱动的 Agent 自主执行\n\n**Feature Branch**: `033-issue-agent-execution`\n**Created**: 2026-07-23\n**Status**: Partially superseded; retained for historical execution evidence\n**Supersession Notice (2026-08-06)**: The direct Issue -> Agent execution direction and removal of workflow orchestration remain valid. However, this Spec's `Job`/`Run` execution-object contract, runner-capacity projection, event model, and database artifact assumptions are obsolete and MUST NOT be used for current API, persistence, Prisma, MCP, CLI, or Web design. Task remains current intent terminology, but `040-prisma-rdb` excludes Session and Runner persistence entirely; `session_events` and `artifacts` are also excluded pending separate Session, Task Activity, Runtime/Runner and Artifact specifications.\n**Input**: 用户希望 Mystra 从以 `WorkflowProvider`、blueprint 和 node 为核心的编排模型，转向由 Issue 驱动、Agent 自主完成工作的直接执行模型；第一条可验证路径使用只读 Linear Integration、本机 Docker sandbox、Copilot CLI autopilot、GitHub demo repository、测试、预览和人工 Review 交接。\n**Owner Story Review**: 用户已在 2026-07-23 的正式 Goal 中确认主要操作员、端到端场景、成功证据与明确非目标，因此本规格直接采用该故事集，不再重复发起一次仪式化确认。\n\n## User Scenarios & Testing *(mandatory)*\n\n### User Story 1 - 从 Linear Issue 发起本机开发任务 (Priority: P1)\n\n作为 Mystra 本机操作员，我希望通过 CLI 查看 Linear Issue、选择其中一个 Issue 并分派给指定 Project 和 Agent，以便真实需求可以直接进入 Mystra 的本机执行路径，而不需要人工复制标题、描述和标识符。\n\n**Why this priority**: Issue 是新执行模型的入口。若 Mystra 仍然只接受人工拼装的 prompt，所谓 Issue Integration 只是一块礼貌的装饰板。\n\n**Independent Test**: 在只配置 Linear personal API key 和控制面地址的环境中，通过 CLI 列出 Issue、读取一个 Issue，并将其分派为可查询的 Job/Run；确认 Job 保存了不可变的 Issue 引用快照。\n\n**Acceptance Scenarios**:\n\n1. **Given** Linear Integration 已配置且凭据有效，**When** 操作员通过 CLI 列出可用 Issue，**Then** CLI 返回标识符、标题、状态和 URL，并且结果来自与 Web API 相同的服务路径。\n2. **Given** 操作员选择一个有效 Linear Issue、Project 和 Copilot Agent，**When** 操作员执行 dispatch，**Then** Mystra 创建一个 Job/Run，并保存 provider、外部 ID、identifier、标题、描述和 URL 的不可变快照。\n3. **Given** Linear 返回 GraphQL `errors`、无权限或不存在的 Issue，**When** 操作员执行 list/get/dispatch，**Then** 请求失败为结构化错误，不创建部分 Job，也不把凭据或原始 Authorization header 写入输出。\n\n---\n\n### User Story 2 - Agent 在 Sandbox 内自主完成任务 (Priority: P1)\n\n作为 Mystra 本机操作员，我希望 runner 直接启动 Docker sandbox 并在其中运行指定的 Copilot CLI autopilot，以便 Agent 自己拥有实现循环，Mystra 只负责执行边界、资源、安全和可观察状态，而不是在 Agent 之上运行一套 workflow graph。\n\n**Why this priority**: 这是产品边界变更的核心。仅删除 package 名称、同时保留 blueprint/node 编排语义，只会把旧模型藏得更深。\n\n**Independent Test**: 从一个已分派的 Issue 启动真实本机 Run；确认运行时不存在 workflow provider、blueprint 或 node 选择，Copilot CLI 使用明确版本和有上限的 autopilot，在 sandbox 内产生代码修改。\n\n**Acceptance Scenarios**:\n\n1. **Given** runner、Docker、Project runtime 和 Copilot 凭据可用，**When** runner claim 一个 Issue 驱动的 Job，**Then** runner 按直接生命周期准备 workspace、启动 sandbox 并调用指定 Agent，不解析任何 workflow provider、blueprint 或 node。\n2. **Given** Copilot Agent 开始执行，**When** autopilot 连续工作，**Then** continuation 次数受到显式上限约束，超出上限或执行超时会产生结构化失败状态并释放 runner 容量。\n3. **Given** Agent 完成实现，**When**仓库存在修改，**Then** Mystra 执行 Project 约定的 test 和 build；任一质量检查失败时不伪造成功或 Review-ready 状态。\n4. **Given** `LINEAR_API_KEY`、GitHub token 和 Copilot token 可用，**When** sandbox 启动和 Agent 执行，**Then**秘密仅在需要的进程运行时环境中可用，不写入数据库、prompt、事件 payload、日志、Git remote 或 repository 文件。\n\n---\n\n### User Story 3 - 交付可接手的 Review 现场 (Priority: P1)\n\n作为代码 Reviewer，我希望成功运行保留一个可访问的预览、GitHub Pull Request 和明确的 `waiting_for_review` 状态，以便我可以接手检查成果，而不必从容器日志中猜测任务是否真正结束。\n\n**Why this priority**: Mystra 的产物不是“Agent 退出码为零”，而是人类可以审查的 repository artifact 和运行现场。\n\n**Independent Test**: 使用私有 GitHub demo web repository 完成一次真实运行；确认测试和构建通过、preview 从宿主机可访问、branch 和 PR 已创建、sandbox 被保留，并且 Job/Run 明确进入等待人工 Review 的状态。\n\n**Acceptance Scenarios**:\n\n1. **Given** Agent 修改通过 test 和 build，**When** Mystra准备 Review 交接，**Then**系统启动预览、验证预览可达、推送 branch 并创建 GitHub PR。\n2. **Given** PR 和 preview 均已创建，**When**机器执行完成，**Then** Run 进入 `waiting_for_review`，从 runner active capacity 中释放，但保留 sandbox、preview、PR URL 和 Review metadata。\n3. **Given** preview 不可达、branch push 失败或 PR 创建失败，**When** Review 交接被评估，**Then** Run 不进入 `waiting_for_review`，并返回可定位到失败阶段的结构化结果。\n4. **Given**操作员使用 CLI 等待 Run，**When** Run 到达 `waiting_for_review`，**Then** CLI 返回 Linear Issue identifier、Job/Run ID、test/build 摘要、preview URL、PR URL、container/image 和 Agent 版本信息。\n\n---\n\n### User Story 4 - API 与 CLI 共享同一产品真相 (Priority: P1)\n\n作为 Mystra API/CLI 使用者，我希望 Web API 是唯一业务实现、CLI 只是同一 API 的薄客户端，以便两个入口不会在 Issue 过滤、dispatch、状态解释或错误处理上产生漂移。\n\n**Why this priority**: “两个界面拥有相似功能”并不等于同源实现。重复逻辑通常只是在等待第一次分叉。\n\n**Independent Test**: 对 Issue list/get/dispatch 和 Run inspect/wait 分别执行 API 与 CLI contract test；确认 CLI 请求 canonical API，且没有直接构造 Linear query、Job 或 Run 状态。\n\n**Acceptance Scenarios**:\n\n1. **Given** Web API 可用，**When** CLI 执行 Issue 或 Run 命令，**Then** CLI 通过 Web API 完成操作，不直接访问 Linear、SQLite 或 runner。\n2. **Given** API 返回结构化成功或失败，**When** CLI 呈现结果，**Then** CLI 保留关键字段和错误码，不重新发明第二套状态语义。\n3. **Given** API 不可达，**When** CLI 执行命令，**Then** CLI 明确报告控制面连接失败，不回退到隐藏的本地实现。\n\n### Edge Cases\n\n- Linear API key 未设置、失效、权限不足或被限流时，Issue 操作必须失败关闭，并保留 GraphQL 错误语义。\n- Linear GraphQL HTTP 200 同时带 `errors` 时，响应不能被当作成功。\n- Issue identifier 在当前 Integration 内不存在或解析到多个对象时，不允许 dispatch。\n- Project 不存在、已归档、没有 Docker runtime、没有 GitHub repository target 或不允许 Copilot Agent 时，不允许 dispatch。\n- Docker daemon、sandbox image 或指定 Copilot CLI 版本不可用时，Run 必须在启动 Agent 前失败。\n- Copilot 未产生修改、返回非零、达到 autopilot continuation 上限、超时或被取消时，不允许创建成功 PR。\n- test 或 build 失败时必须保留可审查 workspace 证据，但不能进入 `waiting_for_review`。\n- preview 进程启动但从宿主机不可达时，不能把一个字符串 URL 当作成功证据。\n- branch 已存在、PR 已存在或 GitHub API 短暂失败时，系统必须给出幂等或明确失败行为，不能静默创建重复 Review artifact。\n- runner 进程在 sandbox 启动后崩溃时，持久状态必须允许操作员判断 Run 未完成；不得仅依赖容器 stdout。\n- 旧数据库中存在 workflow 事件或字段时，允许清空历史开发数据并直接升级到新 schema；不得为了兼容旧数据保留 workflow abstraction、双事件合同或双状态语义。\n- 任何错误、诊断或证据文件都必须对 Linear、GitHub 和 Copilot token 做完整脱敏。\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: Mystra MUST 提供通用 Issue domain contract，至少包含 provider、外部 ID、identifier、title、description、URL、state 和获取时间。\n- **FR-002**: Issue dispatch MUST 保存不可变的 Issue snapshot，使 Run 不依赖后续变化的远端 Issue 内容。\n- **FR-003**: Mystra MUST 提供 Integration capability 模型；一个 Integration 可以暴露一个或多个明确 capability，第一项 capability 为 `IssueProvider`。\n- **FR-004**: Linear Integration MUST 实现只读 `IssueProvider`，并支持 list 和 get。\n- **FR-005**: Linear Integration MUST 使用运行环境中的 `LINEAR_API_KEY`；MVP MUST NOT 实现 OAuth、webhook、write-back、评论或状态修改。\n- **FR-006**: Linear 请求 MUST 处理 HTTP 失败、GraphQL `errors`、partial data、限流和无效数据，并返回稳定的 Mystra error contract。\n- **FR-007**: 系统 MUST 提供 canonical Web API，用于 Issue list、get、dispatch 以及 Run inspect、wait 所需的读取。\n- **FR-008**: CLI MUST 仅作为 canonical Web API 的薄 HTTP 客户端；CLI MUST NOT 直接调用 Linear、SQLite、Integration implementation 或 runner。\n- **FR-009**: API 和 CLI MUST 使用共享的 typed request/response schemas，并对额外字段和无效枚举值执行一致验证。\n- **FR-010**: Issue dispatch MUST 显式选择 Project 和 Agent；MVP 不得从 Issue 文本隐式猜测目标 repository 或 Agent。\n- **FR-011**: Issue dispatch MUST 复用 Job/Run 持久化、runner claim 和 resolved runtime contract，而不是创建平行执行系统。\n- **FR-012**: 活动产品和运行时代码 MUST 移除 `apps/workflows` package、`WorkflowProvider`、`LocalWorkflowProvider`、workflow registry、blueprint、node 和 workflow-specific runtime selection。\n- **FR-013**: 新执行路径 MUST NOT 产生 workflow-specific event、snapshot、management hint 或 UI projection。\n- **FR-014**: Mystra core MUST 直接表达 `Job/Run → SandboxProvider → AgentAdapter → RepoProvider` 生命周期。\n- **FR-015**: Mystra core MAY 在未来由 Agent plugin/hook 扩展行为，但 Codex plugin/hook MUST NOT 成为本功能实现或验收依赖。\n- **FR-016**: runner MUST 在 Docker sandbox 内运行 Agent；MVP 验收不得以宿主机直接运行 Agent 替代。\n- **FR-017**: Copilot Agent command MUST 使用 autopilot，并设置显式、可查询、非无限的 continuation 上限；默认验收上限为 10。\n- **FR-018**: sandbox image MUST 固定 Copilot CLI 版本；最终证据 MUST 报告实际版本。\n- **FR-019**: GitHub 与 Copilot secret MUST 仅以运行时环境变量或只读 secret file 注入；不得持久化明文 secret。\n- **FR-020**: Agent 完成后 MUST 执行 repository/project 约定的 test 和 build；二者结果 MUST 进入结构化 Run result。\n- **FR-021**: 只有存在真实 repository 修改且 test/build 通过时，系统才能继续 Review 交接。\n- **FR-022**: Review 交接 MUST 启动 preview，并从宿主机验证至少一个 preview URL 可访问。\n- **FR-023**: Review 交接 MUST 推送 GitHub branch 并创建或复用唯一 Pull Request。\n- **FR-024**: 成功的机器执行 MUST 进入 `waiting_for_review` 状态；该状态 MUST 释放 runner active capacity，同时保留 sandbox 和 preview。\n- **FR-025**: `waiting_for_review` 的持久结果 MUST 包含 Issue reference、branch、PR URL、preview URL、quality summary、sandbox reference 和 Agent execution metadata。\n- **FR-026**: 失败、取消和超时 MUST 继续使用结构化状态；不得新增通用 Retry API 或日志持久化 API。\n- **FR-027**: MVP 验收 MUST 使用一个私有 GitHub demo web repository，不得使用 GitLab 或 `castrel-ai`。\n- **FR-028**: 系统 MUST 保存一份不含 secret 的端到端验收证据，足以复核 Issue、CLI 调用、Job/Run、sandbox、Agent、quality、preview 和 PR。\n- **FR-029**: 现有 Job、Run、RdbProvider、SandboxProvider、AgentAdapter 和 RepoProvider MUST 保持为可替换合同；删除 workflow abstraction 不得把 Docker、Copilot 或 GitHub 细节泄漏进通用 Issue contract。\n- **FR-030**: 本功能 MUST NOT 为旧 workflow Job/Run/event/artifact 保留读取兼容；允许删除全部历史开发数据并以新 schema 重新初始化，但删除前 MUST 精确识别本功能使用的数据库目标，不得递归或模糊删除目录。\n\n### Key Entities\n\n- **IssueReference**: 外部 Issue 的规范化、可展示引用，包含 provider 与远端身份。\n- **IssueSnapshot**: dispatch 时冻结的 Issue 内容，用于保证 Run 的输入可追溯。\n- **Integration**: 一个外部系统连接及其 capability 集合；MVP 通过进程配置注册，不提供管理 UI。\n- **IssueProvider**: Integration 可选 capability，负责 list/get 外部 Issue，不负责 Job persistence。\n- **LinearIntegration**: 第一项 Integration，实现只读 IssueProvider。\n- **IssueDispatchRequest**: 将 Issue、Project、Agent 与 branch/Review context 绑定为新 Job/Run 的请求。\n- **Job**: 用户意图和不可变执行输入的持久记录，包含 Issue snapshot。\n- **Run**: 一次具体机器执行及其状态、事件、结果和 Review handoff。\n- **SandboxSession**: 本机 Docker provider 启动并可保留用于预览的隔离执行现场。\n- **ReviewHandoff**: test/build、preview、branch、PR 和人工接手状态的结构化结果。\n\n## Assumptions\n\n- 第一位操作员是当前仓库 owner，使用本机 CLI 和本机控制面。\n- CLI-only 满足今晚的交互要求；不创建或修改 Web UI。\n- Linear personal API key 已存在，第一版只读取当前 key 可访问的 workspace。\n- GitHub demo repository 使用当前已认证的 `Arcadia822` 账户，并保持 private。\n- `MYSTRA_GITHUB_TOKEN` 与 `COPILOT_GITHUB_TOKEN` 可以在进程启动时从当前 GitHub CLI credential 派生，但不能写入 repository 或 evidence。\n- Docker daemon 可在本机启动；若无法启动，真实端到端验收视为未完成。\n- demo repository 使用可独立 test/build/preview 的小型 web project，避免依赖 GitLab、Castrel 服务或企业网络。\n- 旧 Spec-Kit workflow feature 目录作为历史记录保留；“完整移除”针对活动 product contract、package graph、runtime、event 和 projection。\n- 用户已明确授权移除全部历史运行数据，因此 schema 和状态迁移不需要双读、回填或 legacy event 兼容。\n\n## Explicitly Out of Scope\n\n- Web UI 或页面级交互。\n- Linear OAuth、webhook、write-back、comment、status transition 或 assignee mutation。\n- 第二个 IssueProvider 或 Integration 管理后台。\n- Codex plugin/hook 的实现、安装或运行。\n- 通用 workflow DSL、workflow marketplace、quality-gate rework loop 或外部 workflow SDK。\n- GitLab、`castrel-ai`、远程部署或企业网络验证。\n- caller authentication、logs API、Retry API、callback URL。\n- 云 sandbox、Kubernetes、生产级 secret manager 和 hosted RDB。\n- 自动批准或合并 Pull Request。\n- 旧 workflow Job/Run/event/artifact 的向后兼容或数据迁移。\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: 操作员可在 5 条以内 CLI 命令中完成 Issue list、选择、dispatch 和等待 Review 结果，不需要复制 Issue 正文。\n- **SC-002**: 同一个 Linear Issue 通过 API 与 CLI 读取时，identifier、title、state 和 URL 一致；CLI 代码中不存在第二套 Linear 查询。\n- **SC-003**: repository 的活动 package graph、runtime source、shared contracts 和 UI projection 中，对 `WorkflowProvider`、`LocalWorkflowProvider`、workflow blueprint 和 workflow node 的精确搜索结果为零。\n- **SC-004**: 一次真实本机运行在 Docker sandbox 内使用报告版本的 Copilot CLI，并以不超过 10 次 autopilot continuation 完成代码修改。\n- **SC-005**: demo repository 的 test 和 build 均通过，并在 Run result 中留下结构化通过证据。\n- **SC-006**: 至少一个 preview URL 从宿主机连续两次健康检查可访问。\n- **SC-007**: GitHub 上存在由该 Run 创建的 branch 和 open Pull Request，PR 可以追溯到 Linear Issue identifier 和 Job/Run。\n- **SC-008**: 成功 Run 最终处于 `waiting_for_review`，runner active capacity 已释放，sandbox 仍保留且 preview 仍可访问。\n- **SC-009**: evidence 中包含 Issue、CLI、Job/Run、Docker、Copilot、quality、preview 和 PR 证据，且 secret-pattern 扫描未发现 Linear、GitHub 或 Copilot token。\n- **SC-010**: focused tests、`pnpm lint`、`pnpm typecheck`、`pnpm test` 和 `pnpm build` 全部通过，GitNexus change detection 与代码审查没有未解决的高优先级发现。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/033-issue-agent-execution/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/033-issue-agent-execution/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/033-issue-agent-execution/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Issue 驱动的 Agent 自主执行\n\n**Branch**: `033-issue-agent-execution` | **Date**: 2026-07-23 | **Spec**: [spec.md](./spec.md)\n**Input**: `/specs/033-issue-agent-execution/spec.md`\n\n## Summary\n\n把 Mystra 的产品入口改为只读 Linear Issue，把活动执行核心从\n`WorkflowProvider → blueprint → node handlers` 改成明确、固定但非图式的\n`Job/Run → SandboxProvider → AgentAdapter → RepoProvider` 生命周期。Web API 是\nIssue list/get/dispatch 与 Run inspect/wait 的唯一业务实现，现有 operator CLI\n扩展为薄 HTTP 客户端。成功路径在本机 Docker sandbox 内使用固定版本的\nCopilot CLI、有界 autopilot、test、build、可达 preview、GitHub PR，并以\n`waiting_for_review` 持久交接。旧 workflow 包、合同、事件和投影从活动代码中删除；\n经 owner 明确授权，旧 Job/Run/event/artifact 开发数据可全部清空，不做兼容层。\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9，Node.js 24.14.0\n**Primary Dependencies**: Next.js 16 Route Handlers、React 19、Zod 4、Vitest 4、`better-sqlite3`、Node `child_process`、Linear GraphQL HTTP API、Docker Engine CLI、GitHub REST API、Copilot CLI `1.0.69-0`\n**Storage**: 现有 `SqliteRdbProvider`；Issue snapshot 进入既有 Job 持久记录，Run result 保存 review handoff，不新增第二套数据库；旧开发数据库允许精确清空并以新 schema 重建\n**Testing**: Vitest contract/unit/integration tests；真实本机 Linear、Docker、Copilot、GitHub E2E evidence\n**Target Platform**: macOS host 上的本机 control plane/runner；Linux Docker task container\n**Project Type**: TypeScript pnpm monorepo，Web API + daemon + CLI + provider packages\n**Performance Goals**: Linear list 默认 25 条、最多 100 条；Issue HTTP 请求 15 秒超时；runner claim 维持现有 25 秒 long poll；CLI wait 默认每 2 秒轮询\n**Constraints**: 单机并发默认 1；Copilot autopilot continuation 默认 10；preview 必须从宿主机连续两次健康检查成功；secret 不进入持久化、prompt、日志、remote URL 或 evidence\n**Scale/Scope**: 今晚仅 1 个 Linear Integration、1 个私有 GitHub demo web repo、1 个本机 Docker runner、CLI-only 操作面\n\n## Constitution Check\n\n*GATE: Phase 0 前通过；Phase 1 设计后复核仍通过。*\n\n| Gate | Result | Evidence |\n|------|--------|----------|\n| 规格先修订产品边界 | PASS | spec、5xP 与 constitution 已先明确移除 core workflow model |\n| 服务边界均为 TypeScript + Zod | PASS | Issue、Integration、dispatch、API、runner result 采用共享 schema；Linear 原始响应在边界校验 |\n| Provider 可替换且不泄漏具体实现 | PASS | `IssueProvider` 仅负责 list/get；Job persistence、Docker、Copilot 和 GitHub 不进入 Issue contract |\n| runner 隔离与 secret hygiene | PASS | Docker socket 仅 runner host 使用；三类 token 仅运行时进程环境注入；image 构建不接收 secret |\n| 先计划、测试、运行证据再交付 | PASS | 本计划包含 contract tests、focused/full gates、真实 E2E 与脱敏 evidence |\n| 明确非目标不被顺手实现 | PASS | 不做 UI、OAuth/webhook/write-back、plugin hooks、retry/logs API、云 sandbox 或生产 secret manager |\n\n## Project Structure\n\n### Documentation\n\n```text\nspecs/033-issue-agent-execution/\n├── spec.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   ├── openapi.yaml\n│   ├── issue-provider.md\n│   ├── direct-execution.md\n│   └── cli.md\n├── checklists/\n├── evidence/\n└── tasks.md\n```\n\n### Source Code\n\n```text\napps/\n├── control-plane/\n│   ├── app/api/integrations/[integration]/issues/\n│   ├── app/api/integrations/[integration]/issues/[identifier]/\n│   ├── app/api/integrations/[integration]/issues/[identifier]/dispatch/\n│   ├── app/api/jobs/\n│   └── src/lib/integrations/\n└── runner-daemon/\n    ├── assets/container-task.sh\n    └── src/\n        ├── index.ts\n        ├── agent-adapters.ts\n        ├── repo-providers/\n        └── sandbox-providers/\n\npackages/\n├── shared/src/\n│   ├── issue.ts\n│   ├── schemas.ts\n│   ├── events.ts\n│   ├── result.ts\n│   ├── state.ts\n│   └── management.ts\n└── agent-adapters/src/\n\nrunner-images/copilot/\n├── Dockerfile\n└── README.md\n\nscripts/\n├── build-runner-image.sh\n└── operator-cli.mjs\n```\n\n`apps/workflows/`、`packages/shared/src/workflow.ts` 和 runner workflow registry\n在迁移完成后不存在。\n\n**Structure Decision**: 保留现有 monorepo 和 provider registries，只新增一个小型\ncontrol-plane integration registry。Linear adapter 与 route handlers 同进程运行；\n不建立新的 integration service、SDK package 或 queue。runner 直接复用现有\ncontainer step、AgentAdapter、SandboxProvider 和 RepoProvider，只移除图执行外壳。\n\n## Data Flow\n\n```text\noperator CLI\n    │ HTTP only\n    ▼\nNext.js canonical API\n    │\n    ├── GET issue ──> IntegrationRegistry ──> LinearIssueProvider\n    │                                      └─ validate HTTP + GraphQL + Zod\n    │\n    └── POST dispatch\n           ├─ refetch exact Issue\n           ├─ freeze IssueSnapshot\n           └─ RdbProvider.createJob(...)\n                        │\n                        ▼\n                queued Job / Run\n                        │ long poll\n                        ▼\nrunner ──> SandboxProvider.launch(Docker)\n       ──> clone\n       ──> AgentAdapter(Copilot autopilot, max=10)\n       ──> test\n       ──> build\n       ──> preview + host health checks\n       ──> RepoProvider.pushBranch + createReview\n                        │\n                        ▼\n              waiting_for_review\n              active capacity released\n              sandbox retained\n```\n\n## Direct Execution State Machine\n\n```text\nqueued\n  └─> assigned ─> starting ─> running\n                               ├─> failed\n                               ├─> canceled\n                               ├─> timed_out\n                               └─> waiting_for_review\n\nwaiting_for_review is terminal for machine execution:\n- runner active capacity: released\n- sandbox/preview: retained\n- branch/PR/evidence: durable result\n- no automatic merge or hidden continuation\n```\n\n## Implementation Slices\n\n### Slice 1: Contracts and read-only Issue intake\n\n- Add shared Issue/Integration/dispatch/API schemas and stable error codes.\n- Add control-plane `IssueProvider`, registry and Linear implementation using native\n  `fetch`, a 15-second timeout, GraphQL error detection and Zod response validation.\n- Add canonical list/get routes and contract tests.\n\n### Slice 2: Atomic dispatch and thin CLI\n\n- Dispatch route refetches the exact Issue, validates Project/Agent/runtime/repository,\n  freezes `IssueSnapshot`, and calls existing `RdbProvider.createJob` once.\n- Compute a stable `dispatchKey` from integration + external Issue ID + project +\n  branch; persist it under a UNIQUE column and return `409 DISPATCH_CONFLICT` for an\n  exact repeat instead of creating a second Job.\n- Extend Job/execution-spec persistence with the snapshot.\n- Add CLI `issues list|get|dispatch` and `runs wait`, implemented only through HTTP.\n\n### Slice 3: Remove workflow core and preserve direct execution\n\n- Remove workflow package dependency, package files, shared workflow schemas/events,\n  management hints, SQLite projection and UI display.\n- Rename workflow-step artifacts/helpers to execution-step terms.\n- Extract one testable `direct-execution.ts` service that invokes the existing\n  clone/agent/quality/preview/push/review phases in order. It is a fixed runner\n  lifecycle, not a provider, graph, DSL or extension point.\n- Keep cancel/timeout/cleanup behavior and structured phase events.\n- Delete the exact feature E2E SQLite file before acceptance; no legacy readers,\n  backfills, dual enums or workflow event parsers remain.\n\n### Slice 4: Bounded Copilot, generic image and review handoff\n\n- Update Copilot command to `--autopilot --allow-all\n  --max-autopilot-continues 10`; remove deprecated config flag if runtime verification\n  confirms the pinned CLI rejects it.\n- Add repository-owned generic Copilot runner image pinned to `1.0.69-0`; do not use\n  external Castrel image context.\n- Start the base container with no repository/Copilot token in its persistent\n  environment. Pass GitHub auth only to the clone `docker exec`, Copilot auth only to\n  the agent `docker exec`, and keep push/PR auth in the host RepoProvider process.\n- Treat the host git mirror as an optional cache. Refresh it with explicit ephemeral\n  GitHub auth or continue with a cold authenticated clone; never require a credential\n  helper or persist a credential-bearing origin.\n- Verify test then build, start preview, require two host health checks, push branch,\n  create-or-reuse one GitHub PR, and complete as `waiting_for_review`.\n- Store structured quality, preview, sandbox, PR, Agent version and autopilot metadata.\n\n### Slice 5: Real evidence and reconciliation\n\n- Start local Docker, create/reuse a private `Arcadia822` demo repository, and use one\n  existing Linear Issue available to the read-only key.\n- Execute through CLI, retain preview, verify PR and active capacity, then write a\n  redacted evidence artifact.\n- Run focused/full gates, exact workflow-abstraction search, GitNexus change detection\n  and code review; reconcile README/module docs/Spec-Kit status.\n\n## Test Strategy\n\n```text\nIssue provider contract\n  ├─ success list/get + pagination\n  ├─ missing key / HTTP failure / timeout / rate limit\n  ├─ HTTP 200 + GraphQL errors / partial data\n  └─ malformed external payload\n\nDispatch contract\n  ├─ exact Issue refetch + immutable snapshot\n  ├─ invalid integration/issue/project/agent/runtime/repo\n  ├─ no partial Job on provider failure\n  └─ duplicate operator retry has explicit behavior\n\nDirect runner lifecycle\n  ├─ ordered clone → agent → test → build → preview → push → PR\n  ├─ no changes / agent failure / continuation cap / timeout / cancel\n  ├─ test or build failure\n  ├─ preview unreachable\n  ├─ push/PR failure and existing PR reuse\n  └─ waiting_for_review releases capacity but retains sandbox\n\nCLI contract\n  ├─ every command maps to one canonical API route\n  ├─ success JSON/text output\n  ├─ structured server errors\n  ├─ transport failure\n  └─ wait polling reaches terminal state or local timeout\n\nReal E2E\n  Linear → API → CLI → SQLite → runner → Docker → Copilot\n         → test/build → preview → GitHub branch/PR → waiting_for_review\n```\n\n## Failure Handling\n\n| Stage | Realistic failure | Required response |\n|-------|-------------------|-------------------|\n| Linear list/get | timeout, 429, HTTP 200 with `errors`, malformed/null field | Stable integration error; no partial success or secret echo |\n| Dispatch | Issue changes between list and dispatch | Refetch and freeze dispatch-time snapshot |\n| Dispatch retry | same Issue/project/branch submitted twice | UNIQUE dispatch key; second request returns 409 and existing Job ID |\n| Job create | invalid Project/runtime/Agent/repo | Reject before runner claim; no Job row |\n| Docker launch | daemon/image/Copilot binary unavailable | Structured startup failure before Agent event |\n| Copilot | nonzero, no changes, continuation cap, run timeout | Failed/timed_out; no quality-ready or PR |\n| Quality | test or build nonzero | Failed with stage and command summary; retained workspace evidence |\n| Preview | process starts but host cannot reach it | Failed after two bounded probes; no waiting state |\n| GitHub | branch collision, existing PR, API 403/422/5xx | Idempotent push/PR reuse when same head/base; otherwise explicit failure |\n| Runner crash | container retained but heartbeat stops | Existing stale-run handling marks durable failure; operator can locate sandbox |\n\n## Security and Secret Flow\n\n- `LINEAR_API_KEY` is read only by the control-plane Linear adapter.\n- `MYSTRA_GITHUB_TOKEN` is read only by runner RepoProvider and transient clone/push\n  process environments.\n- `COPILOT_GITHUB_TOKEN` is injected only into the Copilot process/container runtime.\n- The long-lived container baseline contains neither GitHub token. `docker inspect`\n  must not reveal either secret after launch.\n- Secrets are never copied to `JobSpec`, Issue snapshot, execution spec, event payload,\n  Dockerfile layer, git config persisted in evidence, PR body or evidence artifact.\n- Command/error formatting redacts credential-bearing URLs and known secret values.\n\n## Distribution\n\nTonight's CLI remains a repository script and the runner image remains a local image.\nPublishing an npm binary, GitHub Release or container registry artifact is explicitly\ndeferred. `pnpm operator:cli -- ...` and `pnpm runner:image:build` are the supported\nlocal distribution surfaces for this feature.\n\n## What Already Exists\n\n- `SqliteRdbProvider.createJob`, runner claim/heartbeat/cancel/timeout and resolved\n  runtime are reused unchanged in responsibility.\n- `SandboxProvider`, Docker implementation and retained-container outcome are reused.\n- `AgentAdapter` and dynamic adapter registry are reused; only Copilot invocation\n  contract changes.\n- `container-task.sh` already implements clone, agent, quality gate, preview preparation\n  and push preparation; these commands become direct phases rather than node handlers.\n- GitHub `RepoProvider` already pushes a branch and creates PR + preview comment.\n- `scripts/operator-cli.mjs` already proves the CLI-over-HTTP pattern.\n- Existing workflow graph execution and projections are removed, not wrapped.\n\n## NOT in Scope\n\n- Web UI, because CLI satisfies tonight's operator interaction.\n- Linear OAuth, webhooks and write-back, because the first provider is read-only.\n- Additional IssueProvider implementations or an Integration management UI.\n- Codex plugin/hook implementation; only the future removable extension direction is recorded.\n- Generic workflow DSL, marketplace, graph runtime or quality rework loop.\n- GitLab, Castrel repositories/images and remote enterprise networking.\n- Caller auth, logs API, retry API, callbacks, cloud sandbox or hosted RDB.\n- Legacy workflow data migration, dual-read compatibility or data preservation.\n- npm/container registry distribution; tonight's artifacts are repository-local.\n- Automatic PR approval or merge.\n\n## Sequential Delivery Decision\n\nThis change crosses shared contracts, control plane and runner, but all slices mutate\nthe same Job/Run contract and package graph. Implement sequentially in this worktree.\nParallel worktrees would create more reconciliation work than useful concurrency.\n\n## Engineering Review\n\n### Scope challenge\n\nThe change touches more than eight files, but the count is dominated by removing a\ncross-package abstraction and updating its consumers. The owner explicitly required\ncomplete removal and later authorized dropping all historical-data compatibility.\nReducing scope by keeping workflow schemas or dual states would fail the goal; accepted\nscope remains unchanged.\n\n### Architecture findings\n\n1. **[P1] (confidence 10/10)** `apps/runner-daemon/src/index.ts:1204-1279` currently\n   injects repository and Copilot tokens into the long-lived container. Resolved by\n   phase-scoped `docker exec -e` environments and a secret-free base container.\n2. **[P1] (confidence 9/10)** `refreshGitMirror` currently relies on ambient host git\n   auth before the authenticated container clone. Resolved by optional authenticated\n   cache refresh with cold-clone fallback.\n3. **[P1] (confidence 9/10)** `container-task.sh:620-651` proves only one container-local\n   probe. Resolved by two bounded host probes before Review creation.\n4. **[P2] (confidence 8/10)** dispatch retry semantics were unspecified. Resolved with\n   a unique dispatch key and `409 DISPATCH_CONFLICT`.\n\nGitNexus reports LOW for the direct caller graph of `executeDockerJob` (one direct\ncaller, two affected processes), but the independent risk is **HIGH** because the\nfunction owns the full machine-execution path and the shared state/event contracts\ncross packages. Implementation requires focused regression tests before broad gates.\n\n### Code-quality findings\n\n1. **[P1] (confidence 9/10)** adding another inline pipeline to the 1,930-line runner\n   entrypoint would make phase testing and secret auditing fragile. Extract one\n   `direct-execution.ts`, with no registry/provider/graph abstraction.\n2. **[P1] (confidence 9/10)** existing `container-task.sh` mixes generic execution with\n   Castrel-specific preview mutation. Replace active preview behavior with generic\n   repository package scripts suitable for the demo repository; no Castrel patching\n   remains on this path.\n3. **[P2] (confidence 8/10)** current quality output collapses test and build into one\n   flag. Emit distinct structured commands, durations and statuses.\n\nThe direct-execution service and state module should contain maintained ASCII comments\nfor the phase pipeline and state/capacity transition respectively.\n\n### Test coverage review\n\n```text\nCODE PATH COVERAGE REQUIRED\n===========================\n[+] LinearIssueProvider\n    ├── [GAP→UNIT] list/get success, cursor pagination\n    ├── [GAP→UNIT] missing key, 401/403, 429, timeout, 5xx\n    ├── [GAP→UNIT] HTTP 200 + GraphQL errors/partial data\n    └── [GAP→UNIT] malformed response and missing Issue\n\n[+] dispatch route + persistence\n    ├── [GAP→CONTRACT] exact refetch and immutable snapshot\n    ├── [GAP→CONTRACT] invalid project/agent/runtime/repository\n    ├── [GAP→INTEGRATION] atomic Job + execution spec v2\n    └── [GAP→INTEGRATION] duplicate dispatch returns 409\n\n[+] direct runner execution\n    ├── [GAP→UNIT] ordered phases and structured events\n    ├── [GAP→REGRESSION] cancel/timeout/cleanup preserved\n    ├── [GAP→UNIT] secret exists only in its intended exec\n    ├── [GAP→UNIT] no changes / agent fail / test fail / build fail\n    ├── [GAP→UNIT] preview host probe failure\n    ├── [GAP→UNIT] push/PR failure and PR reuse\n    └── [GAP→INTEGRATION] waiting state releases capacity, retains sandbox\n\n[+] operator CLI\n    ├── [GAP→UNIT] issue list/get/dispatch route mapping\n    ├── [GAP→UNIT] wait terminal/local-timeout/transport errors\n    └── [GAP→REGRESSION] waiting_for_review is success, not failure\n\nUSER FLOW COVERAGE REQUIRED\n===========================\n[+] [GAP→E2E] real Linear → CLI → Docker → Copilot → preview → GitHub PR\n[+] [GAP→E2E] two host preview probes + retained container + zero runner capacity\n\nCoverage before implementation: 0/24 planned paths.\nTarget after implementation: 24/24, plus full repository gates.\n```\n\nAll gaps are added to `tasks.md`; runner state/CLI changes are mandatory regression\ntests. LLM output quality is judged by repository acceptance tests and the real E2E;\nno separate prompt-eval framework is added tonight.\n\n### Performance review\n\n1. **[P2] (confidence 8/10)** Issue listing must remain cursor-paginated and capped at\n   100; no all-Issue fetch or N+1 detail fetch.\n2. **[P2] (confidence 8/10)** dispatch conflict lookup uses an indexed UNIQUE key,\n   not `listJobs()` which materializes every event stream.\n3. No server-side wait endpoint is added. CLI polling reuses `GET /api/jobs/{id}` at a\n   bounded interval, avoiding another long-lived server resource.\n\n### Failure-mode verdict\n\nEvery new failure path has a planned test, explicit error handling and visible CLI/API\nerror. Critical silent gaps after plan revision: **0**.\n\n### Parallelization\n\nSequential implementation, no parallelization opportunity. Shared contracts and\npackage removal gate all later slices.\n\n### Review completion summary\n\n- Step 0 Scope Challenge: scope accepted as-is from explicit owner goal.\n- Architecture Review: 4 issues found, 4 resolved in plan.\n- Code Quality Review: 3 issues found, 3 resolved in plan.\n- Test Review: diagram produced, 24 planned gaps made mandatory.\n- Performance Review: 3 issues found, 3 resolved in plan.\n- NOT in scope: written.\n- What already exists: written.\n- TODOS.md updates: 0; deferred items already live in explicit NOT in scope.\n- Failure modes: 0 critical silent gaps after revision.\n- Outside voice: skipped; this agent is already Codex and no subagent was authorized.\n- Parallelization: sequential.\n- Lake Score: 10/10 recommendations use complete options.\n\n## GSTACK REVIEW REPORT\n\n| Review | Trigger | Why | Runs | Status | Findings |\n|--------|---------|-----|------|--------|----------|\n| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | Formal owner goal and Spec-Kit spec used |\n| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | Current agent is Codex; no subagent authorized |\n| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 10 issues resolved, 0 critical gaps |\n| Design Review | `/plan-design-review` | UI/UX gaps | 0 | N/A | UI explicitly out of scope |\n| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |\n\n**UNRESOLVED:** 0\n**VERDICT:** ENG CLEARED, ready for task decomposition and implementation.\n\n## Complexity Tracking\n\nNo constitution violations. The broad file count is caused by deleting an existing\ncross-package abstraction, not by adding a new platform layer. Partial deletion was\nrejected because it would leave active workflow contracts and violate FR-012/FR-013.\n\n## Post-design Constitution Re-check\n\nPASS. The design keeps one durable Job/Run truth, provider boundaries, outbound runner\noperation and runtime-only secrets. It removes rather than renames workflow\norchestration, does not preserve old data contracts, and requires no excluded product\ncapability.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Issue 驱动的 Agent 自主执行\n\n**Input**: Design documents from `/specs/033-issue-agent-execution/`\n**Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`\n\n**Tests**: TDD is mandatory for contract, state, runner and CLI changes. Each test task\nmust fail for the intended reason before its paired implementation task starts.\n\n**Execution mode**: Sequential in one worktree. `[P]` only marks work that is\nfile-independent after its listed prerequisites are complete.\n\n## Phase 1: Setup and Safety Baseline\n\n**Purpose**: Make the work reproducible and preserve pre-change evidence before editing\nthe high-risk runner/state symbols.\n\n- [x] T001 Record GitNexus context, `executeDockerJob` impact, shared state import inventory, exact workflow reference inventory and current gate baseline in `specs/033-issue-agent-execution/evidence/pre-change-baseline.md`\n- [x] T002 [P] Add the generic pinned Copilot runner image and build instructions in `runner-images/copilot/Dockerfile` and `runner-images/copilot/README.md`\n- [x] T003 Replace Castrel-oriented local image defaults and add `runner:image:build` plus `operator:cli` scripts in `scripts/build-runner-image.sh` and `package.json`\n- [x] T004 Verify `docker build` produces `mystra-copilot-runner:1.0.69-0` and that `copilot --version` matches in `specs/033-issue-agent-execution/evidence/image-build.md`\n\n**Checkpoint**: Reproducible generic sandbox image exists; no secret was supplied to\nthe build.\n\n---\n\n## Phase 2: Foundational Shared Contracts and Clean Persistence\n\n**Purpose**: Establish the new Issue/state/result truth and remove the need for legacy\ndata compatibility before any route or runner implementation.\n\n- [x] T005 [P] Write failing Issue, Integration, pagination, dispatch and external-response schema tests in `packages/shared/src/issue.test.ts`\n- [x] T006 Implement Issue, Integration, pagination, dispatch and stable integration error schemas in `packages/shared/src/issue.ts` and export them from `packages/shared/src/index.ts`\n- [x] T007 [P] Write failing `waiting_for_review`, execution-event, QualityResult, AgentExecutionMetadata and ReviewHandoff tests in `packages/shared/src/state.test.ts`, `packages/shared/src/events.test.ts`, and `packages/shared/src/result.test.ts`\n- [x] T008 Replace `needs_human_review` and workflow events with direct execution states/events/results in `packages/shared/src/state.ts`, `packages/shared/src/events.ts`, and `packages/shared/src/result.ts`\n- [x] T009 Write failing JobSpec, execution-spec v2 and canonical snapshot tests for immutable IssueSnapshot and absence of workflow projection in `packages/shared/src/schemas.test.ts` and `packages/shared/src/management.test.ts`\n- [x] T010 Extend JobSpec/execution-spec/management schemas with IssueSnapshot, dispatchKey and direct execution fields; remove workflow exports and hints in `packages/shared/src/schemas.ts`, `packages/shared/src/management.ts`, and `packages/shared/src/index.ts`\n- [x] T011 Write failing clean-schema persistence tests for `issue_snapshot`, unique `dispatch_key`, no workflow snapshot and `waiting_for_review` capacity release in `apps/control-plane/src/lib/db/sqlite-provider.test.ts`\n- [x] T012 Replace legacy-compatible SQLite Job/Run/event schema and projections with clean Issue/direct-execution persistence in `apps/control-plane/src/lib/db/migrations.ts`, `apps/control-plane/src/lib/db/rdb-provider.ts`, and `apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T013 Run shared and SQLite focused tests and record the clean disposable DB path contract in `specs/033-issue-agent-execution/evidence/foundation-tests.md`\n\n**Checkpoint**: A newly initialized database understands only the new active contracts;\nold workflow history is neither migrated nor readable.\n\n---\n\n## Phase 3: User Story 1 - 从 Linear Issue 发起本机开发任务 (Priority: P1)\n\n**Goal**: API and CLI can read a real Linear Issue and atomically freeze it into one\nqueued Job/Run.\n\n**Independent Test**: With a fake fetch and disposable SQLite database, list/get and\ndispatch work; every Linear failure mode produces a stable error and zero partial Job.\n\n### Tests for User Story 1\n\n- [x] T014 [P] [US1] Write failing Linear provider tests for list/get, cursor, identifier lookup, missing key, 401/403, 429, timeout, 5xx, GraphQL errors/partial data and malformed payloads in `apps/control-plane/src/lib/integrations/linear.test.ts`\n- [x] T015 [P] [US1] Write failing integration registry tests for missing integration and missing Issue capability in `apps/control-plane/src/lib/integrations/registry.test.ts`\n- [x] T016 [US1] Write failing route contract tests for Issue list/get success and structured errors in `apps/control-plane/app/api/routes.test.ts`\n- [x] T017 [US1] Write failing dispatch tests for exact refetch, immutable snapshot, invalid Project/Agent/runtime/repository, atomic failure and duplicate 409 in `apps/control-plane/app/api/routes.test.ts`\n\n### Implementation for User Story 1\n\n- [x] T018 [US1] Implement `IssueProvider`, `Integration`, registry and stable IntegrationError mapping in `apps/control-plane/src/lib/integrations/types.ts`, `apps/control-plane/src/lib/integrations/registry.ts`, and `apps/control-plane/src/lib/integrations/errors.ts`\n- [x] T019 [US1] Implement read-only Linear GraphQL list/get with timeout, GraphQL error detection, pagination and Zod normalization in `apps/control-plane/src/lib/integrations/linear.ts`\n- [x] T020 [US1] Implement canonical Issue list and get Route Handlers in `apps/control-plane/app/api/integrations/[integration]/issues/route.ts` and `apps/control-plane/app/api/integrations/[integration]/issues/[identifier]/route.ts`\n- [x] T021 [US1] Implement dispatch-time refetch, validation, stable dispatchKey, prompt/review defaults and atomic Job creation in `apps/control-plane/src/lib/integrations/dispatch.ts` and `apps/control-plane/app/api/integrations/[integration]/issues/[identifier]/dispatch/route.ts`\n- [x] T022 [US1] Write failing CLI tests for Issue list/get/dispatch, project slug resolution, structured server errors and transport failure in `apps/control-plane/src/lib/operator-cli.test.ts`\n- [x] T023 [US1] Implement Issue list/get/dispatch argument parsing, HTTP requests and JSON/text formatting without importing domain implementations in `scripts/operator-cli.mjs`\n- [x] T024 [US1] Run focused shared/control-plane/CLI tests and perform one redacted live Linear list/get check through API and CLI in `specs/033-issue-agent-execution/evidence/linear-intake.md`\n\n**Checkpoint**: User Story 1 independently creates a queued, traceable Issue-driven\nJob without contacting Docker or GitHub.\n\n---\n\n## Phase 4: User Story 4 - API 与 CLI 共享同一产品真相 (Priority: P1)\n\n**Goal**: One operator CLI exposes Run inspect/wait, in addition to the Issue commands\nproved by US1, solely through the canonical API.\n\n**Independent Test**: Injected fetch tests prove each Run command URL, error/exit code,\npolling behavior and absence of direct Linear/SQLite imports.\n\n### Tests for User Story 4\n\n- [x] T025 [US4] Extend failing CLI tests for Run inspect, Run wait success, local timeout, server error and transport failure in `apps/control-plane/src/lib/operator-cli.test.ts`\n- [x] T026 [US4] Add a regression assertion that `waiting_for_review` is terminal success rather than failure in `apps/control-plane/src/lib/operator-cli.test.ts`\n\n### Implementation for User Story 4\n\n- [x] T027 [US4] Extend CLI argument parsing, polling and canonical Run response validation without importing domain implementations in `scripts/operator-cli.mjs`\n- [x] T028 [US4] Update operator command documentation and five-command acceptance path in `scripts/README.md` and `specs/033-issue-agent-execution/quickstart.md`\n- [x] T029 [US4] Run CLI contract tests against fake Issue and Run API responses in `specs/033-issue-agent-execution/evidence/cli-contract.md`\n\n**Checkpoint**: User Story 4 proves every CLI command is an HTTP-only view of the\ncanonical API before the real E2E relies on it.\n\n---\n\n## Phase 5: User Story 2 - Agent 在 Sandbox 内自主完成任务 (Priority: P1)\n\n**Goal**: Runner executes one explicit sandbox/Agent lifecycle with bounded Copilot\nautopilot and no workflow package, graph, blueprint or node.\n\n**Independent Test**: Fake providers prove ordered direct phases, cancel/timeout/cleanup,\nsecret isolation and each failure path; exact source search finds no active workflow\nabstraction.\n\n### Tests for User Story 2\n\n- [x] T030 [P] [US2] Write failing Copilot command tests for `--autopilot`, cap 10, no deprecated config flag, prompt attachment and version metadata in `packages/agent-adapters/src/index.test.ts`\n- [x] T031 [P] [US2] Write failing direct execution tests for phase order, event order, no changes, Agent nonzero, test failure and build failure in `apps/runner-daemon/src/direct-execution.test.ts`\n- [x] T032 [P] [US2] Write failing container task tests for separate test/build outputs, generic preview scripts and removal of compat/workflow wording in `apps/runner-daemon/src/container-task.test.ts`\n- [x] T033 [P] [US2] Write failing secret-isolation tests proving GitHub token only reaches clone and Copilot token only reaches Agent exec, never the base container or quality/preview execs, in `apps/runner-daemon/src/direct-execution.test.ts`\n- [x] T034 [US2] Write regression tests for cancel, timeout, cleanup failure, stale runner and active-capacity accounting across runner source/sandbox tests and `apps/control-plane/src/lib/db/sqlite-provider.test.ts`\n\n### Implementation for User Story 2\n\n- [x] T035 [US2] Update CopilotAdapter and runner adapter defaults for bounded autopilot and version reporting in `packages/agent-adapters/src/index.ts` and `apps/runner-daemon/src/agent-adapters.ts`\n- [x] T036 [US2] Implement the fixed, testable clone→Agent→test→build phase service with maintained ASCII pipeline diagram in `apps/runner-daemon/src/direct-execution.ts`\n- [x] T037 [US2] Refactor container task commands and outputs from workflow/node terms to generic execution phases; remove Castrel preview mutation and compat main in `apps/runner-daemon/assets/container-task.sh`\n- [x] T038 [US2] Implement a secret-free base container and phase-scoped `docker exec -e` environments in `apps/runner-daemon/src/direct-execution.ts` and `apps/runner-daemon/src/index.ts`\n- [x] T039 [US2] Make the git mirror an authenticated optional cache with cold authenticated clone fallback and no persisted credential URL in `apps/runner-daemon/assets/container-task.sh` and `apps/runner-daemon/src/repo-providers/github.ts`\n- [x] T040 [US2] Remove workflow config/registry initialization and call direct execution from the daemon entrypoint in `apps/runner-daemon/src/index.ts`\n- [x] T041 [US2] Delete the active workflow package, runner workflow registry and shared workflow schema files in `apps/workflows/package.json`, `apps/workflows/src/index.ts`, `apps/workflows/src/index.test.ts`, `apps/workflows/tsconfig.json`, `apps/runner-daemon/src/workflow-providers.ts`, `apps/runner-daemon/src/workflow-providers.test.ts`, `packages/shared/src/workflow.ts`, and `packages/shared/src/workflow.test.ts`\n- [x] T042 [US2] Remove `@mystra/workflows` dependencies and regenerate the workspace lockfile in `apps/runner-daemon/package.json` and `pnpm-lock.yaml`\n- [x] T043 [US2] Remove workflow projection helpers and active UI/CLI labels in `apps/runner-daemon/src/review-projections.ts`, `apps/runner-daemon/src/review-projections.test.ts`, and `apps/control-plane/app/page.tsx`\n- [x] T044 [US2] Run agent-adapter/runner/control-plane regression suites and exact workflow-abstraction search in `specs/033-issue-agent-execution/evidence/direct-execution-tests.md`\n\n**Checkpoint**: User Story 2 independently runs the Agent lifecycle with fake external\nproviders, and the active package/runtime/shared graph contains no workflow abstraction.\n\n---\n\n## Phase 6: User Story 3 - 交付可接手的 Review 现场 (Priority: P1)\n\n**Goal**: Passed code produces a host-reachable retained preview, unique GitHub PR and\n`waiting_for_review` handoff with released runner capacity.\n\n**Independent Test**: Fake GitHub and Docker integration tests cover success/reuse and\nevery failure; then a private demo repository completes the real path.\n\n### Tests for User Story 3\n\n- [x] T045 [P] [US3] Write failing GitHub provider tests for open-PR lookup/reuse, create success, 403/422/5xx and redacted errors in `apps/runner-daemon/src/repo-providers/github.test.ts`\n- [x] T046 [P] [US3] Write failing host preview tests for two successful 2xx probes, timeout/non-success and retained container metadata in `apps/runner-daemon/src/preview-probe.test.ts` and runner sandbox tests\n- [x] T047 [US3] Write failing end-state tests proving review success maps to `waiting_for_review`, info severity, finishedAt, capacity zero, no failure reason and retained sandbox in `apps/control-plane/src/lib/db/sqlite-provider.test.ts`\n\n### Implementation for User Story 3\n\n- [x] T048 [US3] Implement GitHub open-PR lookup/reuse and safe error mapping in `apps/runner-daemon/src/repo-providers/github.ts`\n- [x] T049 [US3] Implement two bounded host preview probes and fail-closed review handoff in `apps/runner-daemon/src/preview-probe.ts` and `apps/runner-daemon/src/index.ts`\n- [x] T050 [US3] Complete direct execution with structured quality, preview, Agent, sandbox and PR metadata as `waiting_for_review` in `apps/runner-daemon/src/direct-execution.ts`, `apps/runner-daemon/src/index.ts`, and `apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T051 [US3] Create or reuse a private `Arcadia822` demo web repository and record only its non-secret bootstrap facts in `specs/033-issue-agent-execution/evidence/demo-repository.md`\n- [x] T052 [US3] Start Docker/control-plane/runner with the disposable exact DB path, dispatch one real Linear Issue through CLI, and preserve the redacted full E2E in `specs/033-issue-agent-execution/evidence/e2e-real-run.md`\n- [x] T053 [US3] Verify API/CLI parity, two host preview probes, open PR, retained container, Copilot version/cap, final state and zero active capacity in `specs/033-issue-agent-execution/evidence/e2e-real-run.md` and `specs/033-issue-agent-execution/evidence/api-cli-parity.md`\n\n**Checkpoint**: User Story 3 delivers a real, human-reviewable private GitHub artifact.\n\n---\n\n## Phase 7: Documentation, Full Verification and Closeout\n\n**Purpose**: Reconcile durable context, prove the repository is clean and leave\nreviewable evidence.\n\n- [x] T054 [P] Reconcile product/runtime/module docs with Issue-driven direct execution in `README.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/IMPLEMENTATION-PLAN.md`, `apps/control-plane/src/lib/db/README.md`, and `scripts/README.md`\n- [x] T055 [P] Add the smallest useful integration and direct-runner module invariants in `apps/control-plane/src/lib/integrations/README.md` and `apps/runner-daemon/README.md`\n- [x] T056 Run exact active-code/package/config search for `WorkflowProvider`, `LocalWorkflowProvider`, workflow blueprint/node/registry and `apps/workflows`; record zero-result evidence in `specs/033-issue-agent-execution/evidence/final-audit.md`\n- [x] T057 Run focused tests, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`; record commands and results in `specs/033-issue-agent-execution/evidence/final-audit.md`\n- [x] T058 Run a secret-pattern and credential-bearing-URL scan across git diff, specs evidence and demo checkout; record only pass/fail summaries in `specs/033-issue-agent-execution/evidence/final-audit.md`\n- [x] T059 Refresh GitNexus index, run `gitnexus_detect_changes()`, inspect all affected processes and resolve any unexpected HIGH/CRITICAL blast radius in `specs/033-issue-agent-execution/evidence/final-audit.md`\n- [x] T060 Run `code-review-and-quality`, resolve all P0/P1 findings, rerun affected tests and record the review verdict in `specs/033-issue-agent-execution/evidence/final-audit.md`\n- [x] T061 Refresh Spec-Kit status and mark every completed task/evidence link accurately in `specs/033-issue-agent-execution/tasks.md` and `specs/spec-status.md`\n\n---\n\n## Dependencies and Execution Order\n\n```text\nPhase 1 image/safety\n    ↓\nPhase 2 shared contracts + clean persistence\n    ↓\nUS1 Linear intake + dispatch\n    ↓\nUS4 CLI Run inspect/wait\n    ↓\nUS2 direct sandbox/Agent lifecycle + workflow removal\n    ↓\nUS3 preview/GitHub/waiting review + real E2E\n    ↓\nfull audit and review\n```\n\n- US1 depends on Phase 2 Issue/Job contracts.\n- US4 depends on US1 Issue commands and canonical Job/Run response contracts.\n- US2 depends on Phase 2 state/event/result contracts.\n- US3 depends on US2 direct execution, US1 Issue snapshot and US4 CLI wait.\n- The E2E must not begin until focused fake-provider tests pass.\n\n## Parallel Opportunities\n\n- T002 can proceed independently of T001.\n- T005/T007 and T014/T015 are file-independent after their phase prerequisites.\n- T030/T031/T032/T033 may be authored in parallel, but implementation remains sequential.\n- T045/T046 may be authored in parallel.\n- T054/T055 may proceed in parallel only after behavior is stable.\n\nNo parallel agents are used for this run; these markers document dependency structure.\n\n## Verification Checkpoints\n\n- **Foundation**: shared + SQLite focused tests pass on a new disposable DB.\n- **US1**: fake provider tests pass and live Linear API/CLI read succeeds without data mutation.\n- **US4**: CLI Issue and Run commands pass HTTP-only contract tests.\n- **US2**: direct execution regression suite passes and workflow abstraction search is zero.\n- **US3**: API/CLI parity matches; real preview and PR exist; final state/capacity are correct.\n- **Closeout**: full gates, GitNexus and code review pass with redacted evidence.\n\n## Notes\n\n- Delete only an exact, verified disposable SQLite file. Never recursively delete a\n  workspace/data directory.\n- Do not commit or print Linear/GitHub/Copilot secret values.\n- Before editing each existing function/class/method, run GitNexus upstream impact and\n  warn on HIGH/CRITICAL.\n- Run GitNexus detect changes before any commit.\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

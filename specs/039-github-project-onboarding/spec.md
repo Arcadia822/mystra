@@ -3,6 +3,7 @@
 **Feature Branch**: `039-github-project-onboarding`  
 **Created**: 2026-08-05  
 **Status**: Approved for planning  
+**Schema Supersession Notice (2026-08-06)**: Exact Project-to-connection binding, secret handling and provider verification remain valid. The physical `integration_connections` repository columns in this Spec are superseded by `040-prisma-rdb`, which stores capability envelopes in one `capabilities` JSON field. Project `baseBranch` becomes `repositoryBaseBranch`; Project Agent/Runtime/Prewarm defaults and full Repository snapshot are removed. Task source, objective and Issue/Repository snapshots are also removed, while `dispatchKey` becomes `issueDispatchKey`; current Issue/Repo Info cache is deferred to a later Integration specification. Session persistence is deferred and 040 contains no Session table. Do not generate current schema from this document.
 **Input**: 在 Settings 连接 GitHub App；点击 Add Project 打开 Modal；默认从 GitHub 选择仓库；选定后收起列表并显示关联仓库及其他配置；设置项沿用 Castrel Settings Modal 的业务布局与密度。
 
 ## 用户场景与验收

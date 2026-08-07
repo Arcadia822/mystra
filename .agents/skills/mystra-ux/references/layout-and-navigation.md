@@ -6,7 +6,9 @@ This file owns Mystra shell structure, header, sidebar, navigation hierarchy, de
 
 ## Shell
 
-- Sidebar brand row and main header share a `46px` baseline.
+- The global shell is `Sidebar | Main | Right Panel?`; every rendered column owns a `46px` Header and a separate Content region.
+- Right Panel is an optional page-owned inspector/action surface. Pages register its header/content through the shared shell seam; pages that do not register it leave no empty track and Main reclaims the width.
+- Sidebar brand row, main header, and right-panel header share a `46px` baseline.
 - The main header is transparent on the page plane and does not add a default bottom divider.
 - Header titles are static labels, not navigation buttons. Route paths, peer tabs, and chrome actions remain separate targets.
 - Settings stays in the bottom-left utility slot and opens over the current route.
@@ -51,6 +53,8 @@ This file owns Mystra shell structure, header, sidebar, navigation hierarchy, de
 ## Navigation Hierarchy
 
 - Prefer a stable business area plus peer tabs over multiplying primary sidebar entries.
+- Primary navigation targets are real route links whose active state derives from the current pathname. Modal-open, selected-item, and utility-view state may decorate navigation but must never suppress a valid route transition; every primary destination must work directly from every other route.
+- Do not multiplex route destinations through a shell-local “current view” state. The former Automations → Issues failure is the canonical warning: a navigation item that only works after visiting a third page is structurally broken, not merely missing an onClick.
 - Secondary pages reuse the shared shell and switch the header left area to a drill-down path.
 - Header-right actions are the preferred entry for create or secondary tools within one business area.
 - If several peer views share one create action, expose it once in the shared header.
@@ -61,7 +65,8 @@ This file owns Mystra shell structure, header, sidebar, navigation hierarchy, de
 - Above `1024px`, desktop keeps the expanded sidebar unless the operator collapses it.
 - At `1024px` and below, the sidebar is a closed-by-default overlay with a shared-header opener, explicit close action, backdrop, focusable navigation, and route-change dismissal.
 - Overlay navigation never reserves its desktop width in the content grid and never covers the page on initial load.
-- At `700px` and below, multi-column content stacks and page inline inset reduces to 12px; reading/detail body inset reduces from 24px to 16px.
+- At `700px` and below, an enabled Right Panel stacks after Main, multi-column content stacks, and page inline inset reduces to 12px; reading/detail body inset reduces from 24px to 16px.
+- Leaving a route that registered Right Panel removes the panel state immediately; stale panel titles, content, and reserved width must not survive navigation.
 - Keep the current primary action visible when possible; move secondary actions into overflow first.
 - Dense tables degrade within their data region or into stacked/list presentation rather than forcing page-wide horizontal scroll.
 - Compact desktop controls may look smaller, but touch-facing hit areas must reach `44px × 44px`.

@@ -4,6 +4,7 @@
 **Created**: 2026-08-06
 **Status**: RDB envelope architecture approved for implementation
 **Persistence Amendment (2026-08-06)**: The owner approved removing the node-local encrypted-file backend. RDB now stores envelope-encrypted ciphertext while the KEK remains outside RDB; `credentialRef` still identifies an immutable secret version and PAT plaintext remains confined to `SecretProvider`.
+**Persistence Supersession Notice (2026-08-06)**: Multi-connection behavior, exact Project binding, deployment policy and SecretProvider rules remain authoritative. Repository-specific top-level Connection columns and Project execution defaults/full Repository snapshot are superseded by `040-prisma-rdb`: Connection capabilities use one validated JSON field and Project keeps provider-stable external ID. Task source, objective and Issue/Repository snapshots are removed, while `dispatchKey` becomes `issueDispatchKey`; current Issue/Repo Info cache is deferred to a later Integration specification. Session persistence and Session credential-delivery projections are not part of 040's three-table schema and require later redesign.
 **Input**: 在 Settings → Integrations 增加 GitHub Integration Detail；支持多连接和显式 PAT；Project 固定绑定所选连接；Mystra GitHub App 仅作为 hosted capability，self-hosted 不支持但开源代码可以保留。
 
 ## 用户场景与验收

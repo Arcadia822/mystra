@@ -3,7 +3,9 @@
 **Feature Branch**: 已合并到本地 `main`，保留逻辑 feature id `025-webui`
 **Created**: 2026-05-19  
 **Status**: Draft  
-**Input**: 用户描述：“简单补充 025 的 spec，作为 mvp 版本的操作 ui”；后续范围决策：`025-webui` 只聚焦前端框架层，并纳入主题/design-system、国际化、主侧边栏、共享 layout、基础组件、响应式和未来 Electron 兼容边界。2026-08-05 owner 明确要求 demo/PR 平移 Castrel UX 的结构、密度与交互模式：主菜单为 `New`、`Search`、`Inbox`、`Issues`、`Automations`，其下是 Projects 与按 Project 分组的 Tasks；具体配色采用 dark-tech design system，默认 UI 字号为 12px。随后 owner 要求将当前页面实际使用的 Castrel v2 组件迁移并替换现有页面原语，尤其保证 padding 与配色通过主题 token system 实现。2026-08-06 owner 进一步要求 New 页面使用放大的独立 Logo、统一 `Project` 术语和共享 dropdown，并用 Project 选定后出现的 Issue 卡片列表替代 Issue select；随后要求从主菜单移除 `Automations`，并把 `/automations` 清空为只显示 `Coming soon` 的直接访问占位页。
+**Input**: 用户描述：“简单补充 025 的 spec，作为 mvp 版本的操作 ui”；后续范围决策：`025-webui` 只聚焦前端框架层，并纳入主题/design-system、国际化、主侧边栏、共享 layout、基础组件、响应式和未来 Electron 兼容边界。2026-08-05 owner 明确要求 demo/PR 平移 Castrel UX 的结构、密度与交互模式：主菜单为 `New`、`Search`、`Inbox`、`Issues`、`Automations`，其下是 Projects 与按 Project 分组的 Tasks；具体配色采用 dark-tech design system，默认 UI 字号为 12px。随后 owner 要求将当前页面实际使用的 Castrel v2 组件迁移并替换现有页面原语，尤其保证 padding 与配色通过主题 token system 实现。2026-08-06 owner 进一步要求 New 页面使用放大的独立 Logo、统一 `Project` 术语和共享 dropdown，并用 Project 选定后出现的 Issue 卡片列表替代 Issue select；随后要求从主菜单移除 `Automations`，并把 `/automations` 清空为只显示 `Coming soon` 的直接访问占位页。Appearance 后续必须迁入本机当前 Codex 发布包的全部内置主题，并把原 Graphite 正式命名为 Mystra，提供同一 `codeThemeId` 下的明暗双变体。随后 owner 明确共享布局必须由 `Sidebar`、`Main`、可选 `Right Panel` 三列组成，三列分别拥有自己的 Header 与 Content，页面可按需注册 Right Panel，未注册时不得占用主区域宽度。
+
+2026-08-06 后续字体决策：内部统一为 UI / Content / Code 三个角色；Codex v1 导入保持原 schema，并把 `fonts.ui` 同步到 Content。Mystra 自有主题分别使用常见单一 primary family，平台 fallback 由浏览器/system generic 负责。
 **Consolidation**: 2026-08-03 起，025 是唯一保留的未完成 UI spec；原 `026`–`031` 的页面探索材料并入 025，已完成的 035/036 对象页继续作为当前代码事实。025 的 shell 实施将显式迁移现有导航，而不是假装当前代码已经采用目标 taxonomy。
 
 ## 用户场景与测试 *(mandatory)*
@@ -57,6 +59,9 @@
 5. **前提** 操作员分别选择浅色主题和深色主题，**当** 在 `System`、`Light`、`Dark` 间切换，**则** 每种模式使用对应 variant 的主题，不接受跨 variant 的无效 theme id。
 6. **前提** 操作员调整边缘线模式、代码表面明暗、对比度、字体或字号，**当** 控件值变化，**则** Settings 预览与整个 shell 即时反映结果，并可把主题细节复位为当前主题默认值。
 7. **前提** 当前版本没有服务端 Appearance persistence，**当** 操作员刷新同一浏览器，**则** 有效设置从 localStorage 恢复；损坏或过期值回退为安全默认值，且不得创建 API 或 RDB 写入。
+8. **前提** 维护者提供 `codex-theme-v1:{...}` 字符串，**当** Mystra 解析并应用该主题，**则** `codex-theme-v1` 只作为 schema version，JSON 内 `codeThemeId` 作为主题 ID，payload 可无损序列化回同一 v1 格式；未知 schema version、额外 synthetic `id` 或非法 payload 必须被拒绝。
+9. **前提** 操作员打开 Appearance 的亮色或暗色主题选择器，**当** 查看可选项，**则** 本机 Codex 26.730.61639 注册的 28 个主题族、43 个受支持变体全部可选，Mystra 另以同一 `codeThemeId: "mystra"` 提供 light/dark 两个变体。
+10. **前提** 维护者导入一个合法 Codex v1 theme，**当** Mystra 建立内部字体角色，**则** `theme.fonts.ui` 的首个 primary family 同步到 UI 与 Content，`theme.fonts.code` 同步到 Code；v1 JSON 不得新增 `content` 字段。
 
 ---
 
@@ -74,6 +79,7 @@
 2. **前提** 后续页面实现切片需要会话式、仪表盘式或阅读式界面，**当** 实现它，**则** 它可以接入 `chatLayout`、`dashboardLayout` 或 `readLayout`，而不是默认发明新的顶层框架模型。
 3. **前提** 后续页面实现切片需要按钮、输入框、badge、panel、list 或类似原语，**当** 实现它，**则** 它可以依赖框架共享组件层和 design-system 对齐，而不是引入无关视觉语法。
 4. **前提** 当前 025 表面已经存在页面级 action、surface、field、dialog 和 state，**当** Castrel v2 组件迁移完成，**则** shell、New、Search、Inbox、Issues 与 Settings 都消费 Mystra-owned 共享组件，且 padding、颜色、border、focus、height 与 radius 可追溯到主题 token。
+5. **前提** 页面需要补充上下文、检查器或页面级操作，**当** 页面注册 Right Panel，**则** shell 在 Sidebar 与 Main 之外渲染拥有独立 Header/Content 的第三列；页面未注册或离开该路由时第三列消失，Main 自动恢复全部可用宽度。
 
 ---
 
@@ -101,10 +107,14 @@
 - 当选中主题或语言环境不完整时怎么办？shell 应可预测 fallback，同时保持导航可理解。
 - 当 localStorage 中 Appearance JSON 损坏、字段越界或引用错误 variant 的主题时怎么办？主题模型应逐字段 normalize，并回退到对应 variant 的有效默认主题，不能让首帧脚本或 React hydration 崩溃。
 - 当 `System` 模式下操作系统明暗偏好在页面打开后变化时怎么办？shell 应监听 `prefers-color-scheme` 并即时重新解析 active theme，同时在组件卸载时移除监听。
+- 当旧版 localStorage 保存的是 `notion-light`、`notion-dark`、`linen-light` 或 `graphite-signal` synthetic preset id 时怎么办？解析必须按 variant 迁移为有效 canonical `codeThemeId`，其中 `graphite-signal` 迁移到 `dark:mystra`，并让首帧 bootstrap 与 hydration 后解析得到相同结果。
+- 当本机 Codex 发布版本更新主题目录时怎么办？Mystra 不在运行时读取应用包；维护者必须以明确版本重新提取、测试并更新静态 catalog，不能悄悄混合不同 Codex 版本的主题事实。
 - 当页面形态不明显适配 `chatLayout`、`dashboardLayout` 或 `readLayout` 时怎么办？默认映射到已批准 archetype，除非 025 的后续变更证明需要新的框架级 layout。
 - 当页面设计偏离共享 design system 时怎么办？页面应论证对框架的扩展，而不是静默绕过共享 token 和原语。
 - 当未来 Electron host 引入桌面专属 affordance 时怎么办？框架应保持共享 UI 合同可移植，并把 host-only 行为隔离在显式 seam。
 - 当后续页面实现切片试图引入新的主菜单或 UI-owned 管理语义时怎么办？该变化超出既定 shell 范围，必须先更新 025 并对照项目管理面层级证明。
+- 当注册 Right Panel 的页面卸载或导航到不使用 Right Panel 的页面时怎么办？shell 必须同步清理旧 panel，不得保留跨路由的陈旧标题、内容或宽度。
+- 当窄视口无法同时容纳 Main 与 Right Panel 时怎么办？Right Panel 必须按共享响应式规则堆叠到 Main 之后，并且不得制造 page-wide 横向滚动。
 
 ## 需求 *(mandatory)*
 
@@ -144,9 +154,15 @@
 - **FR-029**: 主侧边栏 MUST 支持显式收起与展开，并持久化该 preference；收起状态 MUST 将侧边栏完整压缩为 0px 并移除其交互命中，不得保留 icon rail。此时主区域 header MUST 提供 Mystra brand、`New` action 与重新展开 control。
 - **FR-030**: primary navigation 之后 MUST 显示 Projects section，且 Project item MUST 导航到对应 Project detail route；Projects 与 Tasks section heading MUST NOT 显示 count，Projects heading 右侧 MUST 提供 ghost-style add Project action；Project-grouped Tasks 继续作为其后的独立 section。
 - **FR-031**: `Inbox` MUST 使用标准 master-detail 布局：左侧为最新 Session 处于 `waiting_for_review` 的 Task 卡片列表，右侧为当前选中 Task 的只读详情；`Issues` 继续使用当前 Task table。Inbox 列表 MUST 支持搜索、刷新、明确选中态、加载态、空态与窄视口降级，右侧详情 MUST 提供进入完整 Task 对象页的入口。
-- **FR-032**: `Appearance` MUST 迁移 Castrel 的外观能力模型：`System` / `Light` / `Dark` 模式、分别配置的浅色与深色主题、`Default` / `High Contrast` / `Color High Contrast` 边缘线模式、代码与终端表面的浅色/深色 variant，以及 Theme Details 中的预览、对比度、UI/Chat/Code 字体、UI/Chat 字号和复位动作。所有控件 MUST 使用 Mystra-owned 共享原语、双语文案和 semantic theme token，不得复制 Castrel palette、Zustand、`next-themes` 或业务服务依赖。
+- **FR-032**: `Appearance` MUST 迁移 Castrel 的外观能力模型：`System` / `Light` / `Dark` 模式、分别配置的浅色与深色主题、`Default` / `High Contrast` / `Color High Contrast` 边缘线模式、代码与终端表面的浅色/深色 variant，以及 Theme Details 中的预览、对比度、UI/Content/Code 字体、UI/Content 字号和复位动作。所有控件 MUST 使用 Mystra-owned 共享原语、双语文案和 semantic theme token，不得复制 Castrel palette、Zustand、`next-themes` 或业务服务依赖。
 - **FR-033**: 本切片的 Appearance preference MUST 只保存在当前浏览器 localStorage，并在 hydration 前应用有效保存值以避免错误主题闪烁。解析 MUST 对损坏 JSON、未知字段、越界数值、无效 mode/border/variant 和跨 variant theme id fail closed 到可预测默认值。不得新增 Appearance API、RDB schema、server action 或伪造跨设备同步；未来数据库存储属于独立 contract change。
-- **FR-032**: 主区域 header MUST 只显示当前 surface title，不得显示 `local control plane`、`本地控制平面` 或等价环境说明。
+- **FR-034**: 主区域 header MUST 只显示当前 surface title，不得显示 `local control plane`、`本地控制平面` 或等价环境说明。
+- **FR-035**: Theme import/export contract MUST 完全兼容 `codex-theme-v1:{JSON}`。冒号前的 `codex-theme-v1` 是 schema version，不是主题 ID；JSON payload MUST 且只能包含 `codeThemeId`、`theme`、`variant`，其中 `codeThemeId` 是 canonical theme id。Mystra display metadata 与 explicit token extensions MUST 保持在该 payload 之外；未知 version、额外 `id`、字段缺失、非法 variant/contrast/font/color 值 MUST fail closed。
+- **FR-036**: Appearance 的 `lightThemeId` / `darkThemeId`、Settings option value、运行时 dataset 和 hydration bootstrap MUST 使用 `codeThemeId`。同一 `codeThemeId` MAY 分别提供 light/dark variant，查找时 MUST 使用 `(variant, codeThemeId)`；旧 synthetic preset id MUST 仅作为受限本地迁移输入，不能继续成为输出合同。
+- **FR-037**: Mystra MUST 从明确记录版本的本机签名 Codex 应用包迁移全部已注册内置主题族与其实际支持的 light/dark variant。catalog MUST 保留 Codex `codeThemeId`、variant 和完整 v1 theme payload，且 MUST NOT 以社区列表、主题名称猜测或未标版本的数据替代来源事实。
+- **FR-038**: Mystra 自有主题 MUST 使用 canonical `codeThemeId: "mystra"` 并同时提供 light/dark variant。dark variant MUST 保留原 Graphite explicit tokens；light variant MUST 使用同一矿物灰、绿色强调和 restrained semantic signal 视觉语法。旧 `graphite-signal` 只作为 `dark:mystra` 迁移输入。
+- **FR-039**: 内部 theme adapter MUST 暴露 UI / Content / Code 三个字体角色，每个角色只允许一个 normalized primary family；运行时 MUST 分别追加 `system-ui, sans-serif`、`ui-serif, serif`、`ui-monospace, monospace` fallback。Mystra 两个 variant MUST 使用 UI=`Arial`、Content=`Georgia`、Code=`Courier New`。Codex v1 导入 MUST 将 `theme.fonts.ui` 同步到 UI 与 Content，将 `theme.fonts.code` 映射到 Code，并保持外部 payload exact round-trip。旧 `chatFont` / `chatFontSize` 与原 Graphite family stack MUST 在 localStorage normalization/bootstrap 边界迁移。
+- **FR-040**: 全局 shell MUST 将可视结构表达为 `Sidebar`、`Main` 与可选 `Right Panel` 三列；每列 MUST 分别包含语义明确的 Header 与 Content。页面 MUST 通过共享 page-owned seam 显式注册 Right Panel header/content；缺省、卸载或跨路由清理后 Right Panel MUST 不渲染且不占 grid 宽度。桌面宽视口使用右侧列，`<=700px` 时 Right Panel MUST 堆叠到 Main 之后。Task 详情 MUST 作为首个接入页面，将 `Create Session` 表单放入 Right Panel，而不改变 canonical Session API。
 
 ### 关键实体
 

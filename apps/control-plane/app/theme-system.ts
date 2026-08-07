@@ -1,3 +1,5 @@
+import { CODEX_APP_THEME_CATALOG, CODEX_APP_THEME_SOURCE_VERSION } from "./codex-theme-catalog";
+
 export type ThemeVariant = "light" | "dark";
 export type ThemeMode = "system" | ThemeVariant;
 export type ThemeBorderMode = "default" | "high-contrast" | "color-high-contrast";
@@ -11,13 +13,13 @@ export interface AppearancePreferences {
   codeSurfaceVariant: ThemeVariant;
   contrast: number;
   uiFont: string | null;
-  chatFont: string | null;
+  contentFont: string | null;
   codeFont: string | null;
   uiFontSize: number;
-  chatFontSize: number;
+  contentFontSize: number;
 }
 
-interface ExplicitThemeTokens {
+export interface ExplicitThemeTokens {
   canvas: string;
   hairline: string;
   hairlineSoft: string;
@@ -34,10 +36,9 @@ interface ExplicitThemeTokens {
   surface3: string;
 }
 
-export interface ControlPlaneThemeDefinition {
-  id: string;
-  label: string;
-  description: string;
+export const CODEX_THEME_SCHEMA_VERSION = "codex-theme-v1" as const;
+
+export interface CodexThemeV1Payload {
   codeThemeId: string;
   variant: ThemeVariant;
   theme: {
@@ -49,7 +50,6 @@ export interface ControlPlaneThemeDefinition {
     };
     ink: string;
     opaqueWindows: boolean;
-    tokens?: ExplicitThemeTokens;
     semanticColors: {
       diffAdded: string;
       diffRemoved: string;
@@ -59,10 +59,206 @@ export interface ControlPlaneThemeDefinition {
   };
 }
 
-const GRAPHITE_SIGNAL_FONT =
+export interface ControlPlaneThemeDefinition extends CodexThemeV1Payload {
+  label: string;
+  description: string;
+  fontRoles: ThemeFontRoles;
+  tokens?: ExplicitThemeTokens;
+}
+
+export interface ThemeFontRoles {
+  ui: string | null;
+  content: string | null;
+  code: string | null;
+}
+
+const CODEX_THEME_PAYLOAD_KEYS = ["codeThemeId", "theme", "variant"] as const;
+const CODEX_THEME_VALUE_KEYS = ["accent", "contrast", "fonts", "ink", "opaqueWindows", "semanticColors", "surface"] as const;
+const CODEX_THEME_FONT_KEYS = ["code", "ui"] as const;
+const CODEX_THEME_SEMANTIC_COLOR_KEYS = ["diffAdded", "diffRemoved", "skill"] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isCodexHexColor(value: unknown): value is string {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim());
+}
+
+function isOptionalFont(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+export function parseCodexThemeV1(serializedTheme: string): CodexThemeV1Payload {
+  const separatorIndex = serializedTheme.indexOf(":");
+  const schemaVersion = separatorIndex >= 0 ? serializedTheme.slice(0, separatorIndex) : serializedTheme;
+  if (schemaVersion !== CODEX_THEME_SCHEMA_VERSION) {
+    throw new TypeError(`Unsupported Codex theme schema version: ${schemaVersion || "missing"}.`);
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(serializedTheme.slice(separatorIndex + 1));
+  } catch {
+    throw new TypeError("Invalid Codex theme v1 JSON payload.");
+  }
+
+  if (!isRecord(payload) || !hasExactKeys(payload, CODEX_THEME_PAYLOAD_KEYS)) {
+    throw new TypeError("Invalid Codex theme v1 payload.");
+  }
+  const theme = payload.theme;
+  if (!isRecord(theme) || !hasExactKeys(theme, CODEX_THEME_VALUE_KEYS)) {
+    throw new TypeError("Invalid Codex theme v1 theme payload.");
+  }
+  const fonts = theme.fonts;
+  const semanticColors = theme.semanticColors;
+  if (!isRecord(fonts) || !hasExactKeys(fonts, CODEX_THEME_FONT_KEYS)
+    || !isOptionalFont(fonts.code) || !isOptionalFont(fonts.ui)) {
+    throw new TypeError("Invalid Codex theme v1 font payload.");
+  }
+  if (!isRecord(semanticColors) || !hasExactKeys(semanticColors, CODEX_THEME_SEMANTIC_COLOR_KEYS)
+    || !isCodexHexColor(semanticColors.diffAdded)
+    || !isCodexHexColor(semanticColors.diffRemoved)
+    || !isCodexHexColor(semanticColors.skill)) {
+    throw new TypeError("Invalid Codex theme v1 semantic color payload.");
+  }
+  if (!isNonEmptyString(payload.codeThemeId)
+    || (payload.variant !== "light" && payload.variant !== "dark")
+    || !isCodexHexColor(theme.accent)
+    || typeof theme.contrast !== "number"
+    || !Number.isFinite(theme.contrast)
+    || theme.contrast < 0
+    || theme.contrast > 100
+    || !isCodexHexColor(theme.ink)
+    || typeof theme.opaqueWindows !== "boolean"
+    || !isCodexHexColor(theme.surface)) {
+    throw new TypeError("Invalid Codex theme v1 payload values.");
+  }
+
+  return {
+    codeThemeId: payload.codeThemeId,
+    theme: {
+      accent: theme.accent,
+      contrast: theme.contrast,
+      fonts: { code: fonts.code, ui: fonts.ui },
+      ink: theme.ink,
+      opaqueWindows: theme.opaqueWindows,
+      semanticColors: {
+        diffAdded: semanticColors.diffAdded,
+        diffRemoved: semanticColors.diffRemoved,
+        skill: semanticColors.skill,
+      },
+      surface: theme.surface,
+    },
+    variant: payload.variant,
+  };
+}
+
+export function serializeCodexThemeV1(theme: CodexThemeV1Payload): string {
+  const payload: CodexThemeV1Payload = {
+    codeThemeId: theme.codeThemeId,
+    theme: {
+      accent: theme.theme.accent,
+      contrast: theme.theme.contrast,
+      fonts: { code: theme.theme.fonts.code, ui: theme.theme.fonts.ui },
+      ink: theme.theme.ink,
+      opaqueWindows: theme.theme.opaqueWindows,
+      semanticColors: {
+        diffAdded: theme.theme.semanticColors.diffAdded,
+        diffRemoved: theme.theme.semanticColors.diffRemoved,
+        skill: theme.theme.semanticColors.skill,
+      },
+      surface: theme.theme.surface,
+    },
+    variant: theme.variant,
+  };
+  const serializedTheme = `${CODEX_THEME_SCHEMA_VERSION}:${JSON.stringify(payload)}`;
+  parseCodexThemeV1(serializedTheme);
+  return serializedTheme;
+}
+
+export function createControlPlaneThemeDefinition(
+  serializedTheme: string,
+  metadata: Partial<Pick<ControlPlaneThemeDefinition, "label" | "description" | "fontRoles" | "tokens">> = {},
+): ControlPlaneThemeDefinition {
+  const theme = parseCodexThemeV1(serializedTheme);
+  const uiFont = primaryFontFamily(theme.theme.fonts.ui);
+  return {
+    ...theme,
+    label: metadata.label ?? theme.codeThemeId,
+    description: metadata.description ?? "",
+    fontRoles: metadata.fontRoles ?? {
+      ui: uiFont,
+      content: MYSTRA_CONTENT_FONT,
+      code: primaryFontFamily(theme.theme.fonts.code),
+    },
+    ...(metadata.tokens ? { tokens: metadata.tokens } : {}),
+  };
+}
+
+const LEGACY_GRAPHITE_SIGNAL_FONT =
   '"Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace';
-const DEFAULT_UI_FONT = GRAPHITE_SIGNAL_FONT;
-const DEFAULT_CODE_FONT = GRAPHITE_SIGNAL_FONT;
+const MYSTRA_UI_FONT = "Arial";
+const MYSTRA_CONTENT_FONT = "Arial";
+const MYSTRA_CODE_FONT = "Courier New";
+const DEFAULT_FONT_ROLES: ThemeFontRoles = {
+  ui: MYSTRA_UI_FONT,
+  content: MYSTRA_CONTENT_FONT,
+  code: MYSTRA_CODE_FONT,
+};
+
+const FONT_ROLE_FALLBACKS = {
+  ui: "system-ui, sans-serif",
+  content: "system-ui, sans-serif",
+  code: "ui-monospace, monospace",
+} as const;
+
+function primaryFontFamily(value: string | null): string | null {
+  if (!value) return null;
+  let quote: '"' | "'" | null = null;
+  let end = value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if ((character === '"' || character === "'") && (!quote || quote === character)) {
+      quote = quote ? null : character;
+    } else if (character === "," && !quote) {
+      end = index;
+      break;
+    }
+  }
+  const candidate = value.slice(0, end).trim().replace(/^(["'])(.*)\1$/, "$2").trim();
+  return candidate && /^[\p{L}\p{N} ._-]+$/u.test(candidate) ? candidate : null;
+}
+
+function cssFontFamilyName(value: string): string {
+  return /^[\p{L}\p{N}_-]+$/u.test(value) ? value : `"${value.replaceAll('"', '\\"')}"`;
+}
+
+function buildFontStack(value: string | null, role: keyof ThemeFontRoles): string {
+  const primary = primaryFontFamily(value) ?? DEFAULT_FONT_ROLES[role];
+  return primary ? `${cssFontFamilyName(primary)}, ${FONT_ROLE_FALLBACKS[role]}` : FONT_ROLE_FALLBACKS[role];
+}
+
+function buildFontRoleVariables(fontRoles: ThemeFontRoles): Record<string, string> {
+  return {
+    "--font-ui": buildFontStack(fontRoles.ui, "ui"),
+    "--font-content": buildFontStack(fontRoles.content, "content"),
+    "--font-code": buildFontStack(fontRoles.code, "code"),
+    "--font-sans": "var(--font-ui)",
+    "--font-chat": "var(--font-content)",
+    "--font-mono": "var(--font-code)",
+  };
+}
 
 export const THEME_STORAGE_KEY = "mystra-control-plane-theme-v2";
 export const APPEARANCE_STORAGE_KEY = "mystra-control-plane-appearance-v1";
@@ -104,12 +300,12 @@ export const CONTROL_PLANE_FOUNDATION_TOKENS = {
   "--layout-gap": "12px",
   "--stack-gap": "8px",
   "--tight-gap": "4px",
-  "--composer-inset-top": "9px",
-  "--composer-inset-right": "7px",
-  "--composer-inset-bottom": "7px",
-  "--composer-inset-left": "9px",
+  "--composer-inset-top": "8px",
+  "--composer-inset-right": "8px",
+  "--composer-inset-bottom": "8px",
+  "--composer-inset-left": "8px",
   "--sidebar-width-expanded": "300px",
-  "--shell-header-height": "46px",
+  "--shell-header-height": "42px",
   "--radius-compact": "2px",
   "--radius-control": "4px",
   "--radius-panel": "6px",
@@ -137,22 +333,13 @@ const CONTROL_PLANE_SEMANTIC_ALIASES = {
   "--color-backdrop": "rgb(0 0 0 / 56%)",
 } as const;
 
-export const CONTROL_PLANE_THEMES: ControlPlaneThemeDefinition[] = [
-  {
-    id: "graphite-signal",
-    label: "Graphite Signal",
-    description: "Mineral graphite surfaces with monospaced type and semantic system signals.",
-    codeThemeId: "graphite-signal",
-    variant: "dark",
-    theme: {
-      accent: "#74B98B",
-      contrast: 72,
-      fonts: {
-        code: GRAPHITE_SIGNAL_FONT,
-        ui: GRAPHITE_SIGNAL_FONT,
-      },
-      ink: "#E7ECE8",
-      opaqueWindows: true,
+const MYSTRA_THEMES: ControlPlaneThemeDefinition[] = [
+  createControlPlaneThemeDefinition(
+    'codex-theme-v1:{"codeThemeId":"mystra","theme":{"accent":"#74B98B","contrast":72,"fonts":{"code":"Courier New","ui":"Arial"},"ink":"#E7ECE8","opaqueWindows":true,"semanticColors":{"diffAdded":"#5CAA76","diffRemoved":"#C36F56","skill":"#9478C0"},"surface":"#111513"},"variant":"dark"}',
+    {
+      label: "Mystra",
+      description: "Mystra's dark mineral graphite theme with restrained semantic signals.",
+      fontRoles: { ui: MYSTRA_UI_FONT, content: MYSTRA_CONTENT_FONT, code: MYSTRA_CODE_FONT },
       tokens: {
         canvas: "#111513",
         surface1: "#181C1A",
@@ -169,84 +356,55 @@ export const CONTROL_PLANE_THEMES: ControlPlaneThemeDefinition[] = [
         signalFunction: "#5E86B7",
         signalAttention: "#BB6677",
       },
-      semanticColors: {
-        diffAdded: "#5CAA76",
-        diffRemoved: "#C36F56",
-        skill: "#9478C0",
-      },
-      surface: "#111513",
     },
-  },
-  {
-    id: "notion-light",
-    label: "Notion / Light",
-    description: "Quiet white workspace with restrained borders and blue emphasis.",
-    codeThemeId: "notion",
-    variant: "light",
-    theme: {
-      accent: "#3183d8",
-      contrast: 29,
-      fonts: {
-        code: null,
-        ui: null,
+  ),
+  createControlPlaneThemeDefinition(
+    'codex-theme-v1:{"codeThemeId":"mystra","theme":{"accent":"#347B50","contrast":52,"fonts":{"code":"Courier New","ui":"Arial"},"ink":"#202722","opaqueWindows":true,"semanticColors":{"diffAdded":"#347B50","diffRemoved":"#A64F3D","skill":"#7255A3"},"surface":"#F5F7F5"},"variant":"light"}',
+    {
+      label: "Mystra",
+      description: "Mystra's light mineral graphite theme with the same semantic signal hierarchy.",
+      fontRoles: { ui: MYSTRA_UI_FONT, content: MYSTRA_CONTENT_FONT, code: MYSTRA_CODE_FONT },
+      tokens: {
+        canvas: "#F5F7F5",
+        surface1: "#FFFFFF",
+        surface2: "#E9EEEB",
+        surface3: "#DDE5E0",
+        hairline: "rgba(63, 77, 68, 0.28)",
+        hairlineSoft: "rgba(63, 77, 68, 0.16)",
+        inkMuted: "#59675E",
+        inkSubtle: "#7B887F",
+        onPrimary: "#FFFFFF",
+        signalKeyword: "#7255A3",
+        signalNumber: "#956F26",
+        signalType: "#277E76",
+        signalFunction: "#3F6F9E",
+        signalAttention: "#A64F3D",
       },
-      ink: "#37352f",
-      opaqueWindows: true,
-      semanticColors: {
-        diffAdded: "#008000",
-        diffRemoved: "#a31515",
-        skill: "#0000ff",
-      },
-      surface: "#ffffff",
     },
-  },
-  {
-    id: "linen-light",
-    label: "Linen / Light",
-    description: "Warm review mode with softer neutrals and amber emphasis.",
-    codeThemeId: "linen",
-    variant: "light",
-    theme: {
-      accent: "#9d5a18",
-      contrast: 24,
-      fonts: {
-        code: null,
-        ui: null,
-      },
-      ink: "#30261f",
-      opaqueWindows: true,
-      semanticColors: {
-        diffAdded: "#2f7d53",
-        diffRemoved: "#b14f3c",
-        skill: "#7950f2",
-      },
-      surface: "#fffaf3",
-    },
-  },
-  {
-    id: "notion-dark",
-    label: "Notion / Dark",
-    description: "Dark operators' mode with the same spacing and surface rules.",
-    codeThemeId: "notion",
-    variant: "dark",
-    theme: {
-      accent: "#5ba8ff",
-      contrast: 76,
-      fonts: {
-        code: null,
-        ui: null,
-      },
-      ink: "#f1f1ef",
-      opaqueWindows: true,
-      semanticColors: {
-        diffAdded: "#4ade80",
-        diffRemoved: "#f87171",
-        skill: "#8ea7ff",
-      },
-      surface: "#191919",
-    },
-  },
+  ),
 ];
+
+export const CONTROL_PLANE_THEMES: ControlPlaneThemeDefinition[] = [
+  ...MYSTRA_THEMES,
+  ...CODEX_APP_THEME_CATALOG.map(({ label, ...theme }) => createControlPlaneThemeDefinition(
+    serializeCodexThemeV1(theme),
+    {
+      label,
+      description: `Built into Codex ${CODEX_APP_THEME_SOURCE_VERSION} (${theme.variant}).`,
+    },
+  )),
+];
+
+const LEGACY_THEME_IDS: Record<ThemeVariant, Record<string, string>> = {
+  light: {
+    "notion-light": "notion",
+    "linen-light": "notion",
+  },
+  dark: {
+    "graphite-signal": "mystra",
+    "notion-dark": "notion",
+  },
+};
 
 export function getDefaultTheme(): ControlPlaneThemeDefinition {
   const theme = CONTROL_PLANE_THEMES[0];
@@ -320,34 +478,54 @@ function readableForeground(background: string): string {
   return luminance(background) > 0.45 ? "#11151b" : "#ffffff";
 }
 
-export function getThemeById(themeId: string): ControlPlaneThemeDefinition | undefined {
-  return CONTROL_PLANE_THEMES.find((theme) => theme.id === themeId);
+export function getThemeById(themeId: string, variant?: ThemeVariant): ControlPlaneThemeDefinition | undefined {
+  if (variant) {
+    const codeThemeId = LEGACY_THEME_IDS[variant][themeId] ?? themeId;
+    return CONTROL_PLANE_THEMES.find((theme) => theme.codeThemeId === codeThemeId && theme.variant === variant);
+  }
+
+  const canonicalTheme = CONTROL_PLANE_THEMES.find((theme) => theme.codeThemeId === themeId);
+  if (canonicalTheme) return canonicalTheme;
+
+  for (const legacyVariant of ["light", "dark"] as const) {
+    const codeThemeId = LEGACY_THEME_IDS[legacyVariant][themeId];
+    if (codeThemeId) return getThemeById(codeThemeId, legacyVariant);
+  }
+
+  return undefined;
 }
 
 export function getThemesByVariant(variant: ThemeVariant): ControlPlaneThemeDefinition[] {
-  return CONTROL_PLANE_THEMES.filter((theme) => theme.variant === variant);
+  return CONTROL_PLANE_THEMES
+    .filter((theme) => theme.variant === variant)
+    .sort((left, right) => {
+      if (left.codeThemeId === "mystra") return -1;
+      if (right.codeThemeId === "mystra") return 1;
+      return left.label.localeCompare(right.label, undefined, { sensitivity: "base" });
+    });
 }
 
 export function getDefaultAppearancePreferences(): AppearancePreferences {
   return {
     version: 1,
     mode: "system",
-    lightThemeId: getThemesByVariant("light")[0]?.id ?? getDefaultTheme().id,
-    darkThemeId: getThemesByVariant("dark")[0]?.id ?? getDefaultTheme().id,
+    lightThemeId: getThemeById("mystra", "light")?.codeThemeId ?? getThemesByVariant("light")[0]?.codeThemeId ?? getDefaultTheme().codeThemeId,
+    darkThemeId: getThemeById("mystra", "dark")?.codeThemeId ?? getThemesByVariant("dark")[0]?.codeThemeId ?? getDefaultTheme().codeThemeId,
     borderMode: "default",
     codeSurfaceVariant: "dark",
     contrast: getDefaultTheme().theme.contrast,
-    uiFont: getDefaultTheme().theme.fonts.ui,
-    chatFont: getDefaultTheme().theme.fonts.ui,
-    codeFont: getDefaultTheme().theme.fonts.code,
+    uiFont: getDefaultTheme().fontRoles.ui,
+    contentFont: getDefaultTheme().fontRoles.content,
+    codeFont: getDefaultTheme().fontRoles.code,
     uiFontSize: 12,
-    chatFontSize: 12,
+    contentFontSize: 12,
   };
 }
 
 function normalizeOptionalFont(value: unknown, fallback: string | null): string | null {
   if (typeof value !== "string") return fallback;
-  return value.trim() || null;
+  if (value.trim() === LEGACY_GRAPHITE_SIGNAL_FONT) return fallback;
+  return primaryFontFamily(value);
 }
 
 function normalizeNumber(value: unknown, fallback: number, min: number, max: number): number {
@@ -358,8 +536,8 @@ export function normalizeAppearancePreferences(value: unknown): AppearancePrefer
   const defaults = getDefaultAppearancePreferences();
   if (!value || typeof value !== "object") return defaults;
   const input = value as Record<string, unknown>;
-  const lightTheme = typeof input.lightThemeId === "string" ? getThemeById(input.lightThemeId) : undefined;
-  const darkTheme = typeof input.darkThemeId === "string" ? getThemeById(input.darkThemeId) : undefined;
+  const lightTheme = typeof input.lightThemeId === "string" ? getThemeById(input.lightThemeId, "light") : undefined;
+  const darkTheme = typeof input.darkThemeId === "string" ? getThemeById(input.darkThemeId, "dark") : undefined;
   const mode = input.mode === "system" || input.mode === "light" || input.mode === "dark" ? input.mode : defaults.mode;
   const borderMode = input.borderMode === "default" || input.borderMode === "high-contrast" || input.borderMode === "color-high-contrast"
     ? input.borderMode
@@ -371,16 +549,16 @@ export function normalizeAppearancePreferences(value: unknown): AppearancePrefer
   return {
     version: 1,
     mode,
-    lightThemeId: lightTheme?.variant === "light" ? lightTheme.id : defaults.lightThemeId,
-    darkThemeId: darkTheme?.variant === "dark" ? darkTheme.id : defaults.darkThemeId,
+    lightThemeId: lightTheme?.codeThemeId ?? defaults.lightThemeId,
+    darkThemeId: darkTheme?.codeThemeId ?? defaults.darkThemeId,
     borderMode,
     codeSurfaceVariant,
     contrast: normalizeNumber(input.contrast, defaults.contrast, 0, 100),
     uiFont: normalizeOptionalFont(input.uiFont, defaults.uiFont),
-    chatFont: normalizeOptionalFont(input.chatFont, defaults.chatFont),
+    contentFont: normalizeOptionalFont(input.contentFont ?? input.chatFont, defaults.contentFont),
     codeFont: normalizeOptionalFont(input.codeFont, defaults.codeFont),
     uiFontSize: normalizeNumber(input.uiFontSize, defaults.uiFontSize, 12, 14),
-    chatFontSize: normalizeNumber(input.chatFontSize, defaults.chatFontSize, 12, 16),
+    contentFontSize: normalizeNumber(input.contentFontSize ?? input.chatFontSize, defaults.contentFontSize, 12, 16),
   };
 }
 
@@ -402,34 +580,35 @@ export function resolveAppearanceTheme(
   systemVariant: ThemeVariant,
 ): ControlPlaneThemeDefinition {
   const variant = resolveAppearanceVariant(preferences, systemVariant);
-  const selected = getThemeById(variant === "light" ? preferences.lightThemeId : preferences.darkThemeId);
-  return selected?.variant === variant ? selected : getThemesByVariant(variant)[0] ?? getDefaultTheme();
+  const selected = getThemeById(variant === "light" ? preferences.lightThemeId : preferences.darkThemeId, variant);
+  return selected ?? getThemesByVariant(variant)[0] ?? getDefaultTheme();
 }
 
 export function getAppearanceDetailDefaults(
   preferences: AppearancePreferences,
   systemVariant: ThemeVariant,
-): Pick<AppearancePreferences, "contrast" | "uiFont" | "chatFont" | "codeFont" | "uiFontSize" | "chatFontSize"> {
+): Pick<AppearancePreferences, "contrast" | "uiFont" | "contentFont" | "codeFont" | "uiFontSize" | "contentFontSize"> {
   const theme = resolveAppearanceTheme(preferences, systemVariant);
   return {
     contrast: theme.theme.contrast,
-    uiFont: theme.theme.fonts.ui,
-    chatFont: theme.theme.fonts.ui,
-    codeFont: theme.theme.fonts.code,
+    uiFont: theme.fontRoles.ui,
+    contentFont: theme.fontRoles.content,
+    codeFont: theme.fontRoles.code,
     uiFontSize: 12,
-    chatFontSize: 12,
+    contentFontSize: 12,
   };
 }
 
 export function buildThemeCssVariables(themeDefinition: ControlPlaneThemeDefinition): Record<string, string> {
-  const { accent, contrast, fonts, ink, opaqueWindows, semanticColors, surface, tokens } = themeDefinition.theme;
+  const { accent, contrast, ink, semanticColors, surface } = themeDefinition.theme;
+  const { tokens } = themeDefinition;
+  const fontVariables = buildFontRoleVariables(themeDefinition.fontRoles);
 
   if (tokens) {
     return {
       ...CONTROL_PLANE_FOUNDATION_TOKENS,
       ...CONTROL_PLANE_SEMANTIC_ALIASES,
-      "--font-sans": fonts.ui ?? DEFAULT_UI_FONT,
-      "--font-mono": fonts.code ?? DEFAULT_CODE_FONT,
+      ...fontVariables,
       "--background": tokens.canvas,
       "--surface1": tokens.surface1,
       "--surface2": tokens.surface2,
@@ -476,12 +655,10 @@ export function buildThemeCssVariables(themeDefinition: ControlPlaneThemeDefinit
   const background = themeDefinition.variant === "light"
     ? mix(surface, ink, 0.025 + depth * 0.05)
     : mix(surface, "#000000", 0.16 + depth * 0.12);
-  const surface1 = opaqueWindows
-    ? alpha(surface, themeDefinition.variant === "light" ? 0.82 : 0.88)
-    : alpha(surface, themeDefinition.variant === "light" ? 0.72 : 0.76);
+  const surface1 = surface;
   const surface2 = mix(surface, themeDefinition.variant === "light" ? "#ffffff" : "#000000", themeDefinition.variant === "light" ? 0.02 : 0.06);
   const surface3 = mix(surface, ink, themeDefinition.variant === "light" ? 0.06 + depth * 0.08 : 0.12 + depth * 0.12);
-  const surfaceInset = alpha(mix(surface, ink, themeDefinition.variant === "light" ? 0.05 : 0.1), themeDefinition.variant === "light" ? 0.92 : 0.9);
+  const surfaceInset = mix(surface, ink, themeDefinition.variant === "light" ? 0.05 : 0.1);
   const border = mix(surface, ink, themeDefinition.variant === "light" ? 0.12 + depth * 0.08 : 0.2 + depth * 0.12);
   const borderVisible = mix(surface, ink, themeDefinition.variant === "light" ? 0.18 + depth * 0.1 : 0.28 + depth * 0.14);
   const text1 = ink;
@@ -493,8 +670,7 @@ export function buildThemeCssVariables(themeDefinition: ControlPlaneThemeDefinit
   return {
     ...CONTROL_PLANE_FOUNDATION_TOKENS,
     ...CONTROL_PLANE_SEMANTIC_ALIASES,
-    "--font-sans": fonts.ui ?? DEFAULT_UI_FONT,
-    "--font-mono": fonts.code ?? DEFAULT_CODE_FONT,
+    ...fontVariables,
     "--background": background,
     "--surface1": surface1,
     "--surface2": surface2,
@@ -541,7 +717,7 @@ export function applyThemeToDocument(themeDefinition: ControlPlaneThemeDefinitio
   const root = document.documentElement;
   root.dataset.themeId = themeDefinition.codeThemeId;
   root.dataset.themeVariant = themeDefinition.variant;
-  root.dataset.themePreset = themeDefinition.id;
+  root.dataset.themePreset = themeDefinition.codeThemeId;
 
   const variables = buildThemeCssVariables(themeDefinition);
   for (const [name, value] of Object.entries(variables)) {
@@ -557,7 +733,7 @@ export function buildAppearanceCssVariables(
   const theme = resolveAppearanceTheme(normalized, systemVariant);
   const variables = buildThemeCssVariables(theme);
   const depth = normalized.contrast / 100;
-  const surface = theme.theme.tokens?.canvas ?? theme.theme.surface;
+  const surface = theme.tokens?.canvas ?? theme.theme.surface;
   const ink = theme.theme.ink;
   const borderInk = normalized.borderMode === "color-high-contrast" ? theme.theme.accent : ink;
   const baseWeight = theme.variant === "light" ? 0.1 : 0.16;
@@ -565,11 +741,15 @@ export function buildAppearanceCssVariables(
   variables["--surface3"] = mix(surface, ink, baseWeight * 0.45 + depth * 0.12);
   variables["--border"] = mix(surface, borderInk, baseWeight + depth * 0.12 + contrastBoost * 0.55);
   variables["--border-visible"] = mix(surface, borderInk, baseWeight + 0.08 + depth * 0.2 + contrastBoost);
-  variables["--font-sans"] = normalized.uiFont ?? DEFAULT_UI_FONT;
-  variables["--font-chat"] = normalized.chatFont ?? normalized.uiFont ?? DEFAULT_UI_FONT;
-  variables["--font-mono"] = normalized.codeFont ?? DEFAULT_CODE_FONT;
+  variables["--font-ui"] = buildFontStack(normalized.uiFont, "ui");
+  variables["--font-content"] = buildFontStack(normalized.contentFont, "content");
+  variables["--font-code"] = buildFontStack(normalized.codeFont, "code");
+  variables["--font-sans"] = "var(--font-ui)";
+  variables["--font-chat"] = "var(--font-content)";
+  variables["--font-mono"] = "var(--font-code)";
   variables["--font-size-ui"] = `${normalized.uiFontSize}px`;
-  variables["--font-size-chat"] = `${normalized.chatFontSize}px`;
+  variables["--font-size-content"] = `${normalized.contentFontSize}px`;
+  variables["--font-size-chat"] = "var(--font-size-content)";
   if (normalized.codeSurfaceVariant === "light") {
     variables["--code-bg"] = "#f7f8fa";
     variables["--code-border"] = "#c7ccd4";
@@ -588,7 +768,7 @@ export function applyAppearanceToDocument(preferences: AppearancePreferences, sy
   const root = document.documentElement;
   root.dataset.themeId = theme.codeThemeId;
   root.dataset.themeVariant = theme.variant;
-  root.dataset.themePreset = theme.id;
+  root.dataset.themePreset = theme.codeThemeId;
   root.dataset.borderMode = normalized.borderMode;
   root.dataset.codeSurface = normalized.codeSurfaceVariant;
   for (const [name, value] of Object.entries(buildAppearanceCssVariables(normalized, systemVariant))) {
@@ -598,23 +778,101 @@ export function applyAppearanceToDocument(preferences: AppearancePreferences, sy
 
 export function buildThemeBootstrapScript(): string {
   const presets = Object.fromEntries(CONTROL_PLANE_THEMES.map((theme) => [
-    theme.id,
+    `${theme.variant}:${theme.codeThemeId}`,
     {
       codeThemeId: theme.codeThemeId,
-      id: theme.id,
       accent: theme.theme.accent,
       ink: theme.theme.ink,
-      surface: theme.theme.tokens?.canvas ?? theme.theme.surface,
+      surface: theme.tokens?.canvas ?? theme.theme.surface,
       variables: buildThemeCssVariables(theme),
       variant: theme.variant,
     },
   ]));
   const serializedPresets = JSON.stringify(presets).replaceAll("<", "\\u003c");
+  const serializedLegacyThemeIds = JSON.stringify(LEGACY_THEME_IDS).replaceAll("<", "\\u003c");
   const serializedDefaults = JSON.stringify(getDefaultAppearancePreferences()).replaceAll("<", "\\u003c");
   const serializedAppearanceKey = JSON.stringify(APPEARANCE_STORAGE_KEY);
   const serializedStorageKey = JSON.stringify(THEME_STORAGE_KEY);
+  const serializedLegacyFont = JSON.stringify(LEGACY_GRAPHITE_SIGNAL_FONT);
 
-  return `(()=>{try{const presets=${serializedPresets};const defaults=${serializedDefaults};let input={};try{input=JSON.parse(localStorage.getItem(${serializedAppearanceKey})||"{}")}catch{}const legacy=localStorage.getItem(${serializedStorageKey});if(legacy&&presets[legacy]&&!localStorage.getItem(${serializedAppearanceKey})){input={...defaults,mode:presets[legacy].variant,[presets[legacy].variant+"ThemeId"]:legacy}}const valid=(id,variant)=>presets[id]?.variant===variant?id:defaults[variant+"ThemeId"];const mode=["system","light","dark"].includes(input.mode)?input.mode:defaults.mode;const borderMode=["default","high-contrast","color-high-contrast"].includes(input.borderMode)?input.borderMode:defaults.borderMode;const codeSurfaceVariant=["light","dark"].includes(input.codeSurfaceVariant)?input.codeSurfaceVariant:defaults.codeSurfaceVariant;const number=(value,fallback,min,max)=>Number.isFinite(value)?Math.min(max,Math.max(min,value)):fallback;const font=(value,fallback)=>typeof value==="string"?(value.trim()||null):fallback;const preferences={...defaults,mode,lightThemeId:valid(input.lightThemeId,"light"),darkThemeId:valid(input.darkThemeId,"dark"),borderMode,codeSurfaceVariant,contrast:number(input.contrast,defaults.contrast,0,100),uiFont:font(input.uiFont,defaults.uiFont),chatFont:font(input.chatFont,defaults.chatFont),codeFont:font(input.codeFont,defaults.codeFont),uiFontSize:number(input.uiFontSize,defaults.uiFontSize,12,14),chatFontSize:number(input.chatFontSize,defaults.chatFontSize,12,16)};const system=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";const variant=preferences.mode==="system"?system:preferences.mode;const theme=presets[preferences[variant+"ThemeId"]]||presets[defaults[variant+"ThemeId"]];const variables={...theme.variables};const depth=preferences.contrast/100;const hex=(value)=>{const raw=value.replace("#","");const parsed=parseInt(raw,16);return[(parsed>>16)&255,(parsed>>8)&255,parsed&255]};const mix=(a,b,w)=>{const x=hex(a),y=hex(b),c=x.map((v,i)=>Math.round(v+(y[i]-v)*Math.min(1,Math.max(0,w))).toString(16).padStart(2,"0"));return"#"+c.join("")};const borderInk=preferences.borderMode==="color-high-contrast"?theme.accent:theme.ink;const base=variant==="light"?.1:.16;const boost=preferences.borderMode==="default"?0:preferences.borderMode==="high-contrast"?.16:.12;variables["--surface3"]=mix(theme.surface,theme.ink,base*.45+depth*.12);variables["--border"]=mix(theme.surface,borderInk,base+depth*.12+boost*.55);variables["--border-visible"]=mix(theme.surface,borderInk,base+.08+depth*.2+boost);variables["--font-sans"]=preferences.uiFont||variables["--font-sans"];variables["--font-chat"]=preferences.chatFont||preferences.uiFont||variables["--font-sans"];variables["--font-mono"]=preferences.codeFont||variables["--font-mono"];variables["--font-size-ui"]=preferences.uiFontSize+"px";variables["--font-size-chat"]=preferences.chatFontSize+"px";if(preferences.codeSurfaceVariant==="light"){variables["--code-bg"]="#f7f8fa";variables["--code-border"]="#c7ccd4";variables["--code-text"]="#20242b"}else{variables["--code-bg"]="#15191f";variables["--code-border"]="#3a424d";variables["--code-text"]="#e2e7ee"}const root=document.documentElement;root.dataset.themeId=theme.codeThemeId;root.dataset.themeVariant=theme.variant;root.dataset.themePreset=theme.id;root.dataset.borderMode=preferences.borderMode;root.dataset.codeSurface=preferences.codeSurfaceVariant;for(const [name,value] of Object.entries(variables)){root.style.setProperty(name,value)}}catch{}})();`;
+  return `(()=>{try{
+    const presets=${serializedPresets};
+    const aliases=${serializedLegacyThemeIds};
+    const defaults=${serializedDefaults};
+    const legacyFont=${serializedLegacyFont};
+    const key=(variant,id)=>variant+":"+id;
+    const normalizedId=(id,variant)=>typeof id==="string"?(aliases[variant]?.[id]||id):id;
+    const valid=(id,variant)=>{const normalized=normalizedId(id,variant);return presets[key(variant,normalized)]?normalized:defaults[variant+"ThemeId"]};
+    let input={};
+    try{input=JSON.parse(localStorage.getItem(${serializedAppearanceKey})||"{}")}catch{}
+    const legacy=localStorage.getItem(${serializedStorageKey});
+    if(legacy&&!localStorage.getItem(${serializedAppearanceKey})){
+      const legacyTheme=Object.values(presets).find((theme)=>theme.codeThemeId===legacy||aliases[theme.variant]?.[legacy]===theme.codeThemeId);
+      if(legacyTheme)input={...defaults,mode:legacyTheme.variant,[legacyTheme.variant+"ThemeId"]:legacyTheme.codeThemeId};
+    }
+    const mode=["system","light","dark"].includes(input.mode)?input.mode:defaults.mode;
+    const borderMode=["default","high-contrast","color-high-contrast"].includes(input.borderMode)?input.borderMode:defaults.borderMode;
+    const codeSurfaceVariant=["light","dark"].includes(input.codeSurfaceVariant)?input.codeSurfaceVariant:defaults.codeSurfaceVariant;
+    const number=(value,fallback,min,max)=>Number.isFinite(value)?Math.min(max,Math.max(min,value)):fallback;
+    const font=(value,fallback)=>{
+      if(typeof value!=="string")return fallback;
+      const trimmed=value.trim();
+      if(trimmed===legacyFont)return fallback;
+      if(!trimmed)return null;
+      const first=trimmed.split(",")[0].trim().replace(/^["']|["']$/g,"");
+      return first&&/^[A-Za-z0-9 ._-]+$/.test(first)?first:null;
+    };
+    const fontName=(value)=>/^[A-Za-z0-9_-]+$/.test(value)?value:'"'+value.replaceAll('"','\\\\"')+'"';
+    const stack=(value,fallback,generic)=>fontName(value||fallback)+", "+generic;
+    const preferences={
+      ...defaults,
+      mode,
+      lightThemeId:valid(input.lightThemeId,"light"),
+      darkThemeId:valid(input.darkThemeId,"dark"),
+      borderMode,
+      codeSurfaceVariant,
+      contrast:number(input.contrast,defaults.contrast,0,100),
+      uiFont:font(input.uiFont,defaults.uiFont),
+      contentFont:font(input.contentFont??input.chatFont,defaults.contentFont),
+      codeFont:font(input.codeFont,defaults.codeFont),
+      uiFontSize:number(input.uiFontSize,defaults.uiFontSize,12,14),
+      contentFontSize:number(input.contentFontSize??input.chatFontSize,defaults.contentFontSize,12,16),
+    };
+    const system=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+    const variant=preferences.mode==="system"?system:preferences.mode;
+    const theme=presets[key(variant,preferences[variant+"ThemeId"])]||presets[key(variant,defaults[variant+"ThemeId"])];
+    const variables={...theme.variables};
+    const depth=preferences.contrast/100;
+    const hex=(value)=>{const raw=value.replace("#","");const parsed=parseInt(raw,16);return[(parsed>>16)&255,(parsed>>8)&255,parsed&255]};
+    const mix=(a,b,w)=>{const x=hex(a),y=hex(b),c=x.map((v,i)=>Math.round(v+(y[i]-v)*Math.min(1,Math.max(0,w))).toString(16).padStart(2,"0"));return"#"+c.join("")};
+    const borderInk=preferences.borderMode==="color-high-contrast"?theme.accent:theme.ink;
+    const base=variant==="light"?.1:.16;
+    const boost=preferences.borderMode==="default"?0:preferences.borderMode==="high-contrast"?.16:.12;
+    variables["--surface3"]=mix(theme.surface,theme.ink,base*.45+depth*.12);
+    variables["--border"]=mix(theme.surface,borderInk,base+depth*.12+boost*.55);
+    variables["--border-visible"]=mix(theme.surface,borderInk,base+.08+depth*.2+boost);
+    variables["--font-ui"]=stack(preferences.uiFont,defaults.uiFont,"system-ui, sans-serif");
+    variables["--font-content"]=stack(preferences.contentFont,defaults.contentFont,"system-ui, sans-serif");
+    variables["--font-code"]=stack(preferences.codeFont,defaults.codeFont,"ui-monospace, monospace");
+    variables["--font-sans"]="var(--font-ui)";
+    variables["--font-chat"]="var(--font-content)";
+    variables["--font-mono"]="var(--font-code)";
+    variables["--font-size-ui"]=preferences.uiFontSize+"px";
+    variables["--font-size-content"]=preferences.contentFontSize+"px";
+    variables["--font-size-chat"]="var(--font-size-content)";
+    if(preferences.codeSurfaceVariant==="light"){
+      variables["--code-bg"]="#f7f8fa";variables["--code-border"]="#c7ccd4";variables["--code-text"]="#20242b";
+    }else{
+      variables["--code-bg"]="#15191f";variables["--code-border"]="#3a424d";variables["--code-text"]="#e2e7ee";
+    }
+    const root=document.documentElement;
+    root.dataset.themeId=theme.codeThemeId;
+    root.dataset.themeVariant=theme.variant;
+    root.dataset.themePreset=theme.codeThemeId;
+    root.dataset.borderMode=preferences.borderMode;
+    root.dataset.codeSurface=preferences.codeSurfaceVariant;
+    for(const [name,value] of Object.entries(variables))root.style.setProperty(name,value);
+  }catch{}})();`;
 }
 
 export function buildThemeSwatch(themeDefinition: ControlPlaneThemeDefinition): string {

@@ -10,6 +10,7 @@ import { ShellIcon } from "./shell-icons";
 import { UiButton, UiIconButton } from "./ui-actions";
 import { UiInput } from "./ui-fields";
 import { UiDialogSurface, UiSurface } from "./ui-surfaces";
+import { VerticalNavItem } from "./vertical-nav-item";
 import { useResource } from "../_lib/use-resource";
 import { GitHubIntegrationDetail } from "./github-integration-detail";
 import {
@@ -66,6 +67,33 @@ function IntegrationGlyph() {
     <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
       <path d="M8.5 8.5 5 12l3.5 3.5M15.5 8.5 19 12l-3.5 3.5M14 5l-4 14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
     </svg>
+  );
+}
+
+interface SettingsNavItemProps {
+  active: boolean;
+  ariaControls: string;
+  icon: React.ReactNode;
+  id: string;
+  label: string;
+  onClick: () => void;
+}
+
+function SettingsNavItem({ active, ariaControls, icon, id, label, onClick }: SettingsNavItemProps) {
+  return (
+    <VerticalNavItem
+      active={active}
+      ariaLabel={label}
+      aria-selected={active}
+      aria-controls={ariaControls}
+      className="settingsNavItem"
+      id={id}
+      role="tab"
+      onClick={onClick}
+    >
+      <span className="settingsNavIcon">{icon}</span>
+      <span>{label}</span>
+    </VerticalNavItem>
   );
 }
 
@@ -147,6 +175,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
             <span className="srOnly">{searchLabel}</span>
             <UiInput
               autoFocus
+              fieldSize="header"
               placeholder={searchLabel}
               type="search"
               value={query}
@@ -156,23 +185,18 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
 
           <div aria-label={copy.settings} className="settingsNavList" role="tablist">
             {visibleSections.map((section) => (
-              <UiButton
+              <SettingsNavItem
                 active={activeSection === section.id}
-                aria-selected={activeSection === section.id}
-                aria-controls={`settings-panel-${section.id}`}
-                block
-                className="settingsNavItem"
+                ariaControls={`settings-panel-${section.id}`}
+                icon={section.icon}
                 id={`settings-tab-${section.id}`}
                 key={section.id}
-                role="tab"
+                label={section.label}
                 onClick={() => {
                   setActiveSection(section.id);
                   if (section.id !== "integrations") setIntegrationDetail(null);
                 }}
-              >
-                <span className="settingsNavIcon">{section.icon}</span>
-                <span>{section.label}</span>
-              </UiButton>
+              />
             ))}
             {visibleSections.length === 0 ? <p className="settingsSearchEmpty" role="status">—</p> : null}
           </div>

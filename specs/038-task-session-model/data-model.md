@@ -1,5 +1,11 @@
 # Data Model: Task / Session / Runner
 
+> **Superseded persistence model (2026-08-06):** `040-prisma-rdb` removes the entire Session model and
+> Task-to-Session relation, not only Session assignment. Runner, SessionEvent and Artifact persistence are also
+> removed. Project's full Repository snapshot becomes connection + stable external ID. Task source, objective and
+> Issue/Repository snapshots are removed, and `dispatchKey` becomes `issueDispatchKey`; cache design is deferred.
+> No affected Task/Session field, relation or constraint below is current schema authority.
+
 ## Relationship overview
 
 ```text

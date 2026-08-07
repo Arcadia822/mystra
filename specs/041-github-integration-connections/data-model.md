@@ -1,5 +1,10 @@
 # Data Model: GitHub Integration 多连接与 PAT
 
+> **Superseded persistence model (2026-08-06):** `040-prisma-rdb` owns current Connection capability
+> JSON and Project stable Repository identity fields. Any complete Project Repository snapshot or execution-default
+> persistence below is historical. Task source, objective and Issue/Repository snapshots are removed, and
+> `dispatch_key` becomes `issue_dispatch_key`; cache is deferred. Session persistence is also excluded from 040.
+
 ## DeploymentProfile
 
 Server-owned runtime value，not persisted from user input：

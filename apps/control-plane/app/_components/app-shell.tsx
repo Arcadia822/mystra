@@ -26,9 +26,11 @@ import { ShellIcon, type ShellIconName } from "./shell-icons";
 import { ShellSearchDialog } from "./shell-search-dialog";
 import { ShellSettings, type SettingsSection } from "./shell-settings";
 import { ShellTasksProvider } from "./shell-resources";
+import { ShellRightPanelProvider } from "./shell-right-panel";
 import { MystraLogo } from "./mystra-logo";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
 import { ProjectCreateModal } from "./project-create-modal";
+import { VerticalNavItem } from "./vertical-nav-item";
 import {
   SidebarCountBadge,
   SidebarIcon,
@@ -129,7 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         setAppearance(normalizeAppearancePreferences({
           ...getDefaultAppearancePreferences(),
           mode: legacyTheme.variant,
-          [`${legacyTheme.variant}ThemeId`]: legacyTheme.id,
+          [`${legacyTheme.variant}ThemeId`]: legacyTheme.codeThemeId,
         }));
       }
     }
@@ -223,10 +225,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sidebarHidden = isNarrow ? !narrowSidebarOpen : sidebarCollapsed;
 
   return (
+    <ShellRightPanelProvider>
+    {(rightPanel) => (
     <ShellTasksProvider resource={tasksResource}>
-    <div className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""} ${narrowSidebarOpen ? "sidebarNarrowOpen" : ""}`}>
+    <div className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""} ${narrowSidebarOpen ? "sidebarNarrowOpen" : ""} ${rightPanel ? "hasRightPanel" : ""}`}>
       <aside aria-hidden={sidebarHidden || undefined} className="sidebar" data-collapsed={sidebarHidden || undefined} id="primary-sidebar" inert={sidebarHidden}>
-        <div className="sidebarHeader">
+        <header className="sidebarHeader">
           <MystraLogo className="brandMark" />
           <span className="sidebarLabel brandText">Mystra</span>
           <SidebarIconButton
@@ -236,8 +240,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             icon={isNarrow ? "collapse" : sidebarCollapsed ? "expand" : "collapse"}
             onClick={() => isNarrow ? setNarrowSidebarOpen(false) : setSidebarCollapsed((current) => !current)}
           />
-        </div>
+        </header>
 
+        <div className="sidebarContent">
         <nav aria-label="Primary navigation" className="sidebarNav">
           {PRIMARY_ITEMS.map((item) => {
             const label = copy[item.key];
@@ -251,25 +256,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
 
             return item.href ? (
-              <UiActionLink
+              <VerticalNavItem
                 active={active}
-                aria-current={active ? "page" : undefined}
-                aria-label={label}
-                block
+                {...(active ? { ariaCurrent: "page" as const } : {})}
+                ariaLabel={label}
                 className="navItem"
                 href={item.href}
                 key={item.key}
                 onClick={() => setNarrowSidebarOpen(false)}
               >
                 {content}
-              </UiActionLink>
+              </VerticalNavItem>
             ) : (
-              <UiButton active={active} aria-label={label} block className="navItem" key={item.key} onClick={() => {
+              <VerticalNavItem active={active} ariaLabel={label} className="navItem" key={item.key} onClick={() => {
                 setNarrowSidebarOpen(false);
                 setSearchOpen(true);
               }}>
                 {content}
-              </UiButton>
+              </VerticalNavItem>
             );
           })}
         </nav>
@@ -333,13 +337,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </section>
 
-        <UiButton aria-label={copy.settings} block className="navItem settingsButton" onClick={() => {
+        <VerticalNavItem ariaLabel={copy.settings} className="navItem settingsButton" onClick={() => {
           setSettingsSection("account");
           setSettingsOpen(true);
         }}>
           <SidebarIcon name="settings" />
           <span className="sidebarLabel">{copy.settings}</span>
-        </UiButton>
+        </VerticalNavItem>
+        </div>
       </aside>
 
       <main className="shellMain">
@@ -363,8 +368,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           <strong>{shellTitle}</strong>
         </header>
-        {children}
+        <div className="shellMainContent">{children}</div>
       </main>
+
+      {rightPanel ? (
+        <aside aria-label={rightPanel.ariaLabel} className="rightPanel">
+          <header className="rightPanelHeader"><strong>{rightPanel.header}</strong></header>
+          <div className="rightPanelContent">{rightPanel.content}</div>
+        </aside>
+      ) : null}
 
       {settingsOpen ? (
         <ShellSettings
@@ -416,5 +428,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
     </div>
     </ShellTasksProvider>
+    )}
+    </ShellRightPanelProvider>
   );
 }

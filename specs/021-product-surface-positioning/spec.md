@@ -2,7 +2,8 @@
 
 **Feature Branch**: `021-product-surface-positioning`  
 **Created**: 2026-05-18  
-**Status**: Draft  
+**Status**: Superseded; retained for historical context
+**Supersession Notice (2026-08-06)**: This document is no longer the current Mystra object model. Its `Task -> Run`, `Workflow`, `Artifact`, `Review`, and `Runner Node` ownership model was superseded by later decisions. `040-prisma-rdb` currently persists Task but excludes Session and Runner persistence; both require later redesign. Workflow orchestration is removed; Task Activity and Artifact remain deferred. The Team-versus-workspace rationale remains historical background, but this Spec MUST NOT be used as an authoritative entity inventory, ER model, API contract, or implementation input.
 **Dependency Note**: This feature amends product terminology and information architecture expectations that currently conflict with the durable 5xP wording around `workspace`. It does not add new MVP runtime capabilities; it clarifies the product contract future specs and docs must follow.  
 **Input**: User description: "整理 issue 9 的产品对象、对象从属、术语边界与页面功能，用程序化语言写清 Team / Project / Task / Run / Workflow / Workspace / Sandbox / Agent / Context Bundle / Artifact / Review / Runner Node 的职责、关系与约束"
 

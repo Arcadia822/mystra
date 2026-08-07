@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>005-workflow-blueprint</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"005-workflow-blueprint","title":"005-workflow-blueprint","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:50:30.509Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: Workflow Blueprint Architecture\n\n**Feature Branch**: `005-workflow-blueprint`\n**Created**: 2026-05-14\n**Status**: Deprecated; retained for historical context\n**Deprecation Notice (2026-08-06)**: This entire Spec is deprecated and MUST NOT be used for planning, tasks, implementation, schema design, or acceptance. Mystra no longer defines `WorkflowProvider`, workflow blueprints, workflow DAGs, or workflow nodes as platform contracts. The direct Agent execution boundary remains directional, but `038-task-session-model` is no longer current persistence authority: `040-prisma-rdb` keeps Task and excludes Session persistence pending a separate redesign. The original text below is retained only to explain the rejected design.\n**Dependency Note**: Initialize from `specs/001-project-and-sqlite/` for Project and `RdbProvider` ownership, `specs/002-runtime-profile-context/` for resolved runtime/context-bundle contracts, `specs/003-config-first-runner-durability/` for runner claim/event/result and durable state boundaries, and `specs/004-open-agents-framework/contracts/framework-alignment.md`, `contracts/module-inventory.md`, `contracts/provider-seams.md`, and `research.md` divergence records before introducing workflow contracts or replacing `container-task.sh`.\n**Input**: The current task lifecycle is hardcoded in `container-task.sh` as a flat bash script. Stripe Minions demonstrates that a blueprint architecture (deterministic + agentic nodes in a DAG) is the correct model for reliable, scalable, auditable agent orchestration. Mystra needs a workflow provider interface with a local workflow adapter that replaces the hardcoded script with structured DAG execution.\n**Implementation Note**: Mystra MVP scope remains unchanged. The implementation path is to design Mystra-owned extensible interfaces and SDK surfaces directly, using Open Agents, Stripe Minions, and other coding-agent harnesses only as reference architectures rather than adoption targets.\n\n## User Scenarios & Testing *(mandatory)*\n\nThis is platform core architecture work. Scenarios use named technical actors.\n\n### Technical Scenario 1 - Workflow Orchestrates Task Lifecycle as a DAG (Priority: P1)\n\nA runner operator can define a task lifecycle as a workflow blueprint: a DAG of deterministic nodes (git clone, quality gate, git push, MR/PR create) and agentic nodes (agent execution), and the workflow provider executes them in dependency order with data flowing between nodes.\n\n**Why this priority**: This is the core architectural change. Without it, every lifecycle variation requires editing `container-task.sh`. With it, new blueprints are data, not code.\n\n**Independent Test**: Define a blueprint with 3 nodes (git clone → agent execute → git push), submit a job, and verify the workflow provider executes nodes in order and passes data between them.\n\n**Acceptance Scenarios**:\n\n1. **Given** a blueprint defines a DAG with deterministic and agentic nodes, **When** the workflow provider receives a job, **Then** it executes nodes in topological order respecting dependency edges.\n2. **Given** a node produces output data, **When** a downstream node starts, **Then** the upstream output is available as input to the downstream node.\n3. **Given** a deterministic node fails, **When** the workflow provider handles the failure, **Then** it marks the run as failed with the failing node identity and error, and does not execute downstream nodes.\n\n---\n\n### Technical Scenario 2 - Local Workflow Adapter Replaces container-task.sh (Priority: P1)\n\nThe local workflow adapter implements the same lifecycle that `container-task.sh` currently hardcodes, but as a structured blueprint: git clone → agent execute → quality gate → git push → MR create. The bash script is retired.\n\n**Why this priority**: This proves the blueprint architecture works for the existing MVP lifecycle. It is the migration path, not a parallel system.\n\n**Independent Test**: Submit a job through the control plane, have a runner claim it, and verify the local workflow adapter produces the same observable result (branch pushed, MR created) as `container-task.sh` would have.\n\n**Acceptance Scenarios**:\n\n1. **Given** a job is claimed by a runner using the local workflow adapter, **When** the blueprint completes successfully, **Then** a branch is pushed and a GitLab MR is created, matching the current `container-task.sh` behavior.\n2. **Given** the quality gate node fails, **When** the workflow handles the failure, **Then** the run is marked failed with quality gate metadata, and no MR is created.\n3. **Given** the agent execution node produces no changes, **When** the workflow detects no diff, **Then** the run is marked failed with a \"no changes\" error, and no push or MR occurs.\n\n---\n\n### Technical Scenario 3 - Workflow Provider Interface Is Pluggable (Priority: P1)\n\nThe workflow provider interface allows different adapters: LocalWorkflowProvider (MVP), VercelWorkflowAdapter, DifyAdapter, etc. The control plane and runner interact with the interface, not the implementation.\n\n**Why this priority**: Constitution principle III requires providers to be replaceable boundaries. The workflow provider is no exception.\n\n**Independent Test**: Register a stub workflow provider that records which nodes it would execute; submit a job; verify the stub is called and the real provider is not.\n\n**Acceptance Scenarios**:\n\n1. **Given** the workflow provider interface is defined, **When** a new adapter implements the interface, **Then** it can be registered at startup and used without changing the control plane or runner.\n2. **Given** the local workflow adapter is the default, **When** no workflow provider is configured, **Then** the local adapter is used.\n\n---\n\n### Technical Scenario 4 - Fix Loop Removed, Retry Is Blueprint-Orchestrated (Priority: P1)\n\nThe `container-task.sh` fix loop (`MYSTRA_QUALITY_FIX_ATTEMPTS`) is removed. If retry logic is needed, it is expressed as a blueprint DAG node (bounded retry loop) rather than hardcoded in a script. This aligns with the spec boundary: MVP does not include quality-gate fix loops.\n\n**Why this priority**: The current fix loop violates the spec boundary and constitution principle I. Removing it is a spec compliance fix. Future retry is a blueprint concern, not a script concern.\n\n**Independent Test**: Run a job where the quality gate fails; verify the run is marked failed immediately without retry attempts.\n\n**Acceptance Scenarios**:\n\n1. **Given** a quality gate node fails, **When** the workflow handles the failure, **Then** the run is marked failed with no retry attempts.\n2. **Given** a future blueprint includes a bounded retry node, **When** the retry node is configured, **Then** it can re-invoke the agent node up to a configured limit before failing. (Post-MVP extension point, not implemented now.)\n\n---\n\n### Technical Scenario 5 - Blueprint Definition Is Data, Not Code (Priority: P2)\n\nBlueprints are defined as structured data (TypeScript/Zod schema or JSON), not as executable scripts. This enables validation, visualization, versioning, and programmatic composition.\n\n**Why this priority**: Data-defined blueprints are what make the architecture scale. Code-defined workflows are just another script.\n\n**Independent Test**: Parse a blueprint definition from JSON, validate it against the Zod schema, and execute it through the workflow provider.\n\n**Acceptance Scenarios**:\n\n1. **Given** a blueprint is defined as a JSON or TypeScript object, **When** it is loaded, **Then** it validates against the blueprint Zod schema.\n2. **Given** an invalid blueprint (cyclic DAG, missing node type), **When** it is loaded, **Then** validation fails with a descriptive error.\n\n---\n\n### Edge Cases\n\n- What if a node produces output that a non-adjacent downstream node needs? The DAG must support transitive data flow through intermediate nodes or explicit data bindings.\n- What if two agentic nodes need to run in parallel? The DAG must support parallel execution of independent nodes.\n- What if the workflow provider crashes mid-execution? Node execution state must be durable enough to resume or explain the partial run.\n- What if a blueprint references a node type that the adapter does not support? The adapter must reject the blueprint at load time with a clear error.\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: The workflow provider interface MUST define methods for loading, validating, and executing blueprints.\n- **FR-002**: A blueprint MUST be a DAG of nodes with explicit dependency edges and data bindings.\n- **FR-003**: Each node MUST declare its type: deterministic or agentic.\n- **FR-004**: The workflow provider MUST execute nodes in topological order.\n- **FR-005**: Deterministic nodes MUST produce the same output for the same input (no LLM involvement).\n- **FR-006**: Agentic nodes MUST invoke an agent adapter (Codex or Copilot) and produce non-deterministic output.\n- **FR-007**: The local workflow adapter MUST implement the current task lifecycle (git clone → agent → quality gate → git push → MR create) as a blueprint.\n- **FR-008**: The fix loop in `container-task.sh` MUST be removed; no retry on quality gate failure in MVP.\n- **FR-009**: The workflow provider interface MUST be pluggable: LocalWorkflowProvider, future VercelWorkflowAdapter, DifyAdapter, etc.\n- **FR-010**: Blueprint definitions MUST be structured data validated by Zod schemas.\n- **FR-011**: Node execution failures MUST be captured with node identity, error details, and partial output.\n- **FR-012**: The existing runner daemon MUST use the workflow provider instead of invoking `container-task.sh` directly.\n\n### Key Entities\n\n- **WorkflowProvider**: Interface for loading, validating, and executing blueprints.\n- **Blueprint**: A named DAG of nodes with dependency edges and data bindings. Defines a task lifecycle.\n- **BlueprintNode**: A step in a blueprint. Has a type (deterministic/agentic), a handler reference, input bindings, and output schema.\n- **BlueprintEdge**: A dependency between two nodes. Defines execution order and data flow.\n- **NodeExecution**: A runtime record of a node's execution: input, output, status, error, timing.\n- **LocalWorkflowProvider**: The MVP adapter that executes blueprints on the runner host using Docker containers.\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: A job submitted through the control plane and claimed by a runner completes the full lifecycle (clone → agent → gate → push → MR) via the workflow provider, producing the same observable result as the current `container-task.sh`.\n- **SC-002**: The fix loop is removed; quality gate failure immediately fails the run.\n- **SC-003**: A new workflow adapter can be registered and used without modifying the control plane or runner daemon.\n- **SC-004**: Blueprint definitions validate against Zod schemas; invalid blueprints are rejected at load time.\n- **SC-005**: The `container-task.sh` file is retired or reduced to a thin entrypoint that delegates to the workflow provider.\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/005-workflow-blueprint/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/005-workflow-blueprint/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/005-workflow-blueprint/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Workflow Blueprint Architecture\n\n**Branch**: `005-workflow-blueprint` | **Date**: 2026-05-14 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/005-workflow-blueprint/spec.md`\n\n## Summary\n\nReplace the runner-owned `container-task.sh` lifecycle script with a Mystra-owned\nworkflow interface and SDK surface in `apps/workflows` that executes a\nZod-validated blueprint for the MVP coding loop. The MVP goal stays the same,\nbut the implementation path is now explicit: design the extensible contracts\ndirectly for Mystra's runner/control-plane seams, using Open Agents, Stripe\nMinions, and other coding-agent harnesses as reference architectures rather\nthan adoption targets. The first implementation keeps Mystra's existing\ncontrol-plane submission flow, runner claim loop, and agent-in-container\ndivergence intact while moving lifecycle shape, node ordering, failure handling,\nand fix-loop removal into a pluggable workflow contract.\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9 with Node.js 24 runtime assumptions\n**Primary Dependencies**: Next.js 16 route handlers, Zod 4, Vitest 4,\n`@mystra/shared`, Node `child_process`, Docker CLI, git CLI\n**Storage**: SQLite through `RdbProvider`; workflow execution durability is\ncaptured through structured run events and run/result metadata before any later\nprovider-specific persistence split\n**Testing**: `pnpm --filter @mystra/workflows test`, `pnpm --filter @mystra/runner-daemon test`,\n`pnpm --filter @mystra/control-plane test`, focused Vitest integration tests,\nand `pnpm typecheck`\n**Target Platform**: Mystra control plane plus private Linux runner host with\nDocker task containers\n**Project Type**: TypeScript monorepo with Next.js control plane, Node runner\ndaemon, workflow package, shared Zod contracts, and Spec-Kit artifacts\n**Performance Goals**: Preserve the existing queued-to-runner control flow,\navoid adding extra control-plane round trips for each node, and keep the MVP\nworkflow overhead small relative to current script execution\n**Constraints**: No quality-gate fix loops in MVP; do not leak Vercel workflow\nassumptions into the contract; preserve agent-in-container execution as the\ncurrent explicit divergence; keep repository and sandbox behavior behind their\nown downstream provider seams; treat external SDKs and harnesses as reference\narchitectures only, not as adoption requirements\n**Scale/Scope**: One pluggable workflow provider interface, one data-defined MVP\nblueprint, one local adapter that replaces `container-task.sh`, and the minimum\nrunner/control-plane integration needed to execute and observe that blueprint\n\n## Constitution Check\n\n*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*\n\n- **Specification Owns Product Boundaries**: PASS. The plan removes the\n  out-of-scope fix loop and keeps retries as a post-MVP blueprint extension\n  point instead of silently broadening the MVP.\n- **Typed Contracts at Service Boundaries**: PASS. The workflow provider,\n  blueprint definition, node execution snapshots, and runner handoff all use\n  explicit TypeScript and Zod contracts.\n- **Providers Are Replaceable Boundaries**: PASS. The plan creates a real\n  `WorkflowProvider` contract and keeps `LocalWorkflowProvider` as the first\n  implementation rather than the only supported shape.\n- **Runner Isolation and Secret Hygiene**: PASS. The runner still owns Docker\n  execution and runtime injection; the workflow layer coordinates steps but does\n  not widen sandbox privileges or secret exposure.\n- **Verification And Documentation Before Delivery**: PASS. The feature will\n  ship with blueprint contracts, workflow data model docs, focused tests, and a\n  quickstart proving the local adapter replaces the current shell-script path.\n\n## Project Structure\n\n### Documentation (this feature)\n\n```text\nspecs/005-workflow-blueprint/\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   ├── blueprint-schema.md\n│   └── workflow-provider.md\n└── tasks.md\n```\n\n### Source Code (repository root)\n\n```text\napps/workflows/\n└── src/\n    └── index.ts\n\napps/runner-daemon/\n├── src/index.ts\n└── assets/container-task.sh\n\napps/control-plane/\n├── app/api/runner/jobs/route.ts\n├── app/api/runner/jobs/[id]/events/route.ts\n└── app/api/runner/jobs/[id]/result/route.ts\n\npackages/shared/src/\n├── events.ts\n├── result.ts\n├── schemas.ts\n└── state.ts\n```\n\n**Structure Decision**: 005 should center new orchestration contracts in\n`apps/workflows`, keep the runner as the execution owner, and reuse\n`@mystra/shared` for lifecycle/result vocabulary. `container-task.sh` becomes a\nthin compatibility surface only if needed during migration; it should stop being\nthe authoritative lifecycle definition.\n\n## Phase 0 Research Summary\n\nDetailed decisions live in [research.md](./research.md).\n\nKey conclusions:\n\n1. The workflow provider contract should live in `apps/workflows`, not in the\n   control plane or runner daemon, because 004 marked workflows as the deferred\n   framework surface that 005 now owns.\n2. The MVP blueprint should be data-first and Zod-validated, with deterministic\n   and agentic node kinds plus explicit dependency edges and typed outputs.\n3. The runner remains the execution owner; the workflow layer coordinates node\n   order, failure handling, and result assembly, but does not replace the Docker\n   or agent seams owned by 011 and 009.\n4. The current shell fix loop violates the product boundary and must be removed\n   rather than re-expressed as default workflow behavior.\n5. Existing run records and structured events are the fastest durable surface\n   for node execution snapshots; 005 does not need a brand-new persistence\n   provider contract to prove workflow orchestration.\n6. Open Agents and Stripe Minions should inform the contract shape, but Mystra\n   should own the actual interface and SDK definitions at its runner/control-plane\n   seam instead of waiting for an upstream package to exist.\n7. GitNexus evidence could not be refreshed in this shell because the available\n   CLI bootstrap failed; direct source inspection was used instead and recorded\n   here explicitly.\n\nDependency audit across prior specs:\n\n- `001-project-and-sqlite` still provides the durable `Project` and\n  `RdbProvider` ownership model 005 needs, after aligning its older image wording\n  to the runtime-contract model introduced later.\n- `002-runtime-profile-context` already provides the resolved runtime contract,\n  context bundle, and sandbox-compatibility boundaries 005 should consume.\n- `003-config-first-runner-durability` already provides the runner claim,\n  event/result ingestion, timeout, cancellation, and stale-state boundaries 005\n  must orchestrate rather than redesign.\n- `004-open-agents-framework` already provides the Open Agents mapping,\n  provider-seam catalog, module inventory, and fork rules 005 depends on.\n- No additional prerequisite spec work is required before continuing 005 plan\n  and workflow-module design.\n\n## Phase 1 Design Summary\n\nGenerated artifacts:\n\n- [data-model.md](./data-model.md)\n- [quickstart.md](./quickstart.md)\n- [contracts/blueprint-schema.md](./contracts/blueprint-schema.md)\n- [contracts/workflow-provider.md](./contracts/workflow-provider.md)\n\nThe first build slice for 005 should be:\n\n1. Add the Mystra-owned workflow provider and blueprint contracts to\n   `apps/workflows`.\n2. Define the MVP local blueprint as data, not inline shell logic.\n3. Introduce a local workflow adapter that executes that blueprint on the runner\n   using existing Docker and agent seams.\n4. Move quality-gate behavior into a deterministic node and remove the default\n   shell-script fix loop.\n5. Keep run status, events, and final result vocabulary aligned with\n   `@mystra/shared` and 004's lifecycle/control-handoff proof slice.\n\n## Code Evidence\n\n- `apps/workflows/src/index.ts` is currently only `workflowAppName`, so 005 is\n  the first feature that gives the package real workflow ownership.\n- `apps/runner-daemon/assets/container-task.sh` currently owns clone, agent\n  execution, quality gate, push, MR creation, and the out-of-scope quality fix\n  loop.\n- `apps/runner-daemon/src/index.ts` already provides the runner claim loop,\n  Docker launch, event emission, and result publication endpoints that 005 must\n  orchestrate rather than replace.\n- `apps/control-plane/app/api/runner/jobs/route.ts`,\n  `.../[id]/events/route.ts`, and `.../[id]/result/route.ts` already define the\n  runner/control-plane handoff that the workflow adapter should consume.\n- `packages/shared/src/state.ts`, `events.ts`, `schemas.ts`, and `result.ts`\n  already provide run states, lifecycle events, runtime contracts, and result\n  shapes that the blueprint system should reuse.\n\n## Implementation Order\n\n1. Define the workflow provider and blueprint data contracts in `apps/workflows`\n   and `packages/shared` only where shared vocabulary is genuinely needed.\n2. Add local workflow blueprint definitions for the MVP task lifecycle with fix\n   loops removed.\n3. Refactor the runner daemon to call the workflow adapter instead of invoking\n   the full lifecycle directly in `container-task.sh`.\n4. Preserve structured event emission and final result publication while adding\n   node-level execution snapshots.\n5. Retire `container-task.sh` as the lifecycle authority, leaving only a thin\n   compatibility layer if absolutely required during migration.\n\n## Verification Plan\n\n| Surface | Evidence |\n|---|---|\n| Workflow provider contract | `apps/workflows` tests prove load/validate/execute behavior for a blueprint |\n| Blueprint schema | Invalid DAGs and unsupported node kinds are rejected by Zod validation |\n| Local adapter migration | Runner integration test shows the local adapter replaces the current shell path for clone → agent → gate → push/MR |\n| Fix-loop removal | Quality-gate failure produces a terminal failed run with no retry attempts |\n| Shared lifecycle alignment | Emitted events and final results remain valid against `@mystra/shared` schemas |\n| Type safety | `pnpm typecheck` across touched packages |\n\n## Risks And Mitigations\n\n| Risk | Mitigation |\n|---|---|\n| Workflow contract leaks shell-script details | Define the provider boundary and blueprint schema before refactoring runner logic |\n| Runner and workflow responsibilities blur together | Keep the workflow package responsible for ordering and node execution semantics, while the runner remains execution owner |\n| Fix-loop removal accidentally changes terminal semantics | Add focused tests for immediate quality-gate failure and no-retry behavior |\n| 005 silently redefines sandbox or repository contracts | Keep those details behind 010 and 011 seams and reference them rather than inlining provider logic |\n| Node execution durability expands into a persistence rewrite | Use structured events and run metadata first; defer dedicated persistence redesign unless validation proves it necessary |\n| Placeholder workflow package encourages speculative abstractions | Implement the narrow MVP blueprint and local adapter first, then expand from working node contracts |\n\n## Post-Design Constitution Re-Check\n\nPASS. The design keeps the workflow feature inside Spec-Kit artifacts, removes\nan out-of-scope fix loop, preserves explicit provider seams, and defines\nverification through focused workflow, runner, and shared contract tests.\n\n## GitNexus Note\n\nProcess guidance prefers GitNexus during plan phases for cross-package contract\nwork. In this shell, `npx gitnexus@latest --help` failed during bootstrap, so\nthe plan relies on direct source inspection of the runner, control-plane, and\nshared contract surfaces. That limitation should be revisited before\nimplementation if the CLI becomes usable.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Workflow Blueprint Architecture\n\n**Input**: Design documents from `/specs/005-workflow-blueprint/`\n**Prerequisites**: plan.md (required), spec.md (required for technical scenarios), research.md, data-model.md, contracts/\n\n**Tests**: Validate with `pnpm --filter @mystra/workflows test typecheck build`, `pnpm --filter @mystra/runner-daemon test typecheck build`, and relevant `@mystra/control-plane` tests when workflow events or projections change.\n\n**Organization**: This file was reconstructed from landed implementation history so the feature has a durable task record matching the work that was completed.\n\n## Phase 1: Foundations\n\n- [x] T001 Define `WorkflowProvider`, blueprint schemas, node/edge execution records, and Zod validation in `apps/workflows/src/index.ts` and `packages/shared/src/workflow.ts`.\n- [x] T002 Add workflow unit coverage for DAG validation, execution ordering, and blueprint parsing in `apps/workflows/src/index.test.ts` and `packages/shared/src/workflow.test.ts`.\n- [x] T003 Move the MVP lifecycle blueprint into data-owned assets in `apps/workflows/src/mvp-coding-blueprint.json` and export it through `apps/workflows/src/index.ts`.\n\n## Phase 2: Runner Integration\n\n- [x] T004 Replace runner lifecycle hardcoding with workflow-provider execution in `apps/runner-daemon/src/index.ts`.\n- [x] T005 Refactor `apps/runner-daemon/assets/container-task.sh` into explicit step-oriented entrypoints consumed by the runner workflow nodes.\n- [x] T006 Add runner startup registry loading for workflow providers and JSON blueprint files in `apps/runner-daemon/src/workflow-providers.ts` and `apps/runner-daemon/src/workflow-providers.test.ts`.\n- [x] T007 Add runner regression coverage for workflow step execution, provider loading, and blueprint handoff in `apps/runner-daemon/src/container-task.test.ts`.\n\n## Phase 3: Observability and Control Plane Proof\n\n- [x] T008 Extend shared workflow/event vocabulary in `packages/shared/src/events.ts`, `packages/shared/src/workflow.ts`, and matching tests.\n- [x] T009 Persist and project workflow-node lifecycle evidence through control-plane storage in `apps/control-plane/src/lib/db/rdb-provider.ts` and `apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T010 Update control-plane route coverage for workflow event ingestion and projection in `apps/control-plane/app/api/routes.test.ts`.\n- [x] T011 Add operator-facing workflow proof to the control-plane UI in `apps/control-plane/app/page.tsx` and `apps/control-plane/app/globals.css`.\n\n## Phase 4: Spec Compliance Closure\n\n- [x] T012 Remove the old shell quality-fix loop so quality-gate retries are no longer hardcoded in MVP behavior.\n- [x] T013 Update `specs/005-workflow-blueprint/contracts/workflow-provider.md` and `quickstart.md` to reflect provider registration, JSON blueprints, and workflow execution proof.\n- [x] T014 Validate the feature across `@mystra/workflows`, `@mystra/runner-daemon`, and `@mystra/control-plane` before closing the slice.\n\n## Notes\n\n- This feature history was recovered from prior implementation checkpoints rather than generated by `/speckit.tasks` at the time.\n- If further work is planned here, refresh this file instead of treating it as a pristine forward-only task list.\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

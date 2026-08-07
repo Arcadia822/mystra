@@ -2,6 +2,7 @@
 
 **Branch**: `038-task-session-model` | **Date**: 2026-08-03 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/038-task-session-model/spec.md`
+**Supersession Notice (2026-08-06)**: Session/Runner/Event/Artifact persistence and the Task-to-Session relation below are obsolete under `040-prisma-rdb`. Project snapshot inheritance is superseded: Project stores a stable repository binding. Task source, objective and Issue/Repository snapshots are removed, and `dispatchKey` becomes `issueDispatchKey`; current external-information cache is deferred to a later Integration specification. Future Session persistence requires a separate specification.
 
 ## Summary
 

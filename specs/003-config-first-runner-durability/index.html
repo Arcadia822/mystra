@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>003-config-first-runner-durability</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"003-config-first-runner-durability","title":"003-config-first-runner-durability","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:49:22.735Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: Config-First Headless Runner Durability\n\n**Feature Branch**: `003-config-first-runner-durability`\n**Created**: 2026-05-10\n**Status**: Implemented; closure verified\n**Persistence Supersession Notice (2026-08-06)**: This Spec records the implemented legacy Runner path, but its durable Runner/RunnerSession identity, heartbeat, capacity, eligibility, claim-assignment and stale-persistence model is no longer an approved target schema. `040-prisma-rdb` excludes both `runners` and `sessions` entirely; `042-runtime-sandbox-capacity` owns the future Runtime/Runner/connector redesign, while future Session persistence requires its own specification. Do not derive a Prisma model or new public Runner/Session contract from this document.\n**Input**: User-approved direction: \"Keep runner durability simple and config-first, closer to headless VictoriaMetrics-style components than a complete scheduler. Runner behavior should come from local configuration; the control plane should store desired and observed state; cancellation and timeout cleanup should be runner-local; stale runners should be explainable from durable state without a central capacity scheduler.\"\n\n## User Scenarios & Testing *(mandatory)*\n\nThis is platform reliability work, but the first slice is intentionally small.\nThe scenarios are written as technical scenarios because fake consumer stories\nwould obscure the real actors: runner operators, runner maintainers, internal\ncallers, and future Mystra agents.\n\n### Technical Scenario 1 - Runner Runs From Local Config (Priority: P1)\n\nA runner operator can start a headless runner whose concurrency, polling,\nexecution timeout, cancellation check interval, cleanup timeout, and eligible\nwork scope are declared in local runner configuration.\n\n**Why this priority**: Mystra does not need a central scheduler to understand\nevery slot in the MVP. It needs a runner that can declare what it is willing to\ndo and then do only that.\n\n**Independent Test**: Start a runner with a local config that allows one project\nand two concurrent Docker tasks, submit eligible and ineligible work, and verify\nthe runner only claims eligible work up to its configured local concurrency.\n\n**Acceptance Scenarios**:\n\n1. **Given** a runner config declares `concurrency = 2`, **When** multiple eligible runs are queued, **Then** the runner claims at most two active runs at a time.\n2. **Given** a runner config limits eligible project ids or runtime providers, **When** work outside that scope is queued, **Then** the runner does not claim it.\n3. **Given** a runner config declares poll and watchdog intervals, **When** the runner starts, **Then** those local settings govern polling, cancellation checks, timeout checks, and cleanup timing.\n\n---\n\n### Technical Scenario 2 - Control Plane Stores Desired And Observed State (Priority: P1)\n\nThe control plane records durable job/run desired state and runner observations,\nwithout becoming a complex live scheduler.\n\n**Why this priority**: The control plane should be the fact store. It should not\npretend to be an omniscient brain coordinating every container heartbeat. That\nwould be ambitious. Ambition has a failure rate.\n\n**Independent Test**: Submit, claim, cancel, complete, timeout, and stale-mark\nruns while restarting runner or control-plane processes; verify state remains\nexplainable from durable records.\n\n**Acceptance Scenarios**:\n\n1. **Given** an internal caller requests cancellation, **When** the request is accepted, **Then** the desired state records that cancellation has been requested.\n2. **Given** a runner observes a run transition, **When** it reports claimed, running, cleanup, cancelled, timed out, failed, or completed, **Then** the control plane records the observation durably.\n3. **Given** a control-plane restart occurs, **When** state is inspected after restart, **Then** queued, claimed, running, cancelled, timed-out, completed, failed, and stale states remain explainable without runner process memory.\n\n---\n\n### Technical Scenario 3 - Runner Owns Local Timeout And Cleanup (Priority: P1)\n\nThe runner handles timeout, cancellation detection, container stop, and cleanup\nlocally according to its config, then reports the observed outcome to the\ncontrol plane.\n\n**Why this priority**: Cleanup is closest to the process that started the\ncontainer. A central scheduler issuing precise cleanup orders would be a\nbeautiful source of disappointment.\n\n**Independent Test**: Run a task that exceeds timeout and another task cancelled\nduring execution; verify the runner stops the local container, performs cleanup,\nand reports a durable outcome.\n\n**Acceptance Scenarios**:\n\n1. **Given** a running task exceeds the configured execution timeout, **When** the runner watchdog evaluates it, **Then** the runner stops execution, performs cleanup, and reports a timed-out outcome.\n2. **Given** cancellation is requested for a running task, **When** the runner's cancellation check observes it, **Then** the runner stops execution, performs cleanup, and reports a cancelled outcome.\n3. **Given** cleanup exceeds the configured cleanup timeout, **When** the runner reports the outcome, **Then** the control plane records an operator-readable cleanup failure or failed terminal state.\n\n---\n\n### Technical Scenario 4 - Stale Runner State Is Marked, Not Magically Rescheduled (Priority: P2)\n\nThe control plane can mark runs associated with non-reporting runners as stale\nor orphaned based on durable timestamps and runner config, without introducing\nautomatic retry or rebalance behavior in the MVP.\n\n**Why this priority**: The MVP needs honest state, not heroic state. If a runner\ndies, marking affected work as stale is enough for the first durability slice.\n\n**Independent Test**: Let a runner claim a run and then stop reporting; verify\nthe control plane marks the runner/run stale after the configured window and\ndoes not automatically create a retry or assign the run elsewhere.\n\n**Acceptance Scenarios**:\n\n1. **Given** a runner has not reported within its stale window, **When** stale evaluation runs, **Then** the runner is marked stale.\n2. **Given** a stale runner had active runs, **When** those runs are inspected, **Then** they are marked stale or failed with a durable reason.\n3. **Given** stale work exists, **When** operators inspect state, **Then** they can see that automatic retry/rebalance is not part of this MVP slice.\n\n### Edge Cases\n\n- Runner config changes while the runner has active work.\n- Runner stops after claiming work but before reporting `running`.\n- Control plane restarts while cancellation is requested but not observed by the runner.\n- Runner restarts after local cleanup but before reporting the outcome.\n- A task ignores normal termination during cancellation or timeout cleanup.\n- A stale runner later reports an old success, failure, cancellation, or timeout.\n- Multiple runners are configured for overlapping project scopes.\n- A run is eligible by project id but not by runtime provider.\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: Runner behavior MUST be driven by local runner configuration for concurrency, polling interval, execution timeout, cancellation check interval, cleanup timeout, eligible project scope, and eligible runtime providers.\n- **FR-002**: Runner configuration MUST be readable at runner startup without requiring a central scheduler or hosted runner-management service.\n- **FR-003**: The control plane MUST persist job/run desired state, including cancellation requests.\n- **FR-004**: The control plane MUST persist runner observations such as claimed, running, cleanup started, cancelled, timed out, failed, completed, and stale.\n- **FR-005**: Runner local concurrency MUST prevent a runner from claiming more active work than its configured capacity.\n- **FR-006**: Runner claiming MUST respect locally configured eligibility constraints such as project id and runtime provider.\n- **FR-007**: Timeout handling MUST be performed by the runner local watchdog according to runner configuration.\n- **FR-008**: Cancellation cleanup MUST be performed by the runner after observing durable desired state from the control plane.\n- **FR-009**: Runner cleanup MUST stop task execution and report a durable outcome for cancelled and timed-out work.\n- **FR-010**: The control plane MUST mark inactive runner sessions and their active runs as stale or failed from durable timestamps and configured stale windows.\n- **FR-011**: The MVP MUST NOT introduce a central capacity scheduler, queue priority system, cross-runner rebalance, public retry API, logs API, callback URLs, Kubernetes-style controller, or cross-runner shared cache.\n- **FR-012**: Stale runner reports MUST NOT silently overwrite newer terminal or stale outcomes.\n- **FR-013**: Operator-visible state MUST distinguish queued, claimed, running, cancellation requested, cleanup in progress, cancelled, timed out, stale, failed, and completed outcomes where those states occur.\n- **FR-014**: Documentation MUST define the boundary between runner-local config, control-plane durable state, runner-local cleanup, and explicit MVP non-goals.\n\n### Key Entities\n\n- **Runner Config**: Local configuration file or equivalent startup input that\n  declares runner id, local concurrency, poll interval, stale window,\n  cancellation check interval, cleanup timeout, execution timeout, and\n  eligibility scope.\n- **Desired Run State**: Control-plane-owned durable state describing what should\n  happen to a run, including cancellation requested.\n- **Runner Observation**: Runner-reported durable event or state transition\n  describing what the runner observed or did locally.\n- **Local Watchdog**: Runner-local loop that checks timeout and cancellation\n  conditions and initiates cleanup.\n- **Stale Runner**: Runner session that has stopped reporting within the\n  configured stale window.\n- **Stale Run**: Active run formerly associated with a stale runner, marked for\n  operator visibility rather than automatically retried in the MVP.\n\n### Assumptions\n\n- The first implementation targets single-machine Docker runners.\n- Runner config is operator-managed local configuration, not a hosted runner\n  fleet management product.\n- The control plane remains the durable fact store for job/run state.\n- Local runner concurrency is sufficient for the MVP; global scheduling,\n  priorities, and rebalance are explicitly deferred.\n- Automatic retry of stale work remains out of scope. Stale state should be\n  visible and explainable first.\n- This design borrows the operational shape of headless, configuration-driven\n  service components, not VictoriaMetrics storage semantics.\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: A runner configured with concurrency `N` never has more than `N` active claimed/running tasks.\n- **SC-002**: Eligible work is claimable by a runner configured for its project/runtime scope; ineligible work is not claimed by that runner.\n- **SC-003**: A cancelled running task is cleaned up by the runner and reaches a durable cancelled or failed outcome.\n- **SC-004**: A timed-out running task is cleaned up by the runner and reaches a durable timed-out or failed outcome.\n- **SC-005**: A non-reporting runner and its active work become stale or failed after the configured stale window without automatic retry or rebalance.\n- **SC-006**: After process restart, run state remains explainable from durable control-plane records and runner observations.\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/003-config-first-runner-durability/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/003-config-first-runner-durability/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/003-config-first-runner-durability/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Config-First Headless Runner Durability\n\n**Branch**: `003-config-first-runner-durability` | **Date**: 2026-05-10 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/003-config-first-runner-durability/spec.md`\n\n**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.\n\n## Summary\n\nKeep runner durability small and configuration-driven. The runner remains a\nheadless pull worker whose local configuration controls concurrency, polling,\ntimeouts, cancellation checks, cleanup timeout, and eligible work scope. The\ncontrol plane remains the durable fact store for desired run state and runner\nobservations. Cancellation and timeout cleanup happen locally in the runner;\nstale runners and their active work are marked from durable timestamps without\nintroducing a central scheduler, retry API, or cross-runner rebalance.\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9 with Node.js 24 runtime assumptions  \n**Primary Dependencies**: Next.js 16 route handlers, Zod 4 shared schemas, Vitest 4, existing `better-sqlite3` provider, Node `child_process` for runner execution  \n**Storage**: SQLite via `SqliteRdbProvider`, behind `RdbProvider` so future PG/Supabase compatibility is preserved  \n**Testing**: Vitest package tests plus TypeScript typecheck; focused runner-daemon tests for config/watchdog behavior  \n**Target Platform**: Private Linux runner host with Docker sandbox workloads and outbound-only runner connection to the control plane\n**Project Type**: TypeScript monorepo with Next.js control plane, Node runner daemon, shared contracts, and local scripts  \n**Performance Goals**: Runner claim/poll path stays bounded; a configured runner never exceeds local concurrency; stale evaluation is a cheap durable-state scan rather than a scheduling loop  \n**Constraints**: Do not add a central capacity scheduler, queue priority system, cross-runner rebalance, public retry API, logs API, callback URLs, Kubernetes-style controller, cross-runner shared cache, caller auth, or per-repository secret management  \n**Scale/Scope**: MVP single-machine Docker runner model; multiple runners may exist but are independently configured headless workers, not a centrally scheduled fleet\n\n## Constitution Check\n\n*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*\n\n- **Specification Owns Product Boundaries**: PASS. The plan preserves MVP exclusions and explicitly rejects scheduler/retry/log/callback/Kubernetes expansion.\n- **Typed Contracts at Service Boundaries**: PASS. Runner config, registration, claim eligibility, cancellation observation, timeout observation, stale marking, and result states are represented through shared schemas/provider methods.\n- **Providers Are Replaceable Boundaries**: PASS. The runner-local watchdog sits in the runner daemon; the control plane only records desired/observed state through `RdbProvider`.\n- **Runner Isolation and Secret Hygiene**: PASS. Work remains within single-machine Docker runner boundaries; this feature does not alter secret injection or mount policy.\n- **Verification And Documentation Before Delivery**: PASS. The plan adds contract/provider/runner tests and feature docs before implementation completion.\n\n## Project Structure\n\n### Documentation (this feature)\n\n```text\nspecs/003-config-first-runner-durability/\n├── spec.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   ├── runner-config.md\n│   └── runner-state.md\n└── checklists/\n    └── requirements.md\n```\n\n### Source Code (repository root)\n\n```text\npackages/shared/src/\n├── schemas.ts              # runner config, runner observation, stale metadata schemas\n├── schemas.test.ts\n├── state.ts                # run state transition helpers if needed\n└── state.test.ts\n\napps/control-plane/\n├── app/api/runner/\n│   ├── register/route.ts   # registration accepts config-derived capability fields\n│   ├── heartbeat/route.ts  # heartbeat remains thin durable observation\n│   └── jobs/\n│       ├── route.ts        # claim remains pull-based and eligibility-bound\n│       ├── [id]/events/route.ts\n│       └── [id]/result/route.ts\n├── app/api/jobs/[id]/cancel/route.ts\n├── app/api/routes.test.ts\n└── src/lib/db/\n    ├── rdb-provider.ts\n    ├── sqlite-provider.ts\n    └── sqlite-provider.test.ts\n\napps/runner-daemon/src/\n├── index.ts                # local config, watchdog loop, cleanup/reporting\n└── container-task.test.ts  # existing source-level runner behavior tests\n```\n\n**Structure Decision**: Keep the current monorepo layout. Shared config,\ndesired-state, and observation contracts live in `packages/shared/src/schemas.ts`.\nDurable ownership remains in `RdbProvider` and `SqliteRdbProvider`. Runner-local\nbehavior stays in\n`apps/runner-daemon/src/index.ts`, where the current `readConfig -> register ->\nheartbeat -> claim -> executeJob` loop already exists. No new scheduler package\nor worker orchestration service is introduced.\n\n## Phase 0 Research Summary\n\nDetailed decisions live in [research.md](./research.md).\n\nKey conclusions:\n\n1. Preserve a config-first runner model rather than adding central scheduling.\n2. Split control-plane desired intent metadata from runner observations.\n3. Keep timeout and cleanup local to the runner.\n4. Mark stale sessions/runs durably without retry or rebalance.\n5. Treat GitNexus evidence as partially stale because `npx gitnexus analyze`\n   failed during planning; compensate with direct source inspection.\n\n## Phase 1 Design Summary\n\nGenerated artifacts:\n\n- [data-model.md](./data-model.md)\n- [quickstart.md](./quickstart.md)\n- [contracts/runner-config.md](./contracts/runner-config.md)\n- [contracts/runner-state.md](./contracts/runner-state.md)\n\nThe first build slice should be:\n\n1. Add shared runner config schema for local config-derived values:\n   concurrency, poll interval, stale window, execution timeout, cancel check\n   interval, cleanup timeout, and eligibility scope.\n2. Extend registration and runner session persistence only as far as needed to\n   store config-derived observation fields.\n3. Change cancellation from immediate terminal state for assigned/running work\n   into durable cancellation request metadata plus a visible event, leaving\n   queued cancellation terminal if no runner owns it.\n4. Add runner-local watchdog behavior for timeout/cancel cleanup and result\n   reporting.\n5. Add stale marking from durable timestamps without retry/reassignment.\n\n### State Representation Rule\n\nImplementation MUST NOT add `cancellation_requested`,\n`cleanup_in_progress`, or `stale` to `RunState` in the first implementation\npass. These concepts are represented by:\n\n- existing active states (`assigned`, `starting`, `running`) plus cancellation\n  request metadata and events;\n- runner observation/result records for cleanup progress and cleanup failure;\n- existing terminal states (`failed`, `timed_out`, or `canceled`) plus stale\n  reason metadata/events for stale evaluation.\n\nIf a future implementation proves this event-based model cannot satisfy a\ndocumented operator-visibility requirement, stop and revise this plan before\nchanging `RunState`. Do not make that enum change opportunistically while\nimplementing provider or runner tasks.\n\n## GitNexus / Code Evidence\n\n- GitNexus index for `mystra` was 3 commits behind; `npx gitnexus analyze`\n  failed with `Cannot destructure property 'package' of 'node.target' as it is null`.\n- Existing `SqliteRdbProvider.claimNextRun` is the current assignment boundary.\n  GitNexus found it in `apps/control-plane/src/lib/db/sqlite-provider.ts` and\n  connected it to provider tests plus execution flows such as `ClaimNextRun -> Now`.\n- Existing runner daemon `main` calls `readConfig`, `register`, heartbeat,\n  claim, and `executeJob`; this is already the correct headless loop shape.\n- API impact for `/api/runner/jobs` is LOW with no detected frontend consumers,\n  but it affects runner route flows and must still be covered by route tests.\n- Direct source inspection confirmed current cancellation immediately\n  transitions to `canceled` and decrements runner capacity if assigned; this\n  must be revisited so runner-owned cleanup is not bypassed.\n\n## Verification Plan\n\n| Surface | Evidence |\n|---|---|\n| Shared schemas | `pnpm --filter @mystra/shared test` |\n| SQLite provider transitions | `pnpm --filter @mystra/control-plane test` |\n| Runner route contracts | `pnpm --filter @mystra/control-plane test` |\n| Runner config/watchdog behavior | `pnpm --filter @mystra/runner-daemon test` |\n| Broad type safety | `pnpm typecheck` |\n| Broad regression after implementation | `pnpm test` when touched surface justifies it |\n\n## Risks And Mitigations\n\n| Risk | Mitigation |\n|---|---|\n| Plan drifts into central scheduling | Keep eligibility and concurrency runner-local; control plane only stores facts and filters claims. |\n| Assigned cancellation bypasses cleanup | Make assigned/running cancellation durable request metadata plus an event observed by runner; terminalize queued cancellation directly. |\n| Stale marking becomes retry semantics | Mark stale/failed with reason only; defer retry/rebalance to a separate spec. |\n| Active count becomes inconsistent | Do not use `activeRunCount` as the correctness source; calculate active work from durable active runs at claim time. |\n| Runner-local config becomes hosted management | Read config at runner startup from env/file; no hosted runner CRUD in this slice. |\n\n## Engineering Review\n\nReview artifact: [checklists/engineering-review.md](./checklists/engineering-review.md)\n\nOutcome: Proceed to tasks only after preserving the following constraints:\n\n1. Do not add a new scheduler module or queue priority model.\n2. Use durable run-state queries, not mutable `activeRunCount`, as the source\n   of truth for local concurrency.\n3. Do not add new run-state enum values in the initial implementation; use\n   events, desired-state metadata, runner observations, and existing states.\n4. Keep stale handling terminal/visible only; do not requeue, retry, or assign\n   work elsewhere in this feature.\n\nOwner decisions recorded after review:\n\n- `activeRunCount` is not needed for correctness; calculate active work from\n  durable runs every time claim eligibility is checked.\n- Keep the run-state enum unchanged for the first implementation pass unless\n  the plan is revised with new evidence.\n- Stale work is not retried, requeued, reassigned, or rebalanced in this spec.\n\n## Complexity Tracking\n\nNo constitution violations are required. The design is intentionally smaller\nthan a complete scheduler: config-first runner, durable facts, local cleanup,\nand stale marking only.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Config-First Headless Runner Durability\n\n**Input**: Design documents from `/specs/003-config-first-runner-durability/`\n**Prerequisites**: [spec.md](./spec.md), [plan.md](./plan.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/), [checklists/engineering-review.md](./checklists/engineering-review.md)\n\n**Tests**: Included because the spec requires independent durability, cancellation, timeout, stale visibility, and restart evidence.\n\n**Organization**: Tasks are grouped by technical scenario so each scenario can be implemented and tested as an independently useful slice.\n\n## Format: `[ID] [P?] [Story] Description`\n\n- **[P]**: Can run in parallel because it touches different files and does not depend on incomplete tasks.\n- **[Story]**: Maps to technical scenarios in [spec.md](./spec.md).\n- Every task includes exact file paths.\n\n## Phase 1: Setup\n\n**Purpose**: Confirm the feature directory and local evidence path before implementation starts.\n\n- [x] T001 Run `.specify/scripts/bash/check-prerequisites.sh --json` from `/Users/arcadia/Documents/mystra` and confirm `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability` is the active feature directory.\n- [x] T002 [P] Re-run or record the GitNexus fallback in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md` if `npx gitnexus analyze` still fails.\n- [x] T003 [P] Inspect existing runner/control-plane tests in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`, `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`, `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`, and `/Users/arcadia/Documents/mystra/packages/shared/src/state.test.ts` before adding new assertions.\n\n---\n\n## Phase 2: Foundational\n\n**Purpose**: Add shared contracts and provider surfaces that block all scenarios.\n\n**Critical**: No scenario implementation should start until these contracts are in place.\nThis phase must preserve the plan's state-representation rule: do not add\n`cancellation_requested`, `cleanup_in_progress`, or `stale` to `RunState`.\n\n- [x] T004 [P] Add runner local config, eligibility, observation, cancellation-request metadata, cancellation-outcome, cleanup observation, and stale-result Zod schemas/types in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`; do not add new `RunState` enum values.\n- [x] T005 [P] Add shared schema tests for runner config defaults, eligibility lists, observation payloads, and invalid timeout/concurrency values in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`.\n- [x] T006 Keep `/Users/arcadia/Documents/mystra/packages/shared/src/state.ts` `RunState` values unchanged; only add helper predicates or comments if needed to define existing active and terminal state sets.\n- [x] T007 Add run-state tests proving cancellation request, cleanup progress, and stale evaluation are not first-class `RunState` transitions; preserve timeout/canceled/failed terminal-state immutability in `/Users/arcadia/Documents/mystra/packages/shared/src/state.test.ts`.\n- [x] T008 Extend `RunnerSession`, `RegisterRunnerInput`, cancellation request metadata, cancellation outcome, runner observation, cleanup observation, and stale marking provider types in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`.\n- [x] T009 Update SQLite schema fields/indexes for config-derived runner visibility, eligibility metadata, stale timestamps/reasons, and desired cancellation metadata in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/migrations.ts`; do not encode cancellation/cleanup/stale as run-state enum migrations.\n- [x] T010 Update row parsing and serialization helpers for the new runner/run fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T011 [P] Add migration/provider fixture coverage for existing databases and new runner/run fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n\n**Checkpoint**: Shared schemas, provider types, and SQLite persistence compile and have focused tests before any route or runner behavior changes.\n\n---\n\n## Phase 3: Technical Scenario 1 - Runner Runs From Local Config (Priority: P1)\n\n**Goal**: Runner startup config controls concurrency, polling, timeout intervals, cleanup intervals, and eligibility scope.\n\n**Independent Test**: Start or simulate a runner config with concurrency `2`, project/runtime eligibility, and interval settings; verify only eligible work is claimed and the runner never owns more than two active jobs.\n\n### Tests for Technical Scenario 1\n\n- [x] T012 [P] [US1] Add runner config parsing tests for env/file defaults, numeric validation, and eligibility scope in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`.\n- [x] T013 [P] [US1] Add control-plane route tests for runner registration storing config-derived concurrency and eligibility in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.\n- [x] T014 [P] [US1] Add SQLite provider tests proving `claimNextRun` respects runner concurrency, project eligibility, and runtime provider eligibility in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n- [x] T015 [P] [US1] Add SQLite provider tests proving runner active work is calculated from durable assigned/starting/running runs instead of `activeRunCount` in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n\n### Implementation for Technical Scenario 1\n\n- [x] T016 [US1] Extend `RunnerConfig` and `readConfig` with concurrency, poll interval, stale window, execution timeout, cancellation check interval, cleanup timeout, eligible project ids, and eligible runtime providers in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.\n- [x] T017 [US1] Send config-derived concurrency and eligibility metadata during runner registration in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.\n- [x] T018 [US1] Parse and persist config-derived runner registration fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/register/route.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T019 [US1] Apply project/runtime eligibility filtering and local concurrency limits in `claimNextRun`, calculating active work from durable active runs instead of `activeRunCount`, in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T020 [US1] Replace the fixed single-job loop with bounded local active-job supervision that respects configured `concurrency` and `pollIntervalSeconds` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.\n\n**Checkpoint**: `pnpm --filter @mystra/shared test`, `pnpm --filter @mystra/control-plane test`, and `pnpm --filter @mystra/runner-daemon test` should pass for config-first claiming.\n\n---\n\n## Phase 4: Technical Scenario 2 - Control Plane Stores Desired And Observed State (Priority: P1)\n\n**Goal**: The control plane durably records cancellation intent and runner observations without becoming a live scheduler.\n\n**Independent Test**: Submit, claim, cancel, complete, and restart control-plane/provider state; verify desired and observed states remain explainable from SQLite records and events.\n\n### Tests for Technical Scenario 2\n\n- [x] T021 [P] [US2] Add provider tests for queued cancellation terminalizing immediately while assigned/running cancellation records desired request metadata in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n- [x] T022 [P] [US2] Add route tests for `/api/jobs/[id]/cancel`, `/api/runner/jobs/[id]/events`, and `/api/runner/jobs/[id]/result` desired request/observed response fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.\n- [x] T023 [P] [US2] Add restart-style provider tests that reopen the SQLite database and verify queued, assigned, running, cancellation request metadata, terminal outcomes, and event records in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n\n### Implementation for Technical Scenario 2\n\n- [x] T024 [US2] Change `cancelJob` to return a typed cancellation outcome and record desired cancellation metadata plus a visible event for assigned/running work in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`; do not transition assigned/running work to a new cancellation-requested run state.\n- [x] T025 [US2] Update `/api/jobs/[id]/cancel` to expose cancellation-requested vs canceled outcomes without adding a public retry/log/callback surface in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/[id]/cancel/route.ts`.\n- [x] T026 [US2] Add runner observation validation and idempotency checks for cleanup, canceled, timed-out, failed, and completed observations in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T027 [US2] Update `/api/runner/jobs/[id]/events` and `/api/runner/jobs/[id]/result` to use the new observation contracts in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/events/route.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/result/route.ts`.\n\n**Checkpoint**: Control-plane tests should show cancellation request metadata and runner observations surviving provider restart without any scheduler or retry behavior.\n\n---\n\n## Phase 5: Technical Scenario 3 - Runner Owns Local Timeout And Cleanup (Priority: P1)\n\n**Goal**: The runner observes cancellation/timeout locally, stops execution, performs cleanup, and reports durable outcomes.\n\n**Independent Test**: Run or simulate one timed-out job and one cancellation-requested job; verify the runner stops local execution, applies cleanup timeout, and reports timed-out/canceled or cleanup-failed outcomes.\n\n### Tests for Technical Scenario 3\n\n- [x] T028 [P] [US3] Add runner-daemon tests for timeout watchdog behavior and cleanup-failure reporting in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`.\n- [x] T029 [P] [US3] Add runner-daemon tests for cancellation polling and local cleanup reporting in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`.\n- [x] T030 [P] [US3] Add control-plane provider tests rejecting duplicate or stale terminal observations after cancellation/timeout in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n\n### Implementation for Technical Scenario 3\n\n- [x] T031 [US3] Add a runner-facing way, using the existing runner route trust boundary, to inspect cancellation request metadata for active runs in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/[id]/route.ts` or the existing claim/result route files under `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/`; do not introduce caller auth in this MVP slice.\n- [x] T032 [US3] Track active child process/container handles and deadline metadata per active run in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.\n- [x] T033 [US3] Implement cancellation polling and execution-timeout watchdog logic using `cancelCheckIntervalSeconds` and `defaultExecutionTimeoutSeconds` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.\n- [x] T034 [US3] Implement bounded cleanup using `cleanupTimeoutSeconds`, stop Docker containers or fake executions, emit cleanup-started events/observations, and report canceled/timed-out/cleanup-failed results in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`; do not add a `cleanup_in_progress` run state.\n- [x] T035 [US3] Ensure Docker task workspace cleanup and result reading remain safe when the container is stopped before writing `result.json` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`.\n\n**Checkpoint**: Runner-daemon tests should cover timeout, cancellation, cleanup failure, and ordinary success without relying on a central cleanup command.\n\n---\n\n## Phase 6: Technical Scenario 4 - Stale Runner State Is Marked, Not Magically Rescheduled (Priority: P2)\n\n**Goal**: Non-reporting runners and their active runs become stale or failed from durable timestamps, with no automatic retry or rebalance.\n\n**Independent Test**: Claim a run, stop heartbeats, run stale evaluation, and verify runner/run state is visibly stale or failed while no new run attempt is created and no other runner receives the work.\n\n### Tests for Technical Scenario 4\n\n- [x] T036 [P] [US4] Add SQLite provider tests for stale runner detection from `lastHeartbeatAt` and configured `staleAfterSeconds` in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n- [x] T037 [P] [US4] Add SQLite provider tests proving stale active runs are marked visible and terminal via existing terminal states plus stale reason metadata/events, without retry, requeue, rebalance, or new attempts, in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n- [x] T038 [P] [US4] Add route tests exposing stale runner/run visibility through existing runner/job inspection surfaces in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`.\n\n### Implementation for Technical Scenario 4\n\n- [x] T039 [US4] Add provider method(s) to mark stale runner sessions and associated active runs from durable timestamps in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`; use existing terminal run states plus stale reason metadata/events, not a new `stale` run state.\n- [x] T040 [US4] Add a minimal internal stale-evaluation route or callable control-plane helper without public retry/rebalance semantics in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/heartbeat/route.ts` or a new internal route under `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/`.\n- [x] T041 [US4] Reject old runner observations that would overwrite newer terminal outcomes or stale-marked terminal outcomes in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T042 [US4] Document the stale evaluation command or route behavior in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.\n\n**Checkpoint**: Stale evaluation produces honest durable state only; no task is retried, requeued, reassigned, or duplicated.\n\n---\n\n## Phase 7: Polish And Cross-Cutting Concerns\n\n**Purpose**: Reconcile feature docs, module knowledge, and full verification after the scenarios land.\n\n- [x] T043 [P] Update runner module documentation for local config variables, concurrency, timeout, cancellation cleanup, and stale behavior in `/Users/arcadia/Documents/mystra/apps/runner-daemon/README.md` or the smallest nearby existing runner doc.\n- [x] T044 [P] Update control-plane/provider documentation for desired vs observed state and stale marking in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/README.md` or the smallest nearby existing provider doc.\n- [x] T045 Update `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/contracts/runner-config.md` and `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/contracts/runner-state.md` to match final implemented names and response shapes.\n- [x] T046 Run `pnpm --filter @mystra/shared test` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.\n- [x] T047 Run `pnpm --filter @mystra/control-plane test` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.\n- [x] T048 Run `pnpm --filter @mystra/runner-daemon test` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.\n- [x] T049 Run `pnpm typecheck` from `/Users/arcadia/Documents/mystra` and record any failure or pass evidence in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.\n- [x] T050 Run `pnpm test` from `/Users/arcadia/Documents/mystra` when the touched surface justifies broad regression evidence and record the result in `/Users/arcadia/Documents/mystra/specs/003-config-first-runner-durability/quickstart.md`.\n\n---\n\n## Dependencies And Execution Order\n\n### Phase Dependencies\n\n- **Setup (Phase 1)**: No dependencies.\n- **Foundational (Phase 2)**: Depends on Setup and blocks all scenario work.\n- **Scenario 1 (Phase 3)**: Depends on Foundational and should land before Scenario 2/3 because config and claim limits are core runner inputs.\n- **Scenario 2 (Phase 4)**: Depends on Foundational and can begin after cancellation/provider contracts are stable.\n- **Scenario 3 (Phase 5)**: Depends on Scenario 2 cancellation/observation contracts and can proceed in parallel with later Scenario 2 route finishing once provider contracts are stable.\n- **Scenario 4 (Phase 6)**: Depends on Foundational and Scenario 2 observation idempotency; can be implemented after P1 behavior is stable.\n- **Polish (Phase 7)**: Depends on the implemented scenario set.\n\n### Scenario Dependencies\n\n- **US1 (P1)**: First MVP slice after Foundational.\n- **US2 (P1)**: Can start after Foundational, but cancellation behavior should be coordinated with US3.\n- **US3 (P1)**: Depends on US2 runner observation/cancellation desired-state contracts.\n- **US4 (P2)**: Depends on durable runner/run timestamps and terminal-observation idempotency.\n\n### Parallel Opportunities\n\n- T002 and T003 can run in parallel.\n- T004 and T005 can begin together; T006 and T007 can begin together after applying the spec3 state representation rule from the engineering review.\n- T012, T013, T014, and T015 can be written in parallel before US1 implementation.\n- T021, T022, and T023 can be written in parallel before US2 implementation.\n- T028, T029, and T030 can be written in parallel before US3 implementation.\n- T036, T037, and T038 can be written in parallel before US4 implementation.\n- T043 and T044 can be written in parallel after implementation behavior is stable.\n\n---\n\n## Parallel Example: Scenario 1\n\n```text\nTask: \"Add runner config parsing tests for env/file defaults, numeric validation, and eligibility scope in /Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts\"\nTask: \"Add control-plane route tests for runner registration storing config-derived concurrency and eligibility in /Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts\"\nTask: \"Add SQLite provider tests proving claimNextRun respects runner concurrency, project eligibility, and runtime provider eligibility in /Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts\"\n```\n\n---\n\n## Implementation Strategy\n\n### MVP First\n\n1. Complete Phase 1 and Phase 2.\n2. Complete Scenario 1 so local config and eligible claiming work.\n3. Complete Scenario 2 and Scenario 3 together enough to prove runner-owned cancellation/timeout cleanup.\n4. Stop and validate all P1 success criteria before stale marking.\n\n### Incremental Delivery\n\n1. Config-first claiming.\n2. Durable cancellation request metadata and runner observations.\n3. Runner-local timeout/cancellation cleanup.\n4. Stale marking without retry or rebalance.\n5. Documentation and broad verification.\n\n### Stop Conditions\n\n- Stop if implementation requires caller auth, logs API, retry API, callback URLs, a hosted runner config API, queue priority, central scheduler, Kubernetes controller behavior, cross-runner shared cache, or per-repository secret management.\n- Stop if implementation attempts to add `cancellation_requested`, `cleanup_in_progress`, or `stale` as `RunState` values. First follow the spec3 event-based state model with desired-state metadata, runner observations, events, and existing active/terminal states. If that cannot satisfy a concrete test, stop and revise `plan.md`/`tasks.md` before changing the enum.\n- Stop if implementation tries to use `activeRunCount` as a correctness source; use durable active-run queries instead.\n\n---\n\n## Summary\n\n- **Total tasks**: 50\n- **US1 tasks**: 8\n- **US2 tasks**: 7\n- **US3 tasks**: 8\n- **US4 tasks**: 7\n- **Parallel opportunities**: 15 test/documentation/setup tasks can run in parallel after their prerequisites.\n- **Suggested MVP scope**: Phase 1, Phase 2, Scenario 1, Scenario 2, and Scenario 3.\n- **Format validation**: All executable tasks use `- [ ] T###` with `[P]` only for parallelizable tasks and `[US#]` only inside scenario phases.\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

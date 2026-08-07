@@ -22,9 +22,10 @@
 - `Search`：从侧边栏打开 modal，在不离开当前 route 的前提下过滤并导航 Task。
 - `Issues`：`/tasks` 继续使用 Castrel-aligned Task table，不跟随 Inbox 改为 master-detail。
 - `Automations`：不进入主菜单；`/automations` 仅保留可直接访问的 `Coming soon` 占位页。
-- `Settings`：左下角入口打开 modal 组件，不再作为 route 页面；设置容器采用 Castrel Settings 的 `240px + 内容区` 双栏、左侧 identity/search/tab、44px 内容标题栏和独立滚动区。Tab 固定为 `Account`、`Appearance`、`Team`、`Integrations`。Appearance 原型覆盖 Language、System/Light/Dark、边缘线模式、代码表面 variant、亮暗主题分别设置、对比度与字体/字号细节、即时预览和复位；当前状态只保存在浏览器，不包含数据库/API。GitHub connection 位于 Integrations，Account/Team 的未支持写操作保持只读/不可用。
+- `Settings`：左下角入口打开 modal 组件，不再作为 route 页面；设置容器采用 Castrel Settings 的 `240px + 内容区` 双栏、左侧 identity/search/tab、44px 内容标题栏和独立滚动区。Tab 固定为 `Account`、`Appearance`、`Team`、`Integrations`。Appearance 原型覆盖 Language、System/Light/Dark、边缘线模式、代码表面 variant、亮暗主题分别设置、对比度与字体/字号细节、即时预览和复位；主题选项包含 Codex 26.730.61639 的完整 catalog，以及置顶的 Mystra light/dark 双变体。当前状态只保存在浏览器，不包含数据库/API。GitHub connection 位于 Integrations，Account/Team 的未支持写操作保持只读/不可用。
 - `Projects`：位于 primary navigation 下方，heading 不显示 count，右侧 ghost plus 进入 Project 创建表面；Project item 直接导航到 Project detail。
 - 左侧 sidebar 的 `Tasks` section 按 Project 分组，Task icon 映射最新 Session 状态。
+- 全局 shell 使用 `Sidebar | Main | Right Panel?`；三列分别拥有 Header/Content。Task 详情将 `Create Session` 放入 Right Panel，其他未注册页面不显示右栏且 Main 自动扩展。
 
 ## 使用方式
 
@@ -36,6 +37,7 @@
 6. 收起/展开左侧栏，检查收起时 sidebar 完整变为 0px 且没有 icon rail；header 显示 Mystra brand、`New` 与重新展开 control。
 7. 打开 New、Inbox 和 Issues，检查居中 composer、Inbox 左卡片/右详情布局与 Issues table；确认主 header 不显示环境说明。
 8. 打开 `mockups/settings-modal.html` 或运行中的 Settings，检查 920×760 上限、四个 Tab、Appearance 中的 mode、border、code surface、浅/深主题、主题细节与 Language，Integrations 中的 GitHub 状态、搜索过滤、选中态、Escape/backdrop close，以及 320/768/1024/1440px 重排。
+9. 打开任一 Task 详情，确认桌面显示 Sidebar/Main/Right Panel 三列及三个独立 Header/Content；再导航到 Issues，确认 Right Panel 与其占用宽度都被清理；在 320px 确认右栏堆叠到 Main 后且无横向溢出。
 
 ## 补充截图
 

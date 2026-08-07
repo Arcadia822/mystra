@@ -25,7 +25,7 @@ export default function TaskDetailPage() {
         <div className="pageIdentity"><Link className="backLink" href="/tasks">← Tasks</Link><strong>{taskLabel(task.id, task.issueDispatchKey)}</strong></div>
         <button className="secondaryButton" type="button" onClick={() => void detail.refresh()}>Refresh</button>
       </div>
-      <div className="detailGrid">
+      <div className="detailStack">
         <section className="panel">
           <div className="panelHeader"><h2>{taskTitle(task)}</h2><span className="mono">{task.id}</span></div>
           <dl className="definitionList">

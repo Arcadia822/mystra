@@ -2,6 +2,7 @@
 
 **Branch**: `041-github-integration-connections` | **Date**: 2026-08-06 | **Spec**: [spec.md](spec.md)
 **Input**: GitHub Integration Detail、多连接、Project 精确连接绑定，以及 GitHub App hosted-only / PAT self-hosted-supported 的部署边界。
+**Supersession Notice (2026-08-06)**: `040-prisma-rdb` supersedes Project full Repository snapshot persistence with connection + provider-stable external ID. Task source, objective and Issue/Repository snapshots are removed, and `dispatchKey` becomes `issueDispatchKey`; current external-information cache is deferred. Session persistence and Session credential-delivery flows below are historical and not part of 040's three-table schema.
 
 ## Summary
 
