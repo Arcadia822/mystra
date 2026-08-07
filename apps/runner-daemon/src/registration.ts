@@ -1,44 +1,63 @@
-import type { AgentName, RunnerRegistration } from "@mystra/shared";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import path from "node:path";
+import type { HostRuntimeRegistration, ProviderCapability } from "@mystra/shared";
 
-interface RunnerRegistrationConfig {
-  runnerName: string;
-  executor: "fake" | "docker";
-  concurrency: number;
-  staleAfterSeconds: number;
-  eligibleProjectIds?: string[] | undefined;
-  eligibleRuntimeProviders?: string[] | undefined;
+export interface RunnerIdStore {
+  read(filePath: string): Promise<string>;
+  write(filePath: string, value: string): Promise<void>;
 }
 
-const fakeExecutorAgents: AgentName[] = ["codex"];
+const runnerIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function buildRunnerRegistrationPayload(
-  config: RunnerRegistrationConfig,
-  registeredAgents: AgentName[] = [],
-): RunnerRegistration {
-  const supportsLocalDockerSmoke = config.executor === "fake";
-  const agents = config.executor === "docker"
-    ? registeredAgents
-    : fakeExecutorAgents;
-  const providers: RunnerRegistration["capabilities"]["providers"] = config.executor === "docker" || supportsLocalDockerSmoke
-    ? ["docker"]
-    : [];
+const localRunnerIdStore: RunnerIdStore = {
+  async read(filePath) {
+    return readFile(filePath, "utf8");
+  },
+  async write(filePath, value) {
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, `${value}\n`, { encoding: "utf8", mode: 0o600 });
+  },
+};
 
+export const defaultRunnerIdPath = path.join(homedir(), ".mystra", "runner-id");
+
+export async function getStableRunnerId(options: {
+  filePath?: string;
+  store?: RunnerIdStore;
+} = {}): Promise<string> {
+  const filePath = options.filePath ?? defaultRunnerIdPath;
+  const store = options.store ?? localRunnerIdStore;
+
+  try {
+    const runnerId = (await store.read(filePath)).trim();
+    if (!runnerIdPattern.test(runnerId)) {
+      throw new Error(`Persisted runner ID at ${filePath} is not a valid UUID`);
+    }
+    return runnerId;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const runnerId = randomUUID();
+  await store.write(filePath, runnerId);
+  return runnerId;
+}
+
+export function buildHostRuntimeRegistrationPayload(input: {
+  runnerId: string;
+  name: string;
+  platform: string;
+  providers: ProviderCapability[];
+}): HostRuntimeRegistration {
   return {
-    runnerName: config.runnerName,
-    capabilities: {
-      executor: config.executor,
-      agents,
-      providers,
-      contextBundleModes: config.executor === "docker" ? ["read-only", "session-scoped"] : [],
-      mountKinds: config.executor === "docker" ? ["workspace", "gitMirror", "cache", "contextBundle", "secret"] : [],
-      portExposure: {
-        supportsDynamicHostPorts: config.executor === "docker",
-      },
-      secretInjectionModes: config.executor === "docker" ? ["env"] : [],
-    },
-    maxConcurrency: config.concurrency,
-    staleAfterSeconds: config.staleAfterSeconds,
-    eligibleProjectIds: config.eligibleProjectIds,
-    eligibleRuntimeProviders: config.eligibleRuntimeProviders,
+    runnerId: input.runnerId,
+    name: input.name,
+    type: "host",
+    platform: input.platform,
+    providers: input.providers,
   };
 }
