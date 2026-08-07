@@ -1,5 +1,7 @@
 # Implementation Plan: Prisma 多数据库 RDB
 
+> **041 amendment (2026-08-06):** Feature 041 adds an internal `SecretEnvelope` model to this Prisma boundary. It does not expand the approved business-object set; RDB stores envelope ciphertext and a wrapped DEK while the KEK and PAT plaintext remain outside RDB.
+
 **Branch**: `040-prisma-rdb` | **Date**: 2026-08-06 | **Spec**: [spec.md](./spec.md)
 **Input**: Prisma 接管 SQLite/PostgreSQL，Supabase 作为 PostgreSQL deployment profile，增加
 启动切换配置与根目录 Installation 文档。

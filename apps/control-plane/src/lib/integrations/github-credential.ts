@@ -121,8 +121,10 @@ export class GitHubCredentialResolver {
 }
 
 export async function defaultGitHubCredentialResolver(): Promise<GitHubCredentialResolver> {
+  const db = await getDb();
+  const secrets = getSecretProvider(db);
   return new GitHubCredentialResolver({
-    db: await getDb(),
-    ...(getSecretProvider() ? { secrets: getSecretProvider()! } : {}),
+    db,
+    ...(secrets ? { secrets } : {}),
   });
 }

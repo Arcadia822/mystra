@@ -18,13 +18,13 @@ import { validateGitHubPat, type GitHubPatValidation } from "./github-pat";
 type PatConnectionDb = Pick<
   RdbProvider,
   | "deleteIntegrationConnection"
+  | "deleteIntegrationConnectionWithSecret"
   | "getIntegrationConnection"
   | "getIntegrationConnectionRecord"
   | "listIntegrationConnectionRecords"
   | "listProjectsForIntegrationConnection"
-  | "replaceIntegrationConnection"
-  | "setIntegrationConnectionStatus"
-  | "upsertIntegrationConnection"
+  | "replaceIntegrationConnectionWithSecret"
+  | "upsertIntegrationConnectionWithSecret"
 >;
 
 export class GitHubPatConnectionService {
@@ -32,17 +32,20 @@ export class GitHubPatConnectionService {
   readonly #secrets: SecretProvider | undefined;
   readonly #validate: (token: string) => Promise<GitHubPatValidation>;
   readonly #newId: () => string;
+  readonly #newCredentialId: () => string;
 
   constructor(input: {
     db: PatConnectionDb;
     secrets?: SecretProvider;
     validate?: (token: string) => Promise<GitHubPatValidation>;
     newId?: () => string;
+    newCredentialId?: () => string;
   }) {
     this.#db = input.db;
     this.#secrets = input.secrets;
     this.#validate = input.validate ?? ((token) => validateGitHubPat(token));
     this.#newId = input.newId ?? randomUUID;
+    this.#newCredentialId = input.newCredentialId ?? randomUUID;
   }
 
   async create(input: PersonalAccessTokenConnectionInput): Promise<IntegrationConnection> {
@@ -54,23 +57,19 @@ export class GitHubPatConnectionService {
         && connection.providerExternalId === validation.providerExternalId
       ));
     const id = existing?.id ?? this.#newId();
-    const credentialRef = existing?.credentialRef ?? `github-pat/${id}`;
+    const credentialRef = `github-pat/${id}/${this.#newCredentialId()}`;
     const secrets = this.#requireSecrets();
-    await secrets.put(credentialRef, request.token);
-    try {
-      const record = await this.#db.upsertIntegrationConnection(this.#upsertInput(
+    const record = await this.#db.upsertIntegrationConnectionWithSecret(
+      this.#upsertInput(
         id,
         credentialRef,
         request.displayName ?? existing?.displayName,
         validation,
-      ));
-      return await this.#publicConnection(record.id);
-    } catch (error) {
-      if (!existing) {
-        await secrets.delete(credentialRef).catch(() => undefined);
-      }
-      throw error;
-    }
+      ),
+      secrets.seal(credentialRef, request.token),
+      existing?.credentialRef,
+    );
+    return await this.#publicConnection(record.id);
   }
 
   async replace(
@@ -80,20 +79,26 @@ export class GitHubPatConnectionService {
     const current = await this.#requirePatRecord(id);
     const request = personalAccessTokenConnectionInputSchema.parse(input);
     const validation = await this.#validate(request.token);
-    const credentialRef = current.credentialRef;
-    if (!credentialRef) {
+    const previousCredentialRef = current.credentialRef;
+    if (!previousCredentialRef) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CREDENTIAL_UNAVAILABLE",
         message: "The PAT connection has no credential reference",
       });
     }
-    await this.#requireSecrets().put(credentialRef, request.token);
-    const replaced = await this.#db.replaceIntegrationConnection(id, this.#upsertInput(
+    const credentialRef = `github-pat/${id}/${this.#newCredentialId()}`;
+    const secrets = this.#requireSecrets();
+    const replaced = await this.#db.replaceIntegrationConnectionWithSecret(
       id,
-      credentialRef,
-      request.displayName ?? current.displayName,
-      validation,
-    ));
+      this.#upsertInput(
+        id,
+        credentialRef,
+        request.displayName ?? current.displayName,
+        validation,
+      ),
+      secrets.seal(credentialRef, request.token),
+      previousCredentialRef,
+    );
     if (!replaced) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
@@ -119,16 +124,24 @@ export class GitHubPatConnectionService {
         details: { projects: projects.map((project) => ({ id: project.id, slug: project.slug })) },
       });
     }
-    await this.#db.setIntegrationConnectionStatus(id, "inactive");
     if (current.authMethod === "personal-access-token" && current.credentialRef) {
+      this.#requireSecrets();
+      let deleted: boolean;
       try {
-        await this.#requireSecrets().delete(current.credentialRef);
+        deleted = await this.#db.deleteIntegrationConnectionWithSecret(id, current.credentialRef);
       } catch {
         throw new IntegrationFailure({
           code: "INTEGRATION_CONNECTION_DELETE_INCOMPLETE",
-          message: "The connection was disabled but its credential could not be removed",
+          message: "The connection and its credential could not be removed",
         });
       }
+      if (!deleted) {
+        throw new IntegrationFailure({
+          code: "INTEGRATION_CONNECTION_NOT_FOUND",
+          message: "Integration connection no longer exists",
+        });
+      }
+      return;
     }
     await this.#db.deleteIntegrationConnection(id);
   }

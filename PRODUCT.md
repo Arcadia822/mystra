@@ -117,7 +117,9 @@ In scope:
 - Session creation and persistence are deferred for separate redesign.
 - Multiple explicit GitHub connections with deployment-aware methods:
   self-hosted Mystra supports personal access tokens behind a protected
-  SecretProvider; hosted Mystra additionally supports the platform-operated
+  SecretProvider. RDB persists only authenticated envelope ciphertext and a
+  wrapped per-secret DEK; PAT plaintext and the deployment KEK stay outside
+  RDB. Hosted Mystra additionally supports the platform-operated
   Mystra GitHub App. OAuth verifies each App installation owner, installation
   tokens remain short-lived, and every Project binds one exact connection for
   repository discovery and delivery. The open-source tree may retain the hosted

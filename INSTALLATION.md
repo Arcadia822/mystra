@@ -19,6 +19,19 @@ pnpm db:generate
 Copy `.env.example` to your local environment file or inject the same variables through
 your process manager. Never commit database URLs or credentials.
 
+## PAT credential encryption
+
+Enable PAT connections with one stable base64-encoded 32-byte KEK in
+`MYSTRA_SECRET_STORE_KEY`. Optionally set the non-secret
+`MYSTRA_SECRET_STORE_KEY_ID` rotation label; it defaults to `env-v1`. Do not
+print either the KEK or a PAT in installation evidence.
+
+Prisma stores only authenticated envelope ciphertext and a KEK-wrapped random
+DEK in `secret_envelopes`. The KEK is never stored in RDB. Back up and restore
+the database and KEK separately; losing the KEK makes the envelopes intentionally
+unrecoverable. PostgreSQL-backed replicas must receive the same active KEK and
+need no shared filesystem or node affinity.
+
 ## 2. SQLite
 
 SQLite is the default and requires no external database server.

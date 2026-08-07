@@ -26,8 +26,8 @@
 - [ ] T007 在 `packages/shared/src/schemas.ts` 实现 Project create optional defaults，同时保持 resolved Project 的 Agent/runtime 必填
 - [ ] T008 [P] 在 `apps/control-plane/src/lib/projects/project-defaults.test.ts` 为环境覆盖、内建默认值与无效空值编写失败测试
 - [ ] T009 在 `apps/control-plane/src/lib/projects/project-defaults.ts` 实现 `readProjectDefaults()`，默认 `copilot` 与 `mystra-runner:local`
-- [ ] T010 [P] 在 `apps/control-plane/src/lib/secrets/encrypted-file-secret-provider.test.ts` 为 AES-GCM round-trip、错误 key/auth tag、权限与 path traversal 编写失败测试
-- [ ] T011 在 `apps/control-plane/src/lib/secrets/secret-provider.ts` 与 `apps/control-plane/src/lib/secrets/encrypted-file-secret-provider.ts` 实现 `SecretProvider` 和安全文件实现
+- [x] T010 [P] （已实现后由 owner 批准的 T056-T061 RDB envelope amendment 取代）原 encrypted-file AES-GCM 测试
+- [x] T011 （已实现后由 owner 批准的 T056-T061 RDB envelope amendment 取代）原 file-backed `SecretProvider`
 - [ ] T012 在 `apps/control-plane/src/lib/db/sqlite-provider.test.ts` 为 exact v4→v5 migration、多 active connection、稳定 upsert、Project 引用删除阻塞和 unknown schema fail-closed 编写失败测试
 - [ ] T013 在 `apps/control-plane/src/lib/db/rdb-provider.ts` 定义 public/internal record 分离和 connection-level persistence 方法
 - [ ] T014 在 `apps/control-plane/src/lib/db/migrations.ts` 与 `apps/control-plane/src/lib/db/sqlite-provider.ts` 实现 schema v5 保序迁移并移除 integration-wide active unique index
@@ -136,6 +136,19 @@
 - [x] T055 更新模块文档、Spec View，并运行 focused tests、typecheck、build、真实浏览器与泄露检查
 
 ---
+
+## Phase 9: RDB envelope SecretProvider amendment
+
+**Goal**: Remove node-local secret files while keeping PAT plaintext outside RDB and making PostgreSQL-backed self-hosted replicas viable.
+
+- [x] T056 Update 041/durable contracts from file-backed encryption to RDB envelope encryption with external KEK
+- [x] T057 [P] Add failing SQLite/PostgreSQL schema parity and RdbProvider contract tests for immutable `SecretEnvelope` CRUD
+- [x] T058 [P] Add failing SecretProvider tests for random DEK wrapping, AAD integrity, wrong KEK, tampering, missing rows, and plaintext leakage
+- [x] T059 Add failing PAT lifecycle tests proving create/replace/delete couple envelope and `credentialRef` in one transaction and preserve the old credential on failure
+- [x] T060 Add `SecretEnvelope` to both Prisma schemas/migrations and keep generated Prisma types inside the DB module
+- [x] T061 Implement `RdbSecretProvider`, remove `EncryptedFileSecretProvider`/path configuration, and compose it with the selected `RdbProvider`
+- [x] T062 Update PAT routes/resolver to the async Prisma composition root without changing public API shapes
+- [ ] T063 Run focused tests, schema validation, typecheck/build, plaintext leak audit, port-3000 API/UI verification, and record the LadybugDB impact-analysis blocker
 
 ## Dependencies & Execution Order
 

@@ -4,7 +4,7 @@
 
 ### I. Specification Owns Product Boundaries
 
-Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary while durable relational state stores only non-secret metadata and opaque references. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. Hosted caller authentication, Team authorization, managed platform secrets, and installation lifecycle handling are prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
+Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. Hosted caller authentication, Team authorization, managed platform secrets, and installation lifecycle handling are prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
 
 ### II. Typed Contracts at Service Boundaries
 
@@ -33,8 +33,9 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   connection bound by the Project. OAuth user tokens are verification-only and
   MUST not be persisted; installation access tokens are short-lived and MUST
   NOT appear in durable state, logs, public responses, or evidence. PAT
-  plaintext MUST remain behind `SecretProvider` and MUST NOT enter RDB, public
-  responses, URLs, logs, or evidence. App and PAT modes never silently fall
+  plaintext and the KEK MUST remain behind `SecretProvider` and MUST NOT enter
+  RDB, public responses, URLs, logs, or evidence. RDB may persist only the
+  authenticated encryption envelope and wrapped per-secret DEK. App and PAT modes never silently fall
   back to each other.
 - GitHub App capability MUST be derived from trusted server deployment policy,
   not from client input or the mere presence of App environment variables.
@@ -64,6 +65,12 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 
 ## Amendment Notes
 
+- 2026-08-06: Replaced the node-local encrypted-file SecretProvider with an
+  RdbProvider-backed envelope model. PAT plaintext remains confined to
+  SecretProvider; each PAT uses a random DEK, the deployment KEK remains outside
+  RDB, and connection reference changes share one database transaction with the
+  envelope lifecycle. This permits PostgreSQL-backed self-hosted replicas without
+  node affinity and preserves a future KMS wrapping seam.
 - 2026-08-06: Limited the first Prisma persistence schema to
   IntegrationConnection, Project, and Task. Session, Runtime/Runner,
   ContextBundle, event, and artifact persistence require new specifications;

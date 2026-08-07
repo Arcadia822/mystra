@@ -10,15 +10,18 @@ import { PrismaRdbProvider } from "./prisma-provider";
 import { runRdbProviderContract } from "./rdb-provider.contract";
 
 const tempDirectory = mkdtempSync(path.join(tmpdir(), "mystra-prisma-contract-"));
-const migration = readFileSync(
-  path.join(process.cwd(), "prisma/sqlite/migrations/20260806182000_init/migration.sql"),
+const migrations = [
+  "20260806182000_init",
+  "20260806210000_secret_envelopes",
+].map((directory) => readFileSync(
+  path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
-);
+));
 
 function createDatabasePath(): string {
   const databasePath = path.join(tempDirectory, `${crypto.randomUUID()}.db`);
   const database = new Database(databasePath);
-  database.exec(migration);
+  for (const migration of migrations) database.exec(migration);
   database.close();
   return databasePath;
 }

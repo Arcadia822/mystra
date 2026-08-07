@@ -1,7 +1,9 @@
 # Control Plane DB Provider
 
-This module owns Mystra's async `RdbProvider` boundary and the complete first-phase relational
-model: `IntegrationConnection`, `Project`, and `Task`.
+This module owns Mystra's async `RdbProvider` boundary and the complete first-phase business
+model: `IntegrationConnection`, `Project`, and `Task`. Feature 041 additionally uses one internal
+`SecretEnvelope` persistence model for authenticated ciphertext and wrapped per-secret DEKs.
+PAT plaintext and the KEK never enter Prisma or RDB; `SecretProvider` owns cryptography.
 
 ## Invariants
 

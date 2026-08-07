@@ -1,5 +1,7 @@
 # 数据模型：Prisma 多数据库 RDB
 
+> **041 amendment (2026-08-06):** In addition to the three approved business models below, the Prisma schema now owns one internal `SecretEnvelope` model. It contains authenticated ciphertext and a wrapped per-secret DEK, is not a business/public model, and never contains PAT plaintext or the deployment KEK.
+
 **Status**: Owner approved
 **Audited baseline**: merged `main@10750ca`（包含 039 与 041）
 **Audited on**: 2026-08-06

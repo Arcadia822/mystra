@@ -1,28 +1,37 @@
 import { createHash } from "node:crypto";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import Database from "better-sqlite3";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { SqliteRdbProvider } from "../db/sqlite-provider";
-import type { SecretProvider } from "../secrets/secret-provider";
+import { createSqlitePrismaClient } from "../db/prisma-client";
+import { PrismaRdbProvider } from "../db/prisma-provider";
+import { RdbSecretProvider } from "../secrets/rdb-secret-provider";
 import { IntegrationFailure } from "./errors";
 import { GitHubPatConnectionService } from "./github-pat-service";
 
-class MemorySecretProvider implements SecretProvider {
-  readonly values = new Map<string, string>();
+const tempDirectories: string[] = [];
+const migrations = [
+  "20260806182000_init",
+  "20260806210000_secret_envelopes",
+].map((directory) => readFileSync(
+  path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
+  "utf8",
+));
 
-  async put(reference: string, plaintext: string): Promise<void> {
-    this.values.set(reference, plaintext);
-  }
-
-  async get(reference: string): Promise<string> {
-    const value = this.values.get(reference);
-    if (!value) throw new Error("missing");
-    return value;
-  }
-
-  async delete(reference: string): Promise<void> {
-    this.values.delete(reference);
-  }
+function openDb() {
+  const directory = mkdtempSync(path.join(tmpdir(), "mystra-pat-service-"));
+  tempDirectories.push(directory);
+  const databasePath = path.join(directory, "mystra.db");
+  const database = new Database(databasePath);
+  for (const migration of migrations) database.exec(migration);
+  database.close();
+  return {
+    databasePath,
+    db: new PrismaRdbProvider(createSqlitePrismaClient({ databaseUrl: `file:${databasePath}` })),
+  };
 }
 
 function validation(token: string) {
@@ -41,53 +50,67 @@ function validation(token: string) {
   });
 }
 
+afterEach(() => {
+  while (tempDirectories.length > 0) rmSync(tempDirectories.pop()!, { recursive: true, force: true });
+});
+
 describe("GitHubPatConnectionService", () => {
-  it("stores plaintext only in SecretProvider and returns a public connection", async () => {
-    const db = new SqliteRdbProvider();
-    const secrets = new MemorySecretProvider();
+  it("stores only an envelope in RDB and returns no credential reference", async () => {
+    const { db, databasePath } = openDb();
+    const secrets = new RdbSecretProvider({ db, key: Buffer.alloc(32, 7), keyId: "test-v1" });
     const service = new GitHubPatConnectionService({
       db,
       secrets,
       validate: validation,
       newId: () => "00000000-0000-4000-8000-000000000041",
+      newCredentialId: () => "00000000-0000-4000-8000-000000000042",
     });
 
     const connection = await service.create({ token: "github_pat_create", displayName: "Delivery" });
+    const record = await db.getIntegrationConnectionRecord(connection.id);
 
     expect(connection).toMatchObject({
       id: "00000000-0000-4000-8000-000000000041",
-      connectionType: "personal-access-token",
+      authMethod: "personal-access-token",
       displayName: "Delivery",
       credentialState: "ready",
     });
-    expect(connection.externalId).toBeUndefined();
-    expect(secrets.values.get("github-pat/00000000-0000-4000-8000-000000000041"))
-      .toBe("github_pat_create");
-    expect(JSON.stringify(db.listIntegrationConnectionRecords())).not.toContain("github_pat_create");
-    db.close();
+    expect(connection).not.toHaveProperty("credentialRef");
+    expect(record?.credentialRef).toBe(
+      "github-pat/00000000-0000-4000-8000-000000000041/00000000-0000-4000-8000-000000000042",
+    );
+    expect(await secrets.get(record!.credentialRef!)).toBe("github_pat_create");
+    expect(readFileSync(databasePath)).not.toContain(Buffer.from("github_pat_create"));
+    await db.close();
   });
 
-  it("validates replacement before writing and keeps the old credential after failure", async () => {
-    const db = new SqliteRdbProvider();
-    const secrets = new MemorySecretProvider();
+  it("validates before replacement and atomically removes the old envelope", async () => {
+    const { db } = openDb();
+    const secrets = new RdbSecretProvider({ db, key: Buffer.alloc(32, 8), keyId: "test-v1" });
+    const credentialIds = [
+      "00000000-0000-4000-8000-000000000042",
+      "00000000-0000-4000-8000-000000000043",
+    ];
     const service = new GitHubPatConnectionService({
       db,
       secrets,
       validate: validation,
       newId: () => "00000000-0000-4000-8000-000000000041",
+      newCredentialId: () => credentialIds.shift()!,
     });
     const connection = await service.create({ token: "github_pat_old" });
+    const oldReference = (await db.getIntegrationConnectionRecord(connection.id))!.credentialRef!;
 
     await expect(service.replace(connection.id, { token: "invalid" })).rejects.toMatchObject({
       code: "INTEGRATION_CREDENTIAL_INVALID",
     });
-    expect(secrets.values.get("github-pat/00000000-0000-4000-8000-000000000041"))
-      .toBe("github_pat_old");
+    expect(await secrets.get(oldReference)).toBe("github_pat_old");
 
-    const replaced = await service.replace(connection.id, { token: "github_pat_new" });
-    expect(replaced.id).toBe(connection.id);
-    expect(secrets.values.get("github-pat/00000000-0000-4000-8000-000000000041"))
-      .toBe("github_pat_new");
-    db.close();
+    await service.replace(connection.id, { token: "github_pat_new" });
+    const newReference = (await db.getIntegrationConnectionRecord(connection.id))!.credentialRef!;
+    expect(newReference).not.toBe(oldReference);
+    await expect(secrets.get(oldReference)).rejects.toThrow("Secret is unavailable");
+    expect(await secrets.get(newReference)).toBe("github_pat_new");
+    await db.close();
   });
 });

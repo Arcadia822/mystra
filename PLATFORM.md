@@ -92,7 +92,7 @@ pnpm lsp:typescript
 RdbProvider           SQLite, PostgreSQL, or Supabase-backed PostgreSQL
 IntegrationPlugin     named repository and/or Issue capabilities
 IntegrationConnection durable non-secret binding to one provider authorization
-SecretProvider        protected credential material resolved by opaque reference
+SecretProvider        plaintext crypto boundary; RDB persists only encrypted envelopes
 RepoProvider          remote repository discovery and identity
 IssueProvider         GitHub repository-scoped; Linear read-only
 SandboxProvider       single-machine Docker first
@@ -117,9 +117,10 @@ an installation to the selected Team. OAuth transactions bind a one-time nonce,
 actor, Team, installation intent, expiry, and safe return path in server-side
 state. OAuth user tokens are discarded after verification. GitHub App identity
 secrets are platform-owned; installation access tokens are minted on demand and
-expire quickly. PAT plaintext is stored only behind the deployment's
-`SecretProvider`; RDB keeps non-secret connection metadata and an opaque secret
-reference. App and PAT modes never silently fall back to one another, and
+expire quickly. PAT plaintext enters only the deployment's `SecretProvider`;
+RDB keeps connection metadata, an opaque secret reference, and envelope-encrypted
+ciphertext. A per-secret DEK encrypts the PAT and a KEK outside RDB wraps that
+DEK. App and PAT modes never silently fall back to one another, and
 repository discovery plus RepoDeliveryProvider clone/push/review always resolve
 the exact connection bound by the Project.
 
@@ -173,7 +174,8 @@ runtime or persistence contract.
 | OAuth transaction state | Not used for App connections | Durable, one-time, actor- and Team-bound |
 | Installation tokens | Never minted | Short-lived and never durable |
 
-Self-hosted is a real single-node product shape, not a simulation of Mystra
-Cloud. Hosted operation adds Team authorization, managed secrets, durable OAuth
+Self-hosted supports SQLite single-node operation and shared PostgreSQL-backed
+control-plane replicas; its SecretProvider does not impose node-local storage or
+affinity. Hosted operation adds Team authorization, managed secrets, durable OAuth
 transactions, and shared provider pools without changing Task, Session, Runner,
 or Project repository provenance contracts.

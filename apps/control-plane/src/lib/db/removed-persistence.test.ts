@@ -17,7 +17,8 @@ describe("removed persistence surfaces", () => {
   it("keeps removed models out of both Prisma schemas", () => {
     for (const provider of ["sqlite", "postgresql"]) {
       const source = readFileSync(path.join(process.cwd(), `prisma/${provider}/schema.prisma`), "utf8");
-      expect(source.match(/^model\s+/gmu)).toHaveLength(3);
+      expect(source.match(/^model\s+/gmu)).toHaveLength(4);
+      expect(source).toMatch(/model\s+SecretEnvelope\b/u);
       expect(source).not.toMatch(/model\s+(?:Session|Runner|ContextBundle|Artifact|SessionEvent|MystraSchema)\b/u);
     }
   });

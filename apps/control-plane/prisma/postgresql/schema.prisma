@@ -62,3 +62,20 @@ model Task {
   @@index([createdAt, id])
   @@map("tasks")
 }
+
+model SecretEnvelope {
+  reference             String @id
+  version               Int
+  algorithm             String
+  keyId                 String @map("key_id")
+  ciphertext            String
+  ciphertextIv          String @map("ciphertext_iv")
+  ciphertextAuthTag     String @map("ciphertext_auth_tag")
+  wrappedDataKey        String @map("wrapped_data_key")
+  wrappedDataKeyIv      String @map("wrapped_data_key_iv")
+  wrappedDataKeyAuthTag String @map("wrapped_data_key_auth_tag")
+  createdAt             String @map("created_at")
+
+  @@index([createdAt, reference])
+  @@map("secret_envelopes")
+}

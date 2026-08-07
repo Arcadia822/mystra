@@ -36,12 +36,30 @@ export type IssueDispatchResult = {
   created: boolean;
 };
 
+export type SecretEnvelopeWrite = {
+  reference: string;
+  version: 1;
+  algorithm: "aes-256-gcm+aes-256-gcm-wrap";
+  keyId: string;
+  ciphertext: string;
+  ciphertextIv: string;
+  ciphertextAuthTag: string;
+  wrappedDataKey: string;
+  wrappedDataKeyIv: string;
+  wrappedDataKeyAuthTag: string;
+};
+
+export type SecretEnvelopeRecord = SecretEnvelopeWrite & {
+  createdAt: string;
+};
+
 /**
  * Domain-owned relational persistence boundary.
  *
  * Prisma clients, driver adapters, connection URLs, pools, and database error
  * types must never appear in this contract. The first Prisma phase deliberately
- * contains only IntegrationConnection, Project, and Task persistence.
+ * contains IntegrationConnection, Project, and Task business persistence plus
+ * the internal encrypted-secret envelope required by feature 041.
  */
 export interface RdbProvider {
   close(): Promise<void>;
@@ -71,6 +89,22 @@ export interface RdbProvider {
   ): Promise<IntegrationConnectionRecord | undefined>;
   deleteIntegrationConnection(id: string): Promise<boolean>;
   listProjectsForIntegrationConnection(id: string): Promise<Project[]>;
+
+  createSecretEnvelope(input: SecretEnvelopeWrite): Promise<void>;
+  getSecretEnvelope(reference: string): Promise<SecretEnvelopeRecord | undefined>;
+  deleteSecretEnvelope(reference: string): Promise<void>;
+  upsertIntegrationConnectionWithSecret(
+    input: IntegrationConnectionUpsert,
+    envelope: SecretEnvelopeWrite,
+    previousReference?: string,
+  ): Promise<IntegrationConnectionRecord>;
+  replaceIntegrationConnectionWithSecret(
+    id: string,
+    input: IntegrationConnectionUpsert,
+    envelope: SecretEnvelopeWrite,
+    previousReference: string,
+  ): Promise<IntegrationConnectionRecord | undefined>;
+  deleteIntegrationConnectionWithSecret(id: string, reference: string): Promise<boolean>;
 
   createProject(input: ProjectCreate): Promise<Project>;
   listProjects(options?: { includeArchived?: boolean }): Promise<Project[]>;

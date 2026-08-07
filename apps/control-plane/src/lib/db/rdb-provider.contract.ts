@@ -4,6 +4,21 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 
 import type { RdbProvider } from "./rdb-provider";
 
+function envelope(reference: string) {
+  return {
+    reference,
+    version: 1 as const,
+    algorithm: "aes-256-gcm+aes-256-gcm-wrap" as const,
+    keyId: "contract-v1",
+    ciphertext: "Y2lwaGVydGV4dA==",
+    ciphertextIv: "MDEyMzQ1Njc4OWFi",
+    ciphertextAuthTag: "MDEyMzQ1Njc4OWFiY2RlZg==",
+    wrappedDataKey: "d3JhcHBlZA==",
+    wrappedDataKeyIv: "YWJjZGVmMDEyMzQ1",
+    wrappedDataKeyAuthTag: "ZmVkY2JhOTg3NjU0MzIxMA==",
+  };
+}
+
 export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>): void {
   let db: RdbProvider;
 
@@ -84,6 +99,63 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     await expect(db.deleteIntegrationConnection(created.id)).rejects.toMatchObject({
       code: "INTEGRATION_CONNECTION_IN_USE",
     });
+  });
+
+  it("persists immutable envelopes and atomically follows a PAT credential lifecycle", async () => {
+    const id = randomUUID();
+    const firstReference = `github-pat/${id}/${randomUUID()}`;
+    const secondReference = `github-pat/${id}/${randomUUID()}`;
+    const input = {
+      id,
+      integration: "github",
+      provider: "github",
+      authMethod: "personal-access-token",
+      providerExternalId: `pat:${randomUUID()}`,
+      displayName: "Envelope contract",
+      providerSubject: { login: "octocat" },
+      connectionConfig: {},
+      capabilities: {},
+      credentialState: "ready" as const,
+      credentialRef: firstReference,
+      status: "active" as const,
+    };
+
+    const created = await db.upsertIntegrationConnectionWithSecret(input, envelope(firstReference));
+    expect(created.credentialRef).toBe(firstReference);
+    expect(await db.getSecretEnvelope(firstReference)).toMatchObject({
+      reference: firstReference,
+      keyId: "contract-v1",
+    });
+
+    const collidingReference = `github-pat/${id}/${randomUUID()}`;
+    await db.createSecretEnvelope(envelope(collidingReference));
+    await expect(db.replaceIntegrationConnectionWithSecret(
+      id,
+      { ...input, providerExternalId: `pat:${randomUUID()}`, credentialRef: collidingReference },
+      envelope(collidingReference),
+      firstReference,
+    )).rejects.toMatchObject({ code: "INTEGRATION_CONNECTION_CONFLICT" });
+    expect((await db.getIntegrationConnectionRecord(id))?.credentialRef).toBe(firstReference);
+    expect(await db.getSecretEnvelope(firstReference)).toBeDefined();
+
+    const replaced = await db.replaceIntegrationConnectionWithSecret(
+      id,
+      { ...input, providerExternalId: `pat:${randomUUID()}`, credentialRef: secondReference },
+      envelope(secondReference),
+      firstReference,
+    );
+    expect(replaced?.credentialRef).toBe(secondReference);
+    expect(await db.getSecretEnvelope(firstReference)).toBeUndefined();
+    expect(await db.getSecretEnvelope(secondReference)).toBeDefined();
+
+    await expect(db.deleteIntegrationConnectionWithSecret(id, firstReference))
+      .rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    expect(await db.getIntegrationConnectionRecord(id)).toBeDefined();
+    expect(await db.getSecretEnvelope(secondReference)).toBeDefined();
+
+    expect(await db.deleteIntegrationConnectionWithSecret(id, secondReference)).toBe(true);
+    expect(await db.getIntegrationConnectionRecord(id)).toBeUndefined();
+    expect(await db.getSecretEnvelope(secondReference)).toBeUndefined();
   });
 
   it("persists projects with immutable repository identity and deterministic ordering", async () => {

@@ -57,7 +57,7 @@ const schemaV5Columns: Record<string, string[]> = {
   artifacts: ["id", "session_id", "task_id", "kind", "name", "uri", "metadata", "created_at"],
 };
 
-const prismaBusinessColumns: Record<string, string[]> = {
+const prismaPersistedColumns: Record<string, string[]> = {
   integration_connections: [
     "id", "integration", "provider", "auth_method", "provider_external_id", "display_name",
     "provider_subject", "connection_config", "capabilities", "credential_ref", "credential_state",
@@ -68,6 +68,11 @@ const prismaBusinessColumns: Record<string, string[]> = {
     "repository_base_branch", "metadata", "archived_at", "created_at", "updated_at",
   ],
   tasks: ["id", "project_id", "issue_dispatch_key", "metadata", "created_at", "updated_at"],
+  secret_envelopes: [
+    "reference", "version", "algorithm", "key_id", "ciphertext", "ciphertext_iv",
+    "ciphertext_auth_tag", "wrapped_data_key", "wrapped_data_key_iv",
+    "wrapped_data_key_auth_tag", "created_at",
+  ],
 };
 
 export function inspectSqliteAdoption(databasePath: string): SqliteAdoptionInspection {
@@ -81,8 +86,8 @@ export function inspectSqliteAdoption(databasePath: string): SqliteAdoptionInspe
       }
     }
     if (
-      sameSet(tables, ["_prisma_migrations", ...Object.keys(prismaBusinessColumns)])
-      && hasExactColumns(database, prismaBusinessColumns)
+      sameSet(tables, ["_prisma_migrations", ...Object.keys(prismaPersistedColumns)])
+      && hasExactColumns(database, prismaPersistedColumns)
     ) {
       return { state: "prisma", counts: readCounts(database) };
     }

@@ -33,6 +33,8 @@ import type {
   IntegrationConnectionUpsert,
   IssueDispatchResult,
   RdbProvider,
+  SecretEnvelopeRecord,
+  SecretEnvelopeWrite,
 } from "./rdb-provider";
 
 type PrismaRdbProviderOptions = {
@@ -198,6 +200,128 @@ export class PrismaRdbProvider implements RdbProvider {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
     return rows.map(mapProject);
+  }
+
+  async createSecretEnvelope(input: SecretEnvelopeWrite): Promise<void> {
+    try {
+      await this.#client.secretEnvelope.create({
+        data: { ...input, createdAt: this.#now() },
+      });
+    } catch (error) {
+      throw normalizeDatabaseError(error, {
+        conflictCode: "RDB_CONFLICT",
+        conflictMessage: "Secret reference already exists",
+      });
+    }
+  }
+
+  async getSecretEnvelope(reference: string): Promise<SecretEnvelopeRecord | undefined> {
+    const row = await this.#client.secretEnvelope.findUnique({ where: { reference } });
+    return row ? mapSecretEnvelope(row) : undefined;
+  }
+
+  async deleteSecretEnvelope(reference: string): Promise<void> {
+    await this.#client.secretEnvelope.deleteMany({ where: { reference } });
+  }
+
+  async upsertIntegrationConnectionWithSecret(
+    input: IntegrationConnectionUpsert,
+    envelope: SecretEnvelopeWrite,
+    previousReference?: string,
+  ): Promise<IntegrationConnectionRecord> {
+    assertEnvelopeMatchesConnection(input, envelope);
+    const timestamp = this.#now();
+    try {
+      const row = await this.#client.transaction(async (transaction) => {
+        const identity = {
+          integration: input.integration,
+          provider: input.provider,
+          providerExternalId: input.providerExternalId,
+        };
+        const current = await transaction.integrationConnection.findUnique({
+          where: { integration_provider_providerExternalId: identity },
+        });
+        if (
+          (current && current.credentialRef !== previousReference)
+          || (!current && previousReference !== undefined)
+        ) {
+          throw new RdbError("RDB_CONFLICT", "Credential reference changed concurrently");
+        }
+        await transaction.secretEnvelope.create({
+          data: { ...envelope, createdAt: timestamp },
+        });
+        const connection = await transaction.integrationConnection.upsert({
+          where: { integration_provider_providerExternalId: identity },
+          create: { id: input.id ?? this.#newId(), createdAt: timestamp, ...connectionWriteData(input, timestamp) },
+          update: connectionWriteData(input, timestamp),
+        });
+        if (previousReference && previousReference !== envelope.reference) {
+          await transaction.secretEnvelope.deleteMany({ where: { reference: previousReference } });
+        }
+        return connection;
+      });
+      return mapIntegrationConnectionRecord(row);
+    } catch (error) {
+      throw normalizeDatabaseError(error, {
+        conflictCode: "INTEGRATION_CONNECTION_CONFLICT",
+        conflictMessage: "Integration connection or secret identity already exists",
+      });
+    }
+  }
+
+  async replaceIntegrationConnectionWithSecret(
+    id: string,
+    input: IntegrationConnectionUpsert,
+    envelope: SecretEnvelopeWrite,
+    previousReference: string,
+  ): Promise<IntegrationConnectionRecord | undefined> {
+    assertEnvelopeMatchesConnection(input, envelope);
+    const timestamp = this.#now();
+    try {
+      const row = await this.#client.transaction(async (transaction) => {
+        const current = await transaction.integrationConnection.findUnique({ where: { id } });
+        if (!current || current.credentialRef !== previousReference) return undefined;
+        await transaction.secretEnvelope.create({
+          data: { ...envelope, createdAt: timestamp },
+        });
+        const updated = await transaction.integrationConnection.updateMany({
+          where: { id, credentialRef: previousReference },
+          data: connectionWriteData(input, timestamp),
+        });
+        if (updated.count === 0) {
+          throw new RdbError("RDB_CONFLICT", "Credential reference changed concurrently");
+        }
+        await transaction.secretEnvelope.deleteMany({ where: { reference: previousReference } });
+        return transaction.integrationConnection.findUnique({ where: { id } });
+      });
+      return row ? mapIntegrationConnectionRecord(row) : undefined;
+    } catch (error) {
+      throw normalizeDatabaseError(error, {
+        conflictCode: "INTEGRATION_CONNECTION_CONFLICT",
+        conflictMessage: "Integration connection or secret identity already exists",
+      });
+    }
+  }
+
+  async deleteIntegrationConnectionWithSecret(id: string, reference: string): Promise<boolean> {
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        const current = await transaction.integrationConnection.findUnique({ where: { id } });
+        if (!current) return false;
+        if (current.credentialRef !== reference) {
+          throw new RdbError("RDB_CONFLICT", "Credential reference changed concurrently");
+        }
+        const result = await transaction.integrationConnection.deleteMany({ where: { id } });
+        if (result.count === 0) return false;
+        await transaction.secretEnvelope.deleteMany({ where: { reference } });
+        return true;
+      });
+    } catch (error) {
+      throw normalizeDatabaseError(error, {
+        relationCode: "INTEGRATION_CONNECTION_IN_USE",
+        relationMessage: "Integration connection is still used by Projects",
+      });
+    }
   }
 
   async createProject(input: ProjectCreate): Promise<Project> {
@@ -430,4 +554,36 @@ function integrationConnectionWithoutCredential(
 ): IntegrationConnection {
   const { credentialRef: _credentialRef, ...connection } = record;
   return connection;
+}
+
+function mapSecretEnvelope(row: {
+  reference: string;
+  version: number;
+  algorithm: string;
+  keyId: string;
+  ciphertext: string;
+  ciphertextIv: string;
+  ciphertextAuthTag: string;
+  wrappedDataKey: string;
+  wrappedDataKeyIv: string;
+  wrappedDataKeyAuthTag: string;
+  createdAt: string;
+}): SecretEnvelopeRecord {
+  if (row.version !== 1 || row.algorithm !== "aes-256-gcm+aes-256-gcm-wrap") {
+    throw new RdbError("RDB_UNAVAILABLE", "Secret envelope format is unsupported");
+  }
+  return {
+    ...row,
+    version: 1,
+    algorithm: "aes-256-gcm+aes-256-gcm-wrap",
+  };
+}
+
+function assertEnvelopeMatchesConnection(
+  input: IntegrationConnectionUpsert,
+  envelope: SecretEnvelopeWrite,
+): void {
+  if (!input.credentialRef || input.credentialRef !== envelope.reference) {
+    throw new RdbError("RDB_CONFLICT", "Secret envelope does not match the credential reference");
+  }
 }

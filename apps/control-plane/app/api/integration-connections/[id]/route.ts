@@ -16,9 +16,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
+    const db = await getDb();
+    const secrets = getSecretProvider(db);
     const service = new GitHubPatConnectionService({
-      db: getDb(),
-      ...(getSecretProvider() ? { secrets: getSecretProvider()! } : {}),
+      db,
+      ...(secrets ? { secrets } : {}),
     });
     await service.delete(id);
     return noStore(new NextResponse(null, { status: 204 }));

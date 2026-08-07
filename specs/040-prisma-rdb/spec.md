@@ -1,5 +1,7 @@
 # 功能规格：Prisma 多数据库 RDB
 
+> **041 amendment (2026-08-06):** The three-business-table scope remains intact for IntegrationConnection, Project, and Task. The owner subsequently approved one internal `SecretEnvelope` persistence model so PAT ciphertext can share the selected RDB without placing plaintext or the KEK in it. Feature 041 owns that encrypted-secret contract and its atomic connection lifecycle.
+
 **Feature Branch**: `040-prisma-rdb`
 **Created**: 2026-08-05
 **Revised**: 2026-08-06
