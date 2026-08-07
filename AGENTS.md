@@ -182,7 +182,15 @@ SDK surfaces where upstream does not provide reusable package contracts. The
 current provider set is selectable SQLite, PostgreSQL, or Supabase-backed
 PostgreSQL behind `RdbProvider`, GitHub Integration with
 remote `RepoProvider` plus repository-scoped `IssueProvider`, read-only Linear
-`IssueProvider`, direct Agent execution, and a single-machine Docker sandbox.
+`IssueProvider`, direct Agent execution, and Runtime as a first-class execution
+backend that advertises its Provider (agent CLI) capabilities source-agnostically.
+A host-bound Runtime enrolled by the TypeScript `mystra-runner` — registration
+(endpoint-configured, no MVP pairing), Provider discovery plus availability
+confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is
+one sandbox provider rather than the sole execution model, and host worktree
+direct execution is the intended default execution direction (feature 044 owns
+host Runtime enrollment; task dispatch, Context/worktree management, Agent
+configuration, and execution/Session remain follow-up specs).
 Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
 Mutable repository names, URLs, default-branch observations, visibility, and archive/delete state are
 not Project persistence; their retrieval and caching require a separate specification. Task source, objective and
@@ -210,7 +218,10 @@ Task is currently a durable Project-scoped identity with optional Issue dispatch
 objective and external snapshots are deferred. Session remains the intended
 name for a future execution concept, but its persistence, Task relation, fields,
 state machine and CRUD are currently undefined and require a new specification.
-Runtime/Runner persistence is likewise deferred. Runner protocol bookkeeping
+Runtime is a first-class execution backend that advertises its available
+Provider capabilities; feature 044 owns host Runtime enrollment plus that
+capability's persistence (registration, Provider discovery/availability,
+heartbeat/status). Runner protocol bookkeeping
 and internal execution facts are not business objects, and a public activity
 timeline is explicitly deferred.
 
@@ -279,24 +290,25 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (6946 symbols, 10933 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (6206 symbols, 9845 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER edit a function, class, or method without first running `impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
 
 ## Resources
 
@@ -339,6 +351,8 @@ This project is indexed by GitNexus as **mystra** (6946 symbols, 10933 relations
 - SQLite via `RdbProvider`；只保存 IntegrationConnection 非秘密元数据和 Project connection reference (039-github-project-onboarding)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto` / `fs`、GitHub REST API、现有 `better-sqlite3` (041-github-integration-connections)
 - SQLite schema v5 via `RdbProvider`；PAT ciphertext 通过 `SecretProvider` 存于受保护文件目录，RDB 只保存 opaque reference (041-github-integration-connections)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `child_process`（PATH 发现 + 登录 shell 兜底 + 版本 probe）、现有 `apps/runner-daemon`（TS）、Prisma via `RdbProvider` (044-host-runtime-daemon)
+- SQLite/PostgreSQL 双 schema via `RdbProvider`：新增 Runtime + 可用 Provider 能力持久化；host `mystra-runner` 注册/发现/心跳，online/offline 依服务端接收时间 (044-host-runtime-daemon)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

@@ -55,6 +55,7 @@ export function normalizeDatabaseError(
 
   switch (databaseErrorCode(error)) {
     case "P2002":
+    case "P2034":
       return new RdbError(
         options.conflictCode ?? "RDB_CONFLICT",
         options.conflictMessage ?? "A unique value is already in use",

@@ -6,10 +6,15 @@ import {
 } from "../../generated/prisma/postgresql/client";
 import {
   PrismaClient as SqlitePrismaClient,
+  type AuthAccount,
+  type AuthSession,
   type IntegrationConnection,
   type Project,
   type SecretEnvelope,
   type Task,
+  type Team,
+  type TeamMembership,
+  type User,
 } from "../../generated/prisma/sqlite/client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 
@@ -19,11 +24,16 @@ type OrderBy = Array<{ createdAt: SortOrder } | { id: SortOrder }>;
 type ConnectionMutable = Omit<IntegrationConnection, "id" | "createdAt">;
 type ConnectionUpdate = Partial<ConnectionMutable>;
 type ProjectUpdate = Partial<Pick<Project, "name" | "slug" | "repositoryBaseBranch" | "metadata" | "archivedAt" | "updatedAt">>;
+type TeamUpdate = Partial<Pick<Team, "displayName" | "status" | "archivedAt" | "updatedAt">>;
+type MembershipUpdate = Partial<Pick<TeamMembership, "role" | "status" | "updatedAt">>;
+type SessionUpdate = Partial<Pick<AuthSession, "activeTeamId" | "updatedAt">>;
+type UserUpdate = Partial<Pick<User, "displayName" | "status" | "requirePasswordChange" | "updatedAt">>;
+type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSalt" | "passwordParams" | "updatedAt">>;
 
 export interface MystraPrismaDelegates {
   integrationConnection: {
     upsert(args: {
-      where: { integration_provider_providerExternalId: Pick<IntegrationConnection, "integration" | "provider" | "providerExternalId"> };
+      where: { teamId_integration_provider_providerExternalId: Pick<IntegrationConnection, "teamId" | "integration" | "provider" | "providerExternalId"> };
       create: IntegrationConnection;
       update: ConnectionMutable;
     }): Promise<IntegrationConnection>;
@@ -31,9 +41,9 @@ export interface MystraPrismaDelegates {
     findUnique(args: {
       where:
         | { id: string }
-        | { integration_provider_providerExternalId: Pick<IntegrationConnection, "integration" | "provider" | "providerExternalId"> };
+        | { teamId_integration_provider_providerExternalId: Pick<IntegrationConnection, "teamId" | "integration" | "provider" | "providerExternalId"> };
     }): Promise<IntegrationConnection | null>;
-    findMany(args: { where?: { integration: string }; orderBy: OrderBy }): Promise<IntegrationConnection[]>;
+    findMany(args: { where?: { integration?: string; teamId?: string }; orderBy: OrderBy }): Promise<IntegrationConnection[]>;
     deleteMany(args: { where: { id: string } }): Promise<CountResult>;
   };
   project: {
@@ -41,19 +51,58 @@ export interface MystraPrismaDelegates {
     updateMany(args: { where: { slug: string }; data: ProjectUpdate }): Promise<CountResult>;
     findUnique(args: { where: { id: string } | { slug: string } }): Promise<Project | null>;
     findMany(args: {
-      where?: { archivedAt: null } | { repositoryConnectionId: string };
+      where?: { archivedAt?: null; repositoryConnectionId?: string; teamId?: string };
       orderBy: OrderBy;
     }): Promise<Project[]>;
   };
   task: {
     create(args: { data: Task }): Promise<Task>;
     findUnique(args: { where: { id: string } | { issueDispatchKey: string } }): Promise<Task | null>;
-    findMany(args: { where?: { projectId: string }; orderBy: OrderBy }): Promise<Task[]>;
+    findMany(args: { where?: { projectId?: string; teamId?: string }; orderBy: OrderBy }): Promise<Task[]>;
   };
   secretEnvelope: {
     create(args: { data: SecretEnvelope }): Promise<SecretEnvelope>;
     findUnique(args: { where: { reference: string } }): Promise<SecretEnvelope | null>;
     deleteMany(args: { where: { reference: string } }): Promise<CountResult>;
+  };
+  user: {
+    create(args: { data: User }): Promise<User>;
+    updateMany(args: { where: { id: string }; data: UserUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { username: string } }): Promise<User | null>;
+    findMany(args: { where?: { status?: string }; take?: number }): Promise<User[]>;
+  };
+  authAccount: {
+    create(args: { data: AuthAccount }): Promise<AuthAccount>;
+    updateMany(args: { where: { userId: string }; data: AuthAccountUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { userId: string } }): Promise<AuthAccount | null>;
+  };
+  authSession: {
+    create(args: { data: AuthSession }): Promise<AuthSession>;
+    updateMany(args: { where: { id: string }; data: SessionUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { tokenHash: string } }): Promise<AuthSession | null>;
+    findMany(args: { where?: { userId?: string }; orderBy: OrderBy }): Promise<AuthSession[]>;
+    deleteMany(args: { where: { id: string } }): Promise<CountResult>;
+  };
+  team: {
+    create(args: { data: Team }): Promise<Team>;
+    updateMany(args: { where: { id: string }; data: TeamUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } }): Promise<Team | null>;
+    findMany(args: { where?: { status?: string }; orderBy: OrderBy }): Promise<Team[]>;
+  };
+  teamMembership: {
+    create(args: { data: TeamMembership }): Promise<TeamMembership>;
+    updateMany(args: {
+      where: { id?: string; teamId?: string; userId?: string };
+      data: MembershipUpdate;
+    }): Promise<CountResult>;
+    findUnique(args: {
+      where: { id: string } | { teamId_userId: Pick<TeamMembership, "teamId" | "userId"> };
+    }): Promise<TeamMembership | null>;
+    findMany(args: {
+      where?: { teamId?: string; userId?: string; role?: string; status?: string };
+      orderBy: OrderBy;
+    }): Promise<TeamMembership[]>;
+    count(args: { where: { teamId?: string; userId?: string; role?: string; status?: string } }): Promise<number>;
   };
 }
 
@@ -116,6 +165,11 @@ const modelMethods = {
   project: ["create", "updateMany", "findUnique", "findMany"],
   task: ["create", "findUnique", "findMany"],
   secretEnvelope: ["create", "findUnique", "deleteMany"],
+  user: ["create", "updateMany", "findUnique", "findMany"],
+  authAccount: ["create", "updateMany", "findUnique"],
+  authSession: ["create", "updateMany", "findUnique", "findMany", "deleteMany"],
+  team: ["create", "updateMany", "findUnique", "findMany"],
+  teamMembership: ["create", "updateMany", "findUnique", "findMany", "count"],
 } as const;
 
 function protectDelegates(source: MystraPrismaDelegates): MystraPrismaDelegates {

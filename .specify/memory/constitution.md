@@ -12,11 +12,11 @@ Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integr
 
 ### III. Providers Are Replaceable Boundaries
 
-Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. The MVP sandbox provider is single-machine Docker. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
+Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. Runtime is a first-class, replaceable execution backend that advertises which Provider capabilities (agent CLI / protocol families) it can run, expressed source-agnostically so a host-discovered Runtime and a future image-declared Runtime share one contract. A host-bound Runtime enrolled by the TypeScript `mystra-runner` — covering registration, Provider discovery plus availability confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is one such sandbox provider rather than the sole execution model, and host worktree direct execution is the intended default execution direction. Task dispatch, Context/worktree management, Agent configuration, and execution/Session persistence are owned by follow-up specifications, not this boundary. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
 
 ### IV. Runner Isolation and Secret Hygiene
 
-Runner hosts connect outbound to the control plane. Runner daemons may use the host Docker socket; task containers must not mount it. Secrets are injected at runtime through environment variables or read-only files and must not be committed or baked into images.
+Runner hosts connect outbound to the control plane; the control plane must not require inbound access to a runner host. A host-bound Runtime advertises the Provider CLIs it has discovered and confirmed available without baking their credentials or login state into the platform. Where a provider uses containers, runner daemons may use the host Docker socket while task containers must not mount it; this Docker-socket allowance is provider-specific, not a universal runner assumption. Secrets are injected at runtime through environment variables or read-only files and must not be committed or baked into images.
 
 ### V. Verification And Documentation Before Delivery
 
@@ -64,6 +64,22 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
 
 ## Amendment Notes
+
+- 2026-08-07: Brought host Runtime enrollment into the MVP execution boundary.
+  Runtime is now a first-class, replaceable execution backend that advertises
+  its Provider capabilities source-agnostically, and a host-bound Runtime
+  enrolled by the TypeScript `mystra-runner` — registration (endpoint-configured,
+  no MVP pairing/credential exchange), Provider discovery plus availability
+  confirmation, and heartbeat/status — is in scope. This amends the prior blanket
+  statement that the MVP sandbox provider is single-machine Docker: Docker becomes
+  one sandbox provider rather than the sole execution model, host worktree direct
+  execution is the intended default direction, and the Docker-socket allowance is
+  reframed as provider-specific. It also amends the 2026-08-06 note that deferred
+  all Runtime/Runner persistence: Runtime plus its available-Provider capability
+  persistence is now owned by feature 044. Task dispatch, Context/worktree
+  management, Agent configuration, and execution/Session persistence remain
+  deferred to follow-up specifications. `mystra-runner` remains TypeScript
+  (reusing `apps/runner-daemon`); no parallel Go runner is introduced.
 
 - 2026-08-07: Brought self-hosted single-node human authentication and Team RBAC
   into the MVP boundary. Self-hosted Mystra now provides username/password human
@@ -148,4 +164,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.7.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-07
+**Version**: 2.8.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-07

@@ -23,17 +23,32 @@ describe("Prisma provider schema parity", () => {
     expect(modelSection(readSchema("sqlite"))).toBe(modelSection(readSchema("postgresql")));
   });
 
-  it("contains three owner-approved business models plus the internal encrypted envelope", () => {
+  it("contains tenant-scoped business, identity, and RBAC models plus the internal encrypted envelope", () => {
     const schema = modelSection(readSchema("sqlite"));
     const models = [...schema.matchAll(/^model\s+(\w+)\s+\{/gmu)].map((match) => match[1]);
 
-    expect(models).toEqual(["IntegrationConnection", "Project", "Task", "SecretEnvelope"]);
+    expect(models).toEqual([
+      "IntegrationConnection",
+      "Project",
+      "Task",
+      "SecretEnvelope",
+      "User",
+      "AuthAccount",
+      "AuthSession",
+      "Team",
+      "TeamMembership",
+    ]);
     expect(schema.match(/@@map\("[^"]+"\)/gu)).toEqual([
       '@@map("integration_connections")',
       '@@map("projects")',
       '@@map("tasks")',
       '@@map("secret_envelopes")',
+      '@@map("users")',
+      '@@map("auth_accounts")',
+      '@@map("auth_sessions")',
+      '@@map("teams")',
+      '@@map("team_memberships")',
     ]);
-    expect(schema).not.toMatch(/Session|Runner|ContextBundle|Artifact|Snapshot|source|objective/u);
+    expect(schema).not.toMatch(/Runner|ContextBundle|Artifact|Snapshot|source|objective/u);
   });
 });

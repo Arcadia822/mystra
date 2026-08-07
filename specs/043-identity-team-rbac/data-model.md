@@ -1,6 +1,6 @@
 # 数据模型：本地用户、Team 与 RBAC
 
-**Status**: Phase 1 draft — 常规 spec/plan Owner 评审
+**Status**: Phase 1 revised after local-auth spike — 常规 spec/plan Owner 评审
 **Baseline**: 040 Prisma 第一期（`integration_connections`、`projects`、`tasks`、`secret_envelopes`）
 **Owner 决策依据**: research.md R1–R9
 
@@ -13,21 +13,22 @@
 - ID 为领域层生成的 UUID string；两库均不改自增。
 - 时间存 ISO-8601 string；结构化对象存经 Zod 校验的 serialized JSON string，保持 provider parity。
 - 领域前缀规则：跨领域字段带来源前缀。
-- **命名冲突规避**：Better Auth session 物理表命名为 `auth_sessions`，与 040 已删除、后续重新设计的 Mystra 执行 “Session” 概念显式区分（research R2）。
+- **命名冲突规避**：认证 session 物理表命名为 `auth_sessions`，与 040 已删除、后续重新设计的 Mystra 执行 “Session” 概念显式区分（research R2）。
 
-## 新增表清单（6 张）
+## 新增表清单（5 张）与既有资源的 Team scope
 
-Auth 引擎（Better Auth，经 Prisma adapter 定义与迁移）：
+Mystra-owned local authentication（由 Prisma 定义与迁移）：
 1. `users`
 2. `auth_accounts`（本地 username/password 凭据 = spec 的 LocalCredentialAccount）
 3. `auth_sessions`（= spec 的 AuthSession，含 active Team 引用）
-4. `auth_verifications`（Better Auth 结构性要求，首期无 email 流程使用它，保留为空表）
 
 Mystra-owned RBAC 领域：
-5. `teams`
-6. `team_memberships`（含反规范化 `role` 列 = spec 的 RoleBinding）
+4. `teams`
+5. `team_memberships`（含反规范化 `role` 列 = spec 的 RoleBinding）
 
-**不建表**（research R3）：`roles`、`permissions`、`role_bindings`。Role（`owner|admin|member`）与 Permission catalog 为代码级稳定目录；RoleBinding 反规范化到 `team_memberships.role`。
+同时为 `integration_connections`、`projects` 与 `tasks` 添加非空 `team_id` FK（开发前 0.1 阶段允许 destructive rebuild），让 Team 作为真实顶层租户边界，所有既有 API、MCP 与 CLI 资源在服务端按 active Team 过滤。`secret_envelopes` 经 IntegrationConnection 间接归属 Team，不重复存储 Team ID。
+
+**不建表**（research R3）：`auth_verifications`、`roles`、`permissions`、`role_bindings`。Role（`owner|admin|member`）与 Permission catalog 为代码级稳定目录；RoleBinding 反规范化到 `team_memberships.role`。
 
 ## ER 图
 
@@ -69,14 +70,6 @@ erDiagram
     string created_at
     string updated_at
   }
-  AUTH_VERIFICATION {
-    string id PK
-    string identifier
-    string value
-    string expires_at
-    string created_at
-    string updated_at
-  }
   TEAM {
     string id PK
     string display_name
@@ -100,7 +93,7 @@ erDiagram
 
 ## 逐表定义
 
-### 1. `users`（Better Auth user + Mystra 附加字段）
+### 1. `users`（Mystra local-auth User）
 
 Prisma model `User`。self-host **无 email 列**（research R1；FR-008/SC-009）。
 
@@ -123,22 +116,21 @@ Prisma model `User`。self-host **无 email 列**（research R1；FR-008/SC-009�
 
 ### 2. `auth_accounts`（LocalCredentialAccount）
 
-Prisma model `AuthAccount`。保存 username/password 的凭据绑定与安全元数据；只存 hash（FR-013）。
+Prisma model `AuthAccount`。保存 username/password 的凭据绑定与安全元数据；只存版本化 scrypt hash 与随机 salt（FR-013）。
 
 | 物理列 | Nullable | 类型/枚举 | 作用 |
 |---|---:|---|---|
 | `id` | 否 | UUID string | 凭据记录 ID。|
 | `user_id` | 否 | UUID FK → `users.id` | 归属 User。|
-| `provider_id` | 否 | string | Better Auth 凭据 provider；本地固定 `credential`。|
-| `account_id` | 否 | string | Better Auth 账户标识（本地等于 user 引用）。|
-| `password` | 是 | string | 自适应 password hash；永不存明文（FR-013）。仅 credential 账户有值。|
+| `password_hash` | 否 | string | 版本化 scrypt hash；永不存明文（FR-013）。|
+| `password_salt` | 否 | string | 每账户随机 salt。|
+| `password_params` | 否 | string | 经校验的算法/成本参数序列化值，用于未来安全升级。|
 | `created_at` | 否 | ISO-8601 string | 创建时间。|
 | `updated_at` | 否 | ISO-8601 string | 最后更新时间（改密时刷新）。|
 
 约束：
 - PK：`id`；`user_id` FK → `users.id`，`ON DELETE CASCADE`（账户删除随 User 生命周期）。
-- Unique：`(provider_id, account_id)`。
-- Index：`user_id`。
+- Unique：`user_id`（首期每 User 一个本地 credential）。
 
 ### 3. `auth_sessions`（AuthSession，承载 active Team context）
 
@@ -148,7 +140,7 @@ Prisma model `AuthSession`。可撤销、有过期时间的认证会话（FR-010
 |---|---:|---|---|
 | `id` | 否 | UUID string | Session ID。|
 | `user_id` | 否 | UUID FK → `users.id` | 归属 User。|
-| `token` | 否 | string | Session token 标识（服务端持有；不进 URL/日志/证据）。|
+| `token_hash` | 否 | string | 随机 session token 的 SHA-256 digest；原 token 仅经 HttpOnly cookie 或 CLI/MCP Bearer presentation 发送，不进 URL/日志/证据。|
 | `active_team_id` | 是 | UUID FK → `teams.id` | 当前 active Team context；每请求服务端校验，失效则 fail-closed 回退（FR-021）。|
 | `expires_at` | 否 | ISO-8601 string | 过期时间。|
 | `ip_address` | 是 | string | 会话来源 IP（安全审计，可空）。|
@@ -157,27 +149,12 @@ Prisma model `AuthSession`。可撤销、有过期时间的认证会话（FR-010
 | `updated_at` | 否 | ISO-8601 string | 最后活动/更新时间。|
 
 约束：
-- PK：`id`；Unique：`token`。
+- PK：`id`；Unique：`token_hash`。
 - `user_id` FK → `users.id`，`ON DELETE CASCADE`。
 - `active_team_id` FK → `teams.id`，`ON DELETE SET NULL`（Team 归档不硬删，此为兜底；正常失效走应用层 fail-closed 回退）。
 - Index：`user_id`、`(expires_at, id)`。
 
-### 4. `auth_verifications`
-
-Prisma model `AuthVerification`。Better Auth 结构性表；首期不启用任何 email/OTP/reset 流程，保持为空。保留以满足引擎 schema，并为未来强认证因子扩展预留（FR-047，仅结构不启用）。
-
-| 物理列 | Nullable | 类型/枚举 | 作用 |
-|---|---:|---|---|
-| `id` | 否 | UUID string | 记录 ID。|
-| `identifier` | 否 | string | 校验标识（首期不产生记录）。|
-| `value` | 否 | string | 校验值。|
-| `expires_at` | 否 | ISO-8601 string | 过期时间。|
-| `created_at` | 否 | ISO-8601 string | 创建时间。|
-| `updated_at` | 否 | ISO-8601 string | 更新时间。|
-
-约束：PK `id`；Index `identifier`。首期无写入路径（无 email/OTP/reset），仅存在以满足引擎结构。
-
-### 5. `teams`（Team）
+### 4. `teams`（Team）
 
 Prisma model `Team`。Mystra 顶层租户（FR-019）。
 
@@ -195,7 +172,7 @@ Prisma model `Team`。Mystra 顶层租户（FR-019）。
 - Index：`status`、`(created_at, id)`。
 - `display_name` 无唯一约束（Team 名称可重复；边界）。
 
-### 6. `team_memberships`（TeamMembership + 反规范化 RoleBinding）
+### 5. `team_memberships`（TeamMembership + 反规范化 RoleBinding）
 
 Prisma model `TeamMembership`。将一个 User 关联到 Team，保存状态与 active Team Role（FR-028/FR-034）。首期 Principal 仅 User。
 
@@ -229,9 +206,9 @@ Prisma model `TeamMembership`。将一个 User 关联到 Team，保存状态与 
 
 ## Provider parity（延续 040）
 
-SQLite 与 PostgreSQL 使用独立 datasource/client/migration history，但 6 张新表的 field、`@map`/`@@map`、nullability、relation、referential action、unique/index 必须字节一致；`prisma-schema-parity.test.ts` 的模型集合断言更新为：
-`IntegrationConnection, Project, Task, SecretEnvelope, User, AuthAccount, AuthSession, AuthVerification, Team, TeamMembership`。Supabase 复用 PostgreSQL schema/client/provider，仅改连接 profile（FR-043）。
+SQLite 与 PostgreSQL 使用独立 datasource/client/migration history，但 5 张新表、以及既有租户资源的 `team_id` field、`@map`/`@@map`、nullability、relation、referential action、unique/index 必须字节一致；`prisma-schema-parity.test.ts` 的模型集合断言更新为：
+`IntegrationConnection, Project, Task, SecretEnvelope, User, AuthAccount, AuthSession, Team, TeamMembership`。Supabase 复用 PostgreSQL schema/client/provider，仅改连接 profile（FR-043）。
 
 ## 与 040 的关系
 
-040 的“实现任务和代码不得自行扩表，须重新提交 Owner 审批”约束的是 040 自身实现，不封锁后续新功能。043 作为新功能，通过本 data-model 引入上述 6 张 Auth/RBAC 表，不改动 040 既有 4 张表的字段/关系，走常规 spec/plan Owner 评审。实现时更新 `prisma-schema-parity.test.ts` 的模型集合断言为 10 个 model。
+040 的“实现任务和代码不得自行扩表，须重新提交 Owner 审批”约束的是 040 自身实现，不封锁后续新功能。043 作为新功能，通过本 data-model 引入上述 5 张 Auth/RBAC 表，并为 `IntegrationConnection`、`Project`、`Task` 补充 `team_id` tenant FK，走常规 spec/plan Owner 评审。实现时更新 `prisma-schema-parity.test.ts` 的模型集合断言为 9 个 model。

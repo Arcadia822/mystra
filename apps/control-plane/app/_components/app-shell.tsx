@@ -30,6 +30,7 @@ import { ShellRightPanelProvider } from "./shell-right-panel";
 import { MystraLogo } from "./mystra-logo";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
 import { ProjectCreateModal } from "./project-create-modal";
+import { TeamSwitcher } from "./team-switcher";
 import { VerticalNavItem } from "./vertical-nav-item";
 import {
   SidebarCountBadge,
@@ -367,6 +368,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </UiIconButton>
             </div>
           <strong>{shellTitle}</strong>
+          <div className="shellHeaderControls">
+            <TeamSwitcher />
+            <UiActionLink href="/account" size="compact">Account</UiActionLink>
+          </div>
         </header>
         <div className="shellMainContent">{children}</div>
       </main>

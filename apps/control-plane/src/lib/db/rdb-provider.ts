@@ -1,15 +1,22 @@
 import type {
+  AccountStatus,
+  AccountView,
   IntegrationCapabilities,
   IntegrationConnection,
   IntegrationConnectionActivation,
   IntegrationConnectionStatus,
   IntegrationCredentialState,
+  MemberView,
   Project,
   ProjectCreate,
   ProjectUpdate,
   TaskCreateRequest,
   TaskListItem,
   TaskRecord,
+  TeamListItem,
+  TeamRole,
+  TeamStatus,
+  MembershipStatus,
 } from "@mystra/shared";
 
 export type IntegrationConnectionRecord = IntegrationConnection & {
@@ -18,6 +25,7 @@ export type IntegrationConnectionRecord = IntegrationConnection & {
 
 export type IntegrationConnectionUpsert = {
   id?: string;
+  teamId?: string;
   integration: string;
   provider: string;
   authMethod: string;
@@ -29,6 +37,74 @@ export type IntegrationConnectionUpsert = {
   credentialState: IntegrationCredentialState;
   credentialRef?: string;
   status?: IntegrationConnectionStatus;
+};
+
+export type UserRecord = AccountView & {
+  displayUsername: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AuthAccountRecord = {
+  id: string;
+  userId: string;
+  passwordHash: string;
+  passwordSalt: string;
+  passwordParams: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AuthSessionRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  activeTeamId?: string;
+  expiresAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TeamRecord = {
+  id: string;
+  displayName: string;
+  status: TeamStatus;
+  archivedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TeamMembershipRecord = {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: TeamRole;
+  status: MembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RegisterLocalUserInput = {
+  username: string;
+  displayUsername?: string;
+  displayName?: string;
+  status?: AccountStatus;
+  requirePasswordChange?: boolean;
+  passwordHash: string;
+  passwordSalt: string;
+  passwordParams: string;
+  initialTeamDisplayName: string;
+  tokenHash: string;
+  expiresAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+};
+
+export type ResolvedActiveTeam = {
+  team: TeamRecord;
+  role: TeamRole;
 };
 
 export type IssueDispatchResult = {
@@ -72,8 +148,8 @@ export interface RdbProvider {
   ): Promise<IntegrationConnectionRecord | undefined>;
   getIntegrationConnection(id: string): Promise<IntegrationConnection | undefined>;
   getIntegrationConnectionRecord(id: string): Promise<IntegrationConnectionRecord | undefined>;
-  listIntegrationConnections(options?: { integration?: string }): Promise<IntegrationConnection[]>;
-  listIntegrationConnectionRecords(options?: { integration?: string }): Promise<IntegrationConnectionRecord[]>;
+  listIntegrationConnections(options?: { integration?: string; teamId?: string }): Promise<IntegrationConnection[]>;
+  listIntegrationConnectionRecords(options?: { integration?: string; teamId?: string }): Promise<IntegrationConnectionRecord[]>;
   updateIntegrationConnectionDisplayName(
     id: string,
     displayName: string | null,
@@ -88,7 +164,7 @@ export interface RdbProvider {
     credentialState?: IntegrationCredentialState,
   ): Promise<IntegrationConnectionRecord | undefined>;
   deleteIntegrationConnection(id: string): Promise<boolean>;
-  listProjectsForIntegrationConnection(id: string): Promise<Project[]>;
+  listProjectsForIntegrationConnection(id: string, options?: { teamId?: string }): Promise<Project[]>;
 
   createSecretEnvelope(input: SecretEnvelopeWrite): Promise<void>;
   getSecretEnvelope(reference: string): Promise<SecretEnvelopeRecord | undefined>;
@@ -107,15 +183,57 @@ export interface RdbProvider {
   deleteIntegrationConnectionWithSecret(id: string, reference: string): Promise<boolean>;
 
   createProject(input: ProjectCreate): Promise<Project>;
-  listProjects(options?: { includeArchived?: boolean }): Promise<Project[]>;
-  getProjectById(id: string): Promise<Project | undefined>;
-  getProjectBySlug(slug: string): Promise<Project | undefined>;
+  listProjects(options?: { includeArchived?: boolean; teamId?: string }): Promise<Project[]>;
+  getProjectById(id: string, options?: { teamId?: string }): Promise<Project | undefined>;
+  getProjectBySlug(slug: string, options?: { teamId?: string }): Promise<Project | undefined>;
   updateProject(slug: string, input: ProjectUpdate): Promise<Project | undefined>;
   archiveProject(slug: string): Promise<Project | undefined>;
 
   createTask(input: TaskCreateRequest): Promise<TaskRecord>;
   dispatchIssue(input: TaskCreateRequest & { issueDispatchKey: string }): Promise<IssueDispatchResult>;
-  getTask(id: string): Promise<TaskRecord | undefined>;
-  getTaskByIssueDispatchKey(issueDispatchKey: string): Promise<TaskRecord | undefined>;
-  listTasks(options?: { projectId?: string }): Promise<TaskListItem[]>;
+  getTask(id: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
+  getTaskByIssueDispatchKey(issueDispatchKey: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
+  listTasks(options?: { projectId?: string; teamId?: string }): Promise<TaskListItem[]>;
+
+  registerLocalUser(input: RegisterLocalUserInput): Promise<{
+    user: UserRecord;
+    initialTeam: TeamRecord;
+    ownerMembership: TeamMembershipRecord;
+    session: AuthSessionRecord;
+  }>;
+  getUserById(userId: string): Promise<UserRecord | undefined>;
+  getUserByUsername(username: string): Promise<UserRecord | undefined>;
+  hasActiveLocalUser(): Promise<boolean>;
+  getAuthAccountForUser(userId: string): Promise<AuthAccountRecord | undefined>;
+  getAuthSessionByTokenHash(tokenHash: string): Promise<AuthSessionRecord | undefined>;
+  createAuthSession(input: Omit<AuthSessionRecord, "id" | "createdAt" | "updatedAt">): Promise<AuthSessionRecord>;
+  deleteAuthSession(id: string): Promise<void>;
+  listAuthSessionsForUser(userId: string): Promise<AuthSessionRecord[]>;
+  deleteAuthSessionForUser(userId: string, sessionId: string): Promise<boolean>;
+  updateUserDisplayName(userId: string, displayName: string): Promise<UserRecord | undefined>;
+  replacePasswordCredentialAndRevokeOtherSessions(input: {
+    userId: string;
+    currentSessionId: string;
+    passwordHash: string;
+    passwordSalt: string;
+    passwordParams: string;
+  }): Promise<UserRecord | undefined>;
+  deactivateLocalUser(userId: string): Promise<boolean>;
+
+  createTeam(userId: string, displayName: string): Promise<{
+    team: TeamRecord;
+    ownerMembership: TeamMembershipRecord;
+  }>;
+  renameTeam(teamId: string, displayName: string): Promise<TeamRecord | undefined>;
+  archiveTeam(teamId: string): Promise<TeamRecord | undefined>;
+  listActiveTeamsForUser(userId: string): Promise<TeamListItem[]>;
+  getTeamContext(userId: string, teamId: string): Promise<ResolvedActiveTeam | undefined>;
+  setActiveTeam(sessionId: string, teamId: string): Promise<void>;
+  resolveActiveTeam(sessionId: string): Promise<ResolvedActiveTeam | undefined>;
+  listMembers(teamId: string): Promise<MemberView[]>;
+  addMemberByUsername(teamId: string, username: string): Promise<TeamMembershipRecord>;
+  setMemberRole(teamId: string, userId: string, role: TeamRole): Promise<TeamMembershipRecord | undefined>;
+  removeMember(teamId: string, userId: string): Promise<boolean>;
+  countActiveTeamsForUser(userId: string): Promise<number>;
+  countActiveOwners(teamId: string): Promise<number>;
 }

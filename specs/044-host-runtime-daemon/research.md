@@ -8,6 +8,12 @@
 驱动 20 个 agent CLI）runtime 实现的源码级研究，以及它与 Mystra 现状的差异分析。研究
 方法是直接读取 GitHub 上的源码与文档（`gh api`），下列结论标注了来源文件。
 
+> **范围提示（spec 044 已收窄）**：本研究覆盖 multica 的注册/心跳、Agent 发现、`-p` 调用、
+> worktree 与并发等多方面，但 **spec 044 只采用其中"注册 host Runtime + Provider 发现/可用性
+> 确认 + 心跳/状态"部分**。`-p` 调用（第 5 节）、worktree（第 6 节）、并发/生命周期（第 7 节）
+> 属于**后续 feature**（发起任务、Context 管理、执行/Session），此处保留为前瞻参考，不构成 044 的
+> 交付范围。另：`mystra-runner` 用 **TypeScript** 实现，不移植 multica 的 Go。
+
 ## 1. Multica 架构总览
 
 来源：`README.md`、`CLI_AND_DAEMON.md`、`apps/docs/content/docs/daemon-runtimes.mdx`。
@@ -71,10 +77,25 @@ Web / Desktop / iOS
   `qodercli`、`qoderclicn`、`qwen`、`qwenpaw`、`reasonix`、`traecli`）。
 - 主路径：`exec.LookPath` 扫 PATH。可用 `MULTICA_<AGENT>_PATH` 显式覆盖，
   `MULTICA_<AGENT>_MODEL` 指定模型。
-- **登录 shell 兜底**：GUI 启动的 daemon（Electron/Launchpad）拿不到交互 shell 的 PATH
-  （nvm/fnm/volta shim、`~/.local/bin` 等只被 `~/.zshrc` 加入的目录），于是在 LookPath 未命中时
-  fork 用户登录 shell 解析真实绝对路径；结果进程级缓存 30min TTL（环境指纹变化即失效），
-  避免每轮发现都 fork shell。
+- **登录 shell 兜底（源码级细节，供 #6 设计）**：GUI 启动的 daemon（Electron/Launchpad）拿不到交互
+  shell 的 PATH（nvm/fnm/volta shim、`~/.claude/local`、`~/.local/bin` 等只被 rc 文件加入的目录）。
+  仅在 bare 命令名 LookPath **未命中时**才走兜底：
+  - 调用 `$SHELL -ilc <script>`：`-i` 读 `~/.zshrc`/`~/.bashrc`，`-l` 读 `~/.zprofile`/`~/.bash_profile`；
+    `SHELL` basename 必须在允许表 `{bash, zsh, sh, dash, ksh}`，否则跳过。
+  - 超时有界：context `3s` + `WaitDelay 2s` 硬上限。
+  - 脚本逐名 `unalias`+`unset -f`（剥离 alias/函数遮蔽，让 `command -v` 穿透到真二进制）→ `command -v`
+    → 要求绝对路径 → `cd "$dir" && pwd -P` 规范化（趁 fnm/nvm 临时 multishell 目录仍在时抓稳定路径）→
+    打印 `name\tpath`。
+  - 语言侧复核：返回路径必须绝对 **且** 再过一次 `LookPath` 从 daemon 视角确认可执行（滤别名 / 已消失
+    的 multishell 路径）。
+  - 缓存：进程级，key = `PATH+SHELL+HOME` 指纹，**TTL 30min**（远大于发现间隔）；env 变即失效；空结果
+    也缓存（失败 shell 不每轮重 fork）。TTL 的理由是 probe 在活 daemon 上周期跑、且总有未装 provider 会
+    miss LookPath——每次都 fork 会退化成每几分钟 fork 一次登录 shell。
+  - 覆盖硬缺失：`MULTICA_*_PATH` 含路径分隔符 ⇒ 直接走 LookPath、**绝不**进 shell 兜底；pin 的路径不存在
+    = 硬 miss，不静默回退到别的二进制。
+- **发现 vs 版本两趟**：`probeAgentCLIs` 是**纯可用性**（LookPath 成功即"可用"），**不做**版本检测/最低
+  版本门槛；后者是注册时另一独立步骤（`detectBuiltinRuntimes`）。这正对齐 Mystra 的 `discovered` vs
+  `available` 两态（我们更显式：把版本门槛结果落到 `available`）。
 - **运行中周期重扫**（`refreshAgentAvailability`）：用户在 daemon 运行时新装 CLI 无需重启即被
   发现；CLI 就地升级时重新探测版本并**重新注册 runtime，也无需重启 daemon**（availability 与
   第三方发布节奏解耦，MUL-5439）。

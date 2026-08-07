@@ -10,6 +10,7 @@ import {
 
 const connection = {
   id: "00000000-0000-4000-8000-000000000039",
+  teamId: "00000000-0000-4000-8000-000000000038",
   integration: "github",
   provider: "github",
   authMethod: "github-app",
@@ -41,6 +42,7 @@ describe("integration connection schemas", () => {
   it("accepts only non-secret installation metadata", () => {
     expect(integrationConnectionSchema.parse(connection)).toEqual(connection);
     expect(integrationConnectionActivationSchema.parse({
+      teamId: connection.teamId,
       integration: connection.integration,
       provider: connection.provider,
       authMethod: connection.authMethod,

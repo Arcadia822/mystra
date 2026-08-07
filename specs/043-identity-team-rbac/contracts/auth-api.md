@@ -1,6 +1,6 @@
 # 合同：本地认证与账户（Auth API）
 
-**Boundary**: Web API 是权威实现；CLI/MCP 是薄适配层，复用同一 `@mystra/shared` Zod 合同与服务端判定（constitution）。Better Auth 类型不越过此边界（FR-041）。所有 payload 不含 email（FR-008）。password/session token/bootstrap secret 不进入 URL/日志/公共响应/证据。
+**Boundary**: Web API 是权威实现；CLI/MCP 是薄适配层，复用同一 `@mystra/shared` Zod 合同与服务端判定（constitution）。Mystra local-auth internals 不越过此边界（FR-041）。所有 payload 不含 email（FR-008）。password/session token/bootstrap secret 不进入 URL/日志/公共响应/证据。
 
 ## 共享合同（`packages/shared/src/auth.ts`）
 
@@ -14,7 +14,9 @@ AccountView          : { id, username(displayUsername), displayName, status, req
 SessionView          : { id, createdAt, expiresAt, current: boolean, ipAddress?, userAgent? }
 ```
 
-`PasswordInput` 强制最小策略（长度等），实际 hashing 由 Better Auth 自适应算法完成（FR-013，research R9）。
+`PasswordInput` 强制最小策略（长度等）；服务端以 Node `crypto.scrypt`、每账户随机 salt 与固定版本化参数生成 hash，比较使用 constant-time equality（FR-013，research R9）。
+
+浏览器以 `HttpOnly; Secure; SameSite=Lax; Path=/` cookie 发送 session token；CLI/MCP 可使用同一人类 session token 的 `Authorization: Bearer` presentation。CLI token 仅存于用户本地受限权限文件，既不是 Agent key，也不是 workload identity（FR-048）。
 
 ## 端点
 

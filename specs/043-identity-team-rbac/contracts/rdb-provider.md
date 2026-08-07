@@ -1,13 +1,13 @@
 # 合同：RdbProvider / 持久化边界扩展
 
-**原则**：身份与授权关系数据由 Prisma 拥有 schema/migration/runtime access（FR-044）。Auth 表由 Better Auth 经 **同一 Prisma Client** 读写（research R2），Mystra RBAC 域数据经 `RdbProvider`/`PrismaRdbProvider`。运行时业务路径禁止 `$queryRaw`/`$executeRaw`/`pg.query`/直接 `better-sqlite3`（延续 040）。Prisma generated types 不越过 persistence boundary。
+**原则**：身份与授权关系数据由 Prisma 拥有 schema/migration/runtime access（FR-044）。Auth 与 RBAC 域数据均经 `RdbProvider`/`PrismaRdbProvider`，因此注册能在单一事务内完成。运行时业务路径禁止 `$queryRaw`/`$executeRaw`/`pg.query`/直接 `better-sqlite3`（延续 040）。Prisma generated types 不越过 persistence boundary。
 
-## Auth 引擎装配（`src/lib/auth`）
+## Local-auth 装配（`src/lib/auth`）
 
-- Better Auth 使用 Prisma adapter，指向 043 在 `schema.prisma` 定义的 `User/AuthAccount/AuthSession/AuthVerification`（modelName/field 映射到 `users`/`auth_accounts`/`auth_sessions`/`auth_verifications`）。
-- 仅启用 username + session；关闭 email/OAuth/social/reset。
-- 附加字段：`displayName`、`status`、`requirePasswordChange`（`users`）；`activeTeamId`（`auth_sessions`）。
-- Better Auth session/密码校验规则复用；对外只暴露 `@mystra/shared` 的 `AccountView`/`SessionView`。
+- `User`、`AuthAccount` 与 `AuthSession` 是 Prisma models，物理表为 `users`、`auth_accounts`、`auth_sessions`。
+- 使用 Node `crypto.scrypt` 的版本化 hash 记录与随机 session token 的 SHA-256 digest；只保存 salt、hash、token digest 和生命周期元数据。
+- `displayName`、`status`、`requirePasswordChange` 存于 `users`；`activeTeamId` 存于 `auth_sessions`。
+- 对外只暴露 `@mystra/shared` 的 `AccountView`/`SessionView`。
 
 ## `RdbProvider` 新增域方法（Mystra-owned RBAC）
 
@@ -47,7 +47,7 @@ countActiveOwners(teamId): number      # 支撑 last-owner 保护
 
 ## Provider parity 测试扩展
 
-- `prisma-schema-parity.test.ts` 的模型集合断言更新为 10 个 model（4 既有 + 6 新增）。
+- `prisma-schema-parity.test.ts` 的模型集合断言更新为 9 个 model（4 既有 + 5 新增）。
 - Auth/Team/RBAC contract suite 在 SQLite 与真实 PostgreSQL 上各跑一遍（SC-011）。
 - Supabase 复用 PostgreSQL client/provider，仅改连接 profile（FR-043）。
 

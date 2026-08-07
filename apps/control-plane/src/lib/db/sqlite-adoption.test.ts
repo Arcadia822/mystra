@@ -5,8 +5,6 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createSqlitePrismaClient } from "./prisma-client";
-import { PrismaRdbProvider } from "./prisma-provider";
 import { adoptSqliteDatabase, inspectSqliteAdoption } from "./sqlite-adoption";
 
 const fixtureSql = readFileSync(path.join(process.cwd(), "src/lib/db/fixtures/schema-v5.sql"), "utf8");
@@ -58,7 +56,7 @@ function createV5Database(options: { repositoryExternalId?: string } = {}): stri
 }
 
 describe("SQLite schema v5 adoption", () => {
-  it("backs up and converts only the approved three tables", async () => {
+  it("refuses the obsolete schema-v5 without attempting to import rows", async () => {
     const databasePath = createV5Database();
     expect(inspectSqliteAdoption(databasePath)).toEqual({ state: "schema-v5", counts: {
       integrationConnections: 1,
@@ -66,47 +64,16 @@ describe("SQLite schema v5 adoption", () => {
       tasks: 1,
     } });
 
-    const result = await adoptSqliteDatabase(databasePath, { now: () => timestamp });
-    expect(result.state).toBe("adopted");
-    expect(existsSync(result.backupPath!)).toBe(true);
-    expect(inspectSqliteAdoption(databasePath).state).toBe("prisma");
-
-    const provider = new PrismaRdbProvider(createSqlitePrismaClient({ databaseUrl: `file:${databasePath}` }));
-    const connection = await provider.getIntegrationConnectionRecord("00000000-0000-4000-8000-000000000040");
-    expect(connection).toMatchObject({
-      authMethod: "personal-access-token",
-      providerExternalId: "pat:stable",
-      providerSubject: { login: "octocat" },
-      capabilities: {
-        repositories: {
-          state: "enabled",
-          config: { selection: "token" },
-          permissions: { contents: "write" },
-        },
-      },
-    });
-    const project = await provider.getProjectBySlug("mystra");
-    expect(project).toMatchObject({
-      repositoryExternalId: "R_kgDOMystra",
-      repositoryBaseBranch: "main",
-      metadata: { retained: true },
-    });
-    expect(project).not.toHaveProperty("repository");
-    const task = await provider.getTaskByIssueDispatchKey("github:issue:42");
-    expect(task).toMatchObject({ metadata: { retained: true } });
-    expect(task).not.toHaveProperty("objective");
-    await provider.close();
-
-    await expect(adoptSqliteDatabase(databasePath)).resolves.toMatchObject({ state: "already-adopted" });
+    await expect(adoptSqliteDatabase(databasePath, { now: () => timestamp }))
+      .rejects.toThrow("obsolete schema-v5 lacks required Team scope");
+    expect(existsSync(`${databasePath}.prisma-v5-backup-20260806T100000000Z.db`)).toBe(false);
+    expect(inspectSqliteAdoption(databasePath).state).toBe("schema-v5");
   });
 
-  it("refuses unknown schemas and missing stable repository identity without a backup", async () => {
-    const databasePath = createV5Database({ repositoryExternalId: "" });
-    await expect(adoptSqliteDatabase(databasePath)).rejects.toThrow("repository external ID");
-    expect(inspectSqliteAdoption(databasePath).state).toBe("schema-v5");
-    expect(existsSync(`${databasePath}.prisma-v5-backup-20260806T100000000Z.db`)).toBe(false);
-
-    const unknownPath = path.join(path.dirname(databasePath), "unknown.db");
+  it("refuses unknown schemas", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "mystra-adoption-unknown-"));
+    directories.push(directory);
+    const unknownPath = path.join(directory, "unknown.db");
     const unknown = new Database(unknownPath);
     unknown.exec("CREATE TABLE mystery (id TEXT PRIMARY KEY)");
     unknown.close();

@@ -183,6 +183,7 @@ export class GitHubAppService {
   async verifyAccessibleInstallation(
     userToken: string,
     installationId: string,
+    teamId: string,
   ): Promise<IntegrationConnectionActivation> {
     const response = await this.request(`${GITHUB_API_URL}/user/installations?per_page=100`, {
       headers: this.apiHeaders(userToken),
@@ -198,6 +199,7 @@ export class GitHubAppService {
       });
     }
     return integrationConnectionActivationSchema.parse({
+      teamId,
       integration: "github",
       provider: "github",
       authMethod: "github-app",

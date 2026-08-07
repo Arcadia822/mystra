@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
+import type { ResolvedActiveTeam } from "@/lib/db/rdb-provider";
 import { assertGitHubAppAvailable } from "@/lib/integrations/deployment-capabilities";
 import { getGitHubAppService } from "@/lib/integrations/github-app";
 import {
@@ -11,6 +12,11 @@ import {
   safeReturnTo,
 } from "@/lib/integrations/github-oauth-cookies";
 import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
+import {
+  authorizationErrorResponse,
+  requireHumanSession,
+  requireTeamPermission,
+} from "../../../../_auth";
 
 function resultRedirect(
   request: Request,
@@ -44,6 +50,14 @@ export async function GET(request: Request) {
   } catch (error) {
     return integrationErrorResponse(error);
   }
+  let active: ResolvedActiveTeam;
+  try {
+    const db = await getDb();
+    const subject = await requireHumanSession(db, request, "github-app-callback");
+    active = await requireTeamPermission(db, subject, "team.resource.access");
+  } catch (error) {
+    return authorizationErrorResponse(error);
+  }
   const query = new URL(request.url).searchParams;
   const cookies = readRequestCookies(request);
   const returnTo = safeReturnTo(cookies[githubOAuthCookieNames.returnTo]);
@@ -59,7 +73,7 @@ export async function GET(request: Request) {
   try {
     const service = getGitHubAppService();
     const userToken = await service.exchangeOAuthCode(code, verifier);
-    const activation = await service.verifyAccessibleInstallation(userToken, installationId);
+    const activation = await service.verifyAccessibleInstallation(userToken, installationId, active.team.id);
     const db = await getDb();
     await db.activateIntegrationConnection(activation);
     return resultRedirect(request, returnTo, { status: "connected" });

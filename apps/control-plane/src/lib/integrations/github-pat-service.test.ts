@@ -16,6 +16,7 @@ const tempDirectories: string[] = [];
 const migrations = [
   "20260806182000_init",
   "20260806210000_secret_envelopes",
+  "20260807150000_identity_team_rbac",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
@@ -50,6 +51,19 @@ function validation(token: string) {
   });
 }
 
+async function createTeam(db: PrismaRdbProvider) {
+  return (await db.registerLocalUser({
+    username: "operator",
+    displayName: "Operator",
+    passwordHash: "hash",
+    passwordSalt: "salt",
+    passwordParams: "params",
+    initialTeamDisplayName: "Operator Team",
+    tokenHash: "test-token-hash",
+    expiresAt: "2026-08-08T00:00:00.000Z",
+  })).initialTeam;
+}
+
 afterEach(() => {
   while (tempDirectories.length > 0) rmSync(tempDirectories.pop()!, { recursive: true, force: true });
 });
@@ -57,9 +71,11 @@ afterEach(() => {
 describe("GitHubPatConnectionService", () => {
   it("stores only an envelope in RDB and returns no credential reference", async () => {
     const { db, databasePath } = openDb();
+    const team = await createTeam(db);
     const secrets = new RdbSecretProvider({ db, key: Buffer.alloc(32, 7), keyId: "test-v1" });
     const service = new GitHubPatConnectionService({
       db,
+      teamId: team.id,
       secrets,
       validate: validation,
       newId: () => "00000000-0000-4000-8000-000000000041",
@@ -71,6 +87,7 @@ describe("GitHubPatConnectionService", () => {
 
     expect(connection).toMatchObject({
       id: "00000000-0000-4000-8000-000000000041",
+      teamId: team.id,
       authMethod: "personal-access-token",
       displayName: "Delivery",
       credentialState: "ready",
@@ -86,6 +103,7 @@ describe("GitHubPatConnectionService", () => {
 
   it("validates before replacement and atomically removes the old envelope", async () => {
     const { db } = openDb();
+    const team = await createTeam(db);
     const secrets = new RdbSecretProvider({ db, key: Buffer.alloc(32, 8), keyId: "test-v1" });
     const credentialIds = [
       "00000000-0000-4000-8000-000000000042",
@@ -93,6 +111,7 @@ describe("GitHubPatConnectionService", () => {
     ];
     const service = new GitHubPatConnectionService({
       db,
+      teamId: team.id,
       secrets,
       validate: validation,
       newId: () => "00000000-0000-4000-8000-000000000041",

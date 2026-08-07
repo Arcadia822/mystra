@@ -3,32 +3,43 @@ import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
 import { readSecretStoreConfig } from "@/lib/secrets";
+import {
+  authorizationErrorResponse,
+  requireHumanSession,
+  requireTeamPermission,
+} from "../_auth";
 
-export async function GET() {
-  const db = await getDb();
-  let patConfigured = false;
-  let patDisabledReason: string | undefined;
+export async function GET(request: Request) {
   try {
-    patConfigured = readSecretStoreConfig() !== undefined;
-    if (!patConfigured) patDisabledReason = "Secret store is not configured";
-  } catch {
-    patDisabledReason = "Secret store configuration is invalid";
+    const db = await getDb();
+    const subject = await requireHumanSession(db, request, "connection-list");
+    const active = await requireTeamPermission(db, subject, "team.resource.access");
+    let patConfigured = false;
+    let patDisabledReason: string | undefined;
+    try {
+      patConfigured = readSecretStoreConfig() !== undefined;
+      if (!patConfigured) patDisabledReason = "Secret store is not configured";
+    } catch {
+      patDisabledReason = "Secret store configuration is invalid";
+    }
+    const response = NextResponse.json(integrationConnectionListResponseSchema.parse({
+      providers: [{
+        integration: "github",
+        methods: [
+          {
+            type: "personal-access-token",
+            configured: patConfigured,
+            createUrl: "/api/integration-connections/github/pat",
+            ...(patDisabledReason ? { disabledReason: patDisabledReason } : {}),
+          },
+        ],
+      }],
+      connections: (await db.listIntegrationConnections({ teamId: active.team.id }))
+        .filter((connection) => connection.authMethod === "personal-access-token"),
+    }));
+    response.headers.set("cache-control", "no-store");
+    return response;
+  } catch (error) {
+    return authorizationErrorResponse(error);
   }
-  const response = NextResponse.json(integrationConnectionListResponseSchema.parse({
-    providers: [{
-      integration: "github",
-      methods: [
-        {
-          type: "personal-access-token",
-          configured: patConfigured,
-          createUrl: "/api/integration-connections/github/pat",
-          ...(patDisabledReason ? { disabledReason: patDisabledReason } : {}),
-        },
-      ],
-    }],
-    connections: (await db.listIntegrationConnections())
-      .filter((connection) => connection.authMethod === "personal-access-token"),
-  }));
-  response.headers.set("cache-control", "no-store");
-  return response;
 }

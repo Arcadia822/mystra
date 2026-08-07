@@ -30,8 +30,24 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     await db.close();
   });
 
-  async function connection() {
-    return db.upsertIntegrationConnection({
+  async function tenant() {
+    const suffix = randomUUID().replaceAll("-", "");
+    return db.registerLocalUser({
+      username: `user_${suffix}`,
+      displayName: `User ${suffix}`,
+      passwordHash: "scrypt$v1$hash",
+      passwordSalt: "salt",
+      passwordParams: "N=16384,r=8,p=1",
+      initialTeamDisplayName: `Team ${suffix}`,
+      tokenHash: randomUUID(),
+      expiresAt: "2027-08-06T00:00:00.000Z",
+    });
+  }
+
+  async function project() {
+    const { initialTeam } = await tenant();
+    const repositoryConnection = await db.upsertIntegrationConnection({
+      teamId: initialTeam.id,
       integration: "github",
       provider: "github",
       authMethod: "personal-access-token",
@@ -51,11 +67,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       credentialRef: "github-pat/test",
       credentialState: "ready",
     });
-  }
-
-  async function project() {
-    const repositoryConnection = await connection();
     return db.createProject({
+      teamId: initialTeam.id,
       name: "Mystra",
       slug: `mystra-${randomUUID()}`,
       repositoryConnectionId: repositoryConnection.id,
@@ -66,7 +79,28 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
   }
 
   it("persists, replaces, clears, lists, and protects integration connections", async () => {
-    const created = await connection();
+    const { initialTeam } = await tenant();
+    const created = await db.upsertIntegrationConnection({
+      teamId: initialTeam.id,
+      integration: "github",
+      provider: "github",
+      authMethod: "personal-access-token",
+      providerExternalId: randomUUID(),
+      displayName: "Primary GitHub",
+      providerSubject: { login: "octocat" },
+      connectionConfig: { repositorySelection: "all" },
+      capabilities: {
+        repositories: {
+          state: "enabled",
+          config: {},
+          permissions: { contents: "write" },
+          accessSummary: { repositories: "all" },
+          verifiedAt: "2026-08-06T00:00:00.000Z",
+        },
+      },
+      credentialRef: "github-pat/test",
+      credentialState: "ready",
+    });
     expect(created.displayName).toBe("Primary GitHub");
     expect("credentialRef" in (await db.getIntegrationConnection(created.id))!).toBe(false);
     expect((await db.getIntegrationConnectionRecord(created.id))?.credentialRef).toBe("github-pat/test");
@@ -75,6 +109,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(cleared?.displayName).toBeNull();
 
     const boundProject = await db.createProject({
+      teamId: initialTeam.id,
       name: "Bound",
       slug: `bound-${randomUUID()}`,
       repositoryConnectionId: created.id,
@@ -95,7 +130,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     const replaced = await db.replaceIntegrationConnectionCapabilities(created.id, capabilities);
     expect(replaced?.capabilities).toEqual(capabilities);
 
-    expect(await db.listProjectsForIntegrationConnection(created.id)).toEqual([boundProject]);
+    expect(await db.listProjectsForIntegrationConnection(created.id, { teamId: initialTeam.id }))
+      .toEqual([boundProject]);
     await expect(db.deleteIntegrationConnection(created.id)).rejects.toMatchObject({
       code: "INTEGRATION_CONNECTION_IN_USE",
     });
@@ -107,6 +143,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     const secondReference = `github-pat/${id}/${randomUUID()}`;
     const input = {
       id,
+      teamId: (await tenant()).initialTeam.id,
       integration: "github",
       provider: "github",
       authMethod: "personal-access-token",
@@ -184,13 +221,17 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
 
   it("persists tasks and dispatches one task for a repeated issue key", async () => {
     const parent = await project();
-    const ordinary = await db.createTask({ projectId: parent.id, metadata: { kind: "manual" } });
+    const ordinary = await db.createTask({
+      teamId: parent.teamId,
+      projectId: parent.id,
+      metadata: { kind: "manual" },
+    });
     expect(await db.getTask(ordinary.id)).toEqual(ordinary);
 
     const key = `linear:ENG-1:${parent.id}`;
     const [left, right] = await Promise.all([
-      db.dispatchIssue({ projectId: parent.id, issueDispatchKey: key, metadata: { source: "linear" } }),
-      db.dispatchIssue({ projectId: parent.id, issueDispatchKey: key, metadata: { source: "linear" } }),
+      db.dispatchIssue({ teamId: parent.teamId, projectId: parent.id, issueDispatchKey: key, metadata: { source: "linear" } }),
+      db.dispatchIssue({ teamId: parent.teamId, projectId: parent.id, issueDispatchKey: key, metadata: { source: "linear" } }),
     ]);
     expect([left.created, right.created].sort()).toEqual([false, true]);
     expect(left.task.id).toBe(right.task.id);
@@ -200,6 +241,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     const distinct = await Promise.all(distinctKeys.map((issueDispatchKey) => db.dispatchIssue({
       projectId: parent.id,
       issueDispatchKey,
+      teamId: parent.teamId,
       metadata: { source: "linear" },
     })));
     expect(distinct.map(({ created }) => created)).toEqual([true, true]);
@@ -216,11 +258,13 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
 
     await db.archiveProject(parent.slug);
     await expect(db.dispatchIssue({
+      teamId: parent.teamId,
       projectId: parent.id,
       issueDispatchKey: key,
       metadata: { ignoredOnReplay: true },
     })).resolves.toEqual({ task: left.task, created: false });
     await expect(db.dispatchIssue({
+      teamId: parent.teamId,
       projectId: parent.id,
       issueDispatchKey: `linear:ENG-4:${parent.id}`,
       metadata: {},
@@ -231,6 +275,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
   it("normalizes slug, foreign-key, and dispatch conflicts", async () => {
     const parent = await project();
     await expect(db.createProject({
+      teamId: parent.teamId,
       name: "Duplicate",
       slug: parent.slug,
       repositoryConnectionId: parent.repositoryConnectionId,
@@ -239,16 +284,152 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       metadata: {},
     })).rejects.toMatchObject({ code: "PROJECT_SLUG_CONFLICT" });
 
-    await expect(db.createTask({ projectId: randomUUID(), metadata: {} })).rejects.toMatchObject({
+    await expect(db.createTask({
+      teamId: parent.teamId,
+      projectId: randomUUID(),
+      metadata: {},
+    })).rejects.toMatchObject({
       code: "RDB_RELATION_CONFLICT",
     });
 
     const key = `github:1:${parent.id}`;
-    await db.createTask({ projectId: parent.id, issueDispatchKey: key, metadata: {} });
+    await db.createTask({ teamId: parent.teamId, projectId: parent.id, issueDispatchKey: key, metadata: {} });
     await expect(db.createTask({
+      teamId: parent.teamId,
       projectId: parent.id,
       issueDispatchKey: key,
       metadata: {},
     })).rejects.toMatchObject({ code: "DISPATCH_CONFLICT" });
+  });
+
+  it("registers a User, owner Team, and active session atomically", async () => {
+    const username = `user_${randomUUID().replaceAll("-", "")}`;
+    const input = {
+      username,
+      displayName: "Operator",
+      passwordHash: "scrypt$v1$hash",
+      passwordSalt: "salt",
+      passwordParams: "N=16384,r=8,p=1",
+      initialTeamDisplayName: "Personal Team",
+      tokenHash: randomUUID(),
+      expiresAt: "2027-08-06T00:00:00.000Z",
+    };
+    const registered = await db.registerLocalUser(input);
+
+    expect(registered.user.username).toBe(username);
+    expect(registered.initialTeam.status).toBe("active");
+    expect(registered.ownerMembership).toMatchObject({
+      teamId: registered.initialTeam.id,
+      userId: registered.user.id,
+      role: "owner",
+      status: "active",
+    });
+    expect(registered.session.activeTeamId).toBe(registered.initialTeam.id);
+    expect(await db.resolveActiveTeam(registered.session.id)).toMatchObject({
+      team: { id: registered.initialTeam.id },
+      role: "owner",
+    });
+
+    const duplicate = await Promise.allSettled([
+      db.registerLocalUser({ ...input, tokenHash: randomUUID() }),
+      db.registerLocalUser({ ...input, tokenHash: randomUUID() }),
+    ]);
+    expect(duplicate.every((result) => result.status === "rejected")).toBe(true);
+    expect(await db.getAuthAccountForUser(registered.user.id)).toMatchObject({
+      passwordHash: input.passwordHash,
+    });
+  });
+
+  it("filters existing resources by Team and rejects cross-Team writes", async () => {
+    const left = await tenant();
+    const right = await tenant();
+    const connection = await db.upsertIntegrationConnection({
+      teamId: left.initialTeam.id,
+      integration: "github",
+      provider: "github",
+      authMethod: "personal-access-token",
+      providerExternalId: randomUUID(),
+      providerSubject: {},
+      credentialState: "ready",
+    });
+    expect(await db.listIntegrationConnections({ teamId: right.initialTeam.id })).toEqual([]);
+    await expect(db.createProject({
+      teamId: right.initialTeam.id,
+      name: "Cross-team",
+      slug: `cross-team-${randomUUID()}`,
+      repositoryConnectionId: connection.id,
+      repositoryExternalId: "R_cross_team",
+      repositoryBaseBranch: "main",
+      metadata: {},
+    })).rejects.toMatchObject({ code: "RDB_RELATION_CONFLICT" });
+  });
+
+  it("protects the last active Team and last active Owner", async () => {
+    const registered = await tenant();
+    await expect(db.removeMember(registered.initialTeam.id, registered.user.id))
+      .rejects.toMatchObject({ code: "RDB_CONFLICT" });
+
+    const additional = await db.createTeam(registered.user.id, "Additional Team");
+    await expect(db.setMemberRole(additional.team.id, registered.user.id, "admin"))
+      .rejects.toMatchObject({ code: "RDB_CONFLICT" });
+
+    const other = await tenant();
+    const added = await db.addMemberByUsername(additional.team.id, other.user.username);
+    await db.setMemberRole(additional.team.id, added.userId, "owner");
+    await expect(db.removeMember(additional.team.id, registered.user.id)).resolves.toBe(true);
+    expect(await db.countActiveOwners(additional.team.id)).toBe(1);
+  });
+
+  it("updates account credentials and sessions without persisting password plaintext", async () => {
+    const registered = await tenant();
+    const otherSession = await db.createAuthSession({
+      userId: registered.user.id,
+      tokenHash: randomUUID(),
+      expiresAt: "2027-08-06T00:00:00.000Z",
+    });
+
+    const renamed = await db.updateUserDisplayName(registered.user.id, "Renamed User");
+    expect(renamed).toMatchObject({ id: registered.user.id, displayName: "Renamed User" });
+
+    const updated = await db.replacePasswordCredentialAndRevokeOtherSessions({
+      userId: registered.user.id,
+      currentSessionId: registered.session.id,
+      passwordHash: "scrypt$v1$replacement",
+      passwordSalt: "replacement-salt",
+      passwordParams: "N=32768,r=8,p=1,maxmem=67108864",
+    });
+    expect(updated).toMatchObject({
+      id: registered.user.id,
+      requirePasswordChange: false,
+    });
+    expect(await db.getAuthAccountForUser(registered.user.id)).toMatchObject({
+      passwordHash: "scrypt$v1$replacement",
+      passwordSalt: "replacement-salt",
+    });
+    expect(await db.listAuthSessionsForUser(registered.user.id)).toEqual([
+      expect.objectContaining({ id: registered.session.id }),
+    ]);
+    expect(await db.deleteAuthSessionForUser(registered.user.id, otherSession.id)).toBe(false);
+  });
+
+  it("fails closed when account deactivation would violate Team lifecycle invariants", async () => {
+    const registered = await tenant();
+
+    await expect(db.deactivateLocalUser(registered.user.id)).rejects.toMatchObject({
+      code: "RDB_CONFLICT",
+    });
+
+    const additional = await db.createTeam(registered.user.id, "Additional Team");
+    const other = await tenant();
+    await db.addMemberByUsername(registered.initialTeam.id, other.user.username);
+    await db.setMemberRole(registered.initialTeam.id, other.user.id, "owner");
+    await db.addMemberByUsername(additional.team.id, other.user.username);
+    await db.setMemberRole(additional.team.id, other.user.id, "owner");
+
+    await expect(db.deactivateLocalUser(registered.user.id)).resolves.toBe(true);
+    expect(await db.getUserById(registered.user.id)).toMatchObject({ status: "disabled" });
+    expect(await db.listAuthSessionsForUser(registered.user.id)).toEqual([]);
+    expect(await db.countActiveTeamsForUser(registered.user.id)).toBe(2);
+    expect(await db.countActiveOwners(additional.team.id)).toBe(2);
   });
 }

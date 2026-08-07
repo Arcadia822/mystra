@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { getDb } from "@/lib/db";
+import { requireHumanSession, requireTeamPermission } from "../_auth";
 
 const jsonRpcRequestSchema = z.object({
   jsonrpc: z.literal("2.0").optional(),
@@ -40,6 +41,14 @@ function jsonRpcError(
 
 function textToolResult(payload: unknown) {
   return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
+}
+
+function mcpAuthorizationErrorCode(error: unknown): "unauthenticated" | "password-change-required" | "forbidden" | undefined {
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+  const code = error.code;
+  return code === "unauthenticated" || code === "password-change-required" || code === "forbidden"
+    ? code
+    : undefined;
 }
 
 function parseArguments<T extends z.ZodType>(
@@ -79,11 +88,39 @@ const tools = [
 ] as const;
 
 export async function POST(request: Request) {
-  const rpcResult = jsonRpcRequestSchema.safeParse(await request.json());
+  let rpcPayload: unknown;
+  try {
+    rpcPayload = await request.json();
+  } catch {
+    return jsonRpcError(null, -32700, "Parse error");
+  }
+  const rpcResult = jsonRpcRequestSchema.safeParse(rpcPayload);
   if (!rpcResult.success) {
     return jsonRpcError(null, -32600, "Invalid Request", { issues: rpcResult.error.issues });
   }
   const rpc = rpcResult.data;
+  if (!/^Bearer\s+[A-Za-z0-9_-]{16,}$/i.test(request.headers.get("authorization") ?? "")) {
+    return jsonRpcError(rpc.id, -32001, "Unauthenticated");
+  }
+  let db;
+  let active;
+  try {
+    db = await getDb();
+    const subject = await requireHumanSession(db, request, "mcp");
+    active = await requireTeamPermission(db, subject, "team.resource.access");
+  } catch (error) {
+    const code = mcpAuthorizationErrorCode(error);
+    if (code === "unauthenticated") {
+      return jsonRpcError(rpc.id, -32001, "Unauthenticated");
+    }
+    if (code === "password-change-required") {
+      return jsonRpcError(rpc.id, -32002, "Password change required");
+    }
+    if (code === "forbidden") {
+      return jsonRpcError(rpc.id, -32003, "Forbidden");
+    }
+    return jsonRpcError(rpc.id, -32603, "Internal error");
+  }
   if (rpc.method === "initialize") {
     return jsonRpc(rpc.id, {
       protocolVersion: "2025-06-18",
@@ -102,26 +139,34 @@ export async function POST(request: Request) {
     return jsonRpcError(rpc.id, -32600, "Invalid Request", { issues: callResult.error.issues });
   }
   const call = callResult.data;
-  const db = await getDb();
   try {
     if (call.name === "mystra_create_task") {
-      const parsed = parseArguments(rpc.id, call.name, taskCreateRequestSchema, call.arguments);
+      const parsed = parseArguments(
+        rpc.id,
+        call.name,
+        taskCreateRequestSchema,
+        { ...call.arguments, teamId: active.team.id },
+      );
       if (!parsed.ok) return parsed.response;
-      return jsonRpc(rpc.id, textToolResult(taskCreateResponseSchema.parse({ task: await db.createTask(parsed.data) })));
+      return jsonRpc(rpc.id, textToolResult(taskCreateResponseSchema.parse({
+        task: await db.createTask({ ...parsed.data, teamId: active.team.id }),
+      })));
     }
     if (call.name === "mystra_list_tasks") {
-      return jsonRpc(rpc.id, textToolResult(taskListResponseSchema.parse({ tasks: await db.listTasks() })));
+      return jsonRpc(rpc.id, textToolResult(taskListResponseSchema.parse({
+        tasks: await db.listTasks({ teamId: active.team.id }),
+      })));
     }
     if (call.name === "mystra_get_task") {
       const parsed = parseArguments(rpc.id, call.name, idArgumentSchema, call.arguments);
       if (!parsed.ok) return parsed.response;
-      const task = await db.getTask(parsed.data.id);
+      const task = await db.getTask(parsed.data.id, { teamId: active.team.id });
       return jsonRpc(rpc.id, textToolResult(task
         ? taskDetailResponseSchema.parse({ task })
         : { error: { code: "TASK_NOT_FOUND", message: `Task not found: ${parsed.data.id}` } }));
     }
     if (call.name === "mystra_health") {
-      const tasks = await db.listTasks();
+      const tasks = await db.listTasks({ teamId: active.team.id });
       return jsonRpc(rpc.id, textToolResult({
         checkedAt: new Date().toISOString(),
         controlPlane: { status: "healthy" },
@@ -130,8 +175,7 @@ export async function POST(request: Request) {
       }));
     }
     return jsonRpcError(rpc.id, -32601, `Unknown tool: ${call.name}`, { tool: call.name });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown MCP failure";
-    return jsonRpcError(rpc.id, -32000, message, { tool: call.name });
+  } catch {
+    return jsonRpcError(rpc.id, -32603, "Internal error", { tool: call.name });
   }
 }

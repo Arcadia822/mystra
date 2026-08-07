@@ -5745,3 +5745,209 @@ Compaction failed: Another write batch or compaction is already active (Only a s
 Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
 Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (9424669) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:619:14:
+Failed to lookup task ids: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "get_written_endpoint_with_issues_operation", global_name: "next_napi_bindings::next_api::endpoint::get_written_endpoint_with_issues_operation", .. }, this: None, arg: (OperationVc { node: RawVc::TaskOutput(880) },) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001448.meta
+    1: Unable to open static sorted file 00001446.sst
+    2: Failed to open SST file /Users/arcadia/Documents/mystra/apps/control-plane/.next/dev/cache/turbopack/e07398321/00001446.sst
+    3: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /var/folders/82/6wh9nw116ln7t_88yzkxg1r80000gn/T/next-panic-a05cb60e60594cdc1ffba28631602e59.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed&body=Turbopack%20version%3A%20%60e07398321%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%0ADebug%20info%3A%0A-%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000001448.meta%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%2000001446.sst%0A%20%20%20%20%20%202%3A%20Failed%20to%20open%20SST%20file%20%2FUsers%2Farcadia%2FDocuments%2Fmystra%2Fapps%2Fcontrol-plane%2F.next%2Fdev%2Fcache%2Fturbopack%2Fe07398321%2F00001446.sst%0A%20%20%20%20%20%203%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (9416940) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:619:14:
+Failed to lookup task ids: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "get_written_endpoint_with_issues_operation", global_name: "next_napi_bindings::next_api::endpoint::get_written_endpoint_with_issues_operation", .. }, this: None, arg: (OperationVc { node: RawVc::TaskOutput(880) },) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001448.meta
+    1: Unable to open static sorted file 00001446.sst
+    2: Failed to open SST file /Users/arcadia/Documents/mystra/apps/control-plane/.next/dev/cache/turbopack/e07398321/00001446.sst
+    3: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /var/folders/82/6wh9nw116ln7t_88yzkxg1r80000gn/T/next-panic-a05cb60e60594cdc1ffba28631602e59.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed&body=Turbopack%20version%3A%20%60e07398321%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%0ADebug%20info%3A%0A-%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000001448.meta%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%2000001446.sst%0A%20%20%20%20%20%202%3A%20Failed%20to%20open%20SST%20file%20%2FUsers%2Farcadia%2FDocuments%2Fmystra%2Fapps%2Fcontrol-plane%2F.next%2Fdev%2Fcache%2Fturbopack%2Fe07398321%2F00001446.sst%0A%20%20%20%20%20%203%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+
+thread 'tokio-runtime-worker' (9416940) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:619:14:
+Failed to lookup task ids: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "get_written_endpoint_with_issues_operation", global_name: "next_napi_bindings::next_api::endpoint::get_written_endpoint_with_issues_operation", .. }, this: None, arg: (OperationVc { node: RawVc::TaskOutput(880) },) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001448.meta
+    1: Unable to open static sorted file 00001446.sst
+    2: Failed to open SST file /Users/arcadia/Documents/mystra/apps/control-plane/.next/dev/cache/turbopack/e07398321/00001446.sst
+    3: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /var/folders/82/6wh9nw116ln7t_88yzkxg1r80000gn/T/next-panic-a05cb60e60594cdc1ffba28631602e59.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed&body=Turbopack%20version%3A%20%60e07398321%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%0ADebug%20info%3A%0A-%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000001448.meta%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%2000001446.sst%0A%20%20%20%20%20%202%3A%20Failed%20to%20open%20SST%20file%20%2FUsers%2Farcadia%2FDocuments%2Fmystra%2Fapps%2Fcontrol-plane%2F.next%2Fdev%2Fcache%2Fturbopack%2Fe07398321%2F00001446.sst%0A%20%20%20%20%20%203%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+
+thread 'tokio-runtime-worker' (9417766) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:619:14:
+Failed to lookup task ids: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "get_written_endpoint_with_issues_operation", global_name: "next_napi_bindings::next_api::endpoint::get_written_endpoint_with_issues_operation", .. }, this: None, arg: (OperationVc { node: RawVc::TaskOutput(880) },) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001448.meta
+    1: Unable to open static sorted file 00001446.sst
+    2: Failed to open SST file /Users/arcadia/Documents/mystra/apps/control-plane/.next/dev/cache/turbopack/e07398321/00001446.sst
+    3: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /var/folders/82/6wh9nw116ln7t_88yzkxg1r80000gn/T/next-panic-a05cb60e60594cdc1ffba28631602e59.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed&body=Turbopack%20version%3A%20%60e07398321%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%0ADebug%20info%3A%0A-%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000001448.meta%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%2000001446.sst%0A%20%20%20%20%20%202%3A%20Failed%20to%20open%20SST%20file%20%2FUsers%2Farcadia%2FDocuments%2Fmystra%2Fapps%2Fcontrol-plane%2F.next%2Fdev%2Fcache%2Fturbopack%2Fe07398321%2F00001446.sst%0A%20%20%20%20%20%203%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+
+thread 'tokio-runtime-worker' (9412275) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:619:14:
+Failed to lookup task ids: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "get_written_endpoint_with_issues_operation", global_name: "next_napi_bindings::next_api::endpoint::get_written_endpoint_with_issues_operation", .. }, this: None, arg: (OperationVc { node: RawVc::TaskOutput(880) },) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001448.meta
+    1: Unable to open static sorted file 00001446.sst
+    2: Failed to open SST file /Users/arcadia/Documents/mystra/apps/control-plane/.next/dev/cache/turbopack/e07398321/00001446.sst
+    3: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /var/folders/82/6wh9nw116ln7t_88yzkxg1r80000gn/T/next-panic-a05cb60e60594cdc1ffba28631602e59.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed&body=Turbopack%20version%3A%20%60e07398321%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%0ADebug%20info%3A%0A-%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000001448.meta%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%2000001446.sst%0A%20%20%20%20%20%202%3A%20Failed%20to%20open%20SST%20file%20%2FUsers%2Farcadia%2FDocuments%2Fmystra%2Fapps%2Fcontrol-plane%2F.next%2Fdev%2Fcache%2Fturbopack%2Fe07398321%2F00001446.sst%0A%20%20%20%20%20%203%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+
+thread 'tokio-runtime-worker' (9412275) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:619:14:
+Failed to lookup task ids: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "get_written_endpoint_with_issues_operation", global_name: "next_napi_bindings::next_api::endpoint::get_written_endpoint_with_issues_operation", .. }, this: None, arg: (OperationVc { node: RawVc::TaskOutput(880) },) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001448.meta
+    1: Unable to open static sorted file 00001446.sst
+    2: Failed to open SST file /Users/arcadia/Documents/mystra/apps/control-plane/.next/dev/cache/turbopack/e07398321/00001446.sst
+    3: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /var/folders/82/6wh9nw116ln7t_88yzkxg1r80000gn/T/next-panic-a05cb60e60594cdc1ffba28631602e59.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed&body=Turbopack%20version%3A%20%60e07398321%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%0ADebug%20info%3A%0A-%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000001448.meta%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%2000001446.sst%0A%20%20%20%20%20%202%3A%20Failed%20to%20open%20SST%20file%20%2FUsers%2Farcadia%2FDocuments%2Fmystra%2Fapps%2Fcontrol-plane%2F.next%2Fdev%2Fcache%2Fturbopack%2Fe07398321%2F00001446.sst%0A%20%20%20%20%20%203%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+
+thread 'tokio-runtime-worker' (9412275) panicked at turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:619:14:
+Failed to lookup task ids: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "get_written_endpoint_with_issues_operation", global_name: "next_napi_bindings::next_api::endpoint::get_written_endpoint_with_issues_operation", .. }, this: None, arg: (OperationVc { node: RawVc::TaskOutput(880) },) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001448.meta
+    1: Unable to open static sorted file 00001446.sst
+    2: Failed to open SST file /Users/arcadia/Documents/mystra/apps/control-plane/.next/dev/cache/turbopack/e07398321/00001446.sst
+    3: No such file or directory (os error 2)
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to /var/folders/82/6wh9nw116ln7t_88yzkxg1r80000gn/T/next-panic-a05cb60e60594cdc1ffba28631602e59.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed&body=Turbopack%20version%3A%20%60e07398321%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0AFailed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%0ADebug%20info%3A%0A-%20Failed%20to%20lookup%20task%20ids%3A%20Looking%20up%20task%20id%20for%20CachedTaskType%20%7B%20native_fn%3A%20NativeFunction%20%7B%20name%3A%20%22get_written_endpoint_with_issues_operation%22%2C%20global_name%3A%20%22next_napi_bindings%3A%3Anext_api%3A%3Aendpoint%3A%3Aget_written_endpoint_with_issues_operation%22%2C%20..%20%7D%2C%20this%3A%20None%2C%20arg%3A%20%28OperationVc%20%7B%20node%3A%20RawVc%3A%3ATaskOutput%28880%29%20%7D%2C%29%20%7D%20from%20database%20failed%0A%20%20%0A%20%20Caused%20by%3A%0A%20%20%20%20%20%200%3A%20Unable%20to%20open%20static%20sorted%20file%20referenced%20from%2000001448.meta%0A%20%20%20%20%20%201%3A%20Unable%20to%20open%20static%20sorted%20file%2000001446.sst%0A%20%20%20%20%20%202%3A%20Failed%20to%20open%20SST%20file%20%2FUsers%2Farcadia%2FDocuments%2Fmystra%2Fapps%2Fcontrol-plane%2F.next%2Fdev%2Fcache%2Fturbopack%2Fe07398321%2F00001446.sst%0A%20%20%20%20%20%203%3A%20No%20such%20file%20or%20directory%20%28os%20error%202%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)

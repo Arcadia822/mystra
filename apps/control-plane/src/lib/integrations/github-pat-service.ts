@@ -5,6 +5,7 @@ import {
   type IntegrationConnection,
   type PersonalAccessTokenConnectionInput,
 } from "@mystra/shared";
+import { z } from "zod";
 
 import type {
   IntegrationConnectionRecord,
@@ -30,18 +31,21 @@ type PatConnectionDb = Pick<
 export class GitHubPatConnectionService {
   readonly #db: PatConnectionDb;
   readonly #secrets: SecretProvider | undefined;
+  readonly #teamId: string;
   readonly #validate: (token: string) => Promise<GitHubPatValidation>;
   readonly #newId: () => string;
   readonly #newCredentialId: () => string;
 
   constructor(input: {
     db: PatConnectionDb;
+    teamId: string;
     secrets?: SecretProvider;
     validate?: (token: string) => Promise<GitHubPatValidation>;
     newId?: () => string;
     newCredentialId?: () => string;
   }) {
     this.#db = input.db;
+    this.#teamId = z.string().uuid().parse(input.teamId);
     this.#secrets = input.secrets;
     this.#validate = input.validate ?? ((token) => validateGitHubPat(token));
     this.#newId = input.newId ?? randomUUID;
@@ -51,7 +55,10 @@ export class GitHubPatConnectionService {
   async create(input: PersonalAccessTokenConnectionInput): Promise<IntegrationConnection> {
     const request = personalAccessTokenConnectionInputSchema.parse(input);
     const validation = await this.#validate(request.token);
-    const existing = (await this.#db.listIntegrationConnectionRecords({ integration: "github" }))
+    const existing = (await this.#db.listIntegrationConnectionRecords({
+      integration: "github",
+      teamId: this.#teamId,
+    }))
       .find((connection) => (
         connection.authMethod === "personal-access-token"
         && connection.providerExternalId === validation.providerExternalId
@@ -109,13 +116,7 @@ export class GitHubPatConnectionService {
   }
 
   async delete(id: string): Promise<void> {
-    const current = await this.#db.getIntegrationConnectionRecord(id);
-    if (!current) {
-      throw new IntegrationFailure({
-        code: "INTEGRATION_CONNECTION_NOT_FOUND",
-        message: "Integration connection not found",
-      });
-    }
+    const current = await this.#requireRecordForTeam(id);
     const projects = await this.#db.listProjectsForIntegrationConnection(id);
     if (projects.length > 0) {
       throw new IntegrationFailure({
@@ -154,6 +155,7 @@ export class GitHubPatConnectionService {
   ): IntegrationConnectionUpsert {
     return {
       id,
+      teamId: this.#teamId,
       integration: "github",
       provider: "github",
       authMethod: "personal-access-token",
@@ -177,13 +179,7 @@ export class GitHubPatConnectionService {
   }
 
   async #requirePatRecord(id: string): Promise<IntegrationConnectionRecord> {
-    const record = await this.#db.getIntegrationConnectionRecord(id);
-    if (!record) {
-      throw new IntegrationFailure({
-        code: "INTEGRATION_CONNECTION_NOT_FOUND",
-        message: "Integration connection not found",
-      });
-    }
+    const record = await this.#requireRecordForTeam(id);
     if (record.authMethod !== "personal-access-token") {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_MISMATCH",
@@ -193,9 +189,20 @@ export class GitHubPatConnectionService {
     return record;
   }
 
+  async #requireRecordForTeam(id: string): Promise<IntegrationConnectionRecord> {
+    const record = await this.#db.getIntegrationConnectionRecord(id);
+    if (!record || record.teamId !== this.#teamId) {
+      throw new IntegrationFailure({
+        code: "INTEGRATION_CONNECTION_NOT_FOUND",
+        message: "Integration connection not found",
+      });
+    }
+    return record;
+  }
+
   async #publicConnection(id: string): Promise<IntegrationConnection> {
     const connection = await this.#db.getIntegrationConnection(id);
-    if (!connection) {
+    if (!connection || connection.teamId !== this.#teamId) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
         message: "Integration connection was not persisted",

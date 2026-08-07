@@ -1592,6 +1592,28 @@ body:has(.settingsModal[open]) {
   overflow: auto;
 }
 
+.scrollableSurface {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.settingsModalPage {
+  width: 100%;
+  min-height: 0;
+  padding: var(--space-0);
+}
+
+.settingsTabForm {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.settingsTabActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .settingGroup {
   display: grid;
   gap: var(--space-8);
@@ -3596,6 +3618,224 @@ body:has(.searchDialog[open]) {
     min-height: var(--touch-target);
     height: auto;
   }
+}
+
+.accessGate,
+.authPage,
+.passwordGate {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--page-inset-inline);
+}
+
+.accessGate {
+  color: var(--text2);
+}
+
+.authPanel,
+.settingsCard {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+}
+
+.authPanel {
+  width: min(100%, 420px);
+  padding: var(--space-6);
+}
+
+.authPanel h1,
+.settingsPage h1,
+.settingsCard h2,
+.settingsForm h1 {
+  margin: 0;
+  color: var(--text1);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.authEyebrow,
+.authDescription,
+.settingsPage > header > p,
+.settingsForm > p,
+.settingsCard > p,
+.readOnlyState {
+  margin: 0;
+  color: var(--text2);
+}
+
+.authEyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.authPanel label,
+.settingsForm label,
+.inlineForm label {
+  display: grid;
+  gap: var(--tight-gap);
+}
+
+.authPanel label > span,
+.settingsForm label > span,
+.inlineForm label > span {
+  color: var(--text2);
+}
+
+.authPanel .uiFieldControl,
+.settingsForm .uiFieldControl,
+.inlineForm .uiFieldControl {
+  width: 100%;
+}
+
+.authPanel .uiAction[data-block] {
+  justify-content: center;
+}
+
+.authAlternate {
+  margin: 0;
+  color: var(--text3);
+}
+
+.authAlternate a,
+.settingsLink {
+  color: var(--accent);
+}
+
+.settingsPage {
+  width: min(920px, 100%);
+  display: grid;
+  gap: var(--layout-gap);
+  padding: var(--page-inset-top) var(--page-inset-inline) var(--page-inset-bottom);
+}
+
+.settingsPage > header {
+  display: grid;
+  gap: var(--tight-gap);
+}
+
+.settingsCard {
+  padding: var(--panel-inset);
+}
+
+.settingsForm {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.inlineForm {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.inlineForm label {
+  width: min(100%, 320px);
+}
+
+.sessionList,
+.teamList,
+.memberList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sessionList li,
+.teamList li,
+.memberList li {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.sessionList span,
+.teamList li > span,
+.memberList li > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--tight-gap);
+}
+
+.teamList small,
+.memberList small {
+  color: var(--text3);
+}
+
+.confirmDialog {
+  width: min(400px, calc(100vw - var(--space-8)));
+  display: none;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+  color: var(--text1);
+}
+
+.confirmDialog[open] { display: grid; }
+.confirmDialog::backdrop { background: var(--color-backdrop); }
+.confirmDialog h2,
+.confirmDialog p { margin: 0; }
+.confirmDialog p { color: var(--text2); }
+.confirmDialog > div { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+.shellHeaderControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.teamSwitcher { position: relative; }
+.teamSwitcher summary {
+  max-width: 180px;
+  min-height: var(--control-height-compact);
+  overflow: hidden;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text2);
+  cursor: pointer;
+  line-height: var(--control-height-compact);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.teamSwitcherMenu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  width: min(280px, calc(100vw - var(--space-6)));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+}
+.teamSwitcherMenu small { margin-left: auto; color: var(--text3); text-transform: capitalize; }
+.teamSwitcherMenu > a { padding: var(--space-2); color: var(--accent); }
+
+@media (max-width: 640px) {
+  .settingsPage { padding-inline: var(--page-inset-inline-narrow); }
+  .authPanel { padding: var(--space-4); }
+  .memberList li { align-items: flex-start; flex-wrap: wrap; }
+  .shellHeaderControls { gap: var(--space-1); }
+  .teamSwitcher summary { max-width: 112px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

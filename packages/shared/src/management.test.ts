@@ -58,6 +58,7 @@ const projectRuntime = {
 
 const task = {
   id: "00000000-0000-4000-8000-000000000010",
+  teamId: "00000000-0000-4000-8000-000000000012",
   projectId: "00000000-0000-4000-8000-000000000001",
   metadata: {},
   createdAt: "2026-05-15T00:00:00.000Z",
@@ -107,6 +108,7 @@ describe("integration connection management contracts", () => {
       }],
       connections: [{
         id: repositoryConnectionId,
+        teamId: task.teamId,
         integration: "github",
         provider: "github",
         authMethod: "github-app",
@@ -174,6 +176,7 @@ describe("management errors", () => {
 describe("Project management views", () => {
   const projectSelection = {
     id: task.projectId,
+    teamId: task.teamId,
     name: "Mystra",
     slug: "mystra",
     repositoryConnectionId,

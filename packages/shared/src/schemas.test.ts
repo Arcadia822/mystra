@@ -46,6 +46,7 @@ const remoteRepository = {
 describe("Task and Session schemas", () => {
   it("accepts an Issue dispatch identity without persisting Issue snapshots", () => {
     const parsed = taskCreateSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000003",
       projectId: "00000000-0000-4000-8000-000000000001",
       issueDispatchKey: "linear:issue-id:project-id",
       metadata: {},
@@ -60,6 +61,7 @@ describe("Task and Session schemas", () => {
 
   it("accepts a minimal manual Task without execution ownership", () => {
     const parsed = taskCreateRequestSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000003",
       projectId: "00000000-0000-4000-8000-000000000001",
     });
 
@@ -552,6 +554,7 @@ describe("projectSchema", () => {
   it("accepts a persisted project and applies JSON/archive defaults", () => {
     const parsed = projectSchema.parse({
       id: "00000000-0000-4000-8000-000000000010",
+      teamId: "00000000-0000-4000-8000-000000000003",
       name: "Castrel AI",
       slug: "castrel-ai",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
@@ -568,6 +571,7 @@ describe("projectSchema", () => {
 
   it("accepts resolved project create payloads with stable repository identity", () => {
     const parsed = projectCreateSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000003",
       name: "Castrel AI",
       slug: "castrel-ai",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
@@ -580,6 +584,7 @@ describe("projectSchema", () => {
 
   it("accepts only stable repository identity on public project create requests", () => {
     const parsed = projectCreateRequestSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000003",
       name: "Remote fixture",
       slug: "remote-fixture",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",

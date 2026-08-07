@@ -18,7 +18,9 @@ React 19, Zod 4, Vitest 4, and `better-sqlite3`.
 ## Canonical topology
 
 The topology below is directional. The first Prisma RDB milestone persists only
-IntegrationConnection, Project and Task; Session/Runner persistence is deferred.
+IntegrationConnection, Project and Task; feature 044 additionally persists host
+Runtime plus its available-Provider capability. Session/dispatch/Context
+persistence is deferred.
 
 ```text
 Mystra platform
@@ -79,6 +81,13 @@ pnpm lsp:typescript
   process between databases is not supported.
 - Runner hosts initiate outbound connections. Sandbox containers never mount
   the host Docker socket or host home.
+- Runtime is an execution backend that advertises its available Provider (agent
+  CLI) capabilities source-agnostically (host PATH discovery now, image-declared
+  later). The host `mystra-runner` is TypeScript (reusing `apps/runner-daemon`),
+  registers by configured endpoint without MVP pairing, discovers and confirms
+  Provider availability, and reports heartbeat/status; online/offline is judged
+  by server receive time. Task dispatch, Context, and Agent config are separate
+  follow-up boundaries.
 - Runtime secrets are injected through environment variables or read-only files.
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core execution is direct: sandbox, Agent, quality, preview, repository
@@ -95,7 +104,8 @@ IntegrationConnection durable non-secret binding to one provider authorization
 SecretProvider        plaintext crypto boundary; RDB persists only encrypted envelopes
 RepoProvider          remote repository discovery and identity
 IssueProvider         GitHub repository-scoped; Linear read-only
-SandboxProvider       single-machine Docker first
+SandboxProvider       single-machine Docker, one Runtime execution backend
+RuntimeProvider       execution backend advertising source-agnostic Provider (agent CLI) capabilities; host-bound Runtime enrolled by the TypeScript `mystra-runner` (feature 044)
 RepoDeliveryProvider  clone, push, and review delivery
 AgentProvider         adapter-backed Agent execution
 ```

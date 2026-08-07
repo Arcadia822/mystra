@@ -35,7 +35,7 @@ describe("Prisma database error boundary", () => {
     expect(unavailable.message).not.toMatch(/secret|private-host/iu);
 
     const serializationFailure = normalizeDatabaseError({ code: "P2034" });
-    expect(serializationFailure.code).toBe("RDB_UNAVAILABLE");
-    expect(serializationFailure.message).toBe("RDB_UNAVAILABLE: Database operation failed");
+    expect(serializationFailure.code).toBe("RDB_CONFLICT");
+    expect(serializationFailure.message).toBe("RDB_CONFLICT: A unique value is already in use");
   });
 });

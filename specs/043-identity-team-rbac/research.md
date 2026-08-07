@@ -1,35 +1,31 @@
 # Phase 0 研究：本地用户、Team 与 RBAC
 
 **Date**: 2026-08-07
-**Baseline**: `main@10750ca`（含 039、041）+ 040 Prisma RDB（3 业务表 + SecretEnvelope，worktree 已实现，等待合入 `main`）
+**Baseline**: `main`（含已合入的 040 Prisma RDB 与 041）
 **Scope**: 解决 043 计划中的技术未知项，为 data-model 与 contracts 提供决策依据。
 
 ---
 
-## R1. Better Auth × 无 email 自托管装配
+## R1. 无 email 自托管认证装配
 
-**Decision**：采用 Better Auth 稳定版，仅启用 email/password 凭据引擎的 username 变体（username plugin）与 session 能力；关闭一切 email 相关能力（verification、reset、magic link、social/OAuth）。登录标识为规范化 `username`，凭据存于 Better Auth `account` 记录（`providerId = "credential"`）。Mystra 通过 Better Auth 的“附加字段（additional fields）”在 `user` 上挂 `displayName`、`status`、`requirePasswordChange`。所有对外合同只暴露 `@mystra/shared` 类型，Better Auth 类型不越界（FR-041）。
+**Spike result (2026-08-07)**：Better Auth `1.6.26` 的发布类型定义证实 `username` plugin 的 User 与 database hook 合同强制 `email`、`emailVerified`。这与 FR-008 直接冲突，且 R1 禁止派生或占位 email。
 
-**Rationale**：Better Auth 稳定版对 username/password 与 session 提供成熟实现（含 session 过期、撤销、多 session、CSRF/origin 校验、暴力破解与枚举防护挂点），直接满足 FR-010/FR-015；username plugin 提供规范化的登录标识与 displayUsername/username 分离。
-
-**残余风险（需实现首个 spike 验证）**：Better Auth 核心 `user` 传统上带 `email` 字段。FR-008/SC-009 要求 self-host User 模型 MUST NOT 要求、保存、推导或查询 email，目标计数为 0。实现的**第一个任务**必须做一次能力 spike，确认在目标 Better Auth 版本中可将 email 完全移除/置为非收集、非存储、非查询：
-- 首选：配置使 username 成为唯一登录标识，`user` 表不含 `email` 列，注册/登录 payload 不含 email。
-- 若目标版本硬依赖 email 列：视为 FR-008 冲突，**停止并上报 Owner**，在“换认证库”或“修订 FR-008 边界”之间做显式决策，不得用派生/占位 email 偷过（那会违反“MUST NOT 推导/保存”）。
+**Decision**：保留无 email 产品边界，使用 Mystra-owned local authentication：username/password credential 以 Node `crypto.scrypt` 的版本化参数、每账户随机 salt 与 digest 保存；session 使用随机不透明 token 的 SHA-256 digest 保存。浏览器通过 httpOnly cookie、CLI/MCP 通过同一 human session 的 Bearer presentation。所有对外合同只暴露 `@mystra/shared` 类型。
 
 **Alternatives considered**：
-- 自研 password + session 栈：被拒。重复实现 FR-015 的全部安全挂点，风险高、与 spec FR-041 冲突。
-- Lucia/自研 session：spec 已指定 Better Auth，不另择。
+- 保留 Better Auth 并存储占位 email：被拒，违反 FR-008。
+- 引入带 email 模型的其他认证框架：被拒，不能满足无 email 数据模型。
 
 ---
 
-## R2. Prisma 拥有 Auth schema 与 migration（Better Auth 不绕过）
+## R2. Prisma 拥有 local-auth schema 与 migration
 
-**Decision**：Better Auth 使用其 Prisma 适配层，所有 Better Auth 表（user/session/account/verification）作为 Prisma model 定义在 `apps/control-plane/prisma/{sqlite,postgresql}/schema.prisma` 内，并由 Prisma Migrate 生成 migration。运行时 Better Auth 通过 Prisma Client 读写，不使用独立连接或自带迁移器（FR-044）。为避免与 040 已删除的 Mystra 执行 `sessions` 概念混淆，Better Auth 的 session 物理表命名为 `auth_sessions`，account/verification 命名为 `auth_accounts`、`auth_verifications`，通过 Better Auth 的 modelName/field 映射对齐。
+**Decision**：`User`、`AuthAccount`、`AuthSession` 作为 Prisma model 定义在 `apps/control-plane/prisma/{sqlite,postgresql}/schema.prisma` 内，并由 Prisma Migrate 生成 migration。认证运行时只经 `RdbProvider` 读写，不使用独立连接或自带迁移器（FR-044）。为避免与 040 已删除的 Mystra 执行 `sessions` 概念混淆，认证 session 物理表命名为 `auth_sessions`。
 
 **Rationale**：单一 schema owner 保证 SQLite/PostgreSQL 双库 migration history 一致、parity 断言可覆盖（FR-045），并让 Auth 表与域表处于同一事务/连接池（支撑 R4 原子注册）。
 
 **Alternatives considered**：
-- Better Auth 自带 CLI 生成/迁移其表：被拒，会绕过 Prisma migration history（违反 FR-044），且难以纳入现有 `prisma-schema-parity.test.ts`。
+- 认证库自带 CLI 生成/迁移其表：被拒，会绕过 Prisma migration history（违反 FR-044），且难以纳入现有 `prisma-schema-parity.test.ts`。
 
 ---
 
@@ -51,11 +47,11 @@
 
 ## R4. 原子注册与初始 Team 事务
 
-**Decision**：注册与 bootstrap 消费都在**单一数据库事务**内创建 User、Better Auth credential account、初始 Team、Owner membership（role=owner）、初始 session；任一步失败整体回滚（FR-009/FR-018/SC-002）。事务经 Prisma `$transaction` 执行，Better Auth 的账户写入需纳入同一事务边界（依赖 R2 的同 Prisma Client）。并发/重复注册通过规范化 `username` 唯一约束串行化，冲突返回稳定错误，不留孤儿 Team/membership（FR-007 场景 7 / SC-002）。
+**Decision**：注册与 bootstrap 消费都在**单一数据库事务**内创建 User、本地 credential account、初始 Team、Owner membership（role=owner）、初始 session；任一步失败整体回滚（FR-009/FR-018/SC-002）。事务经 Prisma `$transaction` 执行。并发/重复注册通过规范化 `username` 唯一约束串行化，冲突返回稳定错误，不留孤儿 Team/membership（FR-007 场景 7 / SC-002）。
 
 **Rationale**：满足“要么全部成功要么全部不存在”的可测成功标准，并用 DB 唯一约束而非应用锁保证并发正确性与 provider parity。
 
-**残余风险**：Better Auth 默认注册流程可能自带独立写入路径。实现需确认可在受控事务中调用其账户创建，或改为 Mystra 直接写入 credential account（沿用 Better Auth 的 hash 校验规则）。此点并入 R1 spike。
+**安全验证**：必须覆盖 scrypt 参数、随机 salt、constant-time password comparison、token digest、session revocation、cookie flags、Bearer 仅限同一 human session、login rate limit 与 CSRF/origin 边界。
 
 ---
 
@@ -96,9 +92,9 @@
 
 ## R9. Password hashing
 
-**Decision**：使用 Better Auth 内建的经过审查的自适应 password hashing 作为默认（稳定版默认 scrypt 参数；如目标版本支持 argon2id 配置则优先 argon2id）。系统不保存/记录/返回明文（FR-013）。具体算法与参数在 R1 spike 中随版本确认并记录到 quickstart。
+**Decision**：使用 Node `crypto.scrypt`（N=32768、r=8、p=1、maxmem=64 MiB）配每账户随机 16-byte salt，输出 64-byte key；记录算法版本与参数，并用 `timingSafeEqual` 比较等长 digest。系统不保存、记录或返回明文（FR-013）。依据：[Node.js crypto.scrypt](https://nodejs.org/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)。
 
-**Rationale**：避免自研 KDF；沿用引擎默认可获得随版本更新的安全基线。
+**Rationale**：在无 email 认证库冲突的条件下，Node 标准库提供可审计的 memory-hard KDF，且不增加认证数据模型或运行时依赖。
 
 ---
 
@@ -106,7 +102,7 @@
 
 | 编号 | 决策 | 关键约束 |
 |---|---|---|
-| R1 | Better Auth username+session，无 email；首任务 spike 验证 email 可完全移除 | FR-008/FR-041/SC-009 |
+| R1 | Mystra local-auth，scrypt + opaque session，完全无 email | FR-008/FR-041/SC-009 |
 | R2 | Auth 表由 Prisma 定义与迁移，session 物理表名 `auth_sessions` | FR-044/FR-045 |
 | R3 | Permission/Role 代码级目录，role 反规范化到 `team_memberships.role` | FR-032/FR-033/FR-034 |
 | R4 | 单事务原子创建 User/初始 Team/owner-membership/session | FR-009/FR-018/SC-002 |
@@ -114,9 +110,9 @@
 | R6 | active_team_id 存 session，每请求服务端校验并 fail-closed 回退 | FR-021/FR-038/SC-004 |
 | R7 | Team 删除=归档（status/archived_at），唯一 Team 不可删/不可退出 | FR-024/FR-025 |
 | R8 | 只消费外部 bootstrap，空库 fail closed，不自建 admin | FR-002/FR-004 |
-| R9 | Better Auth 内建自适应 hashing，无明文落地 | FR-013 |
+| R9 | Node scrypt 版本化参数 + 随机 salt，无明文落地 | FR-013 |
 
 ## 未决 / 需实现前解决的前置
 
-1. **R1/R4 spike**：目标 Better Auth 版本能否无 email 装配、并把账户写入纳入受控事务（实现第一任务；失败则上报 Owner）。
-2. **治理前置**：constitution/5xP 的 self-host caller auth + Team administration 排除项已由 constitution v2.7.0（2026-08-07）修订解决（Principle I / FR-051 满足）。剩余启动检查项为 040 合入 `main`（FR-050）。（新增 Auth/RBAC 表属 043 功能范围内的常规设计，走 spec/plan Owner 评审，不是独立审批门。）
+1. **已解决 spike**：Better Auth 无 email 不可行，已保留 FR-008 并按 R1/R9 改用 Mystra local-auth。
+2. **治理前置**：constitution/5xP 的 self-host caller auth + Team administration 排除项已修订解决（Principle I / FR-051 满足）；040 已在 `main`（FR-050 满足）。

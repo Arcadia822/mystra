@@ -105,9 +105,10 @@ export async function adoptSqliteDatabase(
   if (inspection.state === "prisma") {
     return { state: "already-adopted", counts: inspection.counts! };
   }
-  if (inspection.state !== "schema-v5") {
-    throw new Error("SQLITE_ADOPTION_REFUSED: unknown SQLite schema");
+  if (inspection.state === "schema-v5") {
+    throw new Error("SQLITE_ADOPTION_REFUSED: obsolete schema-v5 lacks required Team scope");
   }
+  throw new Error("SQLITE_ADOPTION_REFUSED: unknown SQLite schema");
   if (existsSync(`${databasePath}-wal`) || existsSync(`${databasePath}-shm`)) {
     throw new Error("SQLITE_ADOPTION_REFUSED: database appears to be open; stop Mystra before adoption");
   }

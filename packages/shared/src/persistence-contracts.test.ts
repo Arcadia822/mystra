@@ -38,6 +38,7 @@ describe("owner-approved persistence contracts", () => {
     expect(() => integrationCapabilitiesSchema.parse({ repositories: { state: "ready" } })).toThrow();
 
     const activation = integrationConnectionActivationSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000040",
       integration: "github",
       provider: "github-cloud",
       authMethod: "github-app",
@@ -63,6 +64,7 @@ describe("owner-approved persistence contracts", () => {
 
   it("persists only stable Project repository identity and prefixed branch config", () => {
     const input = projectCreateSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000040",
       name: "Mystra",
       slug: "mystra",
       repositoryConnectionId: connectionId,
@@ -92,6 +94,7 @@ describe("owner-approved persistence contracts", () => {
 
   it("limits Task persistence to six fields and Issue dispatch identity", () => {
     const input = taskCreateRequestSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000040",
       projectId,
       issueDispatchKey: "github:repo:issue:42",
       metadata: {},

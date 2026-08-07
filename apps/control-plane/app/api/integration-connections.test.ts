@@ -8,6 +8,7 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getDb, resetDbForTests } from "@/lib/db";
+import { hashSessionToken } from "@/lib/auth";
 import { resetGitHubAppServiceForTests } from "@/lib/integrations/github-app";
 import { resetSecretProviderForTests } from "@/lib/secrets";
 import { DELETE as deleteConnection } from "./integration-connections/[id]/route";
@@ -19,9 +20,11 @@ import { GET as finishGitHubOAuth } from "./integration-connections/github/oauth
 
 const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 let tempDir: string;
+const sessionToken = "integration-routes-session-token";
 const migrations = [
   "20260806182000_init",
   "20260806210000_secret_envelopes",
+  "20260807150000_identity_team_rbac",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
@@ -41,6 +44,16 @@ beforeEach(async () => {
   const database = new Database(process.env.MYSTRA_DB_PATH);
   for (const migration of migrations) database.exec(migration);
   database.close();
+  const db = await getDb();
+  await db.registerLocalUser({
+    username: "integration_routes_user",
+    passwordHash: "scrypt$v1$hash",
+    passwordSalt: "salt",
+    passwordParams: "N=16384,r=8,p=1",
+    initialTeamDisplayName: "Integration Routes Team",
+    tokenHash: hashSessionToken(sessionToken),
+    expiresAt: "2027-08-06T00:00:00.000Z",
+  });
   process.env.MYSTRA_GITHUB_APP_ID = "12345";
   process.env.MYSTRA_GITHUB_APP_CLIENT_ID = "Iv1.fixture";
   process.env.MYSTRA_GITHUB_APP_CLIENT_SECRET = "client-secret";
@@ -67,7 +80,10 @@ afterEach(async () => {
 
 describe("self-hosted GitHub connection routes", () => {
   it("lists only PAT even when complete GitHub App secrets are present", async () => {
-    const response = await listConnections();
+    const response = await listConnections(new Request(
+      "http://localhost/api/integration-connections",
+      { headers: { authorization: `Bearer ${sessionToken}` } },
+    ));
     const body = await response.json();
     expect(body).toEqual({
       providers: [{
@@ -102,7 +118,10 @@ describe("self-hosted GitHub connection routes", () => {
       "http://localhost/api/integration-connections/github/pat",
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          authorization: `Bearer ${sessionToken}`,
+          "content-type": "application/json",
+        },
         body: JSON.stringify({ token: "github_pat_route_secret", displayName: "Delivery" }),
       },
     ));
@@ -122,7 +141,10 @@ describe("self-hosted GitHub connection routes", () => {
     expect(JSON.stringify(record)).not.toContain("github_pat_route_secret");
 
     const deleted = await deleteConnection(
-      new Request(`http://localhost/api/integration-connections/${body.connection.id}`, { method: "DELETE" }),
+      new Request(`http://localhost/api/integration-connections/${body.connection.id}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${sessionToken}` },
+      }),
       { params: Promise.resolve({ id: body.connection.id }) },
     );
     expect(deleted.status).toBe(204);

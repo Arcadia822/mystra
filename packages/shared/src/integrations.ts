@@ -40,12 +40,15 @@ const integrationConnectionMetadataSchema = z
   })
   .strict();
 
-export const integrationConnectionActivationSchema = integrationConnectionMetadataSchema;
+export const integrationConnectionActivationSchema = integrationConnectionMetadataSchema.extend({
+  teamId: z.string().uuid(),
+}).strict();
 export type IntegrationConnectionActivation = z.input<typeof integrationConnectionActivationSchema>;
 
 export const integrationConnectionSchema = integrationConnectionMetadataSchema
   .extend({
     id: z.string().uuid(),
+    teamId: z.string().uuid(),
     status: integrationConnectionStatusSchema,
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),

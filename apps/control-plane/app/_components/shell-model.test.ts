@@ -11,6 +11,7 @@ import {
 function task(overrides: Partial<TaskListItem> = {}): TaskListItem {
   return {
     id: "00000000-0000-4000-8000-000000000001",
+    teamId: "00000000-0000-4000-8000-000000000002",
     projectId: "00000000-0000-4000-8000-000000000010",
     metadata: { title: "Sidebar collapse is missing" },
     createdAt: "2026-08-05T00:00:00.000Z",

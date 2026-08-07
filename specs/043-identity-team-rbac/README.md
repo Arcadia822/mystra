@@ -4,9 +4,9 @@
 
 ## 当前阶段
 
-- Specify：已生成，等待 Owner 评审。
-- Plan：已生成（research/data-model/contracts/quickstart），等待 Owner 评审。
-- Implementation：041 已落地；等待 040 Prisma RDB 合入和 5xP boundary amendment。
+- Specify：已完成。
+- Plan：已完成（research/data-model/contracts/quickstart）。
+- Implementation：已完成；SQLite control-plane 验证通过。真实 PostgreSQL suite 需在配置 `MYSTRA_TEST_POSTGRES_URL` 的环境补跑。
 
 ## 分支选择
 
@@ -28,4 +28,4 @@ export SPECIFY_FEATURE=043-identity-team-rbac
 - [独立低保真原型](mockups/index.html)
 - [Spec View](index.html)
 
-`index.html` 由仓库 renderer 生成。当前交付是静态规格和低保真原型，不声称提供运行时认证、持久化或浏览器验收证据。
+`index.html` 由仓库 renderer 生成。静态规格和低保真原型用于评审；运行时验证由 control-plane tests、typecheck 与 production build 覆盖。

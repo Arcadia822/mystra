@@ -13,6 +13,7 @@ const tempDirectory = mkdtempSync(path.join(tmpdir(), "mystra-prisma-contract-")
 const migrations = [
   "20260806182000_init",
   "20260806210000_secret_envelopes",
+  "20260807150000_identity_team_rbac",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",

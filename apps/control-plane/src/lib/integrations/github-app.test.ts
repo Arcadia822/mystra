@@ -20,6 +20,7 @@ const config = {
   privateKey: privateKeyPem,
   callbackUrl: "http://localhost:3000/api/integration-connections/github/oauth/callback",
 };
+const teamId = "00000000-0000-4000-8000-000000000001";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -70,9 +71,10 @@ describe("GitHubAppService", () => {
     const service = new GitHubAppService({ config, fetchImpl });
 
     const token = await service.exchangeOAuthCode("oauth-code", "pkce-verifier");
-    const activation = await service.verifyAccessibleInstallation(token, "18492");
+    const activation = await service.verifyAccessibleInstallation(token, "18492", teamId);
 
     expect(activation).toMatchObject({
+      teamId,
       integration: "github",
       provider: "github",
       authMethod: "github-app",
@@ -96,9 +98,9 @@ describe("GitHubAppService", () => {
         permissions: {},
       }] })),
     });
-    await expect(service.verifyAccessibleInstallation("ghu_must-not-leak", "18492"))
+    await expect(service.verifyAccessibleInstallation("ghu_must-not-leak", "18492", teamId))
       .rejects.toMatchObject({ code: "GITHUB_INSTALLATION_UNVERIFIED" });
-    await expect(service.verifyAccessibleInstallation("ghu_must-not-leak", "999"))
+    await expect(service.verifyAccessibleInstallation("ghu_must-not-leak", "999", teamId))
       .rejects.not.toThrow(/ghu_must-not-leak/);
   });
 

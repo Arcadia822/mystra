@@ -4,7 +4,7 @@
 **Feature Directory**: `specs/043-identity-team-rbac`
 **Working Branch**: `main`（Owner 明确要求在当前 branch 更新 043；后续 Spec-Kit 命令必须显式设置 `SPECIFY_FEATURE=043-identity-team-rbac`）
 **Created**: 2026-08-06
-**Status**: Draft — ready for owner review；implementation waits for 040 Prisma RDB integration and product-boundary amendment
+**Status**: Implemented — SQLite control-plane validation passed. The Better Auth spike found its username plugin requires email fields, so this feature preserves the no-email contract with Mystra-owned local authentication. Real PostgreSQL runtime validation remains environment-gated on `MYSTRA_TEST_POSTGRES_URL`.
 **Goal**: 开源 Mystra 部署后直接进入本地登录页；Human User 使用 username/password 登录和注册，每个 User 注册时自动获得一个由自己拥有的初始 Team，并可切换、创建、重命名和删除 Team（始终至少保留一个可用 Team）；Account Settings 支持修改 password 与 display name，Team Settings 支持成员增删和角色管理。
 **Input**: 外部安装流程未来负责提供默认 `admin/admin` 与该用户的一个初始 Team；043 不实现安装器或 seed 命令，只定义并消费部署完成后的 bootstrap contract。self-host 不引入 email。SaaS/SSO、Agent authentication、Agent key、Sandbox workload identity 与强认证因子本期不做。
 
@@ -141,16 +141,16 @@
 
 #### Framework, persistence and extension boundaries
 
-- **FR-041**：Human Auth engine MUST 使用 Better Auth 稳定发布版，并仅启用 username/password 与 session 所需能力；Better Auth 类型不得泄漏到公共合同。
-- **FR-042**：Team、Membership、Role、Permission 与 RoleBinding MUST 是 Mystra-owned 领域模型；Better Auth Organization/Team 不得成为产品真相来源。
+- **FR-041**：Human Auth engine MUST 使用 Mystra-owned local authentication built on Node `crypto.scrypt`、随机不透明 session token 与 Prisma persistence；不得引入要求、保存、推导或查询 email 的认证引擎、类型或数据模型。
+- **FR-042**：Team、Membership、Role、Permission 与 RoleBinding MUST 是 Mystra-owned 领域模型；认证实现不得成为 Team 或 Organization 的产品真相来源。
 - **FR-043**：SQLite、PostgreSQL 与 Supabase-backed PostgreSQL MUST 提供相同行为和数据关系；Supabase MUST 复用 PostgreSQL profile，不形成 Supabase Auth 或 Data API 旁路。
-- **FR-044**：Prisma MUST 是身份与授权关系数据的 schema、migration 与 runtime access owner；Better Auth MUST NOT 绕过 Prisma migration history。
+- **FR-044**：Prisma MUST 是身份与授权关系数据的 schema、migration 与 runtime access owner；认证实现 MUST NOT 绕过 Prisma migration history。
 - **FR-045**：SQLite 与 PostgreSQL Prisma schema MUST 覆盖相同 Auth、Team 与 RBAC 逻辑模型，并通过自动 parity 检查阻止无意漂移。
 - **FR-046**：开源仓库 MUST NOT 提供 SaaS deployment profile、Google/GitHub SSO、social login、caller-login OAuth adapter、route、配置项或 UI 入口。
 - **FR-047**：未来认证因子 MUST 通过稳定内部 User ID 关联；043 MUST NOT 预建 TOTP、Passkey、Email/SMS OTP 或 One-Time Token 的流程、可执行 UI 或首期验收。
 - **FR-048**：未来平台内部 Agent 如需参与 RBAC，MUST 通过可扩展 Principal contract 增加；043 MUST NOT 实现 AgentPrincipal、Agent key、Agent login 或 Sandbox workload identity。
 - **FR-049**：Account、Team、Team Members 与 Roles Settings MUST 显示真实可用、只读或 prerequisite-unavailable 状态，并支持英语、简体中文、键盘、焦点、错误播报与窄屏重排。
-- **FR-050**：043 implementation MUST 等待 040 Prisma RDB ownership 合入 `main`，并以已经落地的 041 数据模型为当前基线。
+- **FR-050**：043 implementation MUST 以已经落地的 040 Prisma RDB ownership 与 041 数据模型为当前基线。
 - **FR-051**：043 implementation 前 MUST 修订 5xP/constitution 中 caller auth 与 Team administration 的旧排除项；SaaS/hosted multi-tenancy 保持在本仓库范围外。
 - **FR-052**：在版本达到 `0.1.0` 前，身份 schema MUST 直接替换过时开发合同并同步更新调用方、fixtures、tests 与文档；MUST NOT 为旧开发快照添加 migration、alias、fallback 或 dual-read/dual-write compatibility path。
 
@@ -198,7 +198,7 @@
 - AgentPrincipal、Agent key、Agent 登录、Sandbox workload token 或 Agent 对外发声能力。
 - 首期启用 TOTP、Passkey、Email/SMS OTP、One-Time Token 或账户恢复。
 - 通用 ABAC/ReBAC engine、deny rules、任意条件表达式或客户自定义 policy DSL。
-- 本 Specify 阶段实施、迁移或部署代码；043 implementation 仍等待 040 合入和 5xP boundary amendment。
+- Hosted OAuth/SSO、email recovery、Agent/workload identity、custom roles、Project-scoped roles 与 installer/seed orchestration 不属于 043。
 
 ## Assumptions & Dependencies
 
@@ -207,7 +207,7 @@
 - 每个 active User 始终至少属于一个 active Team；注册即原子获得一个由自己拥有的初始 Team。
 - 初始化后允许公开本地注册；新 User 注册时原子创建其初始 Team 与 Owner membership。
 - Team Members 的 Castrel AI 参考尚未提供可读取的路径或截图；详细视觉对齐等待 Owner 提供材料，不阻塞行为规格。
-- 041 已随 `main` 的 `10750ca` 落地；040 worktree 已完成多数核心实现但尚未合入 `main`。
+- 040 Prisma RDB 和 041 GitHub Integration Connection 已在 `main`；043 在其之上实施本地身份与 Team RBAC。
 
 ## Success Criteria
 

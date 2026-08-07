@@ -5,7 +5,7 @@ import type { AppearancePreferences, ControlPlaneThemeDefinition, ThemeVariant }
 import { getThemesByVariant } from "../theme-system";
 import { SettingGroup, SettingRow } from "./setting-row";
 import { SHELL_COPY, type ShellLocale } from "./shell-copy";
-import { UiButton } from "./ui-actions";
+import { UiActionLink, UiButton } from "./ui-actions";
 import { UiDropdown } from "./ui-dropdown";
 import { UiInput } from "./ui-fields";
 import { UiRange, UiSegmented } from "./ui-preference-controls";
@@ -16,14 +16,9 @@ export function AccountSettingsPanel({ locale }: { locale: ShellLocale }) {
   return (
     <SettingGroup aria-label={copy.account}>
       <SettingRow
-        control={<span className="settingRowStatus">{copy.accountProfileValue}</span>}
-        description={copy.accountProfileDescription}
-        title={copy.accountProfile}
-      />
-      <SettingRow
-        control={<span className="settingRowStatus">{copy.settingsUnavailable}</span>}
-        description={copy.accountAuthenticationDescription}
-        title={copy.accountAuthentication}
+        control={<UiActionLink href="/account" size="compact" tone="soft">Open</UiActionLink>}
+        description="Manage your display name, password, and signed-in sessions."
+        title={copy.account}
       />
     </SettingGroup>
   );
@@ -138,14 +133,9 @@ export function TeamSettingsPanel({ locale }: { locale: ShellLocale }) {
   return (
     <SettingGroup aria-label={copy.team}>
       <SettingRow
-        control={<span className="settingRowStatus">{copy.teamScopeValue}</span>}
-        description={copy.teamScopeDescription}
-        title={copy.teamScope}
-      />
-      <SettingRow
-        control={<span className="settingRowStatus">{copy.settingsUnavailable}</span>}
-        description={copy.teamAdministrationDescription}
-        title={copy.teamAdministration}
+        control={<UiActionLink href="/team" size="compact" tone="soft">Open</UiActionLink>}
+        description="Switch Teams, update Team settings, and manage members."
+        title={copy.team}
       />
     </SettingGroup>
   );

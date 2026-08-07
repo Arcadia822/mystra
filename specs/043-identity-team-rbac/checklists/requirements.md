@@ -32,9 +32,9 @@
 - [x] Agent/workload/factor 仅保留扩展合同，不进入实现
 - [x] 规格可进入 Owner review
 - [ ] Castrel AI Workspace Members 视觉参考材料已提供并完成映射
-- [ ] 040 Prisma RDB 已合入 `main`
-- [ ] 5xP/constitution 已移除与 043 冲突的 caller-auth/Team-admin 排除项
-- [ ] 规格可以进入 implementation
+- [x] 040 Prisma RDB 已合入 `main`
+- [x] 5xP/constitution 已移除与 043 冲突的 caller-auth/Team-admin 排除项
+- [x] 规格可以进入 implementation
 
 ## Product Requirements Review
 
@@ -50,7 +50,7 @@ Reviewed with the project-local `product-requirements` rubric，adapted to Spec-
 
 Notes：
 
-- 行为规格达到正常 90+ readiness threshold，可进入 Owner review；implementation 仍等待 040 合入和 5xP boundary amendment。
+- 行为规格达到正常 90+ readiness threshold；043 implementation 已完成，SQLite control-plane 验证通过。
 - Castrel AI 页面尚未提供，因而只锁定 Members 信息结构和行为；视觉一致性扣 2 分并保留为 review item。
 - `admin/admin` 是外部 installer 的 bootstrap contract，不授权 043 实现安装流程；首次登录强制改密是安全验收的一部分。
 - Agent auth、workload identity 和强认证因子已移出 043 交付；扩展边界不构成预建实现授权。

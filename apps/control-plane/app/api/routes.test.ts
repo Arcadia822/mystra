@@ -7,6 +7,7 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getDb, resetDbForTests } from "@/lib/db";
+import { hashSessionToken } from "@/lib/auth";
 import { POST as callMcp } from "./mcp/route";
 import { POST as postProject } from "./projects/route";
 import { GET as getTask } from "./tasks/[id]/route";
@@ -14,18 +15,25 @@ import { GET as listTasks, POST as postTask } from "./tasks/route";
 
 let tempDir: string;
 let projectId: string;
+let teamId: string;
 const migrations = [
   "20260806182000_init",
   "20260806210000_secret_envelopes",
+  "20260807150000_identity_team_rbac",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
 ));
 
+const sessionToken = "route-test-session-token";
+
 function jsonRequest(url: string, body: unknown): Request {
   return new Request(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+      "content-type": "application/json",
+    },
     body: JSON.stringify(body),
   });
 }
@@ -39,8 +47,19 @@ beforeEach(async () => {
   database.close();
 
   const db = await getDb();
+  const tenant = await db.registerLocalUser({
+    username: "route_test_user",
+    passwordHash: "scrypt$v1$hash",
+    passwordSalt: "salt",
+    passwordParams: "N=16384,r=8,p=1",
+    initialTeamDisplayName: "Route Test Team",
+    tokenHash: hashSessionToken(sessionToken),
+    expiresAt: "2027-08-06T00:00:00.000Z",
+  });
+  teamId = tenant.initialTeam.id;
   const connection = await db.upsertIntegrationConnection({
     id: "00000000-0000-4000-8000-000000000041",
+    teamId,
     integration: "github",
     provider: "github",
     authMethod: "personal-access-token",
@@ -58,6 +77,7 @@ beforeEach(async () => {
     credentialState: "ready",
   });
   const projectResponse = await postProject(jsonRequest("http://localhost/api/projects", {
+    teamId,
     name: "Local Fixture",
     slug: "local-fixture",
     repositoryConnectionId: connection.id,
@@ -78,16 +98,21 @@ afterEach(async () => {
 describe("active Task routes", () => {
   it("creates, lists, and reads a durable Task without Session projections", async () => {
     const created = await postTask(jsonRequest("http://localhost/api/tasks", {
+      teamId,
       projectId,
       metadata: { title: "Verify the Prisma control plane" },
     }));
     expect(created.status).toBe(201);
     const task = (await created.json() as { task: { id: string } }).task;
 
-    const listed = await listTasks();
+    const listed = await listTasks(new Request("http://localhost/api/tasks", {
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }));
     expect(await listed.json()).toEqual({ tasks: [expect.objectContaining({ id: task.id, projectId })] });
 
-    const detail = await getTask(new Request(`http://localhost/api/tasks/${task.id}`), {
+    const detail = await getTask(new Request(`http://localhost/api/tasks/${task.id}`, {
+      headers: { authorization: `Bearer ${sessionToken}` },
+    }), {
       params: Promise.resolve({ id: task.id }),
     });
     const payload = await detail.json();

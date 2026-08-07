@@ -8,6 +8,7 @@ import {
 
 const connection = {
   id: "00000000-0000-4000-8000-000000000039",
+  teamId: "00000000-0000-4000-8000-000000000038",
   integration: "github",
   provider: "github",
   authMethod: "github-app",

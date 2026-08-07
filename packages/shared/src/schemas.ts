@@ -490,6 +490,7 @@ const jsonObjectSchema = z.record(z.string(), z.unknown());
 export const projectSchema = z
   .object({
     id: z.string().uuid(),
+    teamId: z.string().uuid(),
     name: z.string().min(1),
     slug: z.string().min(1),
     repositoryConnectionId: z.string().uuid(),
@@ -505,6 +506,7 @@ export type Project = z.infer<typeof projectSchema>;
 
 export const projectCreateSchema = z
   .object({
+    teamId: z.string().uuid(),
     name: z.string().min(1),
     slug: z.string().min(1),
     repositoryConnectionId: z.string().uuid(),
@@ -534,6 +536,7 @@ export type ProjectUpdateRequest = z.input<typeof projectUpdateRequestSchema>;
 
 const taskCreateBaseSchema = z
   .object({
+    teamId: z.string().uuid(),
     projectId: z.string().uuid(),
     issueDispatchKey: z.string().min(1).max(1_000).optional(),
     metadata: jsonObjectSchema.default({}),

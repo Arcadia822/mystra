@@ -21,4 +21,4 @@
 - 安装器与 seed orchestration 后续单独实现；应用运行时不得静默创建 `admin/admin`。
 - SaaS/SSO、Agent authentication、Agent key、Sandbox workload identity 与强认证因子不进入 043。
 - Castrel AI Workspace Members 的视觉对齐等待 Owner 提供具体页面路径或截图；当前原型只验证信息结构和行为。
-- 041 已落地；implementation 等待 040 合入和 5xP boundary amendment。
+- 043 implementation 已完成；SQLite control-plane 验证通过。真实 PostgreSQL suite 需在配置 `MYSTRA_TEST_POSTGRES_URL` 的环境补跑。

@@ -40,6 +40,7 @@ function connection(input: {
 }): IntegrationConnectionRecord {
   return {
     id: input.id,
+    teamId: "00000000-0000-4000-8000-000000000040",
     integration: "github",
     provider: "github",
     authMethod: input.authMethod,

@@ -1,13 +1,13 @@
 # Quickstart：本地用户、Team 与 RBAC
 
-> 本文件是 043 的实现/验证快速上手。043 实现受三项启动前置约束（见 plan.md / SC-013），未满足前不得开始编码。
+> 本文件是 043 的实现/验证快速上手。
 
 ## 前置检查（SC-013，实现启动门）
 
-1. **040 已合入 `main`**（FR-050）：`integration_connections/projects/tasks/secret_envelopes` 的 Prisma 双库 provider 在 `main` 可用。**（未满足前不得开始编码）**
+1. **040 已合入 `main`**（FR-050）：`integration_connections/projects/tasks/secret_envelopes` 的 Prisma 双库 provider 在 `main` 可用。
 2. **constitution/5xP 修订**（FR-051）：**已完成** —— constitution v2.7.0（2026-08-07）已把 self-host 单机人类认证 + Team RBAC 纳入范围，撤销旧的 caller auth/Team administration 排除项；AGENTS/PRODUCT/PLATFORM 已同步。SaaS/hosted multi-tenancy 仍在本仓库范围外。
 
-FR-050 未满足 → 启动检查失败，停止并上报 Owner。（向 Prisma schema 新增 Auth/RBAC 表属 043 功能范围内的常规设计，走 spec/plan Owner 评审，不是独立审批门。）
+向 Prisma schema 新增 Auth/RBAC 表属 043 功能范围内的常规设计，走 spec/plan Owner 评审，不是独立审批门。
 
 ## 运行时环境
 
@@ -20,7 +20,7 @@ corepack use pnpm@10.25.0
 # 复用 040 的 RDB 连接与 migration 配置约定（apps/control-plane/src/lib/db/rdb-config.ts）
 ```
 
-需要的部署密钥：Better Auth server secret（session 签名）与 040 的 SecretProvider KEK；二者均在 RDB 之外，不入库、不入日志。
+本地认证不需要第三方认证服务密钥。040 的 SecretProvider KEK 仍在 RDB 之外，不入库、不入日志。
 
 ## 数据库迁移（Prisma 拥有，FR-044）
 
@@ -64,7 +64,7 @@ pnpm --filter @mystra/control-plane prisma:migrate  # 项目既有脚本约定
 
 ```sh
 pnpm typecheck
-# schema parity（更新为 11 个 model 断言）
+# schema parity（9 个 model）
 pnpm --filter @mystra/control-plane test prisma-schema-parity
 # Auth/Team/RBAC contract suite：SQLite + 真实 PostgreSQL 各一遍
 pnpm --filter @mystra/control-plane test
@@ -74,6 +74,6 @@ pnpm --filter @mystra/control-plane test
 
 Account、Team、Team Members、Roles Settings 支持英语与简体中文，键盘/焦点/错误播报/窄屏重排（FR-049）。未实现能力（email recovery 等）显示明确 unavailable，不留隐藏入口（FR-016）。
 
-## Better Auth 无 email 装配（实现第一任务，research R1/R4）
+## Local-auth 无 email 装配（已实施，research R1/R9）
 
-编码前先做能力 spike：确认目标 Better Auth 版本可无 email 装配（`user` 无 email 列、payload 不含 email），且账户创建可纳入受控事务。若版本硬依赖 email → FR-008 冲突，停止并上报 Owner，不用派生/占位 email 绕过。确认后的算法/参数（hashing、session 过期）记录回本文件。
+Better Auth `username` plugin 的 spike 证明其强制 email/emailVerified，不能满足 FR-008；实现改用 Mystra-owned local-auth。密码使用版本化 Node `crypto.scrypt` 记录，session 使用随机 opaque token 的 SHA-256 digest；不派生、不占位、不存储 email。

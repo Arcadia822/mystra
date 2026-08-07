@@ -56,7 +56,7 @@ Adjacent controls share density without flattening their semantic levels. Destru
 ## Settings
 
 - Settings uses the Castrel-derived two-column modal shell, but Mystra owns the tab taxonomy, copy, tokens, and persistence boundaries.
-- The default information architecture is `Account`, `Appearance`, `Team`, and `Integrations`. Theme and Language belong to Appearance; tenancy uses Team, never workspace.
+- The default information architecture is `Account`, `Appearance`, `Team`, `Team members`, and `Integrations`. Account, Team, and Team members render their management surfaces inside the Settings modal; Theme and Language belong to Appearance; tenancy uses Team, never workspace.
 - `SettingGroup` is transparent and uses the shared 32px section rhythm. `SettingRow` uses a left title/description and right control/status with no private card border, fill, shadow, or extra inset.
 - Narrow screens stack each setting row in reading order: title, description, then control. Unsupported Account or Team mutations remain explicit read-only/unavailable states instead of simulated form controls.
 - Appearance uses shared dropdown, segmented, range, input, preview, and reset controls. It supports System/Light/Dark, separate light and dark schemes, default/high/color-high border contrast, independent light/dark code surface, contrast, UI/Chat/Code fonts, and UI/Chat sizes.

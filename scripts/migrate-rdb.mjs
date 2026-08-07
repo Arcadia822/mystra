@@ -24,7 +24,12 @@ let config;
 const environment = { ...process.env, RUST_LOG: "info" };
 
 if (provider === "sqlite") {
-  const databasePath = path.resolve(process.cwd(), process.env.MYSTRA_DB_PATH ?? "data/mystra.db");
+  const databasePath = path.resolve(
+    process.cwd(),
+    "apps",
+    "control-plane",
+    process.env.MYSTRA_DB_PATH ?? "data/mystra.db",
+  );
   mkdirSync(path.dirname(databasePath), { recursive: true });
   environment.MYSTRA_PRISMA_SQLITE_URL = `file:${databasePath}`;
   config = "prisma/sqlite/prisma.config.ts";

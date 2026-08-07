@@ -69,6 +69,7 @@ export type ManagementErrorResponse = z.infer<typeof managementErrorResponseSche
 export const projectSelectionViewSchema = projectSchema
   .pick({
     id: true,
+    teamId: true,
     name: true,
     slug: true,
     repositoryConnectionId: true,
@@ -97,6 +98,7 @@ export type LaneInspectionView = z.infer<typeof laneInspectionViewSchema>;
 export const executionContextViewSchema = projectSchema
   .pick({
     id: true,
+    teamId: true,
     name: true,
     slug: true,
     repositoryConnectionId: true,
@@ -133,6 +135,7 @@ export type SubmittedLaneSnapshot = z.infer<typeof submittedLaneSnapshotSchema>;
 export const taskRecordSchema = z
   .object({
     id: z.string().uuid(),
+    teamId: z.string().uuid(),
     projectId: z.string().uuid(),
     issueDispatchKey: z.string().min(1).max(1_000).optional(),
     metadata: jsonObjectSchema.default({}),

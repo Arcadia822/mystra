@@ -9,6 +9,7 @@ datasource db {
 
 model IntegrationConnection {
   id                 String    @id
+  teamId             String    @map("team_id")
   integration        String
   provider           String
   authMethod         String    @map("auth_method")
@@ -23,8 +24,10 @@ model IntegrationConnection {
   createdAt          String    @map("created_at")
   updatedAt          String    @map("updated_at")
   projects           Project[]
+  team               Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  @@unique([integration, provider, providerExternalId])
+  @@unique([teamId, integration, provider, providerExternalId])
+  @@index([teamId])
   @@index([integration, status])
   @@index([createdAt, id])
   @@map("integration_connections")
@@ -32,6 +35,7 @@ model IntegrationConnection {
 
 model Project {
   id                     String                @id
+  teamId                 String                @map("team_id")
   name                   String
   slug                   String                @unique
   repositoryConnectionId String                @map("repository_connection_id")
@@ -43,7 +47,9 @@ model Project {
   updatedAt              String                @map("updated_at")
   repositoryConnection   IntegrationConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   tasks                  Task[]
+  team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@index([teamId])
   @@index([repositoryConnectionId])
   @@index([createdAt, id])
   @@map("projects")
@@ -51,13 +57,16 @@ model Project {
 
 model Task {
   id               String  @id
+  teamId           String  @map("team_id")
   projectId        String  @map("project_id")
   issueDispatchKey String? @unique @map("issue_dispatch_key")
   metadata         String
   createdAt        String  @map("created_at")
   updatedAt        String  @map("updated_at")
   project          Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team             Team    @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@index([teamId])
   @@index([projectId])
   @@index([createdAt, id])
   @@map("tasks")
@@ -78,4 +87,88 @@ model SecretEnvelope {
 
   @@index([createdAt, reference])
   @@map("secret_envelopes")
+}
+
+model User {
+  id                    String           @id
+  username              String           @unique
+  displayUsername       String           @map("display_username")
+  displayName           String           @map("display_name")
+  status                String
+  requirePasswordChange Boolean          @map("require_password_change")
+  createdAt             String           @map("created_at")
+  updatedAt             String           @map("updated_at")
+  account               AuthAccount?
+  sessions              AuthSession[]
+  memberships           TeamMembership[]
+
+  @@index([createdAt, id])
+  @@map("users")
+}
+
+model AuthAccount {
+  id             String @id
+  userId         String @unique @map("user_id")
+  passwordHash   String @map("password_hash")
+  passwordSalt   String @map("password_salt")
+  passwordParams String @map("password_params")
+  createdAt      String @map("created_at")
+  updatedAt      String @map("updated_at")
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("auth_accounts")
+}
+
+model AuthSession {
+  id           String @id
+  userId       String @map("user_id")
+  tokenHash    String @unique @map("token_hash")
+  activeTeamId String? @map("active_team_id")
+  expiresAt    String @map("expires_at")
+  ipAddress    String? @map("ip_address")
+  userAgent    String? @map("user_agent")
+  createdAt    String @map("created_at")
+  updatedAt    String @map("updated_at")
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  activeTeam   Team?  @relation(fields: [activeTeamId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt, id])
+  @@map("auth_sessions")
+}
+
+model Team {
+  id                     String                  @id
+  displayName            String                  @map("display_name")
+  status                 String
+  archivedAt             String?                 @map("archived_at")
+  createdAt              String                  @map("created_at")
+  updatedAt              String                  @map("updated_at")
+  memberships            TeamMembership[]
+  activeSessions         AuthSession[]
+  integrationConnections IntegrationConnection[]
+  projects               Project[]
+  tasks                  Task[]
+
+  @@index([status])
+  @@index([createdAt, id])
+  @@map("teams")
+}
+
+model TeamMembership {
+  id        String @id
+  teamId    String @map("team_id")
+  userId    String @map("user_id")
+  role      String
+  status    String
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  team      Team   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId, status])
+  @@index([teamId, role])
+  @@map("team_memberships")
 }

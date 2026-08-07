@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const DEFAULTS = {
@@ -18,9 +21,78 @@ const EXIT_CODES = {
 
 const TERMINAL_SESSION_STATES = new Set(["succeeded", "failed", "canceled", "timed_out", "waiting_for_review"]);
 const FAILURE_SESSION_STATES = new Set(["failed", "canceled", "timed_out"]);
+const OPERATOR_STATE_VERSION = 1;
+
+function operatorStatePath() {
+  return process.env.MYSTRA_OPERATOR_STATE_PATH
+    ?? join(homedir(), ".mystra", "operator-session.json");
+}
+
+function createSessionStore(filePath = operatorStatePath()) {
+  return {
+    async read() {
+      let parsed;
+      try {
+        parsed = JSON.parse(await readFile(filePath, "utf8"));
+      } catch (error) {
+        if (error && typeof error === "object" && error.code === "ENOENT") {
+          return undefined;
+        }
+        throw new Error("Unable to read the operator session state.");
+      }
+      if (
+        !isObject(parsed)
+        || parsed.version !== OPERATOR_STATE_VERSION
+        || typeof parsed.controlPlaneUrl !== "string"
+        || typeof parsed.sessionToken !== "string"
+        || !/^[A-Za-z0-9_-]{16,}$/.test(parsed.sessionToken)
+      ) {
+        throw new Error("The operator session state is invalid.");
+      }
+      try {
+        new URL(parsed.controlPlaneUrl);
+      } catch {
+        throw new Error("The operator session state is invalid.");
+      }
+      return parsed;
+    },
+    async write(state) {
+      await mkdir(dirname(filePath), { recursive: true, mode: 0o700 });
+      await chmod(dirname(filePath), 0o700);
+      await writeFile(filePath, `${JSON.stringify(state)}\n`, { mode: 0o600 });
+      await chmod(filePath, 0o600);
+    },
+    async clear() {
+      await rm(filePath, { force: true });
+    },
+  };
+}
+
+function normalizeControlPlaneUrl(value) {
+  const url = new URL(value);
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new TypeError("Control-plane URL must use HTTP or HTTPS.");
+  }
+  return url.toString().replace(/\/$/, "");
+}
+
+function sessionTokenFromSetCookie(header) {
+  const match = /(?:^|,\s*)mystra_session=([^;,\s]+)/.exec(header ?? "");
+  if (!match) return undefined;
+  try {
+    const token = decodeURIComponent(match[1]);
+    return /^[A-Za-z0-9_-]{16,}$/.test(token) ? token : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function usage() {
   return `Usage:
+  pnpm operator:cli -- auth login --username USERNAME --password-stdin [--control-plane-url URL] [--json]
+  pnpm operator:cli -- auth logout [--json]
+  pnpm operator:cli -- auth session [--json]
+  pnpm operator:cli -- teams use <team-id> [--json]
   pnpm operator:cli -- control-plane inspect [--json] [--control-plane-url URL]
   pnpm operator:cli -- integrations list [--json] [--control-plane-url URL]
   pnpm operator:cli -- repositories list --integration NAME [--limit N] [--cursor TOKEN] [--json]
@@ -124,7 +196,9 @@ function operatorError(code, message, exitCode, payload) {
 function parseArgs(argv) {
   const flags = {
     json: false,
-    controlPlaneUrl: DEFAULTS.controlPlaneUrl,
+    controlPlaneUrl: undefined,
+    username: undefined,
+    passwordStdin: false,
     integration: undefined,
     limit: undefined,
     cursor: undefined,
@@ -150,6 +224,10 @@ function parseArgs(argv) {
     }
     if (arg === "--json") {
       flags.json = true;
+      continue;
+    }
+    if (arg === "--password-stdin") {
+      flags.passwordStdin = true;
       continue;
     }
     if (arg === "--control-plane-url") {
@@ -179,6 +257,7 @@ function parseArgs(argv) {
       ["--runtime-image", "runtimeImage"],
       ["--title", "title"],
       ["--objective", "objective"],
+      ["--username", "username"],
       ["--interval-seconds", "intervalSeconds"],
       ["--timeout-seconds", "timeoutSeconds"],
     ]);
@@ -208,6 +287,7 @@ function parseArgs(argv) {
     (group === "runners" && command === "inspect") ||
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
     (group === "tasks" && command === "inspect") ||
+    (group === "teams" && command === "use") ||
     (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command))
   );
   if (needsTarget && !target) {
@@ -216,6 +296,12 @@ function parseArgs(argv) {
 
   if (group === "control-plane" && command !== "inspect") {
     return { ok: false, message: `Unknown control-plane command: ${command}` };
+  }
+  if (group === "auth" && !["login", "logout", "session"].includes(command)) {
+    return { ok: false, message: `Unknown auth command: ${command}` };
+  }
+  if (group === "teams" && command !== "use") {
+    return { ok: false, message: `Unknown teams command: ${command}` };
   }
   if (group === "integrations" && command !== "list") {
     return { ok: false, message: `Unknown integrations command: ${command}` };
@@ -240,6 +326,8 @@ function parseArgs(argv) {
   }
   if (![
     "control-plane",
+    "auth",
+    "teams",
     "integrations",
     "repositories",
     "projects",
@@ -249,6 +337,9 @@ function parseArgs(argv) {
     "sessions",
   ].includes(group)) {
     return { ok: false, message: `Unknown command group: ${group}` };
+  }
+  if (group === "auth" && command === "login" && (!flags.username || !flags.passwordStdin)) {
+    return { ok: false, message: "auth login requires --username and --password-stdin" };
   }
   if (["issues", "repositories"].includes(group) && !flags.integration) {
     return { ok: false, message: `Missing --integration for ${group} command` };
@@ -314,7 +405,8 @@ function parseArgs(argv) {
       command,
       target,
       json: flags.json,
-      controlPlaneUrl: flags.controlPlaneUrl,
+      ...(flags.controlPlaneUrl ? { controlPlaneUrl: flags.controlPlaneUrl } : {}),
+      ...(flags.username ? { username: flags.username } : {}),
       ...(flags.integration ? { integration: flags.integration } : {}),
       ...(flags.limit !== undefined ? { limit: flags.limit } : {}),
       ...(flags.cursor ? { cursor: flags.cursor } : {}),
@@ -362,6 +454,10 @@ async function readJson(url, fetchImpl, init = {}) {
     );
   }
 
+  if (response.status === 204) {
+    return { ok: true, data: undefined, headers: response.headers };
+  }
+
   let parsed;
   try {
     parsed = JSON.parse(text);
@@ -386,7 +482,7 @@ async function readJson(url, fetchImpl, init = {}) {
     );
   }
 
-  return { ok: true, data: parsed };
+  return { ok: true, data: parsed, headers: response.headers };
 }
 
 function resultView(snapshot) {
@@ -724,6 +820,18 @@ function formatSuccess(command, payload, jsonMode) {
     return `${JSON.stringify(payload, null, 2)}\n`;
   }
 
+  if (command.group === "auth" && command.command === "login") {
+    return `Logged in as ${payload.user?.username ?? "operator"}\n`;
+  }
+  if (command.group === "auth" && command.command === "logout") {
+    return "Logged out\n";
+  }
+  if (command.group === "auth" && command.command === "session") {
+    return `Session for ${payload.user?.username ?? "operator"}\n`;
+  }
+  if (command.group === "teams" && command.command === "use") {
+    return `Active Team ${payload.team?.displayName ?? payload.team?.id ?? "selected"}\n`;
+  }
   if (command.group === "control-plane") {
     return `${formatControlPlane(payload)}\n`;
   }
@@ -782,11 +890,131 @@ function formatSuccess(command, payload, jsonMode) {
 }
 
 async function executeCommand(command, fetchImpl, deps = {}) {
-  const baseUrl = command.controlPlaneUrl;
+  const sessionStore = deps.sessionStore ?? createSessionStore();
+  const readPassword = deps.readPassword ?? (async () => await readFile(0, "utf8"));
+  let baseUrl;
   const sleep = deps.sleep ?? (async (milliseconds) => {
     await new Promise((resolve) => setTimeout(resolve, milliseconds));
   });
   const now = deps.now ?? Date.now;
+
+  if (command.group === "auth" && command.command === "login") {
+    try {
+      baseUrl = normalizeControlPlaneUrl(command.controlPlaneUrl ?? DEFAULTS.controlPlaneUrl);
+    } catch {
+      return operatorError("INVALID_CONTROL_PLANE_URL", "Control-plane URL must use HTTP or HTTPS.", EXIT_CODES.INVALID);
+    }
+    let password;
+    try {
+      password = (await readPassword()).replace(/\r?\n$/, "");
+    } catch {
+      return operatorError("PASSWORD_INPUT_FAILED", "Unable to read password from stdin.", EXIT_CODES.INVALID);
+    }
+    if (!password) {
+      return operatorError("INVALID_CREDENTIALS", "Password input must not be empty.", EXIT_CODES.INVALID);
+    }
+    const login = await readJson(new URL("/api/auth/login", baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({ username: command.username, password }),
+    });
+    if (!login.ok) return login;
+    const sessionToken = sessionTokenFromSetCookie(login.headers.get("set-cookie"));
+    if (!sessionToken) {
+      return operatorError(
+        "INVALID_LOGIN_RESPONSE",
+        "Login response did not establish a human session.",
+        EXIT_CODES.TRANSPORT_ERROR,
+      );
+    }
+    try {
+      await sessionStore.write({
+        version: OPERATOR_STATE_VERSION,
+        controlPlaneUrl: baseUrl,
+        sessionToken,
+      });
+    } catch {
+      return operatorError(
+        "SESSION_STORE_FAILED",
+        "Unable to persist the local human session.",
+        EXIT_CODES.TRANSPORT_ERROR,
+      );
+    }
+    return { ok: true, payload: { user: login.data?.user ?? { username: command.username } } };
+  }
+
+  let session;
+  try {
+    session = await sessionStore.read();
+  } catch {
+    return operatorError(
+      "INVALID_OPERATOR_SESSION",
+      "The local human session is invalid. Log in again.",
+      EXIT_CODES.UNAVAILABLE,
+    );
+  }
+  if (!session) {
+    return operatorError(
+      "UNAUTHENTICATED",
+      "No local human session. Run auth login first.",
+      EXIT_CODES.UNAVAILABLE,
+    );
+  }
+  if (command.controlPlaneUrl) {
+    let requestedUrl;
+    try {
+      requestedUrl = normalizeControlPlaneUrl(command.controlPlaneUrl);
+    } catch {
+      return operatorError("INVALID_CONTROL_PLANE_URL", "Control-plane URL must use HTTP or HTTPS.", EXIT_CODES.INVALID);
+    }
+    if (requestedUrl !== session.controlPlaneUrl) {
+      return operatorError(
+        "CONTROL_PLANE_MISMATCH",
+        "The requested control-plane URL does not match the local human session.",
+        EXIT_CODES.INVALID,
+      );
+    }
+  }
+  try {
+    baseUrl = normalizeControlPlaneUrl(session.controlPlaneUrl);
+  } catch {
+    return operatorError("INVALID_OPERATOR_SESSION", "The local human session is invalid. Log in again.", EXIT_CODES.UNAVAILABLE);
+  }
+  const transport = fetchImpl;
+  const authenticatedFetch = async (url, init = {}) => await transport(url, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      authorization: `Bearer ${session.sessionToken}`,
+    },
+  });
+  fetchImpl = authenticatedFetch;
+
+  if (command.group === "auth" && command.command === "logout") {
+    const logout = await readJson(new URL("/api/auth/logout", baseUrl), fetchImpl, { method: "POST" });
+    if (!logout.ok) return logout;
+    try {
+      await sessionStore.clear();
+    } catch {
+      return operatorError("SESSION_STORE_FAILED", "Unable to clear the local human session.", EXIT_CODES.TRANSPORT_ERROR);
+    }
+    return { ok: true, payload: { loggedOut: true } };
+  }
+  if (command.group === "auth" && command.command === "session") {
+    return await readJson(new URL("/api/auth/session", baseUrl), fetchImpl);
+  }
+  if (command.group === "teams" && command.command === "use") {
+    const selected = await readJson(new URL("/api/teams/switch", baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({ teamId: command.target }),
+    });
+    if (!selected.ok) return selected;
+    try {
+      await sessionStore.write({ ...session, activeTeamId: command.target });
+    } catch {
+      return operatorError("SESSION_STORE_FAILED", "Unable to persist the active Team context.", EXIT_CODES.TRANSPORT_ERROR);
+    }
+    return selected;
+  }
 
   if (command.group === "control-plane") {
     return await readJson(new URL("/api/control-plane", baseUrl), fetchImpl);
@@ -1012,6 +1240,8 @@ export async function run(argv, deps = {}) {
   const result = await executeCommand(parsed.value, fetchImpl, {
     ...(deps.sleep ? { sleep: deps.sleep } : {}),
     ...(deps.now ? { now: deps.now } : {}),
+    ...(deps.sessionStore ? { sessionStore: deps.sessionStore } : {}),
+    ...(deps.readPassword ? { readPassword: deps.readPassword } : {}),
   });
   if (!result.ok) {
     stderr(formatError(result, parsed.value.json));
@@ -1031,6 +1261,7 @@ if (isMain) {
 }
 
 export {
+  createSessionStore,
   EXIT_CODES,
   parseArgs,
   resultView,
