@@ -157,6 +157,23 @@ Use `claude-design-intake` to start any design task.
 - Do not add MVP-excluded features without an explicit product-boundary update.
 - Verify before declaring work complete.
 
+### Pre-0.1 Development Policy
+
+Mystra is still under initial-version development. Until the project version is
+bumped to `0.1.0` or later, do not preserve compatibility with earlier
+development snapshots and do not create migration paths for them.
+
+- Do not add backward- or forward-compatibility aliases, shims, fallbacks, or
+  dual-read/dual-write paths for pre-`0.1.0` behavior.
+- Do not create data, schema, API, configuration, CLI, or persisted-format
+  migrations solely to retain pre-`0.1.0` compatibility.
+- Replace obsolete contracts directly and update their callers, fixtures,
+  tests, and documentation to the current intended model.
+- Pre-`0.1.0` local development data may be destructively rebuilt to match the
+  current schema; it is not a supported upgrade source.
+- Migration and compatibility requirements begin at `0.1.0`, unless the owner
+  explicitly establishes an earlier boundary for a specific contract.
+
 ## Current MVP Boundaries
 
 Mystra MVP uses the Open Agents project as a source-authoritative framework
@@ -262,7 +279,7 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (6686 symbols, 10539 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (6946 symbols, 10933 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
