@@ -1,22 +1,22 @@
-# 043 Identity, Team 与 RBAC
+# 043 本地用户、Personal Team 与 RBAC
 
-本目录定义 Mystra 的 Human identity、Team tenancy、Role/RBAC、Control-plane Agent identity 与 Sandbox workload identity。
+本目录定义开源 Mystra 的 username/password Human User、每 User 一个 Personal Team、Team lifecycle 与 Owner/Admin/Member RBAC。外部安装流程未来提供 `admin/admin` + `Personal` bootstrap state；043 不实现安装器。self-host 不引入 email，Agent authentication 与强认证因子不属于本期实现。
 
 ## 当前阶段
 
 - Specify：已生成，等待 Owner 评审。
 - Plan：尚未开始。
-- Implementation：受 040 Prisma RDB 落地、041 最终 schema 冻结和 5xP boundary amendment 阻塞。
+- Implementation：041 已落地；等待 040 Prisma RDB 合入和 5xP boundary amendment。
 
-## 分支例外
+## 分支选择
 
-Owner 明确要求在当前 `041-github-integration-connections` branch 创建 043 artifacts，没有创建 `043-*` branch。后续 Spec-Kit 命令必须显式指定 feature：
+Owner 明确要求在当前 branch 更新 043 artifacts，没有创建或切换 `043-*` branch。当前 branch 为 `main`。后续 Spec-Kit 命令必须显式指定 feature：
 
 ```sh
 export SPECIFY_FEATURE=043-identity-team-rbac
 ```
 
-不得仅从当前 branch name 推断 feature，否则命令会错误选择 041。
+不得仅从 `main` 推断 feature。
 
 ## 评审入口
 
@@ -28,4 +28,4 @@ export SPECIFY_FEATURE=043-identity-team-rbac
 - [独立低保真原型](mockups/index.html)
 - [Spec View](index.html)
 
-`index.html` 已通过 renderer 生成。Codex 应用内浏览器的 URL policy 会阻止 `file://`，因此本轮没有声称完成浏览器 review；可使用允许访问本地文件的外部浏览器打开上述 HTML。
+`index.html` 由仓库 renderer 生成。当前交付是静态规格和低保真原型，不声称提供运行时认证、持久化或浏览器验收证据。

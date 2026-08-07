@@ -46,11 +46,10 @@
       .brand { display: flex; align-items: center; gap: 10px; letter-spacing: .02em; }
       .mark { width: 16px; height: 16px; border: 1px solid var(--accent); display: grid; place-items: center; color: var(--accent); }
       .eyebrow { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
-      .profile-switch { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: var(--radius); }
-      .profile-switch button, .nav button {
+      .nav button {
         border: 0; background: transparent; color: var(--muted); min-height: 32px; padding: 0 10px; border-radius: 2px;
       }
-      .profile-switch button[aria-pressed="true"], .nav button[aria-current="page"] {
+      .nav button[aria-current="page"] {
         color: var(--text); background: var(--panel-2);
       }
 
@@ -84,8 +83,6 @@
       .tag { border: 1px solid var(--line-strong); color: var(--muted); padding: 3px 6px; border-radius: 2px; font-size: 11px; }
       .tag.ok { color: var(--ok); border-color: #31553a; }
       .tag.warn { color: var(--warning); border-color: #5b4b26; }
-      .tag.agent { color: #a7bfff; border-color: #34466f; }
-      .tag.workload { color: #d4a8ff; border-color: #54396a; }
 
       .button { min-height: 34px; padding: 0 12px; border: 1px solid var(--line-strong); color: var(--text); background: var(--panel-2); border-radius: var(--radius); }
       .button.primary { background: var(--accent); border-color: var(--accent); color: #151a0c; font-weight: 700; }
@@ -96,8 +93,7 @@
       .auth-shell { min-height: 580px; display: grid; place-items: center; border: 1px solid var(--line); background: #101216; }
       .auth-card { width: min(400px, calc(100% - 32px)); padding: 24px; border: 1px solid var(--line-strong); background: var(--panel); }
       .auth-title { margin: 14px 0 6px; font-size: 18px; }
-      .provider-list, .form { display: grid; gap: 10px; margin-top: 20px; }
-      .provider { min-height: 40px; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text); text-align: left; padding: 0 12px; }
+      .form { display: grid; gap: 10px; margin-top: 20px; }
       label { display: grid; gap: 6px; color: var(--muted); }
       input, select { min-height: 38px; width: 100%; border: 1px solid var(--line-strong); background: #0f1114; color: var(--text); padding: 0 10px; border-radius: 2px; }
       .rule { height: 1px; background: var(--line); margin: 18px 0; }
@@ -124,7 +120,6 @@
 
       @media (max-width: 520px) {
         .topbar { padding: 8px 12px; min-height: 64px; align-items: flex-start; }
-        .profile-switch { flex-direction: column; }
         .header { display: grid; }
         .permission-grid { grid-template-columns: 1fr; }
         .kv { grid-template-columns: 1fr; }
@@ -135,10 +130,7 @@
     <div class="app">
       <header class="topbar">
         <div class="brand"><span class="mark" aria-hidden="true">M</span><span>Mystra / 043 Identity Wireframe</span></div>
-        <div class="profile-switch" role="group" aria-label="Deployment profile">
-          <button type="button" data-profile="hosted" aria-pressed="true">Hosted</button>
-          <button type="button" data-profile="self-hosted" aria-pressed="false">Self-hosted</button>
-        </div>
+        <span class="tag">Open-source local auth</span>
       </header>
 
       <div class="layout">
@@ -146,13 +138,13 @@
           <div class="eyebrow">Review surfaces</div>
           <nav class="nav" aria-label="Prototype screens">
             <button type="button" data-screen="signin" aria-current="page">Sign in <small>01</small></button>
-            <button type="button" data-screen="bootstrap">Bootstrap <small>02</small></button>
-            <button type="button" data-screen="members">Members <small>03</small></button>
-            <button type="button" data-screen="roles">Roles <small>04</small></button>
-            <button type="button" data-screen="agents">Agents &amp; Keys <small>05</small></button>
-            <button type="button" data-screen="workload">Workload Grant <small>06</small></button>
+            <button type="button" data-screen="account">Account <small>02</small></button>
+            <button type="button" data-screen="teams">Team switcher <small>03</small></button>
+            <button type="button" data-screen="team-settings">Team settings <small>04</small></button>
+            <button type="button" data-screen="members">Members <small>05</small></button>
+            <button type="button" data-screen="roles">Roles <small>06</small></button>
           </nav>
-          <div class="side-note">Static low-fidelity prototype. Actions do not persist or contact providers.</div>
+          <div class="side-note">Static low-fidelity prototype. Actions do not persist or contact external services.</div>
         </aside>
 
         <main>
@@ -160,102 +152,73 @@
             <div class="auth-shell">
               <div class="auth-card">
                 <div class="brand"><span class="mark" aria-hidden="true">M</span><span>Mystra</span></div>
-                <h1 class="auth-title" data-profile-title>Sign in to Mystra Cloud</h1>
-                <p class="muted" data-profile-copy>Use a verified identity from your organization or personal provider.</p>
-                <div class="provider-list" data-hosted-only>
-                  <button class="provider" type="button">Continue with Google</button>
-                  <button class="provider" type="button">Continue with GitHub</button>
-                </div>
-                <form class="form" data-self-only hidden>
-                  <label>Email or username<input autocomplete="username" value="owner@example.com" /></label>
-                  <label>Password<input type="password" autocomplete="current-password" value="password-placeholder" /></label>
+                <h1 class="auth-title">Sign in to Mystra</h1>
+                <p class="muted">Use a local username and password.</p>
+                <form class="form">
+                  <label>Username<input autocomplete="username" value="admin" /></label>
+                  <label>Password<input type="password" autocomplete="current-password" value="admin" /></label>
                   <button class="button primary" type="button">Sign in</button>
                 </form>
+                <div class="notice" style="margin-top:16px">The bootstrap admin must change the default password before opening any Team.</div>
                 <div class="rule"></div>
-                <p class="caption" data-hosted-only>New users can create a Team or accept an invitation after verified SSO.</p>
-                <p class="caption" data-self-only hidden>Registration is invitation-only after the first Owner completes setup.</p>
+                <p class="caption">New local users register with username and password. Every account receives its own Personal Team.</p>
               </div>
             </div>
           </section>
 
-          <section class="screen" data-panel="bootstrap">
-            <div class="header">
-              <div><div class="eyebrow">First-use boundary</div><h1 data-bootstrap-title>Create or join a Team</h1><p class="muted" data-bootstrap-copy>Verified SSO is complete. Choose the Team context for this session.</p></div>
-              <span class="tag ok" data-profile-badge>Hosted capability</span>
+          <section class="screen" data-panel="account">
+            <div class="header"><div><div class="eyebrow">Settings / Account</div><h1>Account</h1><p class="muted">Your login identity and display profile are deliberately separate.</p></div><span class="tag ok">Local User</span></div>
+            <div class="columns">
+              <article class="card"><div class="card-head"><h2>Profile</h2></div><div class="card-body form"><label>Login username<input value="admin" readonly /></label><label>Display name<input value="Administrator" /></label><button class="button primary" type="button">Save display name</button></div></article>
+              <article class="card"><div class="card-head"><h2>Change password</h2><span class="tag warn">Required on first login</span></div><div class="card-body form"><label>Current password<input type="password" value="admin" /></label><label>New password<input type="password" value="new-password-placeholder" /></label><label>Confirm password<input type="password" value="new-password-placeholder" /></label><button class="button primary" type="button">Change password</button></div></article>
             </div>
-            <div class="columns" data-hosted-only>
-              <article class="card"><div class="card-head"><h2>Create a Team</h2></div><div class="card-body form"><label>Team name<input value="Arcadia Labs" /></label><label>Team slug<input value="arcadia-labs" /></label><button class="button primary" type="button">Create Team</button></div></article>
-              <article class="card"><div class="card-head"><h2>Pending invitations</h2><span class="tag">1</span></div><div class="card-body stack"><strong>Castrel Product</strong><p class="muted">Invited as Member · owner@example.com</p><button class="button" type="button">Accept invitation</button></div></article>
+            <p class="footer-note">Changing the password revokes every other session. Username changes are not part of the first slice.</p>
+          </section>
+
+          <section class="screen" data-panel="teams">
+            <div class="header"><div><div class="eyebrow">Team context</div><h1>Switch Team</h1><p class="muted">Only active memberships appear here. Personal ownership is independent from the display name.</p></div><button class="button primary" type="button">Create Team</button></div>
+            <div class="card">
+              <div class="card-head"><h2>Your Teams</h2><span class="tag">3 active</span></div>
+              <div class="row"><div class="identity"><span class="avatar">P</span><div><strong>Personal</strong><span class="caption">Personal Team · you are permanent Owner</span></div></div><div class="tags"><span class="tag ok">Current</span><span class="tag">Personal</span></div><button class="button ghost" type="button">Settings</button></div>
+              <div class="row"><div class="identity"><span class="avatar">M</span><div><strong>Mystra</strong><span class="caption">Standard Team · Owner</span></div></div><div class="tags"><span class="tag">4 members</span></div><button class="button" type="button">Switch</button></div>
+              <div class="row"><div class="identity"><span class="avatar">C</span><div><strong>Castrel Product</strong><span class="caption">Standard Team · Member</span></div></div><div class="tags"><span class="tag">12 members</span></div><button class="button" type="button">Switch</button></div>
             </div>
-            <article class="card" data-self-only hidden>
-              <div class="card-head"><div><h2>Initialize this deployment</h2><p class="caption">The first verified account becomes the first Team Owner.</p></div><span class="tag warn">One-time setup</span></div>
-              <div class="card-body form"><label>Email<input value="owner@example.com" /></label><label>Username<input value="arcadia" /></label><label>Password<input type="password" value="password-placeholder" /></label><label>First Team<input value="Arcadia Labs" /></label><button class="button primary" type="button">Create Owner and Team</button></div>
-            </article>
+          </section>
+
+          <section class="screen" data-panel="team-settings">
+            <div class="header"><div><div class="eyebrow">Settings / Team / General</div><h1>Personal Team settings</h1><p class="muted">The name is editable. The Personal ownership invariant is not.</p></div><span class="tag ok">Personal</span></div>
+            <div class="stack">
+              <article class="card"><div class="card-head"><h2>Team profile</h2></div><div class="card-body form"><label>Display name<input value="Personal" /></label><button class="button primary" type="button">Rename Team</button></div></article>
+              <article class="card"><div class="card-head"><h2>Delete Team</h2><span class="tag warn">Protected</span></div><div class="card-body stack"><p class="muted">Personal Teams cannot be deleted or transferred. A standard Team is also protected when it is your only active Team.</p><button class="button danger" type="button" disabled>Delete Team</button></div></article>
+            </div>
           </section>
 
           <section class="screen" data-panel="members">
-            <div class="header"><div><div class="eyebrow">Settings / Team</div><h1>Members</h1><p class="muted">Humans and long-lived control-plane Agents share Team authorization, not identity records.</p></div><button class="button primary" type="button">Invite member</button></div>
+            <div class="header"><div><div class="eyebrow">Settings / Team / Members</div><h1>Members</h1><p class="muted">Add an existing local User by exact username and assign one Team role.</p></div><button class="button primary" type="button">Add member</button></div>
             <div class="card">
-              <div class="card-head"><h2>Arcadia Labs</h2><span class="tag">4 principals</span></div>
-              <div class="row"><div class="identity"><span class="avatar">AU</span><div><strong>Arcadia User</strong><span class="caption">owner@example.com</span></div></div><div class="tags"><span class="tag ok">Human</span><span class="tag">Team Owner</span></div><div class="actions"><button class="button ghost" type="button">Manage</button></div></div>
-              <div class="row"><div class="identity"><span class="avatar">PM</span><div><strong>Product Manager Agent</strong><span class="caption">agent_prd_01 · no email</span></div></div><div class="tags"><span class="tag agent">AgentPrincipal</span><span class="tag">Product Manager · Castrel</span></div><div class="actions"><button class="button ghost" type="button">Manage</button></div></div>
-              <div class="row"><div class="identity"><span class="avatar">DL</span><div><strong>Dev Lead</strong><span class="caption">devlead@example.com</span></div></div><div class="tags"><span class="tag ok">Human</span><span class="tag">Project Admin · Mystra</span></div><div class="actions"><button class="button ghost" type="button">Manage</button></div></div>
-              <div class="row"><div class="identity"><span class="avatar">IV</span><div><strong>analyst@example.com</strong><span class="caption">Invitation expires in 3 days</span></div></div><div class="tags"><span class="tag warn">Pending</span><span class="tag">Member</span></div><div class="actions"><button class="button ghost" type="button">Resend</button><button class="button ghost danger" type="button">Revoke</button></div></div>
+              <div class="card-head"><h2>Personal</h2><span class="tag">3 members</span></div>
+              <div class="row"><div class="identity"><span class="avatar">AD</span><div><strong>Administrator</strong><span class="caption">@admin · Personal owner</span></div></div><div class="tags"><span class="tag ok">Owner</span><span class="tag">Protected</span></div><div class="actions"><button class="button ghost" type="button" disabled>Manage</button></div></div>
+              <div class="row"><div class="identity"><span class="avatar">DL</span><div><strong>Dev Lead</strong><span class="caption">@devlead · active</span></div></div><div><select aria-label="Role for devlead"><option>Owner</option><option selected>Admin</option><option>Member</option></select></div><div class="actions"><button class="button ghost" type="button">Save</button><button class="button ghost danger" type="button">Remove</button></div></div>
+              <div class="row"><div class="identity"><span class="avatar">AN</span><div><strong>Analyst</strong><span class="caption">@analyst · disabled</span></div></div><div><select aria-label="Role for analyst"><option>Owner</option><option>Admin</option><option selected>Member</option></select></div><div class="actions"><button class="button ghost" type="button">Enable</button><button class="button ghost danger" type="button">Remove</button></div></div>
             </div>
-            <p class="footer-note">Last Owner protection: the final active Owner cannot be removed, disabled, or downgraded.</p>
+            <p class="footer-note">The permanent Personal owner cannot be removed or downgraded. Standard Teams protect their final active Owner.</p>
           </section>
 
           <section class="screen" data-panel="roles">
-            <div class="header"><div><div class="eyebrow">Settings / Team / Roles</div><h1>Roles &amp; bindings</h1><p class="muted">Stable permission catalog with explicit Team or Project scope.</p></div><button class="button" type="button" disabled title="Planned later slice">New custom role · Planned</button></div>
+            <div class="header"><div><div class="eyebrow">Settings / Team / Roles</div><h1>Built-in roles</h1><p class="muted">The first slice has three fixed Team roles. Custom roles are not quietly hiding behind a button.</p></div></div>
             <div class="stack">
-              <article class="card"><div class="card-head"><div><h2>Team Owner</h2><p class="caption">Built-in · Team scope</p></div><span class="tag ok">1 binding</span></div><div class="card-body"><div class="permission-grid"><div class="permission"><strong>team.manage</strong>Members, invitations, ownership</div><div class="permission"><strong>role.manage</strong>Roles and bindings</div><div class="permission"><strong>project.manage</strong>All projects in Team</div></div></div></article>
-              <article class="card"><div class="card-head"><div><h2>Product Manager</h2><p class="caption">Built-in · Project scope</p></div><span class="tag">2 bindings</span></div><div class="card-body"><div class="permission-grid"><div class="permission"><strong>task.manage</strong>Create and update Task intent</div><div class="permission"><strong>issue.read</strong>Read scoped Issues</div><div class="permission"><strong>session.dispatch</strong>Create bounded Sessions</div></div></div></article>
-              <article class="card"><div class="card-head"><div><h2>Developer</h2><p class="caption">Built-in · Project scope</p></div><span class="tag">3 bindings</span></div><div class="card-body"><div class="permission-grid"><div class="permission"><strong>task.read</strong>Inspect Task intent</div><div class="permission"><strong>session.execute</strong>Execute assigned Sessions</div><div class="permission"><strong>review.read</strong>Inspect delivery evidence</div></div></div></article>
+              <article class="card"><div class="card-head"><div><h2>Owner</h2><p class="caption">Built-in · Team scope</p></div><span class="tag ok">Full control</span></div><div class="card-body"><div class="permission-grid"><div class="permission"><strong>team.manage</strong>Rename and configure Team</div><div class="permission"><strong>member.manage</strong>Add, remove, disable members</div><div class="permission"><strong>role.manage</strong>Grant Owner, Admin, Member</div></div></div></article>
+              <article class="card"><div class="card-head"><div><h2>Admin</h2><p class="caption">Built-in · Team scope</p></div><span class="tag">Member operations</span></div><div class="card-body"><div class="permission-grid"><div class="permission"><strong>team.read</strong>Read Team settings</div><div class="permission"><strong>member.manage</strong>Manage Member-level users</div><div class="permission"><strong>resource.manage</strong>Manage Team resources</div></div></div></article>
+              <article class="card"><div class="card-head"><div><h2>Member</h2><p class="caption">Built-in · Team scope</p></div><span class="tag">Standard access</span></div><div class="card-body"><div class="permission-grid"><div class="permission"><strong>team.read</strong>View Team profile</div><div class="permission"><strong>member.read</strong>View member list</div><div class="permission"><strong>resource.use</strong>Use allowed Team resources</div></div></div></article>
             </div>
-          </section>
-
-          <section class="screen" data-panel="agents">
-            <div class="header"><div><div class="eyebrow">Settings / Account &amp; Team</div><h1>Agents &amp; API keys</h1><p class="muted">Human-owned keys and autonomous Agent credentials have different owners and lifecycle.</p></div><div class="actions"><button class="button" type="button">New user API key</button><button class="button primary" type="button">Create Agent</button></div></div>
-            <div class="columns">
-              <article class="card"><div class="card-head"><h2>Your API keys</h2><span class="tag ok">User principal</span></div><div class="row"><div><strong>Local MCP</strong><p class="caption">mya_7HG… · Arcadia Labs</p></div><div class="tags"><span class="tag">task.read</span><span class="tag">task.create</span></div><button class="button ghost danger" type="button">Revoke</button></div><div class="card-body notice">A tool using this key acts as owner@example.com. It does not become a separate Agent.</div></article>
-              <article class="card"><div class="card-head"><h2>Control-plane Agents</h2><span class="tag agent">AgentPrincipal</span></div><div class="row"><div><strong>Product Manager Agent</strong><p class="caption">agent_prd_01 · last used 8m ago</p></div><div class="tags"><span class="tag">Product Manager</span><span class="tag">Castrel</span></div><button class="button ghost" type="button">Rotate</button></div><div class="card-body notice ok">Agent credentials are independent from the creating Owner session and can be revoked without disabling the Owner.</div></article>
-            </div>
-            <div class="card" style="margin-top:12px"><div class="card-head"><h2>Future account factors</h2><span class="tag">Planned</span></div><div class="row"><div>TOTP / Authenticator</div><div class="muted">Not enrolled</div><button class="button ghost" type="button" disabled>Add later</button></div><div class="row"><div>Passkeys</div><div class="muted">0 registered</div><button class="button ghost" type="button" disabled>Add later</button></div><div class="row"><div>Email / SMS OTP</div><div class="muted">Extension-ready; phone is not a User ID</div><button class="button ghost" type="button" disabled>Configure later</button></div></div>
-          </section>
-
-          <section class="screen" data-panel="workload">
-            <div class="header"><div><div class="eyebrow">Session diagnostics</div><h1>Workload capability grant</h1><p class="muted">Short-lived sandbox identity derived from one claimed Session.</p></div><span class="tag workload">WorkloadIdentity</span></div>
-            <div class="card"><div class="card-head"><h2>grant_wkg_01</h2><span class="tag warn">Expires in 11m 42s</span></div><div class="card-body"><dl class="kv"><dt>Session</dt><dd>ses_01K2… · implement identity contracts</dd><dt>Task</dt><dd>tsk_01JZ…</dd><dt>Project / Team</dt><dd>mystra / Arcadia Labs</dd><dt>Runner</dt><dd>runner_local_01</dd><dt>Audience</dt><dd>mystra-capability-gateway</dd><dt>Capabilities</dt><dd><span class="tags"><span class="tag">repository.read</span><span class="tag">review.prepare</span><span class="tag">artifact.publish</span></span></dd><dt>Revocation</dt><dd>Session completion, cancellation, reassignment, or expiry</dd></dl></div></div>
-            <div class="notice" style="margin-top:12px">This grant is not a Team membership, User session, or Control-plane Agent credential. It cannot manage Team roles or borrow the dispatching human's permissions.</div>
-            <div class="card" style="margin-top:12px"><div class="card-head"><h2>External capability policy</h2></div><div class="row"><div>Repository delivery</div><div class="tags"><span class="tag ok">Allowed by existing provider contract</span></div><button class="button ghost" type="button">Inspect</button></div><div class="row"><div>Issue write-back</div><div class="tags"><span class="tag warn">Not enabled by 043</span></div><button class="button ghost" type="button" disabled>Unavailable</button></div><div class="row"><div>Arbitrary messaging</div><div class="tags"><span class="tag warn">No capability owner</span></div><button class="button ghost" type="button" disabled>Unavailable</button></div></div>
           </section>
         </main>
       </div>
     </div>
 
     <script>
-      const profileButtons = [...document.querySelectorAll('[data-profile]')];
       const navButtons = [...document.querySelectorAll('[data-screen]')];
       const panels = [...document.querySelectorAll('[data-panel]')];
-      const hostedOnly = [...document.querySelectorAll('[data-hosted-only]')];
-      const selfOnly = [...document.querySelectorAll('[data-self-only]')];
-      const profileTitle = document.querySelector('[data-profile-title]');
-      const profileCopy = document.querySelector('[data-profile-copy]');
-      const bootstrapTitle = document.querySelector('[data-bootstrap-title]');
-      const bootstrapCopy = document.querySelector('[data-bootstrap-copy]');
-      const profileBadge = document.querySelector('[data-profile-badge]');
-
-      function selectProfile(profile) {
-        const hosted = profile === 'hosted';
-        profileButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.profile === profile)));
-        hostedOnly.forEach((element) => { element.hidden = !hosted; });
-        selfOnly.forEach((element) => { element.hidden = hosted; });
-        profileTitle.textContent = hosted ? 'Sign in to Mystra Cloud' : 'Sign in to self-hosted Mystra';
-        profileCopy.textContent = hosted ? 'Use a verified identity from your organization or personal provider.' : 'Use the local account configured for this deployment.';
-        bootstrapTitle.textContent = hosted ? 'Create or join a Team' : 'Initialize this deployment';
-        bootstrapCopy.textContent = hosted ? 'Verified SSO is complete. Choose the Team context for this session.' : 'The first verified account creates the first Team and becomes Owner.';
-        profileBadge.textContent = hosted ? 'Hosted capability' : 'Self-hosted capability';
-      }
 
       function selectScreen(screen) {
         navButtons.forEach((button) => {
@@ -266,7 +229,6 @@
         document.querySelector(`[data-panel="${screen}"] h1`)?.focus?.();
       }
 
-      profileButtons.forEach((button) => button.addEventListener('click', () => selectProfile(button.dataset.profile)));
       navButtons.forEach((button) => button.addEventListener('click', () => selectScreen(button.dataset.screen)));
     </script>
   </body>
