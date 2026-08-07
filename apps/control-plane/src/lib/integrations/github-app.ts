@@ -200,15 +200,24 @@ export class GitHubAppService {
     return integrationConnectionActivationSchema.parse({
       integration: "github",
       provider: "github",
-      externalId: String(installation.id),
-      account: {
+      authMethod: "github-app",
+      providerExternalId: String(installation.id),
+      providerSubject: {
         externalId: String(installation.account.id),
         login: installation.account.login,
         type: installation.account.type,
         ...(installation.account.avatar_url ? { avatarUrl: installation.account.avatar_url } : {}),
       },
-      repositorySelection: installation.repository_selection,
-      permissions: installation.permissions,
+      capabilities: {
+        repositories: {
+          state: "enabled",
+          config: { selection: installation.repository_selection },
+          permissions: installation.permissions,
+          accessSummary: {},
+          verifiedAt: this.now().toISOString(),
+        },
+      },
+      credentialState: "ready",
     });
   }
 

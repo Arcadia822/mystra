@@ -173,15 +173,15 @@ The renderer must not parse headings or infer structure from standard Spec-Kit
 files; it reads fixed artifact paths and renders missing states when files do
 not exist.
 
-After any change to a feature's Spec-Kit artifacts (`spec.md`, `features.md`,
-`checklists.md`, `prototype.md`, `plan.md`, `tasks.md`, or related review
-artifacts), proactively refresh the feature review surface:
+After changing Spec-Kit artifacts, default to source-level verification such as
+`git diff --check`, targeted consistency searches, and the relevant Spec-Kit
+health check. Re-render `specs/<feature>/index.html` only when the HTML review
+surface is an intended deliverable or already tracked for that feature.
 
-1. Re-render `specs/<feature>/index.html` when a renderer exists.
-2. Open or refresh `specs/<feature>/index.html` in the Codex in-app browser for
-   the owner, preferably on the tab most relevant to the changed artifact.
-3. Do this without waiting for the owner to ask again. The review surface is the
-   expected handoff after spec edits, not an optional extra.
+Do not open or refresh a browser merely to verify authored spec text. Browser
+verification is reserved for an explicit owner request or for a UI/interaction
+prototype whose acceptance criteria require runtime or visual evidence. A
+backend/data-model/doc-only spec edit should not consume browser context.
 
 ## Feature Health Checks
 

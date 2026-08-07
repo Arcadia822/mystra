@@ -96,24 +96,32 @@ rewriting storage。
 The OAuth user token is not a field。It exists only between code exchange and
 installation verification，then is discarded。
 
-## ConnectionCredential
+## SecretEnvelope
 
-Logical entity only；not an RDB table。
+Internal encrypted persistence entity；never a public API or shared client model。
 
 ```text
 SecretEnvelope {
+  reference: string primary key
   version: 1
-  algorithm: "aes-256-gcm"
-  iv: base64
-  authTag: base64
+  algorithm: "aes-256-gcm+aes-256-gcm-wrap"
+  keyId: string
   ciphertext: base64
+  ciphertextIv: base64
+  ciphertextAuthTag: base64
+  wrappedDataKey: base64
+  wrappedDataKeyIv: base64
+  wrappedDataKeyAuthTag: base64
+  createdAt: ISO-8601
 }
 ```
 
-- ref grammar：`github-pat/<uuid>`。
-- master key：`MYSTRA_SECRET_STORE_KEY`，base64-decoded 32 bytes。
-- directory mode：`0700`；file mode：`0600`。
+- ref grammar：`github-pat/<connection-uuid>/<credential-version-uuid>`。
+- KEK：`MYSTRA_SECRET_STORE_KEY`，base64-decoded 32 bytes，never persisted。
+- KEK label：`MYSTRA_SECRET_STORE_KEY_ID`，non-secret，default `env-v1`。
+- DEK：random 32 bytes per credential version，stored only after KEK wrapping。
 - plaintext lifetime：request parse → GitHub validation → encrypt，或 decrypt → one provider/Runner phase。
+- SQLite/PostgreSQL use the same Prisma logical model；connection reference switch and envelope lifecycle share one serializable transaction。
 
 ## Project
 
@@ -161,7 +169,7 @@ The v4 partial unique active index is removed。An ordinary `(integration, statu
 
 - GitHub App：`external_id = installation id`。Repeated OAuth upserts same row。
 - PAT：`external_id = pat:<sha256(token)>`，internal only。Same token cannot create duplicate connection；different PATs for one account can coexist。
-- Replacement：stable `id` and credential ref，new PAT fingerprint replaces old external id after validation。
+- Replacement：stable connection `id`，new immutable credential ref；new PAT fingerprint and ref replace old values atomically after validation。
 - Hosted App：`(appRegistrationId, installationId)` has one owning Team。The
   same Team reconnect is idempotent；another Team receives a non-enumerating
   ownership conflict。

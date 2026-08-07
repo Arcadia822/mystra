@@ -52,7 +52,7 @@ agent, or delivery implementations without changing the core model.
 
 | Layer | Current | Extensible to |
 |---|---|---|
-| Storage | SQLite | Postgres, hosted RDB |
+| Storage | SQLite, PostgreSQL, Supabase-backed PostgreSQL | Additional Prisma-supported RDB profiles |
 | Issues | GitHub, Linear | Jira, custom |
 | Sandbox | Docker (local) | Cloud sandbox, Kubernetes |
 | Agent | Direct execution | Any coding agent |
@@ -77,7 +77,8 @@ Or use the one-liner:
 ./scripts/start-local.sh
 ```
 
-See [docs/LOCAL-USAGE.md](docs/LOCAL-USAGE.md) for the full walkthrough.
+See [INSTALLATION.md](INSTALLATION.md) for database installation and
+[docs/LOCAL-USAGE.md](docs/LOCAL-USAGE.md) for the operator walkthrough.
 
 ## Commands
 
@@ -92,6 +93,7 @@ See [docs/LOCAL-USAGE.md](docs/LOCAL-USAGE.md) for the full walkthrough.
 
 ## Documentation
 
+- [INSTALLATION.md](INSTALLATION.md) — SQLite, PostgreSQL, and Supabase database setup
 - [docs/LOCAL-USAGE.md](docs/LOCAL-USAGE.md) — local usage and operator runbook
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system architecture
 - [docs/DEMO-FLOW.md](docs/DEMO-FLOW.md) — demo walkthrough

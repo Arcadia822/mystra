@@ -39,6 +39,12 @@ Use Spec-Kit for non-trivial features or contract changes:
 7. Implement in small, verifiable slices.
 8. Verify with relevant tests or runtime evidence.
 
+For Spec-Kit Markdown and data-model documentation, static verification is the
+default: use diff checks, targeted consistency searches, and Spec-Kit health
+checks. Do not open the in-app browser solely to reread or validate authored
+spec text. Browser verification is required only when the owner explicitly asks
+for it or when UI/interaction acceptance needs real runtime or visual evidence.
+
 Feature-specific artifacts belong in `specs/<feature>/`. Durable project rules belong in the 5xP files.
 
 ## Spec-Kit Skill Routing
@@ -156,11 +162,15 @@ Use `claude-design-intake` to start any design task.
 Mystra MVP uses the Open Agents project as a source-authoritative framework
 baseline and reference architecture, then defines Mystra-owned interfaces and
 SDK surfaces where upstream does not provide reusable package contracts. The
-current provider set is SQLite behind `RdbProvider`, GitHub Integration with
+current provider set is selectable SQLite, PostgreSQL, or Supabase-backed
+PostgreSQL behind `RdbProvider`, GitHub Integration with
 remote `RepoProvider` plus repository-scoped `IssueProvider`, read-only Linear
 `IssueProvider`, direct Agent execution, and a single-machine Docker sandbox.
-Every Project binds one provider-resolved immutable remote repository snapshot;
-local paths and caller-supplied clone URLs are not Project repository inputs.
+Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
+Mutable repository names, URLs, default-branch observations, visibility, and archive/delete state are
+not Project persistence; their retrieval and caching require a separate specification. Task source, objective and
+Issue/Repository snapshots are also excluded from the first Prisma model; future Integration cache design owns
+current external information. Local paths and caller-supplied clone URLs are not Project repository inputs.
 
 The near-term MVP goal is self-use: let an operator or another Agent select a
 GitHub or Linear Issue and dispatch it through canonical API, thin CLI, remote
@@ -174,15 +184,18 @@ Task icons reflect the latest Session state. Existing Task, Session, Runner, and
 Project object routes remain directly reachable even when they are not primary
 menu items. `/automations` remains directly reachable as a Coming soon
 placeholder, but it is not a primary menu entry and does not introduce
-platform-owned workflow orchestration. Web remains secondary to API, MCP, and
-CLI.
+platform-owned workflow orchestration. The first Prisma schema does not preserve
+Session-, Runner-, or ContextBundle-derived views as persistence requirements;
+resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
+and CLI.
 
-Task is durable intent and has no execution state. A Task may have zero or many
-independent child Sessions for distinct subtasks. Session owns objective, Agent,
-branch, runtime resolution, lifecycle, cancellation, and result. Runner is a
-stable first-class business object. Runner protocol bookkeeping and internal
-execution facts are not business objects, and a public activity timeline is
-explicitly deferred.
+Task is currently a durable Project-scoped identity with optional Issue dispatch key and metadata; source,
+objective and external snapshots are deferred. Session remains the intended
+name for a future execution concept, but its persistence, Task relation, fields,
+state machine and CRUD are currently undefined and require a new specification.
+Runtime/Runner persistence is likewise deferred. Runner protocol bookkeeping
+and internal execution facts are not business objects, and a public activity
+timeline is explicitly deferred.
 
 The north-star model is a hosted **Mystra platform** serving many independent
 **Teams**. Each Team may contain multiple projects with their own
@@ -215,12 +228,16 @@ The current self-hosted MVP otherwise excludes caller auth, caller-login OAuth, 
 API/persistence, retry API, arbitrary callback URLs, quality-gate fix loops,
 webhooks/Issue write-back, a general-purpose Integration management catalog,
 public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
-cross-runner shared caches, per-repository secret management, hosted RDB
-implementation, GitLab as an enabled/default Integration, and standing-order or
-agent-operated workflow orchestration above the Agent. GitLab may remain as a
+cross-runner shared caches, per-repository secret management, and managed hosted
+RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
+PostgreSQL remain approved deployment targets. Hosted platform persistence
+management remains a separate phase. GitLab is not an enabled/default
+Integration, and standing-order or agent-operated workflow orchestration above
+the Agent remains excluded. GitLab may remain as a
 runner-side `RepoDeliveryProvider`; that does not make it an active Project
-repository Integration. PG/Supabase remains post-MVP and the `RdbProvider`
-interface must not leak SQLite dialect.
+repository Integration. PostgreSQL and Supabase-backed PostgreSQL are approved
+deployment targets; the `RdbProvider` interface must not leak database dialect,
+Prisma types, connection URLs, or pool handles.
 
 ## Documentation Discipline
 
@@ -292,6 +309,8 @@ This project is indexed by GitNexus as **mystra** (6686 symbols, 10539 relations
   rebuild without compatibility aliases.
 - TypeScript 5.9, Node.js 24.14.0 + Next.js 16 Route Handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, Node `child_process`, existing provider/adapters (038-task-session-model)
 - SQLite through `RdbProvider`; schema remains dialect-neutral at the provider contract (038-task-session-model)
+- TypeScript 5.9，Node.js 24.14.0 + Prisma ORM/Client 7.9.1，`@prisma/adapter-better-sqlite3` 7.9.1，`@prisma/adapter-pg` 7.9.1，`pg`，Zod 4，Next.js 16 (040-prisma-rdb)
+- SQLite；PostgreSQL；Supabase-backed PostgreSQL (040-prisma-rdb)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto`、GitHub REST API、现有 Integration/Runner provider contracts (039-github-project-onboarding)
 - SQLite via `RdbProvider`；只保存 IntegrationConnection 非秘密元数据和 Project connection reference (039-github-project-onboarding)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto` / `fs`、GitHub REST API、现有 `better-sqlite3` (041-github-integration-connections)

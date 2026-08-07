@@ -20,10 +20,10 @@ export async function GET(
         },
       }, { status: 400 });
     }
-    const db = getDb();
+    const db = await getDb();
     const activeConnections = connectionId
       ? []
-      : db.listIntegrationConnections({ integration }).filter((candidate) => candidate.status === "active");
+      : (await db.listIntegrationConnections({ integration })).filter((candidate) => candidate.status === "active");
     if (!connectionId && activeConnections.length > 1) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
@@ -31,7 +31,7 @@ export async function GET(
       });
     }
     const connection = connectionId
-      ? db.getIntegrationConnection(connectionId)
+      ? await db.getIntegrationConnection(connectionId)
       : activeConnections[0];
     if (!connection) {
       throw new IntegrationFailure({

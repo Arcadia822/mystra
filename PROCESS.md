@@ -16,7 +16,8 @@ Use the smallest context set that can answer the task.
 The project uses 5xP for durable project context and Spec-Kit for feature-level specification-driven development.
 
 The current product boundary is Open Agents source-authoritative baseline reuse
-with Mystra-owned interfaces at provider and execution seams: SQLite RDB,
+with Mystra-owned interfaces at provider and execution seams: selectable
+SQLite/PostgreSQL/Supabase-backed PostgreSQL RDB,
 GitHub RepoProvider plus repository-scoped IssueProvider, read-only Linear
 IssueProvider, direct Agent execution, and a single-machine sandbox path. Every
 Project repository is remote and provider-resolved. Product runtime MUST NOT

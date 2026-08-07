@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { projectUpdateRequestSchema } from "@mystra/shared";
 
 import { getDb } from "@/lib/db";
-import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
-import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
-import { resolveProjectUpdateInput } from "@/lib/projects/resolve-project-input";
 
 function projectError(code: string, message: string, status: number) {
   return NextResponse.json({ error: { code, message } }, { status });
@@ -12,7 +9,8 @@ function projectError(code: string, message: string, status: number) {
 
 export async function GET(_request: Request, context: { params: Promise<{ slug: string }> }) {
   const { slug } = await context.params;
-  const project = getDb().getProjectBySlug(slug);
+  const db = await getDb();
+  const project = await db.getProjectBySlug(slug);
   if (!project) {
     return projectError("PROJECT_NOT_FOUND", `Project not found: ${slug}`, 404);
   }
@@ -23,28 +21,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ slug:
   try {
     const { slug } = await context.params;
     const parsed = projectUpdateRequestSchema.parse(await request.json());
-    const db = getDb();
-    const current = db.getProjectBySlug(slug);
+    const db = await getDb();
+    const current = await db.getProjectBySlug(slug);
     if (!current) {
       return projectError("PROJECT_NOT_FOUND", `Project not found: ${slug}`, 404);
     }
-    const resolved = await resolveProjectUpdateInput(
-      parsed,
-      defaultIntegrationRegistry(parsed.repository
-        ? { githubConnectionId: parsed.repository.connectionId }
-        : {}),
-      db,
-      current.repositoryConnectionId,
-    );
-    const project = db.updateProject(slug, resolved);
+    const project = await db.updateProject(slug, parsed);
     if (!project) {
       return projectError("PROJECT_NOT_FOUND", `Project not found: ${slug}`, 404);
     }
     return NextResponse.json({ project });
   } catch (error) {
-    if (error instanceof IntegrationFailure) {
-      return integrationErrorResponse(error);
-    }
     const message = error instanceof Error ? error.message : "";
     if (message.startsWith("PROJECT_SLUG_CONFLICT")) {
       return projectError("PROJECT_SLUG_CONFLICT", message, 409);
@@ -55,7 +42,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ slug:
 
 export async function DELETE(_request: Request, context: { params: Promise<{ slug: string }> }) {
   const { slug } = await context.params;
-  const project = getDb().archiveProject(slug);
+  const db = await getDb();
+  const project = await db.archiveProject(slug);
   if (!project) {
     return projectError("PROJECT_NOT_FOUND", `Project not found: ${slug}`, 404);
   }

@@ -21,9 +21,11 @@ export async function PUT(
   try {
     const input = personalAccessTokenConnectionInputSchema.parse(await request.json());
     const { id } = await context.params;
+    const db = await getDb();
+    const secrets = getSecretProvider(db);
     const service = new GitHubPatConnectionService({
-      db: getDb(),
-      ...(getSecretProvider() ? { secrets: getSecretProvider()! } : {}),
+      db,
+      ...(secrets ? { secrets } : {}),
     });
     const connection = await service.replace(id, input);
     return noStore(NextResponse.json(

@@ -53,13 +53,13 @@
 - https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/token-expiration-and-revocation
 - https://docs.github.com/en/organizations/managing-programmatic-access-to-your-organization/setting-a-personal-access-token-policy-for-your-organization
 
-## Decision 6：SecretProvider 使用 AES-256-GCM 文件实现
+## Decision 6：SecretProvider 使用 RDB-backed envelope encryption
 
-**Decision**：RDB 保存 opaque ref；本地 provider 用 env master key 加密小型 secret envelope，严格文件权限并原子 rename。
+**Decision**：移除 encrypted-file backend。每个 credential version 生成随机 32-byte DEK，以 AES-256-GCM 加密 PAT；数据库外的 32-byte KEK 再以 AES-256-GCM 包装 DEK。RDB 只保存 ciphertext、两组 IV/auth tag、wrapped DEK、算法版本与非秘密 `keyId`，连接仍只保存 opaque immutable reference。
 
-**Rationale**：这保持 RdbProvider dialect-neutral，避免 PAT 明文进入 SQLite/backups，也不引入 hosted Vault。Node 24 内置 `crypto` 和 `fs` 足够，属于 boring local primitive。
+**Rationale**：`RdbProvider` 已覆盖 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL。把 envelope 放在同一 RDB 可消除 node-local affinity，并让连接 reference 与 secret version 在同一 serializable transaction 切换；把 KEK 留在部署 secret/KMS 中仍保持 key/ciphertext separation。SQLite 仍适合单机 MVP，而 PostgreSQL deployment 不再被文件 provider 人为降级成单机。
 
-**Alternatives considered**：SQLite plaintext；拒绝。仅靠 `.env.local` 为每条 PAT 建变量；拒绝，因为多连接的动态 lifecycle 无法管理。引入 Vault/KMS；拒绝，因为超出私有单节点 MVP。
+**Alternatives considered**：RDB plaintext，拒绝；拥有数据库读取权即拥有 GitHub 凭据。直接用一把 KEK 加密所有 PAT，拒绝；无法独立轮换 credential data key。保留 file fallback/dual read，拒绝；会制造多 source-of-truth、备份不一致和节点亲和。立即绑定某一家 Vault/KMS SDK，拒绝；未来只替换 KEK wrapping adapter。
 
 ## Decision 7：Project defaults 在服务端解析并固化
 

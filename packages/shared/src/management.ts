@@ -11,11 +11,8 @@ import {
   projectSchema,
   resolvedRuntimeContractSchema,
   sessionRuntimeOverrideSchema,
-  taskSourceSchema,
 } from "./schemas.js";
-import { issueSnapshotSchema } from "./issue-core.js";
 import { integrationConnectionSchema, integrationProviderStatusSchema } from "./integrations.js";
-import { repositorySnapshotSchema } from "./repository.js";
 import { sessionStateSchema } from "./state.js";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
@@ -75,9 +72,8 @@ export const projectSelectionViewSchema = projectSchema
     name: true,
     slug: true,
     repositoryConnectionId: true,
-    repository: true,
-    baseBranch: true,
-    defaultAgent: true,
+    repositoryExternalId: true,
+    repositoryBaseBranch: true,
     archivedAt: true,
     createdAt: true,
     updatedAt: true,
@@ -87,9 +83,9 @@ export type ProjectSelectionView = z.infer<typeof projectSelectionViewSchema>;
 
 export const laneInspectionViewSchema = z
   .object({
-    repository: projectSelectionViewSchema.shape.repository,
-    baseBranch: projectSelectionViewSchema.shape.baseBranch,
-    defaultAgent: projectSelectionViewSchema.shape.defaultAgent,
+    repositoryConnectionId: projectSelectionViewSchema.shape.repositoryConnectionId,
+    repositoryExternalId: projectSelectionViewSchema.shape.repositoryExternalId,
+    repositoryBaseBranch: projectSelectionViewSchema.shape.repositoryBaseBranch,
     runtime: projectRuntimeConfigSchema,
     contextBundleRefs: z.array(contextBundleRefSchema),
     prewarmConfig: jsonObjectSchema.default({}),
@@ -104,11 +100,8 @@ export const executionContextViewSchema = projectSchema
     name: true,
     slug: true,
     repositoryConnectionId: true,
-    repository: true,
-    baseBranch: true,
-    defaultAgent: true,
-    runtime: true,
-    prewarmConfig: true,
+    repositoryExternalId: true,
+    repositoryBaseBranch: true,
     metadata: true,
     archivedAt: true,
     createdAt: true,
@@ -125,9 +118,9 @@ export const submittedLaneSnapshotSchema = z
   .object({
     projectId: projectSelectionViewSchema.shape.id,
     projectSlug: projectSelectionViewSchema.shape.slug,
-    repository: projectSelectionViewSchema.shape.repository,
-    baseBranch: projectSelectionViewSchema.shape.baseBranch,
-    defaultAgent: projectSelectionViewSchema.shape.defaultAgent,
+    repositoryConnectionId: projectSelectionViewSchema.shape.repositoryConnectionId,
+    repositoryExternalId: projectSelectionViewSchema.shape.repositoryExternalId,
+    repositoryBaseBranch: projectSelectionViewSchema.shape.repositoryBaseBranch,
     runtime: resolvedRuntimeContractSchema,
     contextBundleRefs: z.array(contextBundleRefSchema),
     prewarmConfig: jsonObjectSchema.default({}),
@@ -141,32 +134,12 @@ export const taskRecordSchema = z
   .object({
     id: z.string().uuid(),
     projectId: z.string().uuid(),
-    source: taskSourceSchema,
-    objective: z.string().min(1),
-    issue: issueSnapshotSchema.optional(),
-    dispatchKey: z.string().min(1).max(1_000).optional(),
-    repository: repositorySnapshotSchema,
+    issueDispatchKey: z.string().min(1).max(1_000).optional(),
     metadata: jsonObjectSchema.default({}),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
-  .strict()
-  .superRefine((task, ctx) => {
-    if (task.source === "issue" && (!task.issue || !task.dispatchKey)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Issue-driven Tasks require issue and dispatchKey",
-        path: ["issue"],
-      });
-    }
-    if (task.source !== "issue" && (task.issue || task.dispatchKey)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Only Issue-driven Tasks may include issue or dispatchKey",
-        path: ["source"],
-      });
-    }
-  });
+  .strict();
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
 export const sessionRecordSchema = z
@@ -214,34 +187,7 @@ export const sessionSummaryItemSchema = sessionRecordSchema
   .strict();
 export type SessionSummaryItem = z.infer<typeof sessionSummaryItemSchema>;
 
-export const taskSessionSummarySchema = z
-  .object({
-    sessionCount: z.number().int().nonnegative(),
-    activeSessionCount: z.number().int().nonnegative(),
-    latestSession: sessionSummaryItemSchema.optional(),
-  })
-  .strict()
-  .superRefine((summary, ctx) => {
-    if (summary.activeSessionCount > summary.sessionCount) {
-      ctx.addIssue({
-        code: "custom",
-        message: "activeSessionCount cannot exceed sessionCount",
-        path: ["activeSessionCount"],
-      });
-    }
-    if (summary.latestSession && summary.sessionCount === 0) {
-      ctx.addIssue({
-        code: "custom",
-        message: "latestSession requires a non-empty Session collection",
-        path: ["latestSession"],
-      });
-    }
-  });
-export type TaskSessionSummary = z.infer<typeof taskSessionSummarySchema>;
-
-export const taskListItemSchema = taskRecordSchema
-  .and(taskSessionSummarySchema)
-  .transform((value) => ({ ...value }));
+export const taskListItemSchema = taskRecordSchema;
 export type TaskListItem = z.infer<typeof taskListItemSchema>;
 
 export const projectListResponseSchema = z.object({ projects: z.array(projectSelectionViewSchema) }).strict();
@@ -276,7 +222,7 @@ export const taskListResponseSchema = z.object({ tasks: z.array(taskListItemSche
 export type TaskListResponse = z.infer<typeof taskListResponseSchema>;
 
 export const taskDetailResponseSchema = z
-  .object({ task: taskRecordSchema, sessionSummary: taskSessionSummarySchema })
+  .object({ task: taskRecordSchema })
   .strict();
 export type TaskDetailResponse = z.infer<typeof taskDetailResponseSchema>;
 
@@ -300,7 +246,7 @@ export const runnerClaimResponseSchema = z
   .object({
     task: taskRecordSchema,
     session: sessionRecordSchema,
-    project: projectSchema.pick({ id: true, slug: true, runtime: true, prewarmConfig: true }).strict(),
+    project: projectSchema.pick({ id: true, slug: true }).strict(),
     runtime: resolvedRuntimeContractSchema,
   })
   .strict();

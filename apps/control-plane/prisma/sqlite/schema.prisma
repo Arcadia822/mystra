@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma/sqlite"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model IntegrationConnection {
+  id                 String    @id
+  integration        String
+  provider           String
+  authMethod         String    @map("auth_method")
+  providerExternalId String    @map("provider_external_id")
+  displayName        String?   @map("display_name")
+  providerSubject    String    @map("provider_subject")
+  connectionConfig   String    @map("connection_config")
+  capabilities       String
+  credentialRef      String?   @map("credential_ref")
+  credentialState    String    @map("credential_state")
+  status             String
+  createdAt          String    @map("created_at")
+  updatedAt          String    @map("updated_at")
+  projects           Project[]
+
+  @@unique([integration, provider, providerExternalId])
+  @@index([integration, status])
+  @@index([createdAt, id])
+  @@map("integration_connections")
+}
+
+model Project {
+  id                     String                @id
+  name                   String
+  slug                   String                @unique
+  repositoryConnectionId String                @map("repository_connection_id")
+  repositoryExternalId   String                @map("repository_external_id")
+  repositoryBaseBranch   String                @map("repository_base_branch")
+  metadata               String
+  archivedAt             String?               @map("archived_at")
+  createdAt              String                @map("created_at")
+  updatedAt              String                @map("updated_at")
+  repositoryConnection   IntegrationConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tasks                  Task[]
+
+  @@index([repositoryConnectionId])
+  @@index([createdAt, id])
+  @@map("projects")
+}
+
+model Task {
+  id               String  @id
+  projectId        String  @map("project_id")
+  issueDispatchKey String? @unique @map("issue_dispatch_key")
+  metadata         String
+  createdAt        String  @map("created_at")
+  updatedAt        String  @map("updated_at")
+  project          Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([projectId])
+  @@index([createdAt, id])
+  @@map("tasks")
+}
+
+model SecretEnvelope {
+  reference             String @id
+  version               Int
+  algorithm             String
+  keyId                 String @map("key_id")
+  ciphertext            String
+  ciphertextIv          String @map("ciphertext_iv")
+  ciphertextAuthTag     String @map("ciphertext_auth_tag")
+  wrappedDataKey        String @map("wrapped_data_key")
+  wrappedDataKeyIv      String @map("wrapped_data_key_iv")
+  wrappedDataKeyAuthTag String @map("wrapped_data_key_auth_tag")
+  createdAt             String @map("created_at")
+
+  @@index([createdAt, reference])
+  @@map("secret_envelopes")
+}

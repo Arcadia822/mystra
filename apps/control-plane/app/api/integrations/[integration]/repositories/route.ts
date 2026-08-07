@@ -16,10 +16,10 @@ export async function GET(
     const limit = url.searchParams.get("limit");
     const cursor = url.searchParams.get("cursor");
     const requestedConnectionId = url.searchParams.get("connectionId");
-    const db = getDb();
+    const db = await getDb();
     const activeConnections = requestedConnectionId
       ? []
-      : db.listIntegrationConnections({ integration }).filter((candidate) => candidate.status === "active");
+      : (await db.listIntegrationConnections({ integration })).filter((candidate) => candidate.status === "active");
     if (!requestedConnectionId && activeConnections.length > 1) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
@@ -27,7 +27,7 @@ export async function GET(
       });
     }
     const connection = requestedConnectionId
-      ? db.getIntegrationConnection(requestedConnectionId)
+      ? await db.getIntegrationConnection(requestedConnectionId)
       : activeConnections[0];
     if (!connection) {
       throw new IntegrationFailure({

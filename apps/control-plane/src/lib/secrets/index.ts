@@ -1,18 +1,13 @@
-import path from "node:path";
-
-import { EncryptedFileSecretProvider } from "./encrypted-file-secret-provider";
+import type { RdbProvider } from "../db/rdb-provider";
+import { RdbSecretProvider } from "./rdb-secret-provider";
 import type { SecretProvider } from "./secret-provider";
 
 export interface SecretStoreConfig {
-  root: string;
   key: Buffer;
+  keyId: string;
 }
 
 type SecretStoreEnvironment = Readonly<Record<string, string | undefined>>;
-
-function defaultDbPath(): string {
-  return path.join(process.cwd(), "data", "mystra.db");
-}
 
 export function readSecretStoreConfig(
   environment: SecretStoreEnvironment = process.env,
@@ -28,26 +23,21 @@ export function readSecretStoreConfig(
   if (key.byteLength !== 32) {
     throw new Error("MYSTRA_SECRET_STORE_KEY must be a base64-encoded 32-byte key");
   }
-  const dbPath = environment.MYSTRA_DB_PATH ?? defaultDbPath();
+  const keyId = environment.MYSTRA_SECRET_STORE_KEY_ID ?? "env-v1";
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(keyId)) {
+    throw new Error("MYSTRA_SECRET_STORE_KEY_ID is invalid");
+  }
   return {
-    root: environment.MYSTRA_SECRET_STORE_PATH ?? path.join(path.dirname(dbPath), "secrets"),
     key,
+    keyId,
   };
 }
 
-let secretProvider: SecretProvider | undefined;
-let initialized = false;
-
-export function getSecretProvider(): SecretProvider | undefined {
-  if (!initialized) {
-    const config = readSecretStoreConfig();
-    secretProvider = config ? new EncryptedFileSecretProvider(config) : undefined;
-    initialized = true;
-  }
-  return secretProvider;
+export function getSecretProvider(db: RdbProvider): SecretProvider | undefined {
+  const config = readSecretStoreConfig();
+  return config ? new RdbSecretProvider({ db, ...config }) : undefined;
 }
 
 export function resetSecretProviderForTests(): void {
-  secretProvider = undefined;
-  initialized = false;
+  // Provider construction is stateless; retained as an explicit test lifecycle hook.
 }

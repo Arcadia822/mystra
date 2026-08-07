@@ -12,64 +12,25 @@ function task(overrides: Partial<TaskListItem> = {}): TaskListItem {
   return {
     id: "00000000-0000-4000-8000-000000000001",
     projectId: "00000000-0000-4000-8000-000000000010",
-    source: "api",
-    objective: "Investigate the failing deployment",
-    repository: { fullName: "arcadia/mystra" },
-    metadata: {},
+    metadata: { title: "Sidebar collapse is missing" },
     createdAt: "2026-08-05T00:00:00.000Z",
     updatedAt: "2026-08-05T01:00:00.000Z",
-    sessionCount: 1,
-    activeSessionCount: 0,
     ...overrides,
   };
 }
 
 describe("shell task models", () => {
-  it("searches objective, Issue, repository, branch, and id fields", () => {
-    const item = task({
-      issue: {
-        reference: {
-          provider: "github",
-          externalId: "42",
-          identifier: "MYS-42",
-          url: "https://example.com/issues/42",
-        },
-        title: "Sidebar collapse is missing",
-        state: { name: "open" },
-      },
-      latestSession: {
-        id: "00000000-0000-4000-8000-000000000002",
-        taskId: "00000000-0000-4000-8000-000000000001",
-        title: "Implement MYS-42",
-        state: "running",
-        agent: "codex",
-        branch: "codex/mys-42",
-        createdAt: "2026-08-05T00:00:00.000Z",
-        updatedAt: "2026-08-05T01:00:00.000Z",
-      },
-    });
+  it("searches title, dispatch key, project, and id fields", () => {
+    const item = task({ issueDispatchKey: "github:MYS-42" });
 
-    for (const query of ["deployment", "MYS-42", "sidebar", "arcadia/mystra", "codex/mys-42", item.id]) {
+    for (const query of ["MYS-42", "sidebar", item.projectId, item.id]) {
       expect(filterTasks([item], query)).toEqual([item]);
     }
     expect(filterTasks([item], "no match")).toEqual([]);
   });
 
-  it("keeps only Tasks waiting for review in Inbox", () => {
-    const review = task({
-      latestSession: {
-        id: "00000000-0000-4000-8000-000000000003",
-        taskId: "00000000-0000-4000-8000-000000000001",
-        title: "Review",
-        state: "waiting_for_review",
-        agent: "codex",
-        branch: "codex/review",
-        createdAt: "2026-08-05T00:00:00.000Z",
-        updatedAt: "2026-08-05T01:00:00.000Z",
-      },
-    });
-
-    expect(inboxTasks([task(), review])).toEqual([review]);
+  it("keeps Inbox empty while Session review persistence is unavailable", () => {
+    expect(inboxTasks([task()])).toEqual([]);
   });
 
   it("groups Tasks by Project and orders the newest Task first", () => {

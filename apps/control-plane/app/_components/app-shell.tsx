@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { TaskListItem } from "../_lib/types";
+import { taskTitle } from "../_lib/task-view";
 import { useResource } from "../_lib/use-resource";
 import {
   APPEARANCE_STORAGE_KEY,
@@ -311,16 +312,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 ) : (
                   <div className="taskProjectHeader">
                     <SidebarMark />
-                    <span>{group.tasks[0]?.repository.fullName ?? group.projectId}</span>
+                    <span>{group.projectId}</span>
                   </div>
                 )}
                 <div className="projectTaskList">
                   {group.tasks.map((task) => {
-                    const status = taskStatus(task.latestSession?.state);
+                    const status = taskStatus();
                     return (
                       <UiActionLink active={pathname === `/tasks/${task.id}`} block className="sidebarTask" href={`/tasks/${task.id}`} key={task.id}>
                         <SidebarStatusIcon icon={status.icon} label={status.label} status={status.kind} />
-                        <span>{task.issue?.title ?? task.objective}</span>
+                        <span>{taskTitle(task)}</span>
                       </UiActionLink>
                     );
                   })}

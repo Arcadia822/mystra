@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { readSecretStoreConfig } from "@/lib/secrets";
 
 export async function GET() {
+  const db = await getDb();
   let patConfigured = false;
   let patDisabledReason: string | undefined;
   try {
@@ -25,8 +26,8 @@ export async function GET() {
         },
       ],
     }],
-    connections: getDb().listIntegrationConnections()
-      .filter((connection) => connection.connectionType === "personal-access-token"),
+    connections: (await db.listIntegrationConnections())
+      .filter((connection) => connection.authMethod === "personal-access-token"),
   }));
   response.headers.set("cache-control", "no-store");
   return response;

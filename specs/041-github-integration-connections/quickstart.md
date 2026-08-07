@@ -27,15 +27,10 @@ Generate one 32-byte base64 key and set it as：
 
 ```text
 MYSTRA_SECRET_STORE_KEY=<base64-32-byte-key>
+MYSTRA_SECRET_STORE_KEY_ID=env-v1
 ```
 
-Optional：
-
-```text
-MYSTRA_SECRET_STORE_PATH=/absolute/private/path
-```
-
-Do not print the key or PAT in command output。Default secret directory follows the local data root and is gitignored。
+Do not print the key or PAT in command output。`MYSTRA_SECRET_STORE_KEY_ID` is a non-secret rotation label and defaults to `env-v1`。PAT envelope and connection metadata use the same RDB; there is no local secret path. Every control-plane replica must receive the same active KEK。
 
 ## Deployment capability target
 

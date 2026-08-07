@@ -1,160 +1,121 @@
 import type {
-  CancellationRequestMetadata,
-  CoordinationSessionSummary,
-  ContextBundle,
-  ContextBundleCreate,
+  IntegrationCapabilities,
   IntegrationConnection,
   IntegrationConnectionActivation,
-  IntegrationConnectionAccount,
-  IntegrationConnectionRepositorySelection,
   IntegrationConnectionStatus,
-  IntegrationConnectionType,
   IntegrationCredentialState,
-  PlatformCapabilities,
   Project,
   ProjectCreate,
   ProjectUpdate,
-  PublicRunner,
-  ResolvedRuntimeContract,
-  SessionCreateRequest,
-  SessionEvent,
-  SessionRecord,
-  SessionResult,
-  StaleMarkingResult,
-  TaskCreate,
   TaskCreateRequest,
   TaskListItem,
   TaskRecord,
-  TaskSessionSummary,
 } from "@mystra/shared";
 
-export type ProjectClaim = Pick<Project, "id" | "slug" | "runtime" | "prewarmConfig">;
-
-export type SessionClaim = {
-  task: TaskRecord;
-  session: SessionRecord;
-  project: ProjectClaim;
-  runtime: ResolvedRuntimeContract;
-};
-
-export type RunnerRecord = {
-  id: string;
-  name: string;
-  capabilities: PlatformCapabilities;
-  maxConcurrency: number;
-  staleAfterSeconds: number;
-  eligibleProjectIds?: string[];
-  eligibleRuntimeProviders?: string[];
-  lastHeartbeatAt: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type RegisterRunnerInput = {
-  runnerName: string;
-  capabilities?: unknown;
-  maxConcurrency?: number;
-  staleAfterSeconds?: number;
-  eligibleProjectIds?: string[] | undefined;
-  eligibleRuntimeProviders?: string[] | undefined;
-};
-
-export type RunnerRegistrationResult = {
-  runner: RunnerRecord;
-  credential: string;
-};
-
-export type IssueDispatchInput = {
-  task: TaskCreate;
-  session: SessionCreateRequest;
-};
-
-export type IssueDispatchResult = {
-  task: TaskRecord;
-  session: SessionRecord;
-  created: boolean;
-};
-
-export type IntegrationConnectionRecord = Omit<IntegrationConnection, "externalId"> & {
-  providerExternalId: string;
+export type IntegrationConnectionRecord = IntegrationConnection & {
   credentialRef?: string;
-  accessSummary: Record<string, unknown>;
 };
 
 export type IntegrationConnectionUpsert = {
   id?: string;
   integration: string;
   provider: string;
-  connectionType: IntegrationConnectionType;
+  authMethod: string;
   providerExternalId: string;
-  displayName?: string;
-  account: IntegrationConnectionAccount;
-  repositorySelection: IntegrationConnectionRepositorySelection;
-  permissions: Record<string, string>;
+  displayName?: string | null;
+  providerSubject: Record<string, unknown>;
+  connectionConfig?: Record<string, unknown>;
+  capabilities?: IntegrationCapabilities;
   credentialState: IntegrationCredentialState;
   credentialRef?: string;
-  accessSummary?: Record<string, unknown>;
   status?: IntegrationConnectionStatus;
 };
 
-export interface RdbProvider {
-  close(): void;
+export type IssueDispatchResult = {
+  task: TaskRecord;
+  created: boolean;
+};
 
-  activateIntegrationConnection(input: IntegrationConnectionActivation): IntegrationConnection;
-  upsertIntegrationConnection(input: IntegrationConnectionUpsert): IntegrationConnectionRecord;
-  replaceIntegrationConnection(id: string, input: IntegrationConnectionUpsert): IntegrationConnectionRecord | undefined;
-  getIntegrationConnection(id: string): IntegrationConnection | undefined;
-  getIntegrationConnectionRecord(id: string): IntegrationConnectionRecord | undefined;
-  getActiveIntegrationConnection(integration: string): IntegrationConnection | undefined;
-  listIntegrationConnections(options?: { integration?: string }): IntegrationConnection[];
-  listIntegrationConnectionRecords(options?: { integration?: string }): IntegrationConnectionRecord[];
+export type SecretEnvelopeWrite = {
+  reference: string;
+  version: 1;
+  algorithm: "aes-256-gcm+aes-256-gcm-wrap";
+  keyId: string;
+  ciphertext: string;
+  ciphertextIv: string;
+  ciphertextAuthTag: string;
+  wrappedDataKey: string;
+  wrappedDataKeyIv: string;
+  wrappedDataKeyAuthTag: string;
+};
+
+export type SecretEnvelopeRecord = SecretEnvelopeWrite & {
+  createdAt: string;
+};
+
+/**
+ * Domain-owned relational persistence boundary.
+ *
+ * Prisma clients, driver adapters, connection URLs, pools, and database error
+ * types must never appear in this contract. The first Prisma phase deliberately
+ * contains IntegrationConnection, Project, and Task business persistence plus
+ * the internal encrypted-secret envelope required by feature 041.
+ */
+export interface RdbProvider {
+  close(): Promise<void>;
+
+  activateIntegrationConnection(input: IntegrationConnectionActivation): Promise<IntegrationConnection>;
+  upsertIntegrationConnection(input: IntegrationConnectionUpsert): Promise<IntegrationConnectionRecord>;
+  replaceIntegrationConnection(
+    id: string,
+    input: IntegrationConnectionUpsert,
+  ): Promise<IntegrationConnectionRecord | undefined>;
+  getIntegrationConnection(id: string): Promise<IntegrationConnection | undefined>;
+  getIntegrationConnectionRecord(id: string): Promise<IntegrationConnectionRecord | undefined>;
+  listIntegrationConnections(options?: { integration?: string }): Promise<IntegrationConnection[]>;
+  listIntegrationConnectionRecords(options?: { integration?: string }): Promise<IntegrationConnectionRecord[]>;
+  updateIntegrationConnectionDisplayName(
+    id: string,
+    displayName: string | null,
+  ): Promise<IntegrationConnectionRecord | undefined>;
+  replaceIntegrationConnectionCapabilities(
+    id: string,
+    capabilities: IntegrationCapabilities,
+  ): Promise<IntegrationConnectionRecord | undefined>;
   setIntegrationConnectionStatus(
     id: string,
     status: IntegrationConnectionStatus,
     credentialState?: IntegrationCredentialState,
-  ): IntegrationConnectionRecord | undefined;
-  deleteIntegrationConnection(id: string): boolean;
-  listProjectsForIntegrationConnection(id: string): Project[];
+  ): Promise<IntegrationConnectionRecord | undefined>;
+  deleteIntegrationConnection(id: string): Promise<boolean>;
+  listProjectsForIntegrationConnection(id: string): Promise<Project[]>;
 
-  createProject(input: ProjectCreate): Project;
-  listProjects(options?: { includeArchived?: boolean }): Project[];
-  getProjectById(id: string): Project | undefined;
-  getProjectBySlug(slug: string): Project | undefined;
-  updateProject(slug: string, input: ProjectUpdate): Project | undefined;
-  archiveProject(slug: string): Project | undefined;
+  createSecretEnvelope(input: SecretEnvelopeWrite): Promise<void>;
+  getSecretEnvelope(reference: string): Promise<SecretEnvelopeRecord | undefined>;
+  deleteSecretEnvelope(reference: string): Promise<void>;
+  upsertIntegrationConnectionWithSecret(
+    input: IntegrationConnectionUpsert,
+    envelope: SecretEnvelopeWrite,
+    previousReference?: string,
+  ): Promise<IntegrationConnectionRecord>;
+  replaceIntegrationConnectionWithSecret(
+    id: string,
+    input: IntegrationConnectionUpsert,
+    envelope: SecretEnvelopeWrite,
+    previousReference: string,
+  ): Promise<IntegrationConnectionRecord | undefined>;
+  deleteIntegrationConnectionWithSecret(id: string, reference: string): Promise<boolean>;
 
-  createContextBundle(input: ContextBundleCreate): ContextBundle;
-  getContextBundleBySlug(slug: string): ContextBundle | undefined;
-  listContextBundles(options?: { includeArchived?: boolean }): ContextBundle[];
+  createProject(input: ProjectCreate): Promise<Project>;
+  listProjects(options?: { includeArchived?: boolean }): Promise<Project[]>;
+  getProjectById(id: string): Promise<Project | undefined>;
+  getProjectBySlug(slug: string): Promise<Project | undefined>;
+  updateProject(slug: string, input: ProjectUpdate): Promise<Project | undefined>;
+  archiveProject(slug: string): Promise<Project | undefined>;
 
-  createTask(input: TaskCreateRequest): TaskRecord;
-  dispatchIssue(input: IssueDispatchInput): IssueDispatchResult;
-  getTask(id: string): TaskRecord | undefined;
-  getTaskByDispatchKey(dispatchKey: string): TaskRecord | undefined;
-  listTasks(): TaskListItem[];
-  getTaskSessionSummary(id: string): TaskSessionSummary | undefined;
-
-  createSession(taskId: string, input: SessionCreateRequest): SessionRecord;
-  getSession(id: string): SessionRecord | undefined;
-  listSessions(taskId: string): SessionRecord[];
-  getSessionSummary(id: string): CoordinationSessionSummary | undefined;
-  cancelSession(id: string, request?: Partial<CancellationRequestMetadata>): {
-    outcome: "canceled" | "cancellation_requested";
-    session: SessionRecord;
-  };
-
-  registerRunner(input: RegisterRunnerInput): RunnerRegistrationResult;
-  authenticateRunner(credential: string | null): RunnerRecord | undefined;
-  heartbeatRunner(runnerId: string, activeSessionIds?: string[]): RunnerRecord;
-  getRunner(runnerId: string): PublicRunner | undefined;
-  listRunners(): PublicRunner[];
-  claimNextSession(runnerId: string): SessionClaim | undefined;
-  getSessionClaim(runnerId: string, sessionId: string): SessionClaim | undefined;
-  appendSessionEvent(runnerId: string, sessionId: string, input: unknown): SessionEvent;
-  completeSession(runnerId: string, sessionId: string, input: unknown): SessionRecord;
-  listInternalSessionEvents(sessionId: string): SessionEvent[];
-
-  markStaleRunners(): StaleMarkingResult[];
+  createTask(input: TaskCreateRequest): Promise<TaskRecord>;
+  dispatchIssue(input: TaskCreateRequest & { issueDispatchKey: string }): Promise<IssueDispatchResult>;
+  getTask(id: string): Promise<TaskRecord | undefined>;
+  getTaskByIssueDispatchKey(issueDispatchKey: string): Promise<TaskRecord | undefined>;
+  listTasks(options?: { projectId?: string }): Promise<TaskListItem[]>;
 }
-
-export type { SessionResult };

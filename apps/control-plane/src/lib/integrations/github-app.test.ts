@@ -75,8 +75,10 @@ describe("GitHubAppService", () => {
     expect(activation).toMatchObject({
       integration: "github",
       provider: "github",
-      externalId: "18492",
-      account: { externalId: "42", login: "arcadia" },
+      authMethod: "github-app",
+      providerExternalId: "18492",
+      providerSubject: { externalId: "42", login: "arcadia" },
+      capabilities: { repositories: { state: "enabled", config: { selection: "selected" } } },
     });
     expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({ method: "POST" });
     expect(String(fetchImpl.mock.calls[0]?.[1]?.body)).toContain("code_verifier=pkce-verifier");

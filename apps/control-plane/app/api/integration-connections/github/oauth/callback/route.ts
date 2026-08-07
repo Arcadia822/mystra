@@ -60,7 +60,8 @@ export async function GET(request: Request) {
     const service = getGitHubAppService();
     const userToken = await service.exchangeOAuthCode(code, verifier);
     const activation = await service.verifyAccessibleInstallation(userToken, installationId);
-    getDb().activateIntegrationConnection(activation);
+    const db = await getDb();
+    await db.activateIntegrationConnection(activation);
     return resultRedirect(request, returnTo, { status: "connected" });
   } catch (error) {
     return resultRedirect(request, returnTo, { status: "connection_failed", reason: publicReason(error) });

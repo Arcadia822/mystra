@@ -4,15 +4,15 @@
 
 ### I. Specification Owns Product Boundaries
 
-Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary while durable relational state stores only non-secret metadata and opaque references. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. Hosted caller authentication, Team authorization, managed RDB/secrets, and installation lifecycle handling are prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist.
+Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. Hosted caller authentication, Team authorization, managed platform secrets, and installation lifecycle handling are prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
 
 ### II. Typed Contracts at Service Boundaries
 
-Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools, Integration capabilities and persisted Session results must use explicit TypeScript and Zod contracts. Task intent, Session execution, stable Runner identity, Project configuration, and external Issue identity remain separate concepts.
+Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Task intent, future Session execution, Runtime/Runner identity, Project configuration, and external Issue identity remain separate concepts. Session persistence is currently deferred and must not be inferred from the legacy schema.
 
 ### III. Providers Are Replaceable Boundaries
 
-Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. The MVP RDB provider is local SQLite. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. The MVP sandbox provider is single-machine Docker. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
+Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. The MVP sandbox provider is single-machine Docker. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
 
 ### IV. Runner Isolation and Secret Hygiene
 
@@ -33,8 +33,9 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   connection bound by the Project. OAuth user tokens are verification-only and
   MUST not be persisted; installation access tokens are short-lived and MUST
   NOT appear in durable state, logs, public responses, or evidence. PAT
-  plaintext MUST remain behind `SecretProvider` and MUST NOT enter RDB, public
-  responses, URLs, logs, or evidence. App and PAT modes never silently fall
+  plaintext and the KEK MUST remain behind `SecretProvider` and MUST NOT enter
+  RDB, public responses, URLs, logs, or evidence. RDB may persist only the
+  authenticated encryption envelope and wrapped per-secret DEK. App and PAT modes never silently fall
   back to each other.
 - GitHub App capability MUST be derived from trusted server deployment policy,
   not from client input or the mere presence of App environment variables.
@@ -44,9 +45,10 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - GitLab is not an enabled/default Integration or control-plane RepoProvider.
   Its existing runner-side RepoDeliveryProvider may remain as a replaceable
   delivery implementation.
-- Every Project binds one provider-resolved immutable remote repository
-  snapshot; local paths and caller-supplied clone URLs are invalid Project
-  repository inputs.
+- Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
+  Mutable repository metadata is not Project persistence; its retrieval/cache requires a separate specification.
+  Task source, objective and Issue/Repository snapshots are excluded from the first Prisma schema; future
+  Integration cache design owns current external information. Local paths and caller-supplied clone URLs are invalid Project inputs.
 - Mystra remote MCP is the primary submission path for other agents and skills.
 - Web API is the canonical management implementation; CLI and MCP are thin adapters over the same contracts.
 - Web UI is a secondary client. Its demo shell exposes New, Search, Inbox, and
@@ -63,6 +65,22 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 
 ## Amendment Notes
 
+- 2026-08-06: Replaced the node-local encrypted-file SecretProvider with an
+  RdbProvider-backed envelope model. PAT plaintext remains confined to
+  SecretProvider; each PAT uses a random DEK, the deployment KEK remains outside
+  RDB, and connection reference changes share one database transaction with the
+  envelope lifecycle. This permits PostgreSQL-backed self-hosted replicas without
+  node affinity and preserves a future KMS wrapping seam.
+- 2026-08-06: Limited the first Prisma persistence schema to
+  IntegrationConnection, Project, and Task. Session, Runtime/Runner,
+  ContextBundle, event, and artifact persistence require new specifications;
+  mutable Issue and repository information belongs to a future Integration
+  cache design rather than Project or Task snapshots.
+- 2026-08-06: Expanded the approved RDB deployment boundary from local SQLite
+  only to selectable SQLite, PostgreSQL, and Supabase-backed PostgreSQL. The
+  amendment preserves `RdbProvider`, does not introduce public multi-tenancy,
+  and requires provider-specific migration histories plus explicit runtime and
+  migration connection configuration.
 - 2026-08-06: Made the platform-operated Mystra GitHub App a hosted-only
   capability. Self-hosted Mystra supports PAT connections and may retain the
   hosted App implementation in source, but all App entry points fail closed by
@@ -117,4 +135,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.5.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-06
+**Version**: 2.6.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-06

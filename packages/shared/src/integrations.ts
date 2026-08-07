@@ -1,41 +1,41 @@
 import { z } from "zod";
 
-import { repoProviderKindSchema } from "./repository.js";
-
-export const integrationConnectionAccountSchema = z
-  .object({
-    externalId: z.string().trim().min(1).max(255),
-    login: z.string().trim().min(1).max(255),
-    type: z.string().trim().min(1).max(64),
-    avatarUrl: z.string().url().optional(),
-  })
-  .strict();
-export type IntegrationConnectionAccount = z.infer<typeof integrationConnectionAccountSchema>;
-
-export const integrationConnectionRepositorySelectionSchema = z.enum(["all", "selected", "token"]);
-export type IntegrationConnectionRepositorySelection = z.infer<
-  typeof integrationConnectionRepositorySelectionSchema
->;
-
 export const integrationConnectionStatusSchema = z.enum(["active", "inactive"]);
 export type IntegrationConnectionStatus = z.infer<typeof integrationConnectionStatusSchema>;
-
-export const integrationConnectionTypeSchema = z.enum(["github-app", "personal-access-token"]);
-export type IntegrationConnectionType = z.infer<typeof integrationConnectionTypeSchema>;
 
 export const integrationCredentialStateSchema = z.enum(["ready", "missing", "invalid"]);
 export type IntegrationCredentialState = z.infer<typeof integrationCredentialStateSchema>;
 
+export const integrationCapabilityStateSchema = z.enum(["enabled", "disabled", "unavailable"]);
+export type IntegrationCapabilityState = z.infer<typeof integrationCapabilityStateSchema>;
+
+const extensibleKeySchema = z.string().trim().min(1).max(128).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
+const jsonObjectSchema = z.record(z.string(), z.unknown());
+
+export const integrationConnectionCapabilitySchema = z
+  .object({
+    state: integrationCapabilityStateSchema,
+    config: jsonObjectSchema.default({}),
+    permissions: jsonObjectSchema.default({}),
+    accessSummary: jsonObjectSchema.default({}),
+    verifiedAt: z.string().datetime().nullable().default(null),
+  })
+  .strict();
+export type IntegrationConnectionCapability = z.infer<typeof integrationConnectionCapabilitySchema>;
+
+export const integrationCapabilitiesSchema = z.record(extensibleKeySchema, integrationConnectionCapabilitySchema);
+export type IntegrationCapabilities = z.infer<typeof integrationCapabilitiesSchema>;
+
 const integrationConnectionMetadataSchema = z
   .object({
-    integration: repoProviderKindSchema,
-    provider: repoProviderKindSchema,
-    connectionType: integrationConnectionTypeSchema.default("github-app"),
-    externalId: z.string().trim().min(1).max(255),
-    displayName: z.string().trim().min(1).max(255).optional(),
-    account: integrationConnectionAccountSchema,
-    repositorySelection: integrationConnectionRepositorySelectionSchema,
-    permissions: z.record(z.string().min(1), z.string().min(1)),
+    integration: extensibleKeySchema,
+    provider: extensibleKeySchema,
+    authMethod: extensibleKeySchema,
+    providerExternalId: z.string().trim().min(1).max(1_000),
+    displayName: z.string().trim().min(1).max(255).nullable().default(null),
+    providerSubject: jsonObjectSchema,
+    connectionConfig: jsonObjectSchema.default({}),
+    capabilities: integrationCapabilitiesSchema.default({}),
     credentialState: integrationCredentialStateSchema.default("ready"),
   })
   .strict();
@@ -44,10 +44,8 @@ export const integrationConnectionActivationSchema = integrationConnectionMetada
 export type IntegrationConnectionActivation = z.input<typeof integrationConnectionActivationSchema>;
 
 export const integrationConnectionSchema = integrationConnectionMetadataSchema
-  .omit({ externalId: true })
   .extend({
     id: z.string().uuid(),
-    externalId: z.string().trim().min(1).max(255).optional(),
     status: integrationConnectionStatusSchema,
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
@@ -76,7 +74,7 @@ export type IntegrationConnectionMethod = z.infer<typeof integrationConnectionMe
 
 export const integrationProviderStatusSchema = z
   .object({
-    integration: repoProviderKindSchema,
+    integration: extensibleKeySchema,
     methods: z.array(integrationConnectionMethodSchema).min(1),
   })
   .strict();

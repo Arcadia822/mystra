@@ -1,8 +1,10 @@
 import { generateKeyPairSync } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getDb, resetDbForTests } from "@/lib/db";
@@ -17,6 +19,13 @@ import { GET as finishGitHubOAuth } from "./integration-connections/github/oauth
 
 const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 let tempDir: string;
+const migrations = [
+  "20260806182000_init",
+  "20260806210000_secret_envelopes",
+].map((directory) => readFileSync(
+  path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
+  "utf8",
+));
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -26,15 +35,18 @@ function jsonResponse(body: unknown): Response {
 }
 
 beforeEach(async () => {
+  await resetDbForTests();
   tempDir = await mkdtemp(path.join(tmpdir(), "mystra-github-app-routes-"));
   process.env.MYSTRA_DB_PATH = path.join(tempDir, "mystra.db");
+  const database = new Database(process.env.MYSTRA_DB_PATH);
+  for (const migration of migrations) database.exec(migration);
+  database.close();
   process.env.MYSTRA_GITHUB_APP_ID = "12345";
   process.env.MYSTRA_GITHUB_APP_CLIENT_ID = "Iv1.fixture";
   process.env.MYSTRA_GITHUB_APP_CLIENT_SECRET = "client-secret";
   process.env.MYSTRA_GITHUB_APP_SLUG = "mystra-fixture";
   process.env.MYSTRA_GITHUB_APP_PRIVATE_KEY = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
   process.env.MYSTRA_GITHUB_APP_CALLBACK_URL = "http://localhost/api/integration-connections/github/oauth/callback";
-  resetDbForTests();
   resetGitHubAppServiceForTests();
   resetSecretProviderForTests();
 });
@@ -43,26 +55,18 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   resetGitHubAppServiceForTests();
   resetSecretProviderForTests();
-  resetDbForTests();
+  await resetDbForTests();
   for (const key of Object.keys(process.env).filter((key) => key.startsWith("MYSTRA_GITHUB_APP_"))) {
     delete process.env[key];
   }
   delete process.env.MYSTRA_DB_PATH;
   delete process.env.MYSTRA_SECRET_STORE_KEY;
-  delete process.env.MYSTRA_SECRET_STORE_PATH;
+  delete process.env.MYSTRA_SECRET_STORE_KEY_ID;
   await rm(tempDir, { recursive: true, force: true });
 });
 
 describe("self-hosted GitHub connection routes", () => {
   it("lists only PAT even when complete GitHub App secrets are present", async () => {
-    getDb().activateIntegrationConnection({
-      integration: "github",
-      provider: "github",
-      externalId: "18492",
-      account: { externalId: "42", login: "arcadia", type: "User" },
-      repositorySelection: "selected",
-      permissions: { contents: "write", pull_requests: "write" },
-    });
     const response = await listConnections();
     const body = await response.json();
     expect(body).toEqual({
@@ -84,7 +88,7 @@ describe("self-hosted GitHub connection routes", () => {
 
   it("creates and deletes a PAT connection without returning plaintext or secret references", async () => {
     process.env.MYSTRA_SECRET_STORE_KEY = Buffer.alloc(32, 7).toString("base64");
-    process.env.MYSTRA_SECRET_STORE_PATH = path.join(tempDir, "secrets");
+    process.env.MYSTRA_SECRET_STORE_KEY_ID = "route-test-v1";
     resetSecretProviderForTests();
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(jsonResponse({ id: 42, login: "arcadia", type: "User" }))
@@ -107,13 +111,14 @@ describe("self-hosted GitHub connection routes", () => {
     expect(created.status).toBe(201);
     expect(created.headers.get("cache-control")).toBe("no-store");
     expect(body.connection).toMatchObject({
-      connectionType: "personal-access-token",
+      authMethod: "personal-access-token",
       displayName: "Delivery",
       credentialState: "ready",
     });
     expect(JSON.stringify(body)).not.toMatch(/github_pat_route_secret|credentialRef|fingerprint/);
-    const record = getDb().getIntegrationConnectionRecord(body.connection.id);
-    expect(record?.credentialRef).toBe(`github-pat/${body.connection.id}`);
+    const db = await getDb();
+    const record = await db.getIntegrationConnectionRecord(body.connection.id);
+    expect(record?.credentialRef).toMatch(new RegExp(`^github-pat/${body.connection.id}/`));
     expect(JSON.stringify(record)).not.toContain("github_pat_route_secret");
 
     const deleted = await deleteConnection(
@@ -121,7 +126,7 @@ describe("self-hosted GitHub connection routes", () => {
       { params: Promise.resolve({ id: body.connection.id }) },
     );
     expect(deleted.status).toBe(204);
-    expect(getDb().getIntegrationConnection(body.connection.id)).toBeUndefined();
+    expect(await db.getIntegrationConnection(body.connection.id)).toBeUndefined();
   });
 
   it("blocks every GitHub App route before redirect, OAuth exchange, or persistence", async () => {
@@ -145,6 +150,6 @@ describe("self-hosted GitHub connection routes", () => {
       });
     }
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(getDb().listIntegrationConnections()).toEqual([]);
+    expect(await (await getDb()).listIntegrationConnections()).toEqual([]);
   });
 });

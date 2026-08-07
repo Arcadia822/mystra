@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import { issueSnapshotSchema } from "./issue-core.js";
 import {
-  repositorySelectorSchema,
   repositorySnapshotSchema,
 } from "./repository.js";
 
@@ -375,8 +374,9 @@ export type SessionRuntimeOverride = z.infer<typeof sessionRuntimeOverrideSchema
 export const executionContractReferenceSchema = z
   .object({
     kind: z.literal("execution-spec"),
-    artifactId: z.string().uuid(),
-    uri: z.string().min(1),
+    uri: z.string().min(1).refine((uri) => !uri.startsWith("/artifacts/"), {
+      message: "Execution snapshots do not use the removed Artifact namespace",
+    }),
     bundleSlug: z.string().min(1),
     mountPath: z.string().min(1),
     filePath: z.string().min(1),
@@ -385,7 +385,7 @@ export const executionContractReferenceSchema = z
   .strict();
 export type ExecutionContractReference = z.infer<typeof executionContractReferenceSchema>;
 
-export const executionSpecArtifactSchema = z
+export const executionSpecSnapshotSchema = z
   .object({
     version: z.literal(3),
     kind: z.literal("execution-spec"),
@@ -406,8 +406,8 @@ export const executionSpecArtifactSchema = z
     executionContract: executionContractReferenceSchema,
   })
   .strict()
-  .superRefine((artifact, ctx) => {
-    if (artifact.source === "issue" && (!artifact.issue || !artifact.dispatchKey)) {
+  .superRefine((snapshot, ctx) => {
+    if (snapshot.source === "issue" && (!snapshot.issue || !snapshot.dispatchKey)) {
       ctx.addIssue({
         code: "custom",
         message: "Issue-driven execution specs require issue and dispatchKey",
@@ -415,7 +415,7 @@ export const executionSpecArtifactSchema = z
       });
     }
   });
-export type ExecutionSpecArtifact = z.infer<typeof executionSpecArtifactSchema>;
+export type ExecutionSpecSnapshot = z.infer<typeof executionSpecSnapshotSchema>;
 
 export const resolvedRuntimeContractSchema = z
   .object({
@@ -493,11 +493,8 @@ export const projectSchema = z
     name: z.string().min(1),
     slug: z.string().min(1),
     repositoryConnectionId: z.string().uuid(),
-    repository: repositorySnapshotSchema,
-    baseBranch: z.string().min(1).default("main"),
-    defaultAgent: agentNameSchema,
-    runtime: projectRuntimeConfigSchema,
-    prewarmConfig: jsonObjectSchema.default({}),
+    repositoryExternalId: z.string().trim().min(1).max(1_000),
+    repositoryBaseBranch: z.string().min(1).default("main"),
     metadata: jsonObjectSchema.default({}),
     archivedAt: z.string().datetime().nullable().default(null),
     createdAt: z.string().datetime(),
@@ -511,108 +508,42 @@ export const projectCreateSchema = z
     name: z.string().min(1),
     slug: z.string().min(1),
     repositoryConnectionId: z.string().uuid(),
-    repository: repositorySnapshotSchema,
-    baseBranch: z.string().min(1).default("main"),
-    defaultAgent: agentNameSchema,
-    runtime: projectRuntimeConfigInputSchema,
-    prewarmConfig: jsonObjectSchema.default({}),
+    repositoryExternalId: z.string().trim().min(1).max(1_000),
+    repositoryBaseBranch: z.string().min(1).default("main"),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
 export type ProjectCreate = z.infer<typeof projectCreateSchema>;
 
-export const projectCreateRequestSchema = z
-  .object({
-    name: z.string().min(1),
-    slug: z.string().min(1),
-    repository: repositorySelectorSchema,
-    baseBranch: z.string().min(1).optional(),
-    defaultAgent: agentNameSchema.optional(),
-    runtime: projectRuntimeConfigInputSchema.optional(),
-    prewarmConfig: jsonObjectSchema.default({}),
-    metadata: jsonObjectSchema.default({}),
-  })
-  .strict();
+export const projectCreateRequestSchema = projectCreateSchema;
 export type ProjectCreateRequest = z.input<typeof projectCreateRequestSchema>;
 
 export const projectUpdateSchema = z
   .object({
     name: z.string().min(1).optional(),
     slug: z.string().min(1).optional(),
-    repositoryConnectionId: z.string().uuid().optional(),
-    repository: repositorySnapshotSchema.optional(),
-    baseBranch: z.string().min(1).optional(),
-    defaultAgent: agentNameSchema.optional(),
-    runtime: projectRuntimeConfigInputSchema.optional(),
-    prewarmConfig: jsonObjectSchema.optional(),
+    repositoryBaseBranch: z.string().min(1).optional(),
     metadata: jsonObjectSchema.optional(),
     archivedAt: z.string().datetime().nullable().optional(),
   })
   .strict();
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
-export const projectUpdateRequestSchema = z
-  .object({
-    name: z.string().min(1).optional(),
-    slug: z.string().min(1).optional(),
-    repository: repositorySelectorSchema.optional(),
-    baseBranch: z.string().min(1).optional(),
-    defaultAgent: agentNameSchema.optional(),
-    runtime: projectRuntimeConfigInputSchema.optional(),
-    prewarmConfig: jsonObjectSchema.optional(),
-    metadata: jsonObjectSchema.optional(),
-    archivedAt: z.string().datetime().nullable().optional(),
-  })
-  .strict();
+export const projectUpdateRequestSchema = projectUpdateSchema;
 export type ProjectUpdateRequest = z.input<typeof projectUpdateRequestSchema>;
 
 const taskCreateBaseSchema = z
   .object({
-    source: taskSourceSchema,
     projectId: z.string().uuid(),
-    objective: z.string().min(1),
-    issue: issueSnapshotSchema.optional(),
-    dispatchKey: z.string().min(1).max(1_000).optional(),
+    issueDispatchKey: z.string().min(1).max(1_000).optional(),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
 
-function validateIssueDrivenTask(
-  task: {
-    source: z.infer<typeof taskSourceSchema>;
-    issue?: z.infer<typeof issueSnapshotSchema> | undefined;
-    dispatchKey?: string | undefined;
-  },
-  ctx: z.RefinementCtx,
-): void {
-    if (task.source === "issue" && (!task.issue || !task.dispatchKey)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Issue-driven Tasks require issue and dispatchKey",
-        path: ["issue"],
-      });
-    }
-    if (task.source !== "issue" && (task.issue || task.dispatchKey)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Only Issue-driven Tasks may include issue or dispatchKey",
-        path: ["source"],
-      });
-    }
-}
-
-export const taskCreateRequestSchema = taskCreateBaseSchema
-  .omit({ issue: true, dispatchKey: true })
-  .extend({ source: z.enum(["api", "mcp"]) })
-  .strict();
+export const taskCreateRequestSchema = taskCreateBaseSchema;
 export type TaskCreateRequest = z.input<typeof taskCreateRequestSchema>;
 
-export const taskCreateSchema = taskCreateBaseSchema
-  .extend({
-    repository: repositorySnapshotSchema,
-  })
-  .strict()
-  .superRefine(validateIssueDrivenTask);
+export const taskCreateSchema = taskCreateBaseSchema;
 export type TaskCreate = z.infer<typeof taskCreateSchema>;
 
 export const sessionCreateRequestSchema = z

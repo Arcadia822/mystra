@@ -5,12 +5,14 @@ import { getDb } from "@/lib/db";
 import { managementException } from "@/lib/management-http";
 
 export async function GET() {
-  return NextResponse.json(taskListResponseSchema.parse({ tasks: getDb().listTasks() }));
+  const db = await getDb();
+  return NextResponse.json(taskListResponseSchema.parse({ tasks: await db.listTasks() }));
 }
 
 export async function POST(request: Request) {
   try {
-    const task = getDb().createTask(taskCreateRequestSchema.parse(await request.json()));
+    const db = await getDb();
+    const task = await db.createTask(taskCreateRequestSchema.parse(await request.json()));
     return NextResponse.json(taskCreateResponseSchema.parse({ task }), { status: 201 });
   } catch (error) {
     return managementException(error, "INVALID_TASK");
