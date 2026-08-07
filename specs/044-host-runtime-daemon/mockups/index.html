@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mystra 044 — Host Runtime 注册 / Provider 发现 / 心跳（原型）</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d0f12;
+        --panel: #13161a;
+        --panel-2: #181c21;
+        --line: #2b3037;
+        --line-strong: #3b424b;
+        --text: #edf0f2;
+        --muted: #969da7;
+        --quiet: #6e7681;
+        --accent: #d7ff63;
+        --danger: #ff8a8a;
+        --warning: #f6cf68;
+        --ok: #86d99c;
+        --radius: 4px;
+      }
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      button, input, select { font: inherit; }
+      button { cursor: pointer; }
+      a { color: var(--accent); }
+      .app { min-height: 100vh; display: grid; grid-template-rows: 52px 1fr; }
+      .topbar {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        padding: 0 20px; border-bottom: 1px solid var(--line); background: #101216;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; letter-spacing: .02em; }
+      .mark { width: 16px; height: 16px; border: 1px solid var(--accent); display: grid; place-items: center; color: var(--accent); }
+      .eyebrow { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+      .layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 0; }
+      .sidebar { padding: 18px 12px; border-right: 1px solid var(--line); background: #101216; }
+      .nav { display: grid; gap: 4px; margin-top: 12px; }
+      .nav button {
+        width: 100%; text-align: left; border: 0; background: transparent; color: var(--muted);
+        min-height: 32px; padding: 0 10px; border-radius: 2px; display: flex; align-items: center; justify-content: space-between;
+      }
+      .nav button[aria-current="page"] { color: var(--text); background: var(--panel-2); }
+      .nav small { color: var(--quiet); }
+      .main { padding: 22px 26px; min-width: 0; }
+      h1 { font-size: 16px; margin: 0 0 4px; }
+      h2 { font-size: 13px; margin: 22px 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+      .lede { color: var(--muted); margin: 0 0 18px; max-width: 720px; }
+      .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+      .tabs button {
+        border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted);
+        padding: 8px 12px; margin-bottom: -1px;
+      }
+      .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+      .panel { display: none; }
+      .panel.active { display: block; }
+      .card { border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius); }
+      .card + .card { margin-top: 14px; }
+      .card-h { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+      .card-b { padding: 14px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--quiet); font-weight: 400; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+      tr:last-child td { border-bottom: 0; }
+      .row-click:hover { background: var(--panel-2); cursor: pointer; }
+      .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: 11px; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--quiet); }
+      .dot.on { background: var(--ok); }
+      .dot.off { background: var(--danger); }
+      .badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--line-strong); font-size: 11px; margin: 0 4px 4px 0; }
+      .badge.ok { color: var(--ok); border-color: #2f5138; }
+      .badge.bad { color: var(--danger); border-color: #5a3030; }
+      .btn { border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text); padding: 6px 12px; border-radius: 3px; }
+      .btn.primary { background: var(--accent); color: #10130a; border-color: var(--accent); }
+      .btn.ghost { background: transparent; color: var(--muted); }
+      pre { background: #0a0c0f; border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; overflow-x: auto; color: #cdd6df; }
+      code { color: var(--accent); }
+      .muted { color: var(--muted); }
+      .quiet { color: var(--quiet); }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .kv { display: grid; grid-template-columns: 160px 1fr; gap: 6px 12px; }
+      .kv dt { color: var(--quiet); }
+      .kv dd { margin: 0; }
+      .note { border-left: 2px solid var(--warning); padding: 8px 12px; background: #1a1712; color: var(--muted); border-radius: 0 4px 4px 0; margin: 14px 0; }
+      .step { display: flex; gap: 10px; margin: 0 0 14px; }
+      .step .n { width: 22px; height: 22px; border: 1px solid var(--line-strong); border-radius: 50%; display: grid; place-items: center; color: var(--accent); flex: 0 0 auto; }
+      .back { border: 0; background: transparent; color: var(--muted); padding: 0; margin-bottom: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="brand"><span class="mark">M</span><strong>Mystra</strong><span class="eyebrow">044 · Host Runtime</span></div>
+        <span class="quiet">静态原型 · 非真实数据</span>
+      </div>
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="eyebrow">Primary</div>
+          <nav class="nav">
+            <button>New</button>
+            <button>Search</button>
+            <button>Inbox</button>
+            <button>Issues</button>
+          </nav>
+          <div class="eyebrow" style="margin-top:16px">Platform</div>
+          <nav class="nav">
+            <button>Projects</button>
+            <button aria-current="page">Runtimes <small>3</small></button>
+          </nav>
+        </aside>
+
+        <main class="main">
+          <h1>Runtimes</h1>
+          <p class="lede">Runtime 是可提供计算能力的执行后端。在一台已装 agent CLI 的机器上启动
+            <code>mystra-runner</code> 即纳管为 host Runtime；runner 自动发现并确认可用 Provider，持续回报心跳。
+            <span class="quiet">（发起任务 / Context / Agent 配置不在本 feature 范围）</span></p>
+
+          <div class="tabs" role="tablist">
+            <button role="tab" aria-selected="true" data-tab="list">Runtimes 列表</button>
+            <button role="tab" aria-selected="false" data-tab="detail">Runtime 详情</button>
+          </div>
+
+          <!-- LIST -->
+          <section class="panel active" data-panel="list">
+            <div class="card">
+              <div class="card-h">
+                <strong>已纳管 Runtime</strong>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>名称</th><th>类型</th><th>状态</th><th>可用 Provider</th><th>最近心跳</th></tr>
+                </thead>
+                <tbody>
+                  <tr class="row-click" onclick="showTab('detail')">
+                    <td><strong>mba-arcadia</strong><div class="quiet">host · darwin/arm64</div></td>
+                    <td>host</td>
+                    <td><span class="pill"><span class="dot on"></span>online</span></td>
+                    <td><span class="badge ok">copilot</span><span class="badge ok">codex</span></td>
+                    <td class="muted">3s 前</td>
+                  </tr>
+                  <tr class="row-click" onclick="showTab('detail')">
+                    <td><strong>dev-box-02</strong><div class="quiet">host · linux/amd64</div></td>
+                    <td>host</td>
+                    <td><span class="pill"><span class="dot on"></span>online</span></td>
+                    <td><span class="badge ok">copilot</span><span class="badge bad">claude · 不可用</span></td>
+                    <td class="muted">11s 前</td>
+                  </tr>
+                  <tr class="row-click" onclick="showTab('detail')">
+                    <td><strong>old-mini</strong><div class="quiet">host · darwin/arm64</div></td>
+                    <td>host</td>
+                    <td><span class="pill"><span class="dot off"></span>offline</span></td>
+                    <td class="quiet">—（上次：copilot）</td>
+                    <td class="muted">6m 前</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="quiet">状态基于服务端接收心跳的时间判定；超过阈值未心跳判为 offline。</p>
+          </section>
+
+          <!-- DETAIL -->
+          <section class="panel" data-panel="detail">
+            <button class="back" onclick="showTab('list')">← 返回列表</button>
+            <div class="card">
+              <div class="card-h">
+                <div><strong>mba-arcadia</strong> <span class="pill"><span class="dot on"></span>online</span></div>
+                <div>
+                  <button class="btn ghost">重命名</button>
+                </div>
+              </div>
+              <div class="card-b">
+                <div class="grid2">
+                  <dl class="kv">
+                    <dt>Runtime id</dt><dd>rt_9f2a…c17</dd>
+                    <dt>稳定 runner id</dt><dd>rid_5b8e…a02</dd>
+                    <dt>类型</dt><dd>host · darwin/arm64</dd>
+                    <dt>状态</dt><dd><span class="dot on" style="display:inline-block"></span> online</dd>
+                    <dt>最近心跳</dt><dd>3s 前（服务端接收时间）</dd>
+                    <dt>注册时间</dt><dd>2026-08-07 11:20</dd>
+                  </dl>
+                  <div>
+                    <div class="quiet" style="margin-bottom:6px">连接方式</div>
+                    <p class="muted">runner outbound → control-plane。control-plane 不主动访问该主机。</p>
+                    <div class="quiet" style="margin:12px 0 6px">发现来源</div>
+                    <p class="muted">host PATH 扫描 + 登录 shell 兜底 + <code>MYSTRA_&lt;PROVIDER&gt;_PATH</code> 覆盖。周期重扫。</p>
+                  </div>
+                </div>
+
+                <h2>可用 Provider</h2>
+                <table>
+                  <thead><tr><th>Provider</th><th>发现</th><th>可用性确认</th><th>解析路径</th></tr></thead>
+                  <tbody>
+                    <tr><td><strong>copilot</strong></td><td>✓ PATH</td><td><span class="badge ok">可用 · v1.0.69</span></td><td class="quiet">/usr/local/bin/copilot</td></tr>
+                    <tr><td><strong>codex</strong></td><td>✓ 登录 shell</td><td><span class="badge ok">可用 · v0.8.2</span></td><td class="quiet">~/.local/bin/codex</td></tr>
+                    <tr><td><strong>claude</strong></td><td>✗ 未发现</td><td class="quiet">—</td><td class="quiet">—</td></tr>
+                    <tr><td><strong>cursor-agent</strong></td><td>✓ PATH</td><td><span class="badge bad">不可用 · 版本低于门槛</span></td><td class="quiet">/usr/local/bin/cursor-agent</td></tr>
+                  </tbody>
+                </table>
+                <p class="quiet">「发现」= 二进制可解析；「可用」= 通过可执行 / 版本门槛确认。两态分开，不可用者记录原因。</p>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      function showTab(name){
+        document.querySelectorAll('[role=tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab===name));
+        document.querySelectorAll('[data-panel]').forEach(p => p.classList.toggle('active', p.dataset.panel===name));
+      }
+      document.querySelectorAll('[role=tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    </script>
+  </body>
+</html>

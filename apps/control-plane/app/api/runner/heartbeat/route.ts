@@ -1,22 +1,25 @@
+import { hostHeartbeatSchema } from "@mystra/shared";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
-import { getDb } from "@/lib/db";
-import { bearerToken } from "@/lib/http";
+import { getHostLivenessRegistry } from "@/lib/runtime/runtime-liveness";
+
+function runnerError(code: string, message: string, status: number) {
+  return NextResponse.json({ error: { code, message } }, { status });
+}
 
 export async function POST(request: Request) {
-  const db = getDb();
-  const runner = db.authenticateRunner(bearerToken(request));
-  if (!runner) {
-    return NextResponse.json({ error: "runner_unauthorized" }, { status: 401 });
-  }
+  try {
+    const { runnerId } = hostHeartbeatSchema.parse(await request.json());
+    const registry = getHostLivenessRegistry();
+    if (registry.getLastSeen(runnerId) === null) {
+      return runnerError("RUNNER_NOT_FOUND", "Runner not found", 404);
+    }
 
-  const body = z.object({
-    runnerId: z.string().uuid(),
-    activeSessionIds: z.array(z.string().uuid()).default([]),
-  }).strict().parse(await request.json());
-  if (body.runnerId !== runner.id) {
-    return NextResponse.json({ error: { code: "RUNNER_ID_MISMATCH", message: "Credential does not own runnerId" } }, { status: 403 });
+    // MVP exception: runner liveness ingestion is deliberately unauthenticated until pairing exists.
+    const acknowledgedAt = new Date();
+    registry.markSeen(runnerId, acknowledgedAt);
+    return NextResponse.json({ acknowledgedAt: acknowledgedAt.toISOString() });
+  } catch {
+    return runnerError("INVALID_HOST_HEARTBEAT", "Invalid host Runtime heartbeat payload", 400);
   }
-  return NextResponse.json({ runner: db.heartbeatRunner(runner.id, body.activeSessionIds) });
 }

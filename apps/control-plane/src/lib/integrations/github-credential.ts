@@ -43,7 +43,7 @@ export class GitHubCredentialResolver {
   }
 
   async resolve(connectionId?: string): Promise<ResolvedGitHubCredential> {
-    const connection = this.#resolveConnection(connectionId);
+    const connection = await this.#resolveConnection(connectionId);
     if (connection.status !== "active" || connection.credentialState !== "ready") {
       throw new IntegrationFailure({
         code: "INTEGRATION_CREDENTIAL_UNAVAILABLE",
@@ -51,7 +51,7 @@ export class GitHubCredentialResolver {
       });
     }
 
-    if (connection.connectionType === "github-app") {
+    if (connection.authMethod === "github-app") {
       assertGitHubAppAvailable({ githubApp: this.#githubAppAvailable });
       if (!this.#appService) {
         throw new IntegrationFailure({
@@ -91,9 +91,9 @@ export class GitHubCredentialResolver {
     };
   }
 
-  #resolveConnection(connectionId?: string): IntegrationConnectionRecord {
+  async #resolveConnection(connectionId?: string): Promise<IntegrationConnectionRecord> {
     if (connectionId) {
-      const connection = this.#db.getIntegrationConnectionRecord(connectionId);
+      const connection = await this.#db.getIntegrationConnectionRecord(connectionId);
       if (!connection || connection.integration !== "github" || connection.provider !== "github") {
         throw new IntegrationFailure({
           code: "INTEGRATION_CONNECTION_NOT_FOUND",
@@ -102,7 +102,7 @@ export class GitHubCredentialResolver {
       }
       return connection;
     }
-    const active = this.#db.listIntegrationConnectionRecords({ integration: "github" })
+    const active = (await this.#db.listIntegrationConnectionRecords({ integration: "github" }))
       .filter((connection) => connection.status === "active");
     if (active.length === 0) {
       throw new IntegrationFailure({
@@ -120,9 +120,11 @@ export class GitHubCredentialResolver {
   }
 }
 
-export function defaultGitHubCredentialResolver(): GitHubCredentialResolver {
+export async function defaultGitHubCredentialResolver(): Promise<GitHubCredentialResolver> {
+  const db = await getDb();
+  const secrets = getSecretProvider(db);
   return new GitHubCredentialResolver({
-    db: getDb(),
-    ...(getSecretProvider() ? { secrets: getSecretProvider()! } : {}),
+    db,
+    ...(secrets ? { secrets } : {}),
   });
 }

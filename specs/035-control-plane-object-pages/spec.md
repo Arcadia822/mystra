@@ -3,6 +3,7 @@
 **Feature Branch**: `codex/webui`
 **Created**: 2026-07-25
 **Status**: Complete
+**Persistence Surface Supersession Notice (2026-08-06)**: Task, Session and Project page history remains valid only as implementation evidence. The Session persistence/detail projections and Runner object-page fields, health/capacity projections and routes described here are not approved future contracts: `040-prisma-rdb` removes both Session and Runner persistence from its first schema. Future Session and Runtime/Runner designs require separate specifications. Do not treat the existing Session or Runner pages as schema requirements.
 **Baseline**: `main@bc50ac3`
 **Owner Story Review**: Owner 已明确要求以最新 `main` 和真实 CLI 旅程为准，
 不沿用 `025-webui` 的旧旅程；因此本规格直接采用下述故事集。

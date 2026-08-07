@@ -5,10 +5,16 @@ import {
   cancelSessionOutcomeSchema,
   cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
-  executionSpecArtifactSchema,
+  executionSpecSnapshotSchema,
   executionSpecBundleSlug,
   executionSpecMountPath,
   contextBundleSchema,
+  hostHeartbeatSchema,
+  hostProviderReportSchema,
+  hostRuntimeMetadataSchema,
+  hostRuntimeRegistrationSchema,
+  runtimeRenameSchema,
+  runtimeViewSchema,
   sessionCreateRequestSchema,
   sessionCreateSchema,
   sessionInlineContextBundlePayloadSchema,
@@ -17,6 +23,7 @@ import {
   taskCreateSchema,
   platformCapabilitiesSchema,
   platformDefaultsSchema,
+  providerCapabilitySchema,
   projectCreateSchema,
   projectCreateRequestSchema,
   projectRuntimeConfigSchema,
@@ -44,47 +51,25 @@ const remoteRepository = {
 } as const;
 
 describe("Task and Session schemas", () => {
-  it("accepts an Issue-driven Task only with an immutable snapshot and dispatch key", () => {
+  it("accepts an Issue dispatch identity without persisting Issue snapshots", () => {
     const parsed = taskCreateSchema.parse({
-      source: "issue",
+      teamId: "00000000-0000-4000-8000-000000000003",
       projectId: "00000000-0000-4000-8000-000000000001",
-      repository: remoteRepository,
-      objective: "Implement the frozen Linear Issue",
-      issue: {
-        reference: {
-          integration: "linear",
-          provider: "linear",
-          externalId: "issue-id",
-          identifier: "ENG-123",
-          url: "https://linear.app/example/issue/ENG-123/example",
-        },
-        title: "Add a health indicator",
-        description: null,
-        state: { id: "state-1", name: "Todo" },
-        priority: null,
-        assignee: null,
-        labels: [],
-        createdAt: "2026-07-22T00:00:00.000Z",
-        updatedAt: "2026-07-23T00:00:00.000Z",
-        fetchedAt: "2026-07-23T01:00:00.000Z",
-      },
-      dispatchKey: "linear:issue-id:project-id:codex/eng-123",
+      issueDispatchKey: "linear:issue-id:project-id",
+      metadata: {},
     });
 
-    expect(parsed.source).toBe("issue");
-    expect(parsed.issue?.reference.identifier).toBe("ENG-123");
-    expect(parsed.dispatchKey).toBe("linear:issue-id:project-id:codex/eng-123");
+    expect(parsed.issueDispatchKey).toBe("linear:issue-id:project-id");
     expect(() => taskCreateSchema.parse({
       ...parsed,
-      issue: undefined,
-    })).toThrow(/Issue-driven Tasks/);
+      issue: { identifier: "ENG-123" },
+    })).toThrow();
   });
 
   it("accepts a minimal manual Task without execution ownership", () => {
     const parsed = taskCreateRequestSchema.parse({
-      source: "api",
+      teamId: "00000000-0000-4000-8000-000000000003",
       projectId: "00000000-0000-4000-8000-000000000001",
-      objective: "Update the README",
     });
 
     expect(parsed.projectId).toBe("00000000-0000-4000-8000-000000000001");
@@ -121,9 +106,7 @@ describe("Task and Session schemas", () => {
   it("rejects Task-owned execution fields and Session-owned project context", () => {
     expect(() =>
       taskCreateRequestSchema.parse({
-        source: "api",
         projectId: "00000000-0000-4000-8000-000000000003",
-        objective: "Update the README",
         branch: "feature/forbidden",
       }),
     ).toThrow();
@@ -311,8 +294,7 @@ describe("runtime schemas", () => {
       contextBundles: [],
       executionContract: {
         kind: "execution-spec",
-        artifactId: "00000000-0000-4000-8000-000000000080",
-        uri: "mystra://sessions/session-1/artifacts/execution-spec.json",
+        uri: "mystra://sessions/session-1/execution-spec.json",
         bundleSlug: "execution-spec",
         mountPath: "/mystra/context/execution-spec",
         filePath: "/mystra/context/execution-spec/execution-spec.json",
@@ -397,13 +379,13 @@ describe("runtime schemas", () => {
     ).toThrow();
   });
 
-  it("accepts execution-spec artifacts and safe inline bundle payloads", () => {
+  it("accepts execution-spec snapshots and safe inline bundle payloads", () => {
     const payload = sessionInlineContextBundlePayloadSchema.parse({
       files: [{ path: "execution-spec.json", content: "{\"taskId\":\"task-1\"}" }],
     });
     expect(payload.files[0]?.path).toBe("execution-spec.json");
 
-    const artifact = executionSpecArtifactSchema.parse({
+    const snapshot = executionSpecSnapshotSchema.parse({
       version: 3,
       kind: "execution-spec",
       taskId: "00000000-0000-4000-8000-000000000091",
@@ -419,17 +401,16 @@ describe("runtime schemas", () => {
       frozenAt: "2026-05-18T00:00:00.000Z",
       executionContract: {
         kind: "execution-spec",
-        artifactId: "00000000-0000-4000-8000-000000000094",
-        uri: "mystra://sessions/00000000-0000-4000-8000-000000000092/artifacts/execution-spec.json",
+        uri: "mystra://sessions/00000000-0000-4000-8000-000000000092/execution-spec.json",
         bundleSlug: "execution-spec",
         mountPath: "/mystra/context/execution-spec",
         filePath: "/mystra/context/execution-spec/execution-spec.json",
         frozenAt: "2026-05-18T00:00:00.000Z",
       },
     });
-    expect(artifact.executionContract.filePath).toContain("execution-spec.json");
-    expect(() => executionSpecArtifactSchema.parse({
-      ...artifact,
+    expect(snapshot.executionContract.filePath).toContain("execution-spec.json");
+    expect(() => executionSpecSnapshotSchema.parse({
+      ...snapshot,
       version: 2,
     })).toThrow();
   });
@@ -580,97 +561,71 @@ describe("projectSchema", () => {
   it("accepts a persisted project and applies JSON/archive defaults", () => {
     const parsed = projectSchema.parse({
       id: "00000000-0000-4000-8000-000000000010",
+      teamId: "00000000-0000-4000-8000-000000000003",
       name: "Castrel AI",
       slug: "castrel-ai",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-      repository: remoteRepository,
-      defaultAgent: "copilot",
-      runtime: {
-        provider: "docker",
-        image: "registry.example.com/castrel/runtime:latest",
-      },
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
       createdAt: "2026-05-09T00:00:00.000Z",
       updatedAt: "2026-05-09T00:00:00.000Z",
     });
 
-    expect(parsed.baseBranch).toBe("main");
+    expect(parsed.repositoryBaseBranch).toBe("main");
     expect(parsed.archivedAt).toBeNull();
-    expect(parsed.prewarmConfig).toEqual({});
     expect(parsed.metadata).toEqual({});
-    expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
   });
 
-  it("accepts resolved project create payloads with runtime.image", () => {
+  it("accepts resolved project create payloads with stable repository identity", () => {
     const parsed = projectCreateSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000003",
       name: "Castrel AI",
       slug: "castrel-ai",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-      repository: remoteRepository,
-      defaultAgent: "codex",
-      runtime: {
-        provider: "docker",
-        image: "registry.example.com/castrel/runtime:latest",
-      },
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
     });
 
-    expect(parsed.runtime.image).toBe("registry.example.com/castrel/runtime:latest");
+    expect(parsed.repositoryExternalId).toBe(remoteRepository.externalId);
   });
 
-  it("accepts only a provider selector on public project create requests and omits advanced defaults", () => {
+  it("accepts only stable repository identity on public project create requests", () => {
     const parsed = projectCreateRequestSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000003",
       name: "Remote fixture",
       slug: "remote-fixture",
-      repository: {
-        integration: "github",
-        connectionId: "00000000-0000-4000-8000-000000000039",
-        identifier: "Arcadia822/mystra-remote-e2e",
-      },
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
     });
 
-    expect(parsed.repository.identifier).toBe("Arcadia822/mystra-remote-e2e");
-    expect(parsed.defaultAgent).toBeUndefined();
-    expect(parsed.runtime).toBeUndefined();
+    expect(parsed.repositoryExternalId).toBe(remoteRepository.externalId);
     expect(() => projectCreateRequestSchema.parse({
       ...parsed,
       repo: "legacy-value",
     })).toThrow();
-    expect(() => projectCreateRequestSchema.parse({
-      ...parsed,
-      repository: {
-        integration: "github",
-        identifier: "/Users/arcadia/Documents/mystra",
-      },
-    })).toThrow();
   });
 
-  it("keeps Agent and runtime as optional advanced API overrides", () => {
-    const parsed = projectCreateRequestSchema.parse({
+  it("rejects deferred Agent and runtime Project defaults", () => {
+    expect(() => projectCreateRequestSchema.parse({
       name: "Remote fixture",
       slug: "remote-fixture",
-      repository: {
-        integration: "github",
-        connectionId: "00000000-0000-4000-8000-000000000039",
-        identifier: "Arcadia822/mystra-remote-e2e",
-      },
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
+      repositoryExternalId: remoteRepository.externalId,
       defaultAgent: "copilot",
       runtime: {
         provider: "docker",
         image: "mystra-copilot:fixture",
       },
-    });
-
-    expect(parsed.defaultAgent).toBe("copilot");
-    expect(parsed.runtime?.image).toBe("mystra-copilot:fixture");
+    })).toThrow();
   });
 
-  it("rejects project create payloads without runtime.image", () => {
+  it("rejects project create payloads without stable repository identity", () => {
     expect(() =>
       projectCreateSchema.parse({
         name: "Castrel AI",
         slug: "castrel-ai",
         repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-        repository: remoteRepository,
-        defaultAgent: "codex",
       }),
     ).toThrow();
   });
@@ -682,12 +637,7 @@ describe("projectSchema", () => {
         name: "Castrel AI",
         slug: "castrel-ai",
         repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-        repository: remoteRepository,
-        defaultAgent: "codex",
-        runtime: {
-          provider: "docker",
-          image: "registry.example.com/castrel/runtime:latest",
-        },
+        repositoryExternalId: remoteRepository.externalId,
       }),
     ).toThrow();
   });
@@ -695,11 +645,11 @@ describe("projectSchema", () => {
   it("accepts update payloads that restore archived projects", () => {
     const parsed = projectUpdateSchema.parse({
       archivedAt: null,
-      defaultAgent: "copilot",
+      repositoryBaseBranch: "develop",
     });
 
     expect(parsed.archivedAt).toBeNull();
-    expect(parsed.defaultAgent).toBe("copilot");
+    expect(parsed.repositoryBaseBranch).toBe("develop");
   });
 
   it("rejects platform capability fields", () => {
@@ -708,12 +658,7 @@ describe("projectSchema", () => {
         name: "Castrel AI",
         slug: "castrel-ai",
         repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
-        repository: remoteRepository,
-        defaultAgent: "codex",
-        runtime: {
-          provider: "docker",
-          image: "ghcr.io/acme/mystra-runner:latest",
-        },
+        repositoryExternalId: remoteRepository.externalId,
         executor: "docker",
       }),
     ).toThrow();
@@ -743,6 +688,118 @@ describe("runnerRegistrationSchema", () => {
         },
       }),
     ).toThrow();
+  });
+});
+
+describe("providerCapabilitySchema", () => {
+  it("accepts an available discovered Provider", () => {
+    const parsed = providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: true,
+      available: true,
+      source: "path",
+      resolvedPath: "/usr/local/bin/copilot",
+      version: "1.0.0",
+      unavailableReason: null,
+    });
+
+    expect(parsed.available).toBe(true);
+  });
+
+  it("requires availability to imply discovery", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: false,
+      available: true,
+      source: "path",
+      resolvedPath: null,
+      version: null,
+      unavailableReason: null,
+    })).toThrow();
+  });
+
+  it("requires undiscovered Providers to omit the resolved path", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: false,
+      available: false,
+      source: "path",
+      resolvedPath: "/usr/local/bin/copilot",
+      version: null,
+      unavailableReason: "not-found",
+    })).toThrow();
+  });
+
+  it("requires unavailable Providers to explain why", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: true,
+      available: false,
+      source: "path",
+      resolvedPath: "/usr/local/bin/copilot",
+      version: null,
+      unavailableReason: null,
+    })).toThrow();
+  });
+
+  it("represents a missing explicit override as unavailable", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: false,
+      available: false,
+      source: "env-override",
+      resolvedPath: null,
+      version: null,
+      unavailableReason: "override-path-missing",
+    })).not.toThrow();
+  });
+});
+
+describe("host Runtime schemas", () => {
+  const provider = {
+    provider: "copilot",
+    discovered: true,
+    available: true,
+    source: "path",
+    resolvedPath: "/usr/local/bin/copilot",
+    version: "1.0.0",
+    unavailableReason: null,
+  };
+
+  it("accepts host registration with Provider capabilities", () => {
+    const parsed = hostRuntimeRegistrationSchema.parse({
+      runnerId: "runner-1",
+      name: "Build machine",
+      type: "host",
+      platform: "darwin-arm64",
+      providers: [provider],
+    });
+
+    expect(parsed.providers).toEqual([provider]);
+  });
+
+  it("keeps liveness heartbeats separate from Provider reports", () => {
+    expect(hostHeartbeatSchema.parse({ runnerId: "runner-1" })).toEqual({ runnerId: "runner-1" });
+    expect(() => hostHeartbeatSchema.parse({ runnerId: "runner-1", providers: [provider] })).toThrow();
+    expect(hostProviderReportSchema.parse({ runnerId: "runner-1", providers: [provider] }))
+      .toEqual({ runnerId: "runner-1", providers: [provider] });
+  });
+
+  it("accepts a derived Runtime view and a strict rename request", () => {
+    expect(runtimeViewSchema.parse({
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Build machine",
+      type: "host",
+      metadata: { runnerId: "runner-1", platform: "darwin-arm64" },
+      status: "online",
+      lastSeenAt: "2026-08-07T10:00:00.000Z",
+      providers: [provider],
+      createdAt: "2026-08-07T10:00:00.000Z",
+      updatedAt: "2026-08-07T10:00:00.000Z",
+    })).toMatchObject({ metadata: { runnerId: "runner-1" }, status: "online" });
+    expect(hostRuntimeMetadataSchema.parse({ runnerId: "runner-1" })).toEqual({ runnerId: "runner-1" });
+    expect(runtimeRenameSchema.parse({ name: "Renamed host" })).toEqual({ name: "Renamed host" });
+    expect(() => runtimeRenameSchema.parse({ name: "Renamed host", type: "host" })).toThrow();
   });
 });
 

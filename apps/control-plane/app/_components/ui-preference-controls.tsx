@@ -29,7 +29,7 @@ export function UiSegmented<T extends string>({
           key={option.value}
           onClick={() => onValueChange(option.value)}
           size="compact"
-          tone="soft"
+          tone="ghost"
         >
           {option.label}
         </UiButton>

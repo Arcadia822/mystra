@@ -1,5 +1,10 @@
 # Data Model: 远程仓库 Integration
 
+> **Superseded persistence model (2026-08-06):** `040-prisma-rdb` replaces Project
+> `repository_snapshot` with `repository_connection_id + repository_external_id`; Repo Info retrieval/cache is
+> deferred. The Task `repository_snapshot` keeps its existing contract. The Job schema
+> below is obsolete.
+
 ## IntegrationDescriptor
 
 | Field | Type | Rule |

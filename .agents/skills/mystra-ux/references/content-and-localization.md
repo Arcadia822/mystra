@@ -16,6 +16,9 @@
 - Errors name what failed and the available recovery without exposing irrelevant internals.
 - Status labels stay short enough for badges and table cells; details belong in a tooltip, inspector, or object page.
 - Provider, protocol, command, branch, repository, and product names may remain English when that is their canonical form.
+- Use `Project` for the user-selected Mystra object. Use `Repository` only for the remote repository bound to that Project; a repository full name may appear as supporting description, never as a replacement label.
+- Remove helper copy that merely narrates a disabled dependency already expressed by the interface. Guidance earns space only when it explains a non-obvious constraint or a concrete recovery action.
+- The product document title is `Mystra`. SEO titles and descriptions derive from the current 5xP product language; never retain Castrel, template, route-internal, or development placeholder copy in public metadata.
 
 ## Quality Gate
 

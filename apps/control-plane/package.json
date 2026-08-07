@@ -8,6 +8,9 @@
     "pretest": "pnpm --filter @mystra/shared build",
     "pretypecheck": "pnpm --filter @mystra/shared build",
     "build": "next build --webpack",
+    "db:generate": "prisma generate --config prisma/sqlite/prisma.config.ts && prisma generate --config prisma/postgresql/prisma.config.ts",
+    "db:test:postgresql": "vitest run src/lib/db/prisma-provider.postgresql.test.ts",
+    "db:validate": "prisma validate --config prisma/sqlite/prisma.config.ts && prisma validate --config prisma/postgresql/prisma.config.ts",
     "dev": "next dev",
     "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
@@ -16,17 +19,23 @@
   "dependencies": {
     "@fontsource/fira-code": "^5.3.0",
     "@mystra/shared": "workspace:*",
+    "@prisma/adapter-better-sqlite3": "7.9.1",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
     "@sentry/nextjs": "^10.51.0",
     "@supabase/supabase-js": "^2.86.0",
     "better-sqlite3": "^12.9.0",
-    "next": "^16.0.8",
+    "next": "^16.2.6",
+    "pg": "8.16.3",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "8.15.5",
     "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "prisma": "7.9.1"
   }
 }

@@ -4,12 +4,21 @@ import { issueGetRequestSchema } from "@mystra/shared";
 import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
 import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
 import { resolveIssueRepositoryScope } from "@/lib/integrations/resolve-issue-scope";
+import { getDb } from "@/lib/db";
+import {
+  authorizationErrorResponse,
+  requireHumanSession,
+  requireTeamPermission,
+} from "../../../../_auth";
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ integration: string; identifier: string }> },
 ) {
   try {
+    const db = await getDb();
+    const subject = await requireHumanSession(db, request, "issue-read");
+    await requireTeamPermission(db, subject, "team.resource.access");
     const { integration, identifier } = await context.params;
     const registry = defaultIntegrationRegistry();
     const provider = registry.requireIssueProvider(integration);
@@ -32,6 +41,11 @@ export async function GET(
     }
     return NextResponse.json({ issue });
   } catch (error) {
+    try {
+      return authorizationErrorResponse(error);
+    } catch {
+      // Preserve the Integration error contract for provider failures.
+    }
     return integrationErrorResponse(error);
   }
 }

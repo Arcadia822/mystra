@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=e8728fae22ffb68e30cef8150c31c78aad5ef2d7 updated=2026-08-06T07:18:37Z -->
+<!-- spec-status: project=mystra commit=72f7bbbdb9250d254c4f4f0d9cf660e74744dbb4 updated=2026-08-07T10:30:37Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -27,15 +27,18 @@
 | 022-lsp-navigation                 | ✓     | ✓  | ✓   | ✓ Complete |
 | 023-control-plane-design-system    | ✓     | ✓  | ✓   | ✓ Complete |
 | 024-agent-runtime-sdk              | ✓     | ✓  | ✓   | ✓ Complete |
-| 025-webui                          | ✓     | ✓  | ✓   | ● 51/68 (75%) |
+| 025-webui                          | ✓     | ✓  | ✓   | ● 72/84 (85%) |
 | 033-issue-agent-execution          | ✓     | ✓  | ✓   | ✓ Complete |
 | 035-control-plane-object-pages     | ✓     | ✓  | ✓   | ✓ Complete |
 | 036-project-object-pages           | ✓     | ✓  | ✓   | ✓ Complete |
 | 037-remote-repository-integrations | ✓     | ✓  | ✓   | ✓ Complete |
 | 038-task-session-model             | ✓     | ✓  | ✓   | ✓ Complete |
 | 039-github-project-onboarding      | ✓     | ✓  | ✓   | ● 24/44 (54%) |
-| 040-github-integration-connections | -       | -    | -     | -         |
-| 041-github-integration-connections | ✓     | ✓  | ✓   | ● 5/55 (9%) |
+| 040-prisma-rdb                     | ✓     | ✓  | ✓   | ● 56/60 (93%) |
+| 041-github-integration-connections | ✓     | ✓  | ✓   | ● 14/63 (22%) |
+| 042-runtime-sandbox-capacity       | ✓     | -    | -     | -         |
+| 043-identity-team-rbac             | ✓     | ✓  | ✓   | ✓ Complete |
+| 044-host-runtime-daemon            | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -61,12 +64,15 @@
 <!-- feature: 022-lsp-navigation has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=12 tasks_completed=12 checklist_files=requirements.md -->
 <!-- feature: 023-control-plane-design-system has_spec=true has_plan=true has_tasks=true has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=12 tasks_completed=12 checklist_files= -->
 <!-- feature: 024-agent-runtime-sdk has_spec=true has_plan=true has_tasks=true has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=3 tasks_completed=3 checklist_files=requirements.md -->
-<!-- feature: 025-webui has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=51 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 025-webui has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=84 tasks_completed=72 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 033-issue-agent-execution has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=61 tasks_completed=61 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 035-control-plane-object-pages has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=20 tasks_completed=20 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 036-project-object-pages has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=11 tasks_completed=11 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 037-remote-repository-integrations has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=34 tasks_completed=34 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 038-task-session-model has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=67 tasks_completed=67 checklist_files=engineering-review.md,implementation-impact.md,requirements.md,verification.md -->
 <!-- feature: 039-github-project-onboarding has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=44 tasks_completed=24 checklist_files=engineering-review.md,requirements.md -->
-<!-- feature: 040-github-integration-connections has_spec=false has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
-<!-- feature: 041-github-integration-connections has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=55 tasks_completed=5 checklist_files=requirements.md -->
+<!-- feature: 040-prisma-rdb has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=60 tasks_completed=56 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 041-github-integration-connections has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=63 tasks_completed=14 checklist_files=requirements.md -->
+<!-- feature: 042-runtime-sandbox-capacity has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
+<!-- feature: 043-identity-team-rbac has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=10 tasks_completed=10 checklist_files=requirements.md -->
+<!-- feature: 044-host-runtime-daemon has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=false tasks_total=39 tasks_completed=39 checklist_files= -->

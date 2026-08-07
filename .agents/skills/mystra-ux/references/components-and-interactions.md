@@ -22,15 +22,18 @@ Adjacent controls share density without flattening their semantic levels. Destru
 - Page, section, panel, and row insets have one owner. A modal section with 12px inline padding does not wrap another generic 12px inset unless the visual hierarchy explicitly requires a 24px reading body.
 - Empty states use the remaining layout space or a modest 16–32px block inset. They do not manufacture hierarchy with oversized padding.
 - Desktop actions use the Castrel role baselines: 24px compact table/action controls, 28px header/navigation controls, and 32px default actions. Standard form fields use 36px. Coarse-pointer media rules expand the hit target to 44px.
+- Icon-only actions use one shared icon-button primitive and one icon grid. Modal close actions never supply a private glyph, font-size, padding, or stroke; Search, Add Project, Settings, and future dialogs use the same close icon anatomy and accessible label.
 
 ## Composer
 
 - New/intake composer uses one bordered card surface and a compact 3-line input.
+- The intake logo is a standalone enlarged mark. Do not place redundant product-name copy beside it when the page already establishes Mystra identity.
 - Internal body keeps the Castrel source baseline of top 9px, right 7px, bottom 7px, left 9px, then compensates the textarea right edge and footer right/bottom by 2px so the effective visual inset around content and the 32px send action is 9px on every side.
 - Footer stays inside the same padded body, uses transparent ghost styling, and has no separator line or separate filled strip.
 - Footer control groups use the shared 4px tight gap.
 - Attachment and Project are ghost controls at rest; border/fill appears only for hover, focus, open, selected, or disabled explanation. Project uses the shared dropdown trigger/content/item anatomy and never uses Repository as its UI label.
 - Issue selection is not a footer dropdown. After Project selection, repository-scoped Issues appear as compact selectable cards below the input; before Project selection the Issue region is absent.
+- Do not reserve a disabled Issue selector or add instructional filler such as “configure a Project before creating a Task.” Disabled dependency order is sufficient when the unavailable control is absent and the next available action is obvious.
 - Send is the single solid action, 32px circular visual target inside a larger touch affordance when needed.
 - Unsupported API actions remain disabled with a concise explanation.
 
@@ -40,6 +43,7 @@ Adjacent controls share density without flattening their semantic levels. Destru
 - The trigger is a real button with `aria-haspopup="listbox"` and `aria-expanded`; content is a labelled listbox; options expose selected and disabled state.
 - Keyboard support includes Arrow Up/Down, Home/End, Escape and Tab. Opening focuses the selected or first enabled option; Escape returns focus to the trigger; outside pointer input closes the popup.
 - Page components provide option value, label and optional description but do not restyle menu internals or reproduce dropdown behavior.
+- Trigger width and menu alignment follow the owning row. Settings right-side dropdowns use the shared end-aligned menu instead of compensating with private margins or overflow hacks.
 
 ## Sidebar Sections
 
@@ -52,9 +56,12 @@ Adjacent controls share density without flattening their semantic levels. Destru
 ## Settings
 
 - Settings uses the Castrel-derived two-column modal shell, but Mystra owns the tab taxonomy, copy, tokens, and persistence boundaries.
-- The default information architecture is `Account`, `Appearance`, `Team`, and `Integrations`. Theme and Language belong to Appearance; tenancy uses Team, never workspace.
+- The default information architecture is `Account`, `Appearance`, `Team`, `Team members`, and `Integrations`. Account, Team, and Team members render their management surfaces inside the Settings modal; Theme and Language belong to Appearance; tenancy uses Team, never workspace.
 - `SettingGroup` is transparent and uses the shared 32px section rhythm. `SettingRow` uses a left title/description and right control/status with no private card border, fill, shadow, or extra inset.
 - Narrow screens stack each setting row in reading order: title, description, then control. Unsupported Account or Team mutations remain explicit read-only/unavailable states instead of simulated form controls.
+- Appearance uses shared dropdown, segmented, range, input, preview, and reset controls. It supports System/Light/Dark, separate light and dark schemes, default/high/color-high border contrast, independent light/dark code surface, contrast, UI/Chat/Code fonts, and UI/Chat sizes.
+- Resetting theme details resets contrast, fonts, and sizes for the active scheme; it does not silently reset mode, light/dark scheme selection, border mode, code surface, or language.
+- Appearance remains browser-local until a separate persistence feature exists. Never add an API call, database write, success toast, or account-sync implication merely because the controls are editable.
 
 ## Tables
 

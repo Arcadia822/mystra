@@ -1,33 +1,27 @@
+import { hostRuntimeRegistrationSchema } from "@mystra/shared";
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
-import { runnerRegistrationSchema } from "@mystra/shared";
 
 import { getDb } from "@/lib/db";
-import { bearerToken, jsonError } from "@/lib/http";
+import { getHostLivenessRegistry } from "@/lib/runtime/runtime-liveness";
 
-function authorized(request: Request): boolean {
-  const configured = process.env.MYSTRA_RUNNER_REGISTRATION_SECRET;
-  const supplied = bearerToken(request);
-  if (!configured || !supplied) return false;
-  const expected = Buffer.from(configured);
-  const actual = Buffer.from(supplied);
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
+function runnerError(code: string, message: string, status: number) {
+  return NextResponse.json({ error: { code, message } }, { status });
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request)) {
-    return NextResponse.json({ error: { code: "RUNNER_REGISTRATION_UNAUTHORIZED", message: "Registration secret is invalid" } }, { status: 401 });
-  }
   try {
-    const body = runnerRegistrationSchema.parse(await request.json());
-    const registration = getDb().registerRunner(body);
+    const input = hostRuntimeRegistrationSchema.parse(await request.json());
 
-    return NextResponse.json({
-      runner: registration.runner,
-      credential: registration.credential,
-      heartbeatIntervalSeconds: 20,
-    });
-  } catch (error) {
-    return jsonError(error);
+    // MVP exception: host runner enrollment is deliberately unauthenticated until pairing exists.
+    const runtime = await (await getDb()).registerHostRuntime(input);
+    getHostLivenessRegistry().markSeen(input.runnerId, new Date());
+
+    return NextResponse.json({ runtimeId: runtime.id });
+  } catch {
+    return runnerError(
+      "INVALID_HOST_RUNTIME_REGISTRATION",
+      "Invalid host Runtime registration payload",
+      400,
+    );
   }
 }

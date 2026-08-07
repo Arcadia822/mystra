@@ -3,6 +3,7 @@
 **Feature Branch**: `003-config-first-runner-durability`
 **Created**: 2026-05-10
 **Status**: Implemented; closure verified
+**Persistence Supersession Notice (2026-08-06)**: This Spec records the implemented legacy Runner path, but its durable Runner/RunnerSession identity, heartbeat, capacity, eligibility, claim-assignment and stale-persistence model is no longer an approved target schema. `040-prisma-rdb` excludes both `runners` and `sessions` entirely; `042-runtime-sandbox-capacity` owns the future Runtime/Runner/connector redesign, while future Session persistence requires its own specification. Do not derive a Prisma model or new public Runner/Session contract from this document.
 **Input**: User-approved direction: "Keep runner durability simple and config-first, closer to headless VictoriaMetrics-style components than a complete scheduler. Runner behavior should come from local configuration; the control plane should store desired and observed state; cancellation and timeout cleanup should be runner-local; stale runners should be explainable from durable state without a central capacity scheduler."
 
 ## User Scenarios & Testing *(mandatory)*

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { TaskListItem } from "../_lib/types";
+import { taskTitle } from "../_lib/task-view";
 import { useResource } from "../_lib/use-resource";
 import {
   APPEARANCE_STORAGE_KEY,
@@ -25,9 +26,12 @@ import { ShellIcon, type ShellIconName } from "./shell-icons";
 import { ShellSearchDialog } from "./shell-search-dialog";
 import { ShellSettings, type SettingsSection } from "./shell-settings";
 import { ShellTasksProvider } from "./shell-resources";
+import { ShellRightPanelProvider } from "./shell-right-panel";
 import { MystraLogo } from "./mystra-logo";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
 import { ProjectCreateModal } from "./project-create-modal";
+import { TeamSwitcher } from "./team-switcher";
+import { VerticalNavItem } from "./vertical-nav-item";
 import {
   SidebarCountBadge,
   SidebarIcon,
@@ -56,7 +60,7 @@ function writeBrowserPreference(key: string, value: string): void {
 }
 
 const PRIMARY_ITEMS: Array<{
-  key: "new" | "search" | "inbox" | "issues";
+  key: "new" | "search" | "inbox" | "issues" | "runtimes";
   icon: ShellIconName;
   href?: string;
 }> = [
@@ -64,6 +68,7 @@ const PRIMARY_ITEMS: Array<{
   { key: "search", icon: "search" },
   { key: "inbox", icon: "inbox", href: "/inbox" },
   { key: "issues", icon: "issue", href: "/tasks" },
+  { key: "runtimes", icon: "repository", href: "/runners" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -71,8 +76,8 @@ function isActive(pathname: string, href: string) {
 }
 function routeTitle(pathname: string, locale: ShellLocale): string {
   const zh = locale === "zh-CN";
-  if (pathname.startsWith("/runners/")) return zh ? "Runner 详情" : "Runner detail";
-  if (pathname === "/runners") return "Runners";
+  if (pathname.startsWith("/runners/")) return zh ? "运行环境详情" : "Runtime detail";
+  if (pathname === "/runners") return zh ? "运行环境" : "Runtimes";
   if (pathname.startsWith("/sessions/")) return zh ? "Session 详情" : "Session detail";
   if (pathname === "/automations") return zh ? "自动化" : "Automations";
   if (pathname.startsWith("/tasks/")) return zh ? "Task 详情" : "Task detail";
@@ -128,7 +133,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         setAppearance(normalizeAppearancePreferences({
           ...getDefaultAppearancePreferences(),
           mode: legacyTheme.variant,
-          [`${legacyTheme.variant}ThemeId`]: legacyTheme.id,
+          [`${legacyTheme.variant}ThemeId`]: legacyTheme.codeThemeId,
         }));
       }
     }
@@ -222,10 +227,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sidebarHidden = isNarrow ? !narrowSidebarOpen : sidebarCollapsed;
 
   return (
+    <ShellRightPanelProvider>
+    {(rightPanel) => (
     <ShellTasksProvider resource={tasksResource}>
-    <div className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""} ${narrowSidebarOpen ? "sidebarNarrowOpen" : ""}`}>
+    <div className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""} ${narrowSidebarOpen ? "sidebarNarrowOpen" : ""} ${rightPanel ? "hasRightPanel" : ""}`}>
       <aside aria-hidden={sidebarHidden || undefined} className="sidebar" data-collapsed={sidebarHidden || undefined} id="primary-sidebar" inert={sidebarHidden}>
-        <div className="sidebarHeader">
+        <header className="sidebarHeader">
           <MystraLogo className="brandMark" />
           <span className="sidebarLabel brandText">Mystra</span>
           <SidebarIconButton
@@ -235,8 +242,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             icon={isNarrow ? "collapse" : sidebarCollapsed ? "expand" : "collapse"}
             onClick={() => isNarrow ? setNarrowSidebarOpen(false) : setSidebarCollapsed((current) => !current)}
           />
-        </div>
+        </header>
 
+        <div className="sidebarContent">
         <nav aria-label="Primary navigation" className="sidebarNav">
           {PRIMARY_ITEMS.map((item) => {
             const label = copy[item.key];
@@ -250,29 +258,27 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
 
             return item.href ? (
-              <UiActionLink
+              <VerticalNavItem
                 active={active}
-                aria-current={active ? "page" : undefined}
-                aria-label={label}
-                block
+                {...(active ? { ariaCurrent: "page" as const } : {})}
+                ariaLabel={label}
                 className="navItem"
                 href={item.href}
                 key={item.key}
                 onClick={() => setNarrowSidebarOpen(false)}
               >
                 {content}
-              </UiActionLink>
+              </VerticalNavItem>
             ) : (
-              <UiButton active={active} aria-label={label} block className="navItem" key={item.key} onClick={() => {
+              <VerticalNavItem active={active} ariaLabel={label} className="navItem" key={item.key} onClick={() => {
                 setNarrowSidebarOpen(false);
                 setSearchOpen(true);
               }}>
                 {content}
-              </UiButton>
+              </VerticalNavItem>
             );
           })}
         </nav>
-
         <section aria-labelledby="sidebar-projects-title" className="sidebarProjectSection">
           <div className="sidebarSectionHeader">
             <h2 id="sidebar-projects-title">{copy.projects}</h2>
@@ -311,16 +317,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 ) : (
                   <div className="taskProjectHeader">
                     <SidebarMark />
-                    <span>{group.tasks[0]?.repository.fullName ?? group.projectId}</span>
+                    <span>{group.projectId}</span>
                   </div>
                 )}
                 <div className="projectTaskList">
                   {group.tasks.map((task) => {
-                    const status = taskStatus(task.latestSession?.state);
+                    const status = taskStatus();
                     return (
                       <UiActionLink active={pathname === `/tasks/${task.id}`} block className="sidebarTask" href={`/tasks/${task.id}`} key={task.id}>
                         <SidebarStatusIcon icon={status.icon} label={status.label} status={status.kind} />
-                        <span>{task.issue?.title ?? task.objective}</span>
+                        <span>{taskTitle(task)}</span>
                       </UiActionLink>
                     );
                   })}
@@ -332,13 +338,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </section>
 
-        <UiButton aria-label={copy.settings} block className="navItem settingsButton" onClick={() => {
+        <VerticalNavItem ariaLabel={copy.settings} className="navItem settingsButton" onClick={() => {
           setSettingsSection("account");
           setSettingsOpen(true);
         }}>
           <SidebarIcon name="settings" />
           <span className="sidebarLabel">{copy.settings}</span>
-        </UiButton>
+        </VerticalNavItem>
+        </div>
       </aside>
 
       <main className="shellMain">
@@ -361,9 +368,20 @@ export function AppShell({ children }: { children: ReactNode }) {
               </UiIconButton>
             </div>
           <strong>{shellTitle}</strong>
+          <div className="shellHeaderControls">
+            <TeamSwitcher />
+            <UiActionLink href="/account" size="compact">Account</UiActionLink>
+          </div>
         </header>
-        {children}
+        <div className="shellMainContent">{children}</div>
       </main>
+
+      {rightPanel ? (
+        <aside aria-label={rightPanel.ariaLabel} className="rightPanel">
+          <header className="rightPanelHeader"><strong>{rightPanel.header}</strong></header>
+          <div className="rightPanelContent">{rightPanel.content}</div>
+        </aside>
+      ) : null}
 
       {settingsOpen ? (
         <ShellSettings
@@ -415,5 +433,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
     </div>
     </ShellTasksProvider>
+    )}
+    </ShellRightPanelProvider>
   );
 }

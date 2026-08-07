@@ -2,7 +2,8 @@
 
 **Feature Branch**: `018-coordination-run-summaries`  
 **Created**: 2026-05-15  
-**Status**: Draft  
+**Status**: Superseded; retained for historical context
+**Supersession Notice (2026-08-06)**: This Spec's `Run`-based object and API contract is superseded. Its proposed compact Session summary is also explicitly deleted by `040-prisma-rdb`; Session persistence itself is deferred for a separate redesign. This document MUST NOT be used to reintroduce a Run resource, Session summary, public event/activity timeline, Session table, or database Artifact entity.
 **Dependency Note**: Build after `014-management-api-truth`. This feature defines the coordination-facing summary layer that OpenClaw and similar agents can relay to Lark without depending on raw logs or custom per-run prompt archaeology.
 **Input**: User description: "Mystra should provide milestone-friendly run summaries, clear status enums, and failure reasons so a coordinating agent can report progress and outcomes back to Lark."
 

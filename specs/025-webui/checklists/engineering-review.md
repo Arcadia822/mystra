@@ -33,7 +33,7 @@
 
 ### 架构
 
-- [x] 复用现有 `theme-system.ts`、四个 theme presets、hydration bootstrap 和 `AppShell` preference owner，不引入第二套 theme store。
+- [x] 复用现有 `theme-system.ts`、hydration bootstrap 和 `AppShell` preference owner；静态 Codex catalog 仍通过同一 adapter/registry，不引入第二套 theme store。
 - [x] `AppearancePreferences` 被限制为 versioned browser-local preference；数据库、API、server action 和跨设备同步明确不在本切片范围内。
 - [x] `System` 模式只通过单一 `prefers-color-scheme` listener 解析 active variant，并在卸载时清理。
 - [x] 运行态与 bootstrap 使用同一 default、normalization、variant/theme resolution 和 CSS variable contract，避免首帧与 hydration 后主题分叉。
@@ -79,3 +79,61 @@ bootstrap + Settings
 - [x] 顺序实施；所有代码切片共享 theme/settings modules，没有安全的并行 worktree lane。
 
 **结论**：0 个未解决架构决策，0 个 silent critical gap，可以进入 tasks 和 implementation。
+
+## 2026-08-06 Codex Theme v1 兼容复审
+
+### 范围与架构
+
+- [x] `codex-theme-v1` 只作为 schema version；`codeThemeId` 是唯一主题 ID 字段。
+- [x] Mystra label/description/explicit tokens 位于 adapter metadata，不污染 Codex v1 payload。
+- [x] 同一 `codeThemeId` 的 light/dark 主题通过 `(variant, codeThemeId)` 解析，不需要 synthetic `id`。
+- [x] 旧 synthetic preset id 只在 localStorage parse/bootstrap 边界迁移。
+
+### Codebase Evidence
+
+- [x] GitNexus upstream 将 `getThemeById`、`buildThemeCssVariables`、`resolveAppearanceTheme` 评为 CRITICAL，覆盖 `RootLayout`、bootstrap、AppShell 和 Appearance；`AppearanceSettingsPanel` 为 HIGH，`AppShell` 与 bootstrap symbol 为 LOW。
+- [x] 最小改动复用 `theme-system.ts`、`theme-system.test.ts`、`app-shell.tsx` 与 `shell-settings-panels.tsx`，不触及 API、RDB、Runner 或 provider。
+
+### 测试图
+
+```text
+serialized theme
+  ├─ exact v1 + Everforest ───── [unit round-trip]
+  ├─ unknown version ─────────── [unit reject]
+  ├─ synthetic id / extra key ─ [unit reject]
+  └─ invalid payload values ──── [unit reject]
+             |
+             v
+registry + selection
+  ├─ built-in v1 round-trip ──── [unit]
+  ├─ same id, split variant ──── [unit]
+  └─ legacy stored ids ───────── [unit + VM bootstrap]
+             |
+             v
+first frame + runtime
+  ├─ canonical dataset id ────── [VM bootstrap]
+  └─ Settings option values ──── [typecheck + browser]
+```
+
+### 结论
+
+- [x] 0 个未解决架构问题，0 个性能问题，0 个 silent critical gap。
+- [x] 顺序实施；所有步骤共享 theme/Appearance 模块，没有安全的并行 lane。
+
+## 2026-08-06 Codex 完整目录与 Mystra 双变体复审
+
+- [x] 来源固定为本机签名 `/Applications/ChatGPT.app` 26.730.61639 / build 6234 的 `app.asar` registry 与 theme modules；未使用第三方主题列表。
+- [x] registry 事实锁定为 28 个 Codex family / 43 个 supported variant；Mystra light/dark 加入后总计 45 个 `(variant, codeThemeId)`，无重复键。
+- [x] runtime 不读取 Codex 应用包、不调用私有 IPC、不联网同步；catalog 是带来源版本的静态数据。
+- [x] 原 Graphite dark payload/explicit tokens 仅改 canonical identity 为 `mystra`，配套 light variant 使用相同语义色和矿物灰层级。
+- [x] `graphite-signal -> dark:mystra` 与 `linen-light -> light:notion` 仅发生在 localStorage parse/bootstrap 迁移边界。
+- [x] GitNexus 预编辑审计：`getDefaultTheme`、`getThemeById`、`getThemesByVariant`、`getDefaultAppearancePreferences` 为 CRITICAL，`AppearanceSettingsPanel` 为 HIGH；直接验证覆盖 RootLayout 首帧、AppShell、Settings、normalization 与 bootstrap。
+- [x] TDD RED 记录：目录 family/count、Mystra identity、官方 theme resolution 与 legacy bootstrap 共 4 项先失败；实现后 focused 16/16 与全量 148/148 通过。
+
+## 2026-08-06 UI / Content / Code 字体合同复审
+
+- [x] 外部 `codex-theme-v1` schema 未增加 Content 字段；exact round-trip 合同保持不变。
+- [x] 内部 `ThemeFontRoles` 明确 UI / Content / Code；Codex UI → UI+Content，Codex Code → Code。
+- [x] Mystra primary families 为 Arial / Georgia / Courier New，CSS fallback 使用平台 generic family，不保存 OS-specific stack。
+- [x] `chatFont` / `chatFontSize` 与旧 Graphite 默认 stack 只在 parse/bootstrap 边界迁移。
+- [x] 预编辑影响审计：`buildThemeCssVariables` CRITICAL、`normalizeAppearancePreferences` HIGH、`AppearanceSettingsPanel` HIGH；测试覆盖首帧与 hydration 后路径。

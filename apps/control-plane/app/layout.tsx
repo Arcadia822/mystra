@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import "@fontsource/fira-code/400.css";
 import "@fontsource/fira-code/600.css";
 import "@fontsource/fira-code/700.css";
-import { AppShell } from "./_components/app-shell";
+import { ControlPlaneGate } from "./_components/control-plane-gate";
+import { ScrollbarActivity } from "./_components/scrollbar-activity";
 import { siteMetadata } from "./site-metadata";
 import { buildThemeBootstrapScript } from "./theme-system";
 import "./globals.css";
@@ -15,7 +16,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: buildThemeBootstrapScript() }} />
       </head>
-      <body className="appBody"><AppShell>{children}</AppShell></body>
+      <body className="appBody">
+        <ScrollbarActivity />
+        <Suspense fallback={<main aria-busy="true" className="accessGate" role="status">Loading Mystra…</main>}>
+          <ControlPlaneGate>{children}</ControlPlaneGate>
+        </Suspense>
+      </body>
     </html>
   );
 }

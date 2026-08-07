@@ -2,12 +2,123 @@ import { z } from "zod";
 
 import { issueSnapshotSchema } from "./issue-core.js";
 import {
-  repositorySelectorSchema,
   repositorySnapshotSchema,
 } from "./repository.js";
 
 export const agentNameSchema = z.enum(["codex", "copilot"]);
 export type AgentName = z.infer<typeof agentNameSchema>;
+
+export const providerSourceSchema = z.enum(["path", "login-shell", "env-override"]);
+export type ProviderSource = z.infer<typeof providerSourceSchema>;
+
+export const providerUnavailableReasonSchema = z.enum([
+  "not-found",
+  "exec-failed",
+  "version-below-threshold",
+  "override-path-missing",
+]);
+export type ProviderUnavailableReason = z.infer<typeof providerUnavailableReasonSchema>;
+
+export const providerCapabilitySchema = z
+  .object({
+    provider: agentNameSchema,
+    discovered: z.boolean(),
+    available: z.boolean(),
+    source: providerSourceSchema,
+    resolvedPath: z.string().min(1).nullable(),
+    version: z.string().min(1).nullable(),
+    unavailableReason: providerUnavailableReasonSchema.nullable(),
+  })
+  .strict()
+  .superRefine((capability, ctx) => {
+    if (capability.available && !capability.discovered) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An available Provider must be discovered",
+        path: ["available"],
+      });
+    }
+    if (!capability.discovered && capability.resolvedPath !== null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An undiscovered Provider cannot have a resolved path",
+        path: ["resolvedPath"],
+      });
+    }
+    if (!capability.available && capability.unavailableReason === null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An unavailable Provider must include an unavailable reason",
+        path: ["unavailableReason"],
+      });
+    }
+  });
+export type ProviderCapability = z.infer<typeof providerCapabilitySchema>;
+
+export const hostRuntimeRegistrationSchema = z
+  .object({
+    runnerId: z.string().min(1),
+    name: z.string().min(1),
+    type: z.literal("host"),
+    platform: z.string().min(1),
+    providers: z.array(providerCapabilitySchema).default([]),
+  })
+  .strict();
+export type HostRuntimeRegistration = z.infer<typeof hostRuntimeRegistrationSchema>;
+
+export const hostRuntimeRegistrationResponseSchema = z
+  .object({ runtimeId: z.string().uuid() })
+  .strict();
+export type HostRuntimeRegistrationResponse = z.infer<typeof hostRuntimeRegistrationResponseSchema>;
+
+export const hostHeartbeatSchema = z
+  .object({ runnerId: z.string().min(1) })
+  .strict();
+export type HostHeartbeat = z.infer<typeof hostHeartbeatSchema>;
+
+export const hostHeartbeatResponseSchema = z
+  .object({ acknowledgedAt: z.string().datetime() })
+  .strict();
+export type HostHeartbeatResponse = z.infer<typeof hostHeartbeatResponseSchema>;
+
+export const hostProviderReportSchema = z
+  .object({
+    runnerId: z.string().min(1),
+    providers: z.array(providerCapabilitySchema),
+  })
+  .strict();
+export type HostProviderReport = z.infer<typeof hostProviderReportSchema>;
+
+export const runtimeStatusSchema = z.enum(["online", "offline"]);
+export type RuntimeStatus = z.infer<typeof runtimeStatusSchema>;
+
+export const hostRuntimeMetadataSchema = z
+  .object({
+    runnerId: z.string().min(1),
+    platform: z.string().min(1).optional(),
+  })
+  .strict();
+export type HostRuntimeMetadata = z.infer<typeof hostRuntimeMetadataSchema>;
+
+export const runtimeViewSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string().min(1),
+    type: z.literal("host"),
+    metadata: hostRuntimeMetadataSchema,
+    status: runtimeStatusSchema,
+    lastSeenAt: z.string().datetime().nullable(),
+    providers: z.array(providerCapabilitySchema),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export type RuntimeView = z.infer<typeof runtimeViewSchema>;
+
+export const runtimeRenameSchema = z
+  .object({ name: z.string().min(1) })
+  .strict();
+export type RuntimeRename = z.infer<typeof runtimeRenameSchema>;
 
 export const taskSourceSchema = z.enum(["mcp", "api", "issue"]);
 export type TaskSource = z.infer<typeof taskSourceSchema>;
@@ -375,8 +486,9 @@ export type SessionRuntimeOverride = z.infer<typeof sessionRuntimeOverrideSchema
 export const executionContractReferenceSchema = z
   .object({
     kind: z.literal("execution-spec"),
-    artifactId: z.string().uuid(),
-    uri: z.string().min(1),
+    uri: z.string().min(1).refine((uri) => !uri.startsWith("/artifacts/"), {
+      message: "Execution snapshots do not use the removed Artifact namespace",
+    }),
     bundleSlug: z.string().min(1),
     mountPath: z.string().min(1),
     filePath: z.string().min(1),
@@ -385,7 +497,7 @@ export const executionContractReferenceSchema = z
   .strict();
 export type ExecutionContractReference = z.infer<typeof executionContractReferenceSchema>;
 
-export const executionSpecArtifactSchema = z
+export const executionSpecSnapshotSchema = z
   .object({
     version: z.literal(3),
     kind: z.literal("execution-spec"),
@@ -406,8 +518,8 @@ export const executionSpecArtifactSchema = z
     executionContract: executionContractReferenceSchema,
   })
   .strict()
-  .superRefine((artifact, ctx) => {
-    if (artifact.source === "issue" && (!artifact.issue || !artifact.dispatchKey)) {
+  .superRefine((snapshot, ctx) => {
+    if (snapshot.source === "issue" && (!snapshot.issue || !snapshot.dispatchKey)) {
       ctx.addIssue({
         code: "custom",
         message: "Issue-driven execution specs require issue and dispatchKey",
@@ -415,7 +527,7 @@ export const executionSpecArtifactSchema = z
       });
     }
   });
-export type ExecutionSpecArtifact = z.infer<typeof executionSpecArtifactSchema>;
+export type ExecutionSpecSnapshot = z.infer<typeof executionSpecSnapshotSchema>;
 
 export const resolvedRuntimeContractSchema = z
   .object({
@@ -490,14 +602,12 @@ const jsonObjectSchema = z.record(z.string(), z.unknown());
 export const projectSchema = z
   .object({
     id: z.string().uuid(),
+    teamId: z.string().uuid(),
     name: z.string().min(1),
     slug: z.string().min(1),
     repositoryConnectionId: z.string().uuid(),
-    repository: repositorySnapshotSchema,
-    baseBranch: z.string().min(1).default("main"),
-    defaultAgent: agentNameSchema,
-    runtime: projectRuntimeConfigSchema,
-    prewarmConfig: jsonObjectSchema.default({}),
+    repositoryExternalId: z.string().trim().min(1).max(1_000),
+    repositoryBaseBranch: z.string().min(1).default("main"),
     metadata: jsonObjectSchema.default({}),
     archivedAt: z.string().datetime().nullable().default(null),
     createdAt: z.string().datetime(),
@@ -508,111 +618,47 @@ export type Project = z.infer<typeof projectSchema>;
 
 export const projectCreateSchema = z
   .object({
+    teamId: z.string().uuid(),
     name: z.string().min(1),
     slug: z.string().min(1),
     repositoryConnectionId: z.string().uuid(),
-    repository: repositorySnapshotSchema,
-    baseBranch: z.string().min(1).default("main"),
-    defaultAgent: agentNameSchema,
-    runtime: projectRuntimeConfigInputSchema,
-    prewarmConfig: jsonObjectSchema.default({}),
+    repositoryExternalId: z.string().trim().min(1).max(1_000),
+    repositoryBaseBranch: z.string().min(1).default("main"),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
 export type ProjectCreate = z.infer<typeof projectCreateSchema>;
 
-export const projectCreateRequestSchema = z
-  .object({
-    name: z.string().min(1),
-    slug: z.string().min(1),
-    repository: repositorySelectorSchema,
-    baseBranch: z.string().min(1).optional(),
-    defaultAgent: agentNameSchema.optional(),
-    runtime: projectRuntimeConfigInputSchema.optional(),
-    prewarmConfig: jsonObjectSchema.default({}),
-    metadata: jsonObjectSchema.default({}),
-  })
-  .strict();
+export const projectCreateRequestSchema = projectCreateSchema;
 export type ProjectCreateRequest = z.input<typeof projectCreateRequestSchema>;
 
 export const projectUpdateSchema = z
   .object({
     name: z.string().min(1).optional(),
     slug: z.string().min(1).optional(),
-    repositoryConnectionId: z.string().uuid().optional(),
-    repository: repositorySnapshotSchema.optional(),
-    baseBranch: z.string().min(1).optional(),
-    defaultAgent: agentNameSchema.optional(),
-    runtime: projectRuntimeConfigInputSchema.optional(),
-    prewarmConfig: jsonObjectSchema.optional(),
+    repositoryBaseBranch: z.string().min(1).optional(),
     metadata: jsonObjectSchema.optional(),
     archivedAt: z.string().datetime().nullable().optional(),
   })
   .strict();
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
-export const projectUpdateRequestSchema = z
-  .object({
-    name: z.string().min(1).optional(),
-    slug: z.string().min(1).optional(),
-    repository: repositorySelectorSchema.optional(),
-    baseBranch: z.string().min(1).optional(),
-    defaultAgent: agentNameSchema.optional(),
-    runtime: projectRuntimeConfigInputSchema.optional(),
-    prewarmConfig: jsonObjectSchema.optional(),
-    metadata: jsonObjectSchema.optional(),
-    archivedAt: z.string().datetime().nullable().optional(),
-  })
-  .strict();
+export const projectUpdateRequestSchema = projectUpdateSchema;
 export type ProjectUpdateRequest = z.input<typeof projectUpdateRequestSchema>;
 
 const taskCreateBaseSchema = z
   .object({
-    source: taskSourceSchema,
+    teamId: z.string().uuid(),
     projectId: z.string().uuid(),
-    objective: z.string().min(1),
-    issue: issueSnapshotSchema.optional(),
-    dispatchKey: z.string().min(1).max(1_000).optional(),
+    issueDispatchKey: z.string().min(1).max(1_000).optional(),
     metadata: jsonObjectSchema.default({}),
   })
   .strict();
 
-function validateIssueDrivenTask(
-  task: {
-    source: z.infer<typeof taskSourceSchema>;
-    issue?: z.infer<typeof issueSnapshotSchema> | undefined;
-    dispatchKey?: string | undefined;
-  },
-  ctx: z.RefinementCtx,
-): void {
-    if (task.source === "issue" && (!task.issue || !task.dispatchKey)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Issue-driven Tasks require issue and dispatchKey",
-        path: ["issue"],
-      });
-    }
-    if (task.source !== "issue" && (task.issue || task.dispatchKey)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Only Issue-driven Tasks may include issue or dispatchKey",
-        path: ["source"],
-      });
-    }
-}
-
-export const taskCreateRequestSchema = taskCreateBaseSchema
-  .omit({ issue: true, dispatchKey: true })
-  .extend({ source: z.enum(["api", "mcp"]) })
-  .strict();
+export const taskCreateRequestSchema = taskCreateBaseSchema;
 export type TaskCreateRequest = z.input<typeof taskCreateRequestSchema>;
 
-export const taskCreateSchema = taskCreateBaseSchema
-  .extend({
-    repository: repositorySnapshotSchema,
-  })
-  .strict()
-  .superRefine(validateIssueDrivenTask);
+export const taskCreateSchema = taskCreateBaseSchema;
 export type TaskCreate = z.infer<typeof taskCreateSchema>;
 
 export const sessionCreateRequestSchema = z

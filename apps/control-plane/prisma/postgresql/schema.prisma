@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma/postgresql"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model IntegrationConnection {
+  id                 String    @id
+  teamId             String    @map("team_id")
+  integration        String
+  provider           String
+  authMethod         String    @map("auth_method")
+  providerExternalId String    @map("provider_external_id")
+  displayName        String?   @map("display_name")
+  providerSubject    String    @map("provider_subject")
+  connectionConfig   String    @map("connection_config")
+  capabilities       String
+  credentialRef      String?   @map("credential_ref")
+  credentialState    String    @map("credential_state")
+  status             String
+  createdAt          String    @map("created_at")
+  updatedAt          String    @map("updated_at")
+  projects           Project[]
+  team               Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([teamId, integration, provider, providerExternalId])
+  @@index([teamId])
+  @@index([integration, status])
+  @@index([createdAt, id])
+  @@map("integration_connections")
+}
+
+model Project {
+  id                     String                @id
+  teamId                 String                @map("team_id")
+  name                   String
+  slug                   String                @unique
+  repositoryConnectionId String                @map("repository_connection_id")
+  repositoryExternalId   String                @map("repository_external_id")
+  repositoryBaseBranch   String                @map("repository_base_branch")
+  metadata               String
+  archivedAt             String?               @map("archived_at")
+  createdAt              String                @map("created_at")
+  updatedAt              String                @map("updated_at")
+  repositoryConnection   IntegrationConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tasks                  Task[]
+  team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([teamId])
+  @@index([repositoryConnectionId])
+  @@index([createdAt, id])
+  @@map("projects")
+}
+
+model Task {
+  id               String  @id
+  teamId           String  @map("team_id")
+  projectId        String  @map("project_id")
+  issueDispatchKey String? @unique @map("issue_dispatch_key")
+  metadata         String
+  createdAt        String  @map("created_at")
+  updatedAt        String  @map("updated_at")
+  project          Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team             Team    @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([teamId])
+  @@index([projectId])
+  @@index([createdAt, id])
+  @@map("tasks")
+}
+
+model Runtime {
+  id        String            @id
+  name      String
+  type      String
+  metadata  String?           @map("metadata")
+  createdAt String            @map("created_at")
+  updatedAt String            @map("updated_at")
+  providers RuntimeProvider[]
+
+  @@index([updatedAt, id])
+  @@index([createdAt, id])
+  @@map("runtimes")
+}
+
+model RuntimeProvider {
+  id                String  @id
+  runtimeId         String  @map("runtime_id")
+  provider          String
+  discovered        Boolean
+  available         Boolean
+  source            String
+  resolvedPath      String? @map("resolved_path")
+  version           String?
+  unavailableReason String? @map("unavailable_reason")
+  runtime           Runtime @relation(fields: [runtimeId], references: [id])
+
+  @@unique([runtimeId, provider])
+  @@map("runtime_providers")
+}
+
+model SecretEnvelope {
+  reference             String @id
+  version               Int
+  algorithm             String
+  keyId                 String @map("key_id")
+  ciphertext            String
+  ciphertextIv          String @map("ciphertext_iv")
+  ciphertextAuthTag     String @map("ciphertext_auth_tag")
+  wrappedDataKey        String @map("wrapped_data_key")
+  wrappedDataKeyIv      String @map("wrapped_data_key_iv")
+  wrappedDataKeyAuthTag String @map("wrapped_data_key_auth_tag")
+  createdAt             String @map("created_at")
+
+  @@index([createdAt, reference])
+  @@map("secret_envelopes")
+}
+
+model User {
+  id                    String           @id
+  username              String           @unique
+  displayUsername       String           @map("display_username")
+  displayName           String           @map("display_name")
+  status                String
+  requirePasswordChange Boolean          @map("require_password_change")
+  createdAt             String           @map("created_at")
+  updatedAt             String           @map("updated_at")
+  account               AuthAccount?
+  sessions              AuthSession[]
+  memberships           TeamMembership[]
+
+  @@index([createdAt, id])
+  @@map("users")
+}
+
+model AuthAccount {
+  id             String @id
+  userId         String @unique @map("user_id")
+  passwordHash   String @map("password_hash")
+  passwordSalt   String @map("password_salt")
+  passwordParams String @map("password_params")
+  createdAt      String @map("created_at")
+  updatedAt      String @map("updated_at")
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("auth_accounts")
+}
+
+model AuthSession {
+  id           String @id
+  userId       String @map("user_id")
+  tokenHash    String @unique @map("token_hash")
+  activeTeamId String? @map("active_team_id")
+  expiresAt    String @map("expires_at")
+  ipAddress    String? @map("ip_address")
+  userAgent    String? @map("user_agent")
+  createdAt    String @map("created_at")
+  updatedAt    String @map("updated_at")
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  activeTeam   Team?  @relation(fields: [activeTeamId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt, id])
+  @@map("auth_sessions")
+}
+
+model Team {
+  id                     String                  @id
+  displayName            String                  @map("display_name")
+  status                 String
+  archivedAt             String?                 @map("archived_at")
+  createdAt              String                  @map("created_at")
+  updatedAt              String                  @map("updated_at")
+  memberships            TeamMembership[]
+  activeSessions         AuthSession[]
+  integrationConnections IntegrationConnection[]
+  projects               Project[]
+  tasks                  Task[]
+
+  @@index([status])
+  @@index([createdAt, id])
+  @@map("teams")
+}
+
+model TeamMembership {
+  id        String @id
+  teamId    String @map("team_id")
+  userId    String @map("user_id")
+  role      String
+  status    String
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  team      Team   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId, status])
+  @@index([teamId, role])
+  @@map("team_memberships")
+}

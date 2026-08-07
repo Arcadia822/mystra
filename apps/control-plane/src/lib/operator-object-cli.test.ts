@@ -6,13 +6,28 @@ function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status });
 }
 
+const operatorSession = {
+  version: 1,
+  controlPlaneUrl: "http://localhost:3000",
+  sessionToken: "operator-session-token-accepted",
+  activeTeamId: "00000000-0000-4000-8000-000000000001",
+};
+
 async function execute(argv: string[], payload: unknown) {
   const stdout: string[] = [];
-  const fetchImpl = vi.fn(async () => response(payload));
+  const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    expect(init?.headers).toMatchObject({
+      authorization: `Bearer ${operatorSession.sessionToken}`,
+    });
+    return response(payload);
+  });
   const exitCode = await run(argv, {
     fetchImpl,
     stdout: (text: string) => void stdout.push(text),
     stderr: () => {},
+    sessionStore: {
+      read: async () => operatorSession,
+    },
   });
   return { exitCode, stdout: stdout.join(""), fetchImpl };
 }

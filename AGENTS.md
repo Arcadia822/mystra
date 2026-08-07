@@ -39,6 +39,12 @@ Use Spec-Kit for non-trivial features or contract changes:
 7. Implement in small, verifiable slices.
 8. Verify with relevant tests or runtime evidence.
 
+For Spec-Kit Markdown and data-model documentation, static verification is the
+default: use diff checks, targeted consistency searches, and Spec-Kit health
+checks. Do not open the in-app browser solely to reread or validate authored
+spec text. Browser verification is required only when the owner explicitly asks
+for it or when UI/interaction acceptance needs real runtime or visual evidence.
+
 Feature-specific artifacts belong in `specs/<feature>/`. Durable project rules belong in the 5xP files.
 
 ## Spec-Kit Skill Routing
@@ -151,16 +157,45 @@ Use `claude-design-intake` to start any design task.
 - Do not add MVP-excluded features without an explicit product-boundary update.
 - Verify before declaring work complete.
 
+### Pre-0.1 Development Policy
+
+Mystra is still under initial-version development. Until the project version is
+bumped to `0.1.0` or later, do not preserve compatibility with earlier
+development snapshots and do not create migration paths for them.
+
+- Do not add backward- or forward-compatibility aliases, shims, fallbacks, or
+  dual-read/dual-write paths for pre-`0.1.0` behavior.
+- Do not create data, schema, API, configuration, CLI, or persisted-format
+  migrations solely to retain pre-`0.1.0` compatibility.
+- Replace obsolete contracts directly and update their callers, fixtures,
+  tests, and documentation to the current intended model.
+- Pre-`0.1.0` local development data may be destructively rebuilt to match the
+  current schema; it is not a supported upgrade source.
+- Migration and compatibility requirements begin at `0.1.0`, unless the owner
+  explicitly establishes an earlier boundary for a specific contract.
+
 ## Current MVP Boundaries
 
 Mystra MVP uses the Open Agents project as a source-authoritative framework
 baseline and reference architecture, then defines Mystra-owned interfaces and
 SDK surfaces where upstream does not provide reusable package contracts. The
-current provider set is SQLite behind `RdbProvider`, GitHub Integration with
+current provider set is selectable SQLite, PostgreSQL, or Supabase-backed
+PostgreSQL behind `RdbProvider`, GitHub Integration with
 remote `RepoProvider` plus repository-scoped `IssueProvider`, read-only Linear
-`IssueProvider`, direct Agent execution, and a single-machine Docker sandbox.
-Every Project binds one provider-resolved immutable remote repository snapshot;
-local paths and caller-supplied clone URLs are not Project repository inputs.
+`IssueProvider`, direct Agent execution, and Runtime as a first-class execution
+backend that advertises its Provider (agent CLI) capabilities source-agnostically.
+A host-bound Runtime enrolled by the TypeScript `mystra-runner` — registration
+(endpoint-configured, no MVP pairing), Provider discovery plus availability
+confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is
+one sandbox provider rather than the sole execution model, and host worktree
+direct execution is the intended default execution direction (feature 044 owns
+host Runtime enrollment; task dispatch, Context/worktree management, Agent
+configuration, and execution/Session remain follow-up specs).
+Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
+Mutable repository names, URLs, default-branch observations, visibility, and archive/delete state are
+not Project persistence; their retrieval and caching require a separate specification. Task source, objective and
+Issue/Repository snapshots are also excluded from the first Prisma model; future Integration cache design owns
+current external information. Local paths and caller-supplied clone URLs are not Project repository inputs.
 
 The near-term MVP goal is self-use: let an operator or another Agent select a
 GitHub or Linear Issue and dispatch it through canonical API, thin CLI, remote
@@ -174,15 +209,21 @@ Task icons reflect the latest Session state. Existing Task, Session, Runner, and
 Project object routes remain directly reachable even when they are not primary
 menu items. `/automations` remains directly reachable as a Coming soon
 placeholder, but it is not a primary menu entry and does not introduce
-platform-owned workflow orchestration. Web remains secondary to API, MCP, and
-CLI.
+platform-owned workflow orchestration. The first Prisma schema does not preserve
+Session-, Runner-, or ContextBundle-derived views as persistence requirements;
+resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
+and CLI.
 
-Task is durable intent and has no execution state. A Task may have zero or many
-independent child Sessions for distinct subtasks. Session owns objective, Agent,
-branch, runtime resolution, lifecycle, cancellation, and result. Runner is a
-stable first-class business object. Runner protocol bookkeeping and internal
-execution facts are not business objects, and a public activity timeline is
-explicitly deferred.
+Task is currently a durable Project-scoped identity with optional Issue dispatch key and metadata; source,
+objective and external snapshots are deferred. Session remains the intended
+name for a future execution concept, but its persistence, Task relation, fields,
+state machine and CRUD are currently undefined and require a new specification.
+Runtime is a first-class execution backend that advertises its available
+Provider capabilities; feature 044 owns host Runtime enrollment plus that
+capability's persistence (registration, Provider discovery/availability,
+heartbeat/status). Runner protocol bookkeeping
+and internal execution facts are not business objects, and a public activity
+timeline is explicitly deferred.
 
 The north-star model is a hosted **Mystra platform** serving many independent
 **Teams**. Each Team may contain multiple projects with their own
@@ -209,18 +250,29 @@ platform-owned, and installation tokens are short-lived. App and PAT modes
 never silently fall back to one another. Repository discovery and
 RepoDeliveryProvider clone/push/review always resolve the exact connection bound
 by the Project.
-The current self-hosted MVP does not implement the hosted caller/Team/RDB/secret
-prerequisites; until they land, hosted App capability remains unavailable.
-The current self-hosted MVP otherwise excludes caller auth, caller-login OAuth, logs
+The current self-hosted MVP does not implement the hosted App activation
+prerequisites (hosted caller-identity federation, hosted Team tenancy, hosted
+RDB, and managed secrets); until they land, hosted App capability remains
+unavailable. Self-hosted Mystra does provide single-node human username/password
+authentication (no email) and Owner/Admin/Member Team RBAC, where registration
+grants every human User an initial Team they own, every User always belongs to at
+least one Team, and Team is the top-level
+tenant boundary (feature 043 owns this contract; it waits for 040 to land on
+`main`).
+The current self-hosted MVP otherwise excludes caller-login OAuth (SSO/social), logs
 API/persistence, retry API, arbitrary callback URLs, quality-gate fix loops,
 webhooks/Issue write-back, a general-purpose Integration management catalog,
-public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
-cross-runner shared caches, per-repository secret management, hosted RDB
-implementation, GitLab as an enabled/default Integration, and standing-order or
-agent-operated workflow orchestration above the Agent. GitLab may remain as a
+public hosted multi-tenancy, hosted Team administration, Claude CLI, Kubernetes sandbox workloads,
+cross-runner shared caches, per-repository secret management, and managed hosted
+RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
+PostgreSQL remain approved deployment targets. Hosted platform persistence
+management remains a separate phase. GitLab is not an enabled/default
+Integration, and standing-order or agent-operated workflow orchestration above
+the Agent remains excluded. GitLab may remain as a
 runner-side `RepoDeliveryProvider`; that does not make it an active Project
-repository Integration. PG/Supabase remains post-MVP and the `RdbProvider`
-interface must not leak SQLite dialect.
+repository Integration. PostgreSQL and Supabase-backed PostgreSQL are approved
+deployment targets; the `RdbProvider` interface must not leak database dialect,
+Prisma types, connection URLs, or pool handles.
 
 ## Documentation Discipline
 
@@ -238,24 +290,25 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (6686 symbols, 10539 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (6206 symbols, 9845 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER edit a function, class, or method without first running `impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
 
 ## Resources
 
@@ -292,10 +345,14 @@ This project is indexed by GitNexus as **mystra** (6686 symbols, 10539 relations
   rebuild without compatibility aliases.
 - TypeScript 5.9, Node.js 24.14.0 + Next.js 16 Route Handlers, React 19, Zod 4, Vitest 4, `better-sqlite3`, Node `child_process`, existing provider/adapters (038-task-session-model)
 - SQLite through `RdbProvider`; schema remains dialect-neutral at the provider contract (038-task-session-model)
+- TypeScript 5.9，Node.js 24.14.0 + Prisma ORM/Client 7.9.1，`@prisma/adapter-better-sqlite3` 7.9.1，`@prisma/adapter-pg` 7.9.1，`pg`，Zod 4，Next.js 16 (040-prisma-rdb)
+- SQLite；PostgreSQL；Supabase-backed PostgreSQL (040-prisma-rdb)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto`、GitHub REST API、现有 Integration/Runner provider contracts (039-github-project-onboarding)
 - SQLite via `RdbProvider`；只保存 IntegrationConnection 非秘密元数据和 Project connection reference (039-github-project-onboarding)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto` / `fs`、GitHub REST API、现有 `better-sqlite3` (041-github-integration-connections)
 - SQLite schema v5 via `RdbProvider`；PAT ciphertext 通过 `SecretProvider` 存于受保护文件目录，RDB 只保存 opaque reference (041-github-integration-connections)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `child_process`（PATH 发现 + 登录 shell 兜底 + 版本 probe）、现有 `apps/runner-daemon`（TS）、Prisma via `RdbProvider` (044-host-runtime-daemon)
+- SQLite/PostgreSQL 双 schema via `RdbProvider`：新增 Runtime + 可用 Provider 能力持久化；host `mystra-runner` 注册/发现/心跳，online/offline 依服务端接收时间 (044-host-runtime-daemon)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

@@ -3,6 +3,7 @@
 **Feature Branch**: `002-runtime-profile-context`
 **Created**: 2026-05-09
 **Status**: Implemented; closure verified
+**Persistence Supersession Notice (2026-08-06)**: The implementation history remains useful, but this Spec is no longer authoritative for the next schema. Project-owned `defaultAgent`, runtime config and prewarm config, the ContextBundle entity/catalog/table/CRUD, Runner capability persistence, and all Session persistence are removed from the first `040-prisma-rdb` model pending dedicated redesign. Session-local runtime snapshots remain conceptual input to deferred Runtime/Session work, not an approved table or field contract. Do not recreate `sessions`, `context_bundles` or Project execution-default columns from this document.
 **Input**: User correction: "A Project may own runtime image configuration, but it should live in a typed runtime config object. This first version does not need legacy top-level image compatibility; Mystra should resolve image and context from Project runtime configuration instead of baking source-owned runtime contents or hard-coding runner access paths."
 
 ## User Scenarios & Testing *(mandatory)*

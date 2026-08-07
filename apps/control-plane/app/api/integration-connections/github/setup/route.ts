@@ -12,10 +12,19 @@ import {
   setTransactionCookie,
 } from "@/lib/integrations/github-oauth-cookies";
 import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
+import { getDb } from "@/lib/db";
+import {
+  authorizationErrorResponse,
+  requireHumanSession,
+  requireTeamPermission,
+} from "../../../_auth";
 
 export async function GET(request: Request) {
   try {
     assertGitHubAppAvailable();
+    const db = await getDb();
+    const subject = await requireHumanSession(db, request, "github-app-setup");
+    await requireTeamPermission(db, subject, "team.resource.access");
     const config = requireGitHubAppConfig();
     const installationId = new URL(request.url).searchParams.get("installation_id");
     if (!installationId || !/^\d+$/.test(installationId)) {
@@ -34,6 +43,11 @@ export async function GET(request: Request) {
     if (existing) setTransactionCookie(response, request, githubOAuthCookieNames.returnTo, existing);
     return response;
   } catch (error) {
+    try {
+      return authorizationErrorResponse(error);
+    } catch {
+      // Preserve hosted-only capability and Integration failures.
+    }
     return integrationErrorResponse(error);
   }
 }

@@ -5,7 +5,7 @@
 ## Runtime shape
 
 ```text
-apps/control-plane    Next.js management API, MCP, Web, SQLite adapter
+apps/control-plane    Next.js management API, MCP, Web, Prisma RDB adapters
 apps/runner-daemon    Stable pull-based Runner service
 packages/shared       Zod schemas, Session lifecycle, result contracts
 packages/agent-adapters
@@ -17,6 +17,11 @@ React 19, Zod 4, Vitest 4, and `better-sqlite3`.
 
 ## Canonical topology
 
+The topology below is directional. The first Prisma RDB milestone persists only
+IntegrationConnection, Project and Task; feature 044 additionally persists host
+Runtime plus its available-Provider capability. Session/dispatch/Context
+persistence is deferred.
+
 ```text
 Mystra platform
   -> Team
@@ -27,7 +32,8 @@ Mystra platform
           -> sandbox -> Agent -> repository review
 ```
 
-Task owns immutable Project/Repository intent and optional Issue provenance.
+The current Task RDB model owns only identity, Project relation, optional Issue
+dispatch key and metadata. Source, objective and Issue/Repository snapshots are deferred.
 Session owns all execution choices and lifecycle. Runner is stable capacity.
 Workspace means the Session-scoped working directory and context-delivery
 surface; it is never a tenancy term.
@@ -51,9 +57,11 @@ pnpm lsp:typescript
 
 - Open Agents is a source-authoritative reference baseline, not an assumed
   packaged runtime dependency.
-- Every Project binds one provider-resolved immutable remote Repository
-  snapshot. Local paths and caller-supplied clone URLs are invalid inputs.
-- Task owns that snapshot; Session cannot replace Project or Repository context.
+- Every Project binds one IntegrationConnection plus a provider-stable remote Repository external ID.
+  Mutable repository metadata is not Project persistence; Repo Info retrieval/cache is separately specified.
+  Local paths and caller-supplied clone URLs are invalid inputs.
+- Task does not persist source, objective or Issue/Repository snapshots. Current external information will use a
+  future Integration-owned cache contract; 040 does not define that cache.
 - A Task has no state, result, Agent, branch, runtime allocation, or Runner.
 - Every Session belongs to exactly one Task and owns its independent objective,
   Agent, branch, resolved runtime, lifecycle, cancellation, and result.
@@ -64,10 +72,22 @@ pnpm lsp:typescript
 - Internal execution facts support diagnostics and transactional persistence but
   have no independent management API, MCP tool, CLI group, or Web object page.
 - Headless operation is mandatory; Web remains a secondary client.
-- SQLite is the first source of truth behind `RdbProvider`; the provider contract
-  must not leak SQLite dialect.
+- SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable at process
+  startup behind `RdbProvider`; the provider contract must not leak database
+  dialect, Prisma-generated types, connection URLs, or pool handles.
+- Supabase uses the PostgreSQL Prisma client and migration history. Runtime may
+  use a pooler URL while migration commands use an explicit direct URL.
+- Database provider selection is startup configuration. Hot switching a live
+  process between databases is not supported.
 - Runner hosts initiate outbound connections. Sandbox containers never mount
   the host Docker socket or host home.
+- Runtime is an execution backend that advertises its available Provider (agent
+  CLI) capabilities source-agnostically (host PATH discovery now, image-declared
+  later). The host `mystra-runner` is TypeScript (reusing `apps/runner-daemon`),
+  registers by configured endpoint without MVP pairing, discovers and confirms
+  Provider availability, and reports heartbeat/status; online/offline is judged
+  by server receive time. Task dispatch, Context, and Agent config are separate
+  follow-up boundaries.
 - Runtime secrets are injected through environment variables or read-only files.
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core execution is direct: sandbox, Agent, quality, preview, repository
@@ -78,13 +98,14 @@ pnpm lsp:typescript
 ## Provider boundaries
 
 ```text
-RdbProvider           local SQLite first; cloud RDB later
+RdbProvider           SQLite, PostgreSQL, or Supabase-backed PostgreSQL
 IntegrationPlugin     named repository and/or Issue capabilities
 IntegrationConnection durable non-secret binding to one provider authorization
-SecretProvider        protected credential material resolved by opaque reference
+SecretProvider        plaintext crypto boundary; RDB persists only encrypted envelopes
 RepoProvider          remote repository discovery and identity
 IssueProvider         GitHub repository-scoped; Linear read-only
-SandboxProvider       single-machine Docker first
+SandboxProvider       single-machine Docker, one Runtime execution backend
+RuntimeProvider       execution backend advertising source-agnostic Provider (agent CLI) capabilities; host-bound Runtime enrolled by the TypeScript `mystra-runner` (feature 044)
 RepoDeliveryProvider  clone, push, and review delivery
 AgentProvider         adapter-backed Agent execution
 ```
@@ -106,9 +127,10 @@ an installation to the selected Team. OAuth transactions bind a one-time nonce,
 actor, Team, installation intent, expiry, and safe return path in server-side
 state. OAuth user tokens are discarded after verification. GitHub App identity
 secrets are platform-owned; installation access tokens are minted on demand and
-expire quickly. PAT plaintext is stored only behind the deployment's
-`SecretProvider`; RDB keeps non-secret connection metadata and an opaque secret
-reference. App and PAT modes never silently fall back to one another, and
+expire quickly. PAT plaintext enters only the deployment's `SecretProvider`;
+RDB keeps connection metadata, an opaque secret reference, and envelope-encrypted
+ciphertext. A per-secret DEK encrypts the PAT and a KEK outside RDB wraps that
+DEK. App and PAT modes never silently fall back to one another, and
 repository discovery plus RepoDeliveryProvider clone/push/review always resolve
 the exact connection bound by the Project.
 
@@ -119,12 +141,14 @@ remain inspectable, but are never silently treated as operable.
 
 Deployment shape is selected by the server composition root, not by request data
 or an operator-facing mode flag. The open-source entrypoint always assembles
-self-hosted services and does not construct a GitHub App identity provider. The
-managed Mystra Cloud entrypoint assembles hosted caller authentication, Team
-authorization, durable OAuth transaction state, managed SecretProvider/KMS, and
-the platform GitHub App identity. App environment variables are inputs to that
-hosted assembly only; they are not a deployment-mode switch. A partial hosted
-assembly reports `PREREQUISITE_UNAVAILABLE` and fails closed.
+self-hosted services — including single-node human username/password
+authentication (no email) and Owner/Admin/Member Team RBAC — and does not
+construct a GitHub App identity provider. The managed Mystra Cloud entrypoint
+adds hosted multi-tenant caller-identity federation, hosted Team administration,
+durable OAuth transaction state, managed SecretProvider/KMS, and the platform
+GitHub App identity. App environment variables are inputs to that hosted
+assembly only; they are not a deployment-mode switch. A partial hosted assembly
+reports `PREREQUISITE_UNAVAILABLE` and fails closed.
 
 The Hosted composition root, Cloud-only adapters, infrastructure manifests, and
 final image pipeline live in a separate private distribution project. That
@@ -162,7 +186,10 @@ runtime or persistence contract.
 | OAuth transaction state | Not used for App connections | Durable, one-time, actor- and Team-bound |
 | Installation tokens | Never minted | Short-lived and never durable |
 
-Self-hosted is a real single-node product shape, not a simulation of Mystra
-Cloud. Hosted operation adds Team authorization, managed secrets, durable OAuth
-transactions, and shared provider pools without changing Task, Session, Runner,
-or Project repository provenance contracts.
+Self-hosted supports SQLite single-node operation and shared PostgreSQL-backed
+control-plane replicas; its SecretProvider does not impose node-local storage or
+affinity. Self-hosted includes single-node human authentication and
+Owner/Admin/Member Team RBAC. Hosted operation adds hosted multi-tenant Team
+administration, managed secrets, durable OAuth transactions, and shared provider
+pools without changing Task, Session, Runner, or Project repository provenance
+contracts.

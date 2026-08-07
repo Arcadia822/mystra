@@ -1,35 +1,65 @@
 import { describe, expect, it } from "vitest";
-import { runnerRegistrationSchema } from "@mystra/shared";
+import { hostRuntimeRegistrationSchema } from "@mystra/shared";
 
-import { buildRunnerRegistrationPayload } from "./registration.js";
+import {
+  buildHostRuntimeRegistrationPayload,
+  getStableRunnerId,
+  type RunnerIdStore,
+} from "./registration.js";
 
-describe("buildRunnerRegistrationPayload", () => {
-  it("supplies a valid default agent for fake executor registration", () => {
-    const payload = buildRunnerRegistrationPayload({
-      runnerName: "fake-runner",
-      executor: "fake",
-      concurrency: 1,
-      staleAfterSeconds: 90,
-    });
+function memoryRunnerIdStore(initialValue?: string): RunnerIdStore & { value: string | undefined } {
+  return {
+    value: initialValue,
+    async read() {
+      if (this.value === undefined) {
+        const error = new Error("missing") as NodeJS.ErrnoException;
+        error.code = "ENOENT";
+        throw error;
+      }
+      return this.value;
+    },
+    async write(_filePath, value) {
+      this.value = value;
+    },
+  };
+}
 
-    expect(() => runnerRegistrationSchema.parse(payload)).not.toThrow();
-    expect(payload.capabilities.agents).toEqual(["codex"]);
-    expect(payload.capabilities.executor).toBe("fake");
-    expect(payload.capabilities.providers).toEqual(["docker"]);
-    expect(payload.capabilities.contextBundleModes).toEqual([]);
+describe("getStableRunnerId", () => {
+  it("creates and reuses a UUID persisted by the local store", async () => {
+    const store = memoryRunnerIdStore();
+
+    const first = await getStableRunnerId({ store, filePath: "runner-id" });
+    const second = await getStableRunnerId({ store, filePath: "runner-id" });
+
+    expect(first).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(second).toBe(first);
   });
 
-  it("preserves registered docker agents for docker executor registration", () => {
-    const payload = buildRunnerRegistrationPayload({
-      runnerName: "docker-runner",
-      executor: "docker",
-      concurrency: 2,
-      staleAfterSeconds: 45,
-      eligibleRuntimeProviders: ["docker"],
-    }, ["codex", "copilot"]);
+  it("rejects a corrupt persisted runner ID rather than changing identity", async () => {
+    const store = memoryRunnerIdStore("not-a-uuid");
 
-    expect(() => runnerRegistrationSchema.parse(payload)).not.toThrow();
-    expect(payload.capabilities.agents).toEqual(["codex", "copilot"]);
-    expect(payload.capabilities.providers).toEqual(["docker"]);
+    await expect(getStableRunnerId({ store, filePath: "runner-id" }))
+      .rejects.toThrow("not a valid UUID");
+  });
+});
+
+describe("buildHostRuntimeRegistrationPayload", () => {
+  it("builds the host registration payload with discovered capabilities", () => {
+    const payload = buildHostRuntimeRegistrationPayload({
+      runnerId: "b1de8827-6325-47b3-b391-77b2f397b9e7",
+      name: "dev-machine",
+      platform: "darwin/arm64",
+      providers: [{
+        provider: "copilot",
+        discovered: true,
+        available: true,
+        source: "path",
+        resolvedPath: "/usr/local/bin/copilot",
+        version: "1.0.69",
+        unavailableReason: null,
+      }],
+    });
+
+    expect(hostRuntimeRegistrationSchema.parse(payload)).toEqual(payload);
   });
 });

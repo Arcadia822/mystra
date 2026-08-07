@@ -40,7 +40,9 @@ The default registry contains exactly:
   repository discovery, and Runner credential resolution enforce the same
   decision.
 - App connections mint short-lived installation tokens. PAT plaintext is held
-  only by `SecretProvider`; public contracts and SQLite receive no plaintext.
+  only by `SecretProvider`; public contracts and RDB receive no plaintext. RDB
+  stores only an authenticated envelope with a wrapped per-secret DEK; the KEK
+  remains in deployment secret management.
 - `LINEAR_API_KEY` and GitHub App deployment secrets are read by the control
   plane only; values are never included in API responses, events, evidence, or
   logs.

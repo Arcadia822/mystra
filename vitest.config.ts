@@ -6,6 +6,12 @@ export default defineConfig({
       reporter: ["text", "lcov"],
     },
     environment: "node",
-    include: ["src/**/*.test.ts", "app/**/*.test.ts", "apps/**/*.test.ts", "packages/**/*.test.ts"],
+    include: [
+      "src/**/*.test.ts",
+      "app/**/*.test.ts",
+      "apps/**/*.test.ts",
+      "packages/**/*.test.ts",
+      "scripts/**/*.test.ts",
+    ],
   },
 });

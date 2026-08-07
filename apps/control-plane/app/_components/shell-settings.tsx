@@ -10,14 +10,16 @@ import { ShellIcon } from "./shell-icons";
 import { UiButton, UiIconButton } from "./ui-actions";
 import { UiInput } from "./ui-fields";
 import { UiDialogSurface, UiSurface } from "./ui-surfaces";
+import { VerticalNavItem } from "./vertical-nav-item";
 import { useResource } from "../_lib/use-resource";
 import { GitHubIntegrationDetail } from "./github-integration-detail";
 import {
-  AccountSettingsPanel,
   AppearanceSettingsPanel,
   IntegrationsSettingsPanel,
-  TeamSettingsPanel,
 } from "./shell-settings-panels";
+import { AccountSettings } from "./auth/account-settings";
+import { TeamMembers } from "./team-members";
+import { TeamSettings } from "./team-settings";
 
 interface ShellSettingsProps {
   initialSection?: SettingsSection;
@@ -31,7 +33,7 @@ interface ShellSettingsProps {
   theme: ControlPlaneThemeDefinition;
 }
 
-export type SettingsSection = "account" | "appearance" | "team" | "integrations";
+export type SettingsSection = "account" | "appearance" | "team" | "team-members" | "integrations";
 
 function AccountGlyph() {
   return (
@@ -61,11 +63,48 @@ function TeamGlyph() {
   );
 }
 
+function TeamMembersGlyph() {
+  return (
+    <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
+      <circle cx="9" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="16" cy="9" r="2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M4 18c.7-3.1 2.4-4.7 5-4.7s4.3 1.6 5 4.7M14 14c2.8 0 4.6 1.3 5.3 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
 function IntegrationGlyph() {
   return (
     <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
       <path d="M8.5 8.5 5 12l3.5 3.5M15.5 8.5 19 12l-3.5 3.5M14 5l-4 14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
     </svg>
+  );
+}
+
+interface SettingsNavItemProps {
+  active: boolean;
+  ariaControls: string;
+  icon: React.ReactNode;
+  id: string;
+  label: string;
+  onClick: () => void;
+}
+
+function SettingsNavItem({ active, ariaControls, icon, id, label, onClick }: SettingsNavItemProps) {
+  return (
+    <VerticalNavItem
+      active={active}
+      ariaLabel={label}
+      aria-selected={active}
+      aria-controls={ariaControls}
+      className="settingsNavItem"
+      id={id}
+      role="tab"
+      onClick={onClick}
+    >
+      <span className="settingsNavIcon">{icon}</span>
+      <span>{label}</span>
+    </VerticalNavItem>
   );
 }
 
@@ -82,8 +121,9 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
     { id: "account" as const, icon: <AccountGlyph />, label: copy.account },
     { id: "appearance" as const, icon: <AppearanceGlyph />, label: copy.appearance },
     { id: "team" as const, icon: <TeamGlyph />, label: copy.team },
+    { id: "team-members" as const, icon: <TeamMembersGlyph />, label: locale === "zh-CN" ? "团队成员" : "Team members" },
     { id: "integrations" as const, icon: <IntegrationGlyph />, label: copy.integrations },
-  ], [copy.account, copy.appearance, copy.integrations, copy.team]);
+  ], [copy.account, copy.appearance, copy.integrations, copy.team, locale]);
   const visibleSections = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase(locale === "zh-CN" ? "zh-CN" : "en-US");
     if (!normalizedQuery) return sections;
@@ -147,6 +187,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
             <span className="srOnly">{searchLabel}</span>
             <UiInput
               autoFocus
+              fieldSize="header"
               placeholder={searchLabel}
               type="search"
               value={query}
@@ -156,23 +197,18 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
 
           <div aria-label={copy.settings} className="settingsNavList" role="tablist">
             {visibleSections.map((section) => (
-              <UiButton
+              <SettingsNavItem
                 active={activeSection === section.id}
-                aria-selected={activeSection === section.id}
-                aria-controls={`settings-panel-${section.id}`}
-                block
-                className="settingsNavItem"
+                ariaControls={`settings-panel-${section.id}`}
+                icon={section.icon}
                 id={`settings-tab-${section.id}`}
                 key={section.id}
-                role="tab"
+                label={section.label}
                 onClick={() => {
                   setActiveSection(section.id);
                   if (section.id !== "integrations") setIntegrationDetail(null);
                 }}
-              >
-                <span className="settingsNavIcon">{section.icon}</span>
-                <span>{section.label}</span>
-              </UiButton>
+              />
             ))}
             {visibleSections.length === 0 ? <p className="settingsSearchEmpty" role="status">—</p> : null}
           </div>
@@ -195,7 +231,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
           <div
             aria-label={activeLabel}
             aria-labelledby={`settings-tab-${activeSection}`}
-            className="settingsPane"
+            className="settingsPane scrollableSurface"
             id={`settings-panel-${activeSection}`}
             role="tabpanel"
           >
@@ -209,7 +245,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
                 onRetry={() => void connections.refresh()}
               />
             ) : activeSection === "account" ? (
-              <AccountSettingsPanel locale={locale} />
+              <AccountSettings embedded />
             ) : activeSection === "appearance" ? (
               <AppearanceSettingsPanel
                 locale={locale}
@@ -221,7 +257,9 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
                 theme={theme}
               />
             ) : activeSection === "team" ? (
-              <TeamSettingsPanel locale={locale} />
+              <TeamSettings embedded onOpenMembers={() => setActiveSection("team-members")} />
+            ) : activeSection === "team-members" ? (
+              <TeamMembers embedded />
             ) : (
               <IntegrationsSettingsPanel
                 data={connections.data}

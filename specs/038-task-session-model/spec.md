@@ -3,6 +3,7 @@
 **Feature Branch**: `038-task-session-model`
 **Created**: 2026-08-03
 **Status**: Draft
+**Post-Implementation Amendment (2026-08-06)**: Task remains the current object name, but this Spec's Task source, objective, Issue/Repository snapshots and `dispatchKey` name are no longer authoritative: `040-prisma-rdb` removes those four content fields and renames the idempotency field to `issueDispatchKey`; current Issue/Repo Info cache waits for a later Integration specification. This Spec's Session persistence, loose Task-to-Session relation, fields, state machine, CRUD and migration are also obsolete. The pending `040` model omits `sessions` and `runners` entirely; future Session persistence requires a separate specification, while `042-runtime-sandbox-capacity` owns Runtime/Runner/connector redesign. `session_events` and `artifacts` are excluded. Project stores connection + stable Repository external ID. Future Task, Session, Task Activity, Artifact and Runner models MUST NOT be inferred from these legacy tables.
 **Input**: 用户要求将 `Job` 全部替换为 `Task`、将 `Run` 全部替换为
 `Session`；一个 Task 与多个 Session 保持松散一对多关系，Session 可以承载
 不同子任务；Runner 是一等业务对象；`RunnerSession` 与 `RunEvent` 不是业务对象；

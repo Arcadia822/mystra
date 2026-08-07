@@ -1,36 +1,38 @@
-# 评审清单：身份、Team 与 RBAC
+# 评审清单：本地用户、Team 与 RBAC
 
-## Owner 评审
+## Owner 需求
 
-- [x] 使用 043 编号，并按 Owner 要求直接创建在当前 041 branch。
-- [x] Hosted 使用 Google/GitHub SSO；stock self-hosted 使用 email/username/password。
-- [x] verified email 是人类 User 唯一外部业务 ID，但不是内部主键或 provider subject。
-- [x] 人驱动 Agent 使用人的 OAuth/API key，不另建 AgentPrincipal。
-- [x] 长期 Control-plane Agent 使用独立 AgentPrincipal，可担任 Project Admin、Product Manager 等角色。
-- [x] Sandbox Dev Agent 使用 Session-scoped workload identity，并通过 Mystra capability 向外行动。
-- [x] 认证方案必须支持 SQLite、PostgreSQL 与 Supabase-backed PostgreSQL。
-- [x] 未来可扩展 2FA/TOTP、Passkey、Email OTP、SMS OTP 与 One-Time Token。
-- [ ] Owner 确认 self-host 初始化后默认 invitation-only。
-- [ ] Owner 确认内置 Team/Project role catalog 与多个 RoleBinding 的 allow-union 语义。
-- [ ] Owner 审阅登录、Team、Roles 与 Agent credentials 低保真原型。
+- [x] 部署后默认进入登录页。
+- [x] 外部 installer bootstrap contract 提供 `admin/admin` 与初始 Team；安装器实现延期。
+- [x] 默认 admin 首次登录强制修改 password。
+- [x] self-host User 只使用 username/password，不引入 email。
+- [x] Account Settings 支持修改 password 与 display name；login username 首期只读。
+- [x] 每个 User 注册时自动获得一个由自己拥有的初始 Team。
+- [x] 初始 Team 与其他 Team 同构，可改名、加成员、删除、转移 Owner。
+- [x] 支持 Team 切换、创建、重命名和删除；某 User 唯一 active Team 不可删除或退出。
+- [x] Settings 增加 Team Members 页面，支持按 username 添加、移除/停用和设置 Owner/Admin/Member。
+- [x] SaaS/SSO、Agent key、Agent 登录、Sandbox workload 与强认证因子不进入 043。
+- [ ] Owner 提供 Castrel AI Workspace Members 页面的路径或截图后，完成视觉对齐检查。
 
 ## Spec 就绪度
 
-- [x] 五个独立用户故事覆盖人类、Team/RBAC、Control-plane Agent、Sandbox workload 和未来因子。
-- [x] Hosted/self-hosted capability、email identity、account linking 和秘密边界明确。
-- [x] Team 与 Project scope 的授权模型、最后 Owner 和跨 Team fail-closed 明确。
-- [x] 040/041 前置和 Prisma migration ownership 明确。
-- [x] Requirements Quality Score 达到 95/100。
-- [ ] 040 已实施并合入目标代码基线。
-- [ ] 041 schema 已冻结并被 040 吸收。
-- [ ] 5xP/constitution 的旧排除项已正式修订。
-- [ ] 进入 `/speckit.plan`。
+- [x] 三个独立 User Story 覆盖账户、Team lifecycle 与 Members/RBAC。
+- [x] installer 实现与 post-install bootstrap contract 已分离。
+- [x] username/display name、初始 Team 创建、删除保护和角色权限明确。
+- [x] Team context、last Owner、last active Team 和跨 Team fail-closed 明确。
+- [x] 041 已落地；040 合入前置、Prisma ownership 和 pre-0.1 策略明确。
+- [x] Requirements Quality Score 达到 97/100。
+- [x] 040 已合入 `main`。
+- [x] 5xP/constitution 的 caller-auth/Team-admin 排除项已正式修订。
+- [x] 进入 `/speckit.plan`。
 
-## 后续插件检查
+## Planning 检查
 
-- [ ] Planning 锁定 Better Auth 稳定版本及 Prisma adapter 版本。
-- [ ] Planning 核验 Google/GitHub verified email 和 explicit account linking 配置。
-- [ ] Planning 为 SQLite/PG 两套 Prisma schema 建立 Auth/RBAC parity gate。
-- [ ] Planning 核验 API Key、OAuth Provider、2FA、Passkey、Email OTP、Phone OTP 与 One-Time Token schema 影响。
-- [ ] Planning 设计 WorkloadIdentity audience、capability、expiry、revocation 与 Session lifecycle 绑定。
-- [ ] `plan-eng-review` 覆盖全 route/MCP/CLI authorization、RdbProvider/Prisma、Runner claim 和 sandbox secret blast radius。
+- [x] 完成 Better Auth 无-email capability spike；其 username plugin 强制 email，故采用 Mystra-owned local-auth。
+- [x] 定义 installer/043 之间 `admin/admin`、password-change-required 与初始 Team 的 bootstrap contract。
+- [x] 定义 User 注册与初始 Team 原子创建事务。
+- [x] 定义 active Team context、Team archive 和删除后回退语义。
+- [x] 定义 Owner/Admin/Member permission matrix 与 Members route contracts。
+- [x] 证明 User schema 与 OSS composition 不含 email、hosted/social provider、Agent credential 或 factor 实现。
+- [x] 为 SQLite/PG 两套 Prisma schema 建立 Auth/Team/RBAC parity gate。
+- [x] `plan-eng-review` 覆盖全 route/MCP/CLI authorization、bootstrap secret、Team deletion 和 Prisma blast radius。

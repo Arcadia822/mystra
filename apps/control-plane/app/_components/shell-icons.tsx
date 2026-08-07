@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
 
 export type ShellIconName =
+  | "arrow-up"
   | "attachment"
   | "alert"
   | "automation"
@@ -44,6 +45,7 @@ export function ShellIcon({ name, ...props }: SVGProps<SVGSVGElement> & { name: 
       {name === "expand" ? <><path d="M4 4h16v16H4z" /><path d="M9 4v16" /><path d="m13 9 3 3-3 3" /></> : null}
       {name === "project" ? <><path d="M3.5 6.5h6l2 2h9v10h-17z" /><path d="M3.5 6.5v-2h6l2 2" /></> : null}
       {name === "repository" ? <><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" /><path d="M8 8h7" /><path d="M8 12h7" /></> : null}
+      {name === "arrow-up" ? <><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></> : null}
       {name === "attachment" ? <path d="m8.5 12.5 6.9-6.9a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 0 1-7.1-7.1l8.1-8.1" /> : null}
       {name === "microphone" ? <><rect height="11" rx="3" width="6" x="9" y="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0" /><path d="M12 17.5V21" /></> : null}
       {name === "send" ? <><path d="m4 12 16-8-6 16-2.5-6.5z" /><path d="m11.5 13.5 4-4" /></> : null}

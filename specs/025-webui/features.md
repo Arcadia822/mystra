@@ -17,6 +17,9 @@
 - 定义共享布局范式：`chatLayout`、`dashboardLayout`、`readLayout`。
 - 建立 shell 基础组件层，供后续页面复用。
 - 提供完整 Appearance preference：System/Light/Dark、亮暗主题分别设置、边缘线高对比模式、代码表面 variant、对比度、字体/字号、预览与复位；当前只做 versioned localStorage persistence，不创建数据库写入。
+- 兼容 `codex-theme-v1:{JSON}` 主题文档：schema version 与主题 ID 分离，`codeThemeId` 是 canonical ID；旧 synthetic preset id 只用于 localStorage 迁移。
+- 内置本机 Codex 26.730.61639 的完整主题目录：28 个 Codex 主题族、43 个实际注册变体；另提供 Mystra light/dark 双变体，合计 45 个可选主题。
+- 内部字体合同统一为 UI / Content / Code 三个角色；每个角色只保存一个 primary family，系统 fallback 由 CSS 统一追加。Codex v1 导入时 `fonts.ui` 同步到 UI 与 Content，`fonts.code` 映射到 Code。
 - 保留英语/简体中文、本地化与响应式脚手架；默认 UI 字号为 12px。
 - 默认平移 Castrel UX 的结构、密度和交互模式，并采用 dark-tech 的精确 palette、统一等宽字体、语义 signal colors、0/2/4/6px radius 与 flat elevation；禁止阴影、渐变、辉光、glass 和 noise。
 - 为未来 Electron 宿主保留兼容边界，但不提前实现桌面专属能力。

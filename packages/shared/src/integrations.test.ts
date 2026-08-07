@@ -10,18 +10,28 @@ import {
 
 const connection = {
   id: "00000000-0000-4000-8000-000000000039",
+  teamId: "00000000-0000-4000-8000-000000000038",
   integration: "github",
   provider: "github",
-  connectionType: "github-app",
-  externalId: "18492",
-  account: {
+  authMethod: "github-app",
+  providerExternalId: "18492",
+  displayName: null,
+  providerSubject: {
     externalId: "42",
     login: "arcadia",
     type: "User",
     avatarUrl: "https://avatars.githubusercontent.com/u/42?v=4",
   },
-  repositorySelection: "selected",
-  permissions: { contents: "write", pull_requests: "write" },
+  connectionConfig: {},
+  capabilities: {
+    repositories: {
+      state: "enabled",
+      config: { selection: "selected" },
+      permissions: { contents: "write", pull_requests: "write" },
+      accessSummary: { repositories: "selected" },
+      verifiedAt: "2026-08-05T08:00:00.000Z",
+    },
+  },
   credentialState: "ready",
   status: "active",
   createdAt: "2026-08-05T08:00:00.000Z",
@@ -32,26 +42,35 @@ describe("integration connection schemas", () => {
   it("accepts only non-secret installation metadata", () => {
     expect(integrationConnectionSchema.parse(connection)).toEqual(connection);
     expect(integrationConnectionActivationSchema.parse({
+      teamId: connection.teamId,
       integration: connection.integration,
       provider: connection.provider,
-      connectionType: connection.connectionType,
-      externalId: connection.externalId,
-      account: connection.account,
-      repositorySelection: connection.repositorySelection,
-      permissions: connection.permissions,
+      authMethod: connection.authMethod,
+      providerExternalId: connection.providerExternalId,
+      displayName: connection.displayName,
+      providerSubject: connection.providerSubject,
+      connectionConfig: connection.connectionConfig,
+      capabilities: connection.capabilities,
       credentialState: connection.credentialState,
-    }).externalId).toBe("18492");
+    }).providerExternalId).toBe("18492");
   });
 
   it("accepts a PAT connection without exposing its fingerprint or secret reference", () => {
     const patConnection = {
       ...connection,
       id: "00000000-0000-4000-8000-000000000041",
-      connectionType: "personal-access-token",
+      authMethod: "personal-access-token",
       displayName: "Arcadia delivery",
-      externalId: undefined,
-      repositorySelection: "token",
-      permissions: { contents: "write", pull_requests: "unverified" },
+      providerExternalId: "42",
+      capabilities: {
+        repositories: {
+          state: "enabled",
+          config: { selection: "token" },
+          permissions: { contents: "write", pull_requests: "unverified" },
+          accessSummary: {},
+          verifiedAt: "2026-08-05T08:00:00.000Z",
+        },
+      },
     } as const;
 
     expect(integrationConnectionSchema.parse(patConnection)).toEqual(patConnection);

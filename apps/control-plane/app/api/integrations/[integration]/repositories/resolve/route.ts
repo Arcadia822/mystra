@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
 import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
 import { getDb } from "@/lib/db";
+import {
+  authorizationErrorResponse,
+  requireHumanSession,
+  requireTeamPermission,
+} from "../../../../_auth";
 
 export async function GET(
   request: Request,
@@ -20,10 +25,13 @@ export async function GET(
         },
       }, { status: 400 });
     }
-    const db = getDb();
+    const db = await getDb();
+    const subject = await requireHumanSession(db, request, "repository-resolve");
+    const active = await requireTeamPermission(db, subject, "team.resource.access");
     const activeConnections = connectionId
       ? []
-      : db.listIntegrationConnections({ integration }).filter((candidate) => candidate.status === "active");
+      : (await db.listIntegrationConnections({ integration, teamId: active.team.id }))
+        .filter((candidate) => candidate.status === "active");
     if (!connectionId && activeConnections.length > 1) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
@@ -31,9 +39,9 @@ export async function GET(
       });
     }
     const connection = connectionId
-      ? db.getIntegrationConnection(connectionId)
+      ? await db.getIntegrationConnection(connectionId)
       : activeConnections[0];
-    if (!connection) {
+    if (!connection || connection.teamId !== active.team.id) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
         message: "Repository connection is not available",
@@ -56,6 +64,11 @@ export async function GET(
     }
     return NextResponse.json({ repository });
   } catch (error) {
+    try {
+      return authorizationErrorResponse(error);
+    } catch {
+      // Preserve the Integration error contract for provider failures.
+    }
     return integrationErrorResponse(error);
   }
 }

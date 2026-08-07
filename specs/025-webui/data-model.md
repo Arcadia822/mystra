@@ -49,14 +49,19 @@ shell 层页面承载模型。
 
 字段：
 
-- `themeId`：当前选中的 control-plane theme id。
-- `appearance`：由 theme 派生的 light/dark appearance。
+- `lightThemeId` / `darkThemeId`：分别保存对应 variant 的 canonical `codeThemeId`；不是 schema version，也不是 Mystra synthetic preset id。
+- `CodexThemeCatalogEntry`：从明确 Codex app version 提取的静态 `CodexThemeV1Payload` 加 display label；当前来源 26.730.61639，28 个 family / 43 个 variant。
+- `MystraThemeDefinition`：`codeThemeId: "mystra"` 下的 light/dark 双变体；dark 持有原 Graphite explicit tokens，light 持有配套 explicit tokens。
+- `ThemeFontRoles`：Mystra 内部 `{ ui, content, code }` primary family；每项是单一 family 或 null，不包含平台 fallback list。Codex v1 adapter 由 `fonts.ui` 派生 UI/Content，由 `fonts.code` 派生 Code。
+- `appearance`：由 mode、system variant 与 `(variant, codeThemeId)` 解析出的 active theme。
 - `locale`：框架拥有 copy 的选中或默认 locale。
 
 校验：
 
 - preference 只属于本地 UI concern。
 - preference 不得变成产品租户、项目或 runtime state。
+- 旧版 synthetic preset id 只允许在 parse/bootstrap 边界迁移，normalized preference 必须输出 `codeThemeId`；`graphite-signal -> dark:mystra`，`linen-light -> light:notion`。
+- 旧版 `chatFont` / `chatFontSize` 迁移为 `contentFont` / `contentFontSize`；原 Graphite 多 family 默认 stack 迁移为新的 Mystra 单 family defaults，用户显式保存的单 family 保留。
 
 ## SidebarTaskGroup
 

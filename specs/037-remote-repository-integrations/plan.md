@@ -2,6 +2,7 @@
 
 **Branch**: `037-remote-repository-integrations` | **Date**: 2026-07-25 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/037-remote-repository-integrations/spec.md`
+**Supersession Notice (2026-08-06)**: The Project/Job/Task snapshot persistence and migration steps below are obsolete. `040-prisma-rdb` makes Project a stable connection + Repository external-ID binding and removes Task source, objective and Issue/Repository snapshots. Current Issue/Repo Info cache is deferred to a later Integration specification.
 
 ## Summary
 

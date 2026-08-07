@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>001-project-and-sqlite</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"001-project-and-sqlite","title":"001-project-and-sqlite","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:49:22.668Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: Project Abstraction + SQLite Persistence\n\n**Feature Branch**: `001-project-and-sqlite`\n**Created**: 2026-05-09\n**Status**: Implemented; closure verified\n**Reconciliation Note**: Core Project/SQLite persistence scope in this feature is implemented. Runtime-image and runner-claim semantics originally drafted here were refined by `002-runtime-profile-context`; treat `002` as authoritative for runtime contract shape.\n**Schema Supersession Notice (2026-08-06)**: This Spec is historical evidence for introducing `Project`, SQLite, and the `RdbProvider` boundary; it is **not** the current entity or schema contract. Its `Job`, `Run`, `RunnerSession`, `RunEvent`, and database `Artifact` entities, including FR-012 and related acceptance criteria, were superseded by `038-task-session-model` and subsequent product decisions. The pending `040-prisma-rdb` ER now excludes Session persistence entirely, in addition to Project `defaultAgent`, runtime/image and prewarm ownership, ContextBundle persistence, Runner persistence, and the unprefixed `baseBranch` schema; only `repositoryBaseBranch` remains in the first Prisma Project model. `sessions`, `session_events` and `artifacts` are excluded. Future Session, Task Activity, Artifact, Context delivery, Runtime and Runner designs require separate specifications. Do not derive a migration or Prisma schema from this document.\n**Input**: User description: \"Introduce Project as the parent configuration for jobs and replace the in-memory local store with a SQLite-backed RdbProvider while keeping the future PG/Supabase boundary clean.\"\n**Dependency Note**: Runtime-image and runtime-contract details in this feature are interpreted through `002-runtime-profile-context`. `Project` remains the durable repository/execution unit, but runtime image ownership now lives under `Project.runtime.image`, not a top-level `Project.image` field. A future `workspace` scope may sit above `Project`, but does not replace it as the execution configuration unit in this feature.\n\n## User Scenarios & Testing *(mandatory)*\n\n### User Story 1 - Create Project Configuration (Priority: P1)\n\nA platform operator creates a Project with name, slug, repository, default branch, default agent, structured runtime configuration, and optional prewarm metadata so later jobs can reference stable project configuration.\n\n**Why this priority**: Without Project records, callers must keep repeating repo/baseBranch/agent/image details and Mystra cannot support multiple GitLab/GitHub projects cleanly.\n\n**Independent Test**: POST a valid project, query it by slug, restart the control plane with the same SQLite file, and confirm the project is still present.\n\n**Acceptance Scenarios**:\n\n1. **Given** no project exists with slug `castrel-ai`, **When** the operator posts a valid project payload, **Then** the API returns `201` with `{ project }` containing the full Project record and persists it.\n2. **Given** a project already exists with slug `castrel-ai`, **When** the operator posts another project with the same slug, **Then** the API returns `409` with a clear error.\n3. **Given** a project payload omits required runtime image information for the Docker provider, **When** the operator posts it, **Then** the API returns `400` and no project is created.\n\n---\n\n### User Story 2 - Submit Job by Project (Priority: P1)\n\nAn agent or CI caller submits a job with `projectId`, `branchName`, and `prompt`; Mystra resolves repo/baseBranch/agent/runtime defaults from the Project while allowing explicit job-level overrides where permitted.\n\n**Why this priority**: Remote MCP and HTTP callers need a small stable contract. Project-based job creation is the main path for other agents and skills to use Mystra.\n\n**Independent Test**: Create a project, submit a job with only `projectId`, `branchName`, and `prompt`, then inspect the job snapshot and first run.\n\n**Acceptance Scenarios**:\n\n1. **Given** an active Project, **When** a caller posts `{ projectId, branchName, prompt }`, **Then** Mystra creates a job whose snapshot includes repo/baseBranch/agent resolved from the Project.\n2. **Given** an active Project, **When** a caller provides explicit repo/baseBranch/agent overrides, **Then** the job snapshot stores the resolved override values without mutating the Project.\n3. **Given** a missing, unknown, or archived Project, **When** a caller submits a job, **Then** Mystra returns `400` with a clear error and creates no run.\n\n---\n\n### User Story 3 - Archive Project (Priority: P2)\n\nA platform operator archives a Project instead of deleting it so historical jobs remain traceable while new work cannot use the archived Project.\n\n**Why this priority**: Project lifecycle must not break job history. Archive semantics are safer than physical deletes for an AI-built operational system.\n\n**Independent Test**: Archive a project, verify old jobs remain queryable, verify new job creation is rejected, then unarchive through PATCH.\n\n**Acceptance Scenarios**:\n\n1. **Given** an active Project, **When** the operator deletes `/api/projects/{slug}`, **Then** `archivedAt` is set and the Project is returned.\n2. **Given** an archived Project with historical jobs, **When** jobs are queried, **Then** historical job snapshots are still available.\n3. **Given** an archived Project, **When** the operator restores it with PATCH, **Then** `archivedAt` is cleared and new jobs may be created.\n\n---\n\n### User Story 4 - Persist Runtime State Across Restart (Priority: P1)\n\nA platform operator restarts the control plane and still sees existing jobs, runs, runner sessions, run events, and artifacts from SQLite.\n\n**Why this priority**: The current in-memory Map loses operational state. Durable state is required before a real remote MCP-driven MVP can be trusted.\n\n**Independent Test**: Create a project and job, append run state, close/reopen the SQLite provider, and query the same records.\n\n**Acceptance Scenarios**:\n\n1. **Given** a job and run exist, **When** the control-plane process restarts using the same `MYSTRA_DB_PATH`, **Then** GET `/api/jobs/{id}` returns the same snapshot.\n2. **Given** a runner daemon restarts, **When** it registers again, **Then** it receives a new session token; old session records may remain but are not required for correctness.\n3. **Given** a non-terminal run exists before restart, **When** the control plane restarts, **Then** Mystra does not auto-cancel or auto-retry it.\n\n---\n\n### User Story 5 - Runner Uses Project Image (Priority: P1)\n\nA runner daemon claims a run and receives the resolved Project runtime contract in the claim response so different projects can run in different containers.\n\n**Why this priority**: The MVP must support multiple project environments on the high-capacity server; runner-global `MYSTRA_RUNNER_IMAGE` is too coarse.\n\n**Independent Test**: Create two projects with different images, submit a job for each, claim runs, and verify Docker execution uses the image from the associated Project.\n\n**Acceptance Scenarios**:\n\n1. **Given** a queued run for a Project, **When** a runner claims it, **Then** the claim response includes the Project identity plus the resolved runtime contract needed for execution.\n2. **Given** a claimed run, **When** the Docker executor starts, **Then** it uses the resolved runtime image from the claim contract.\n3. **Given** image pull or startup fails, **When** the executor reports failure, **Then** the run becomes `failed` with a clear `failureReason`.\n\n---\n\n### User Story 6 - Preserve Prewarm as Provider Capability (Priority: P3)\n\nA future sandbox provider can read Project prewarm configuration, while the bare Docker MVP does not pretend to support automatic prewarm.\n\n**Why this priority**: This keeps cache behavior behind the sandbox/provider boundary instead of turning Project into a runner lifecycle shortcut.\n\n**Independent Test**: Verify `prewarmConfig` is stored and returned on Project records and claim responses, while no automatic bare-Docker prewarm is triggered.\n\n**Acceptance Scenarios**:\n\n1. **Given** a Project has `prewarmConfig`, **When** it is queried or claimed through a job, **Then** the config is returned as structured JSON.\n2. **Given** the bare Docker provider is active, **When** a Project is created, **Then** no automatic job lifecycle prewarm is triggered.\n3. **Given** the operator uses `prewarm-project.sh`, **When** a Project slug is provided, **Then** the script resolves Project data instead of hard-coded Castrel paths.\n\n### Edge Cases\n\n- Project slug conflict must return `409`, not overwrite.\n- Corrupt JSON in SQLite must throw with field name and record id context.\n- `projectId` missing, unknown, or archived must reject job creation.\n- Explicit job overrides must not mutate Project defaults.\n- Project archive must not delete historical jobs.\n- Runner claim must not return a job without the resolved runtime image required for execution.\n- SQLite schema must not expose SQLite-only details through `RdbProvider`.\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: System MUST provide Project CRUD APIs: `GET/POST /api/projects`, `GET/PATCH/DELETE /api/projects/{slug}`.\n- **FR-002**: System MUST validate Project input with shared Zod schemas and require `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`, and runtime configuration sufficient for the selected provider.\n- **FR-003**: System MUST enforce globally unique Project slugs.\n- **FR-004**: System MUST implement soft archive for Projects through `archivedAt` and MUST NOT physically delete Projects in MVP.\n- **FR-005**: System MUST reject new job creation for archived Projects.\n- **FR-006**: System MUST add `projectId` to `JobSpec` and require it for job creation in this feature.\n- **FR-007**: System MUST resolve repo/baseBranch/agent defaults from Project during job creation and store resolved values as immutable job snapshot fields.\n- **FR-008**: System MUST allow explicit repo/baseBranch/agent overrides at job creation without mutating the Project.\n- **FR-009**: System MUST replace `local-store.ts` with a provider boundary named `RdbProvider`.\n- **FR-010**: System MUST implement `SqliteRdbProvider` using `better-sqlite3`.\n- **FR-011**: `RdbProvider` MUST return domain types and MUST NOT expose SQLite-specific APIs, row ids, raw SQL, or dialect-specific parameters.\n- **FR-012**: SQLite startup MUST apply the MVP schema automatically for projects, jobs, runs, runner sessions, run events, and artifacts.\n- **FR-013**: SQLite MUST use WAL mode.\n- **FR-014**: JSON fields MUST be serialized/deserialized at the provider boundary and parse failures MUST include field name and record id.\n- **FR-015**: Runner claim responses MUST include Project identity plus the resolved runtime contract required for execution.\n- **FR-016**: Runner daemon MUST use the resolved runtime contract and MUST remove `MYSTRA_RUNNER_IMAGE` as the normal runtime image source.\n- **FR-017**: MCP surface MUST add `mystra_create_project`, `mystra_list_projects`, and `mystra_get_project`.\n- **FR-018**: Existing `mystra_create_job` MCP input MUST require `projectId`.\n- **FR-019**: Scripts MUST rename/generalize `castrel-job.mjs` to `submit-job.mjs` and `prewarm-castrel-ai.sh` to `prewarm-project.sh`.\n- **FR-020**: Castrel-oriented runner image context MUST stay local-only outside git, not Mystra-owned per-project runtime truth.\n\n### Key Entities\n\n- **Project**: Stable project configuration including repo, base branch, default agent, structured runtime configuration, prewarm config, metadata, archive state, and timestamps.\n- **Job**: A submitted work request with `projectId`, task identity, branch, prompt, optional MR/PR metadata, and resolved repo/baseBranch/agent snapshots.\n- **Run**: Attempt to execute a job, with state, assigned runner, result, failure reason, and timestamps.\n- **RunnerSession**: Registered runner identity, token, capabilities, concurrency, heartbeat, and timestamps.\n- **RunEvent**: Structured lifecycle event for observability without log persistence.\n- **Artifact**: Structured result pointer such as branch/MR/PR metadata or future artifact URI.\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: A Project created through API remains queryable after control-plane restart using the same SQLite file.\n- **SC-002**: A job can be created with only `projectId`, `branchName`, and `prompt`, and its snapshot contains resolved repo/baseBranch/agent values.\n- **SC-003**: All existing API and MCP job creation paths reject missing `projectId` with a clear `400`.\n- **SC-004**: Runner claim returns the resolved runtime data needed for execution and Docker execution no longer depends on `MYSTRA_RUNNER_IMAGE`.\n- **SC-005**: `pnpm --filter @mystra/shared test` passes after schema changes.\n- **SC-006**: `pnpm --filter @mystra/control-plane test` passes provider and route tests.\n- **SC-007**: `pnpm --filter @mystra/control-plane typecheck` and `pnpm --filter @mystra/runner-daemon typecheck` pass.\n- **SC-008**: `pnpm job:submit --project <slug> ...` can submit a job after a Project exists.\n- **SC-009**: Docs and Spec-Kit artifacts no longer reference `castrel-job` as the primary submit command.\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/001-project-and-sqlite/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/001-project-and-sqlite/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/001-project-and-sqlite/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Project Abstraction + SQLite Persistence\n\n**Branch**: `001-project-and-sqlite` | **Date**: 2026-05-09 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/001-project-and-sqlite/spec.md`\n\n## Summary\n\nIntroduce Project as the stable parent configuration for jobs and replace the in-memory `local-store.ts` with a SQLite-backed `RdbProvider`. Job creation moves to `projectId` as the primary contract, runner claims receive Project runtime image data, and scripts/API/MCP/UI surfaces are updated so remote agents can submit work without repeating repo/baseBranch/agent/image configuration.\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9, Node.js 24 runtime assumptions  \n**Primary Dependencies**: Next.js 16, React 19, Zod 4, Vitest 4, new `better-sqlite3` and `@types/better-sqlite3`  \n**Storage**: SQLite via `SqliteRdbProvider`, configured by `MYSTRA_DB_PATH`, WAL mode  \n**Testing**: Vitest package tests plus TypeScript typecheck  \n**Target Platform**: Private high-capacity Linux server running control plane, runner daemon, and Docker sandbox workloads  \n**Project Type**: TypeScript monorepo with Next.js control plane, Node runner daemon, shared packages, scripts  \n**Performance Goals**: Single job creation under 10ms for project lookup + snapshot insert on local SQLite; no N+1 listJobs pattern  \n**Constraints**: `RdbProvider` must not leak SQLite dialect; no caller auth/logs/retry/callback/quality-gate fix loops; prewarm remains provider capability  \n**Scale/Scope**: Single-machine MVP, multiple Projects, multiple queued jobs, runner long polling, local SQLite durability\n\n## Constitution Check\n\n*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*\n\n- **Specification Owns Product Boundaries**: PASS. The feature is in MVP scope after the current product goal update. It does not add caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes, shared caches, or per-repository secret management.\n- **Typed Contracts at Service Boundaries**: PASS. Project, JobSpec, claim response, MCP tools, and persistence records are Zod/TypeScript contract changes.\n- **Providers Are Replaceable Boundaries**: PASS. SQLite is behind `RdbProvider`; future Supabase/Postgres is a new implementation.\n- **Runner Isolation and Secret Hygiene**: PASS. Project.image changes container selection only; no new secret storage is introduced.\n- **Verification And Documentation Before Delivery**: PASS. The plan requires shared/control-plane/runner tests, smoke tests, and local module docs where behavior changes.\n\n## Project Structure\n\n### Documentation (this feature)\n\n```text\nspecs/001-project-and-sqlite/\n├── spec.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   ├── api.md\n│   ├── mcp.md\n│   └── runner-claim.md\n├── tasks.md\n└── checklists/\n    └── requirements.md\n```\n\n### Source Code (repository root)\n\n```text\npackages/shared/src/\n├── schemas.ts\n└── schemas.test.ts\n\napps/control-plane/\n├── app/\n│   ├── page.tsx\n│   └── api/\n│       ├── projects/route.ts\n│       ├── projects/[slug]/route.ts\n│       ├── jobs/route.ts\n│       ├── jobs/[id]/route.ts\n│       ├── jobs/[id]/cancel/route.ts\n│       ├── mcp/route.ts\n│       ├── runners/route.ts\n│       └── runner/**/route.ts\n└── src/lib/\n    ├── db/\n    │   ├── index.ts\n    │   ├── migrations.ts\n    │   ├── rdb-provider.ts\n    │   ├── sqlite-provider.ts\n    │   └── sqlite-provider.test.ts\n    └── local-store.ts        # deleted after migration\n\napps/runner-daemon/\n├── src/index.ts\n└── assets/container-task.sh\n\nscripts/\n├── castrel-job.mjs           # renamed to submit-job.mjs\n├── prewarm-castrel-ai.sh     # renamed to prewarm-project.sh\n├── build-runner-image.sh\n├── deploy-dev-machine.sh\n└── doctor-local.sh\n\n```\n\n**Structure Decision**: Keep the existing monorepo layout. Add the DB provider under `apps/control-plane/src/lib/db/` because the current control plane owns API/MCP state access. Keep shared Zod contracts in `packages/shared/src/schemas.ts`. Runner image selection changes in `apps/runner-daemon/src/index.ts`; per-project runtime image truth lives in Project runtime config, not a global runner env var. Castrel-oriented image context is local-only and not part of git.\n\n## Complexity Tracking\n\nNo constitution violations require justification.\n\n## Phase 0: Research\n\nResearch decisions are captured in [research.md](./research.md).\n\n## Phase 1: Design & Contracts\n\nDesign artifacts:\n\n- [data-model.md](./data-model.md)\n- [quickstart.md](./quickstart.md)\n- [contracts/api.md](./contracts/api.md)\n- [contracts/mcp.md](./contracts/mcp.md)\n- [contracts/runner-claim.md](./contracts/runner-claim.md)\n\n## Implementation Order\n\n1. Shared schema contracts.\n2. SQLite/RdbProvider foundation.\n3. Project CRUD routes and tests.\n4. Existing API/MCP route migration from local-store to `getDb()`.\n5. Runner claim and Docker image resolution.\n6. Script and package command generalization.\n7. Documentation and baseline-template cleanup.\n\n## Verification Checkpoints\n\n| After | Check | Command / Evidence |\n|---|---|---|\n| Shared schema | Schema tests pass | `pnpm --filter @mystra/shared test` |\n| DB provider | Provider unit tests pass | `pnpm --filter @mystra/control-plane test` |\n| API migration | Control-plane compiles | `pnpm --filter @mystra/control-plane typecheck` |\n| Runner image | Runner daemon compiles | `pnpm --filter @mystra/runner-daemon typecheck` |\n| Scripts | Project submit works | `pnpm job:submit --project <slug> ...` |\n| Full scope | Broad checks pass | `pnpm typecheck && pnpm test` when practical |\n\n## Risk Mitigations\n\n| Risk | Mitigation |\n|---|---|\n| `projectId` breaks existing callers | Immediate switch; update API, MCP, UI, scripts, and tests in same feature |\n| SQLite assumptions leak into future PG | `RdbProvider` returns domain types only; no raw SQL/rowid APIs |\n| JSON corruption hides bad data | Provider throws with field name and record id |\n| `listJobs` becomes slow | Use JOIN-based snapshot query instead of per-job lookups |\n| Runner starts wrong image | Claim response carries Project image; runner uses only `claimedJob.project.image` |\n| Prewarm gets coupled to generic runner | Store config only; automatic prewarm waits for a sandbox provider that supports it |\n| Existing Castrel scripts/docs drift | Rename scripts and update docs/package command in this feature |\n\n## Post-Design Constitution Re-Check\n\nPASS. Contracts are explicit, provider boundary remains replaceable, docs are in `specs/001-project-and-sqlite/`, and MVP exclusions remain respected.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Project Abstraction + SQLite Persistence\n\n**Input**: Design documents from `/specs/001-project-and-sqlite/`  \n**Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/)\n\n**Tests**: Required for shared contracts, provider behavior, route boundaries, and runner protocol changes.\n\n**Organization**: Tasks are grouped by user story so core MVP slices can be implemented and validated independently.\n\n## Phase 1: Setup and Dependencies\n\n**Purpose**: Prepare dependencies and keep generated artifacts aligned.\n\n- [x] T001 Add `better-sqlite3` runtime dependency and `@types/better-sqlite3` dev dependency to `apps/control-plane/package.json`.\n- [x] T002 Run `pnpm install` to update `pnpm-lock.yaml`.\n- [x] T003 [P] Update [specs/001-project-and-sqlite/checklists/requirements.md](./checklists/requirements.md) after final spec validation.\n\n---\n\n## Phase 2: Foundational Contracts (Blocking)\n\n**Purpose**: Shared schema and provider contracts that every user story depends on.\n\n- [x] T004 Update `packages/shared/src/schemas.ts` to add `projectSchema`, `projectCreateSchema`, `projectUpdateSchema`, Project types, and `projectId` on `jobSpecSchema`.\n- [x] T005 Update `packages/shared/src/schemas.ts` to remove `projectConfigSchema` and make `repo`, `baseBranch`, and `agent` optional job-level overrides.\n- [x] T006 Update `packages/shared/src/schemas.test.ts` for Project create/update validation, job creation with `projectId`, job overrides, and rejection when `projectId` is missing.\n- [x] T007 Create `apps/control-plane/src/lib/db/rdb-provider.ts` with domain types and provider methods for Projects, Jobs, Runs, RunnerSessions, RunEvents, and Artifacts.\n- [x] T008 Create `apps/control-plane/src/lib/db/migrations.ts` with SQLite DDL for `projects`, `jobs`, `runs`, `runner_sessions`, `run_events`, and `artifacts`.\n- [x] T009 Create `apps/control-plane/src/lib/db/sqlite-provider.ts` with WAL setup, migrations, row/domain mapping, JSON serialization helpers, and provider method skeletons.\n- [x] T010 Create `apps/control-plane/src/lib/db/index.ts` with `getDb()` singleton using `MYSTRA_DB_PATH`.\n- [x] T011 [P] Add local module documentation in `apps/control-plane/src/lib/db/README.md` covering provider purpose, dialect boundary, JSON handling, and test commands.\n\n**Checkpoint**: Foundational provider contract exists; no route migration yet.\n\n---\n\n## Phase 3: User Story 1 - Create Project Configuration (Priority: P1)\n\n**Goal**: Operators can create and query Projects through durable SQLite-backed APIs.\n\n**Independent Test**: Create Project through provider/API, query by slug, close/reopen provider, query again.\n\n### Tests\n\n- [x] T012 [P] [US1] Add provider tests in `apps/control-plane/src/lib/db/sqlite-provider.test.ts` for create/get/list Project and duplicate slug conflict.\n- [x] T013 [P] [US1] Add API route tests or focused handler tests for `POST /api/projects`, `GET /api/projects`, and `GET /api/projects/{slug}`.\n\n### Implementation\n\n- [x] T014 [US1] Implement Project create/get/list methods in `apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T015 [US1] Create `apps/control-plane/app/api/projects/route.ts` for `GET` and `POST` using `getDb()`.\n- [x] T016 [US1] Create `apps/control-plane/app/api/projects/[slug]/route.ts` with `GET` support.\n- [x] T017 [US1] Normalize API errors in project routes with `{ error: { code, message } }`.\n\n**Checkpoint**: Project create/query works independently.\n\n---\n\n## Phase 4: User Story 2 - Submit Job by Project (Priority: P1)\n\n**Goal**: API and MCP callers submit jobs using `projectId`; jobs store resolved snapshots.\n\n**Independent Test**: Create Project, create Job with projectId, inspect snapshot and run.\n\n### Tests\n\n- [x] T018 [P] [US2] Add provider tests for `createJob` resolving Project defaults and allowing explicit overrides in `apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n- [x] T019 [P] [US2] Add provider tests for missing Project and archived Project rejection in `apps/control-plane/src/lib/db/sqlite-provider.test.ts`.\n- [x] T020 [P] [US2] Update API/MCP route tests for missing `projectId` rejection and valid project-based job creation.\n\n### Implementation\n\n- [x] T021 [US2] Implement `createJob`, `getJob`, `listJobs`, and `cancelJob` in `apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T022 [US2] Update `apps/control-plane/app/api/jobs/route.ts` to use `getDb().createJob()` and `getDb().listJobs()`.\n- [x] T023 [US2] Update `apps/control-plane/app/api/jobs/[id]/route.ts` to use `getDb().getJob()`.\n- [x] T024 [US2] Update `apps/control-plane/app/api/jobs/[id]/cancel/route.ts` to use `getDb().cancelJob()`.\n- [x] T025 [US2] Update `apps/control-plane/app/api/mcp/route.ts` so `mystra_create_job` requires `projectId`.\n- [x] T026 [US2] Add MCP tools `mystra_create_project`, `mystra_list_projects`, and `mystra_get_project` in `apps/control-plane/app/api/mcp/route.ts`.\n- [x] T027 [US2] Update `apps/control-plane/app/page.tsx` to use a Project dropdown and remove primary repo/baseBranch/agent inputs.\n\n**Checkpoint**: Project-based job creation works through API and MCP.\n\n---\n\n## Phase 5: User Story 4 - Persist Runtime State Across Restart (Priority: P1)\n\n**Goal**: Jobs, runs, runner sessions, events, results, and artifacts survive control-plane restart.\n\n**Independent Test**: Create records, close/reopen provider, query same snapshots.\n\n### Tests\n\n- [x] T028 [P] [US4] Add provider tests for runner registration, heartbeat, claim, event append, completion, cancellation, and reopen persistence.\n- [x] T029 [P] [US4] Add corrupt JSON tests for Project metadata/prewarmConfig, run result, runner capabilities, and run event data.\n\n### Implementation\n\n- [x] T030 [US4] Implement runner session methods in `apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T031 [US4] Implement claim, event append, completion, and cancellation state updates in `apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T032 [US4] Update `apps/control-plane/app/api/runner/register/route.ts` to use `getDb().registerRunner()`.\n- [x] T033 [US4] Update `apps/control-plane/app/api/runner/heartbeat/route.ts` to use `getDb().authenticateRunner()` and `getDb().heartbeatRunner()`.\n- [x] T034 [US4] Update `apps/control-plane/app/api/runner/jobs/[id]/events/route.ts` to use `getDb().appendRunEvent()`.\n- [x] T035 [US4] Update `apps/control-plane/app/api/runner/jobs/[id]/result/route.ts` to use `getDb().completeRun()`.\n- [x] T036 [US4] Update `apps/control-plane/app/api/runners/route.ts` to use `getDb().listRunners()`.\n\n**Checkpoint**: local-store is no longer needed for runtime state.\n\n---\n\n## Phase 6: User Story 5 - Runner Uses Project Image (Priority: P1)\n\n**Goal**: Runner claims include Project image and daemon uses it for Docker execution.\n\n**Independent Test**: Create Project with image, create job, claim run, verify claim project payload and runner Docker image selection.\n\n### Tests\n\n- [x] T037 [P] [US5] Add control-plane claim test verifying `project: { id, slug, image, prewarmConfig }`.\n- [x] T038 [P] [US5] Add runner-daemon test in `apps/runner-daemon/src/container-task.test.ts` or a new focused test verifying claimed Project image is used.\n\n### Implementation\n\n- [x] T039 [US5] Update `apps/control-plane/app/api/runner/jobs/route.ts` to return Project data from `getDb().claimNextRun()`.\n- [x] T040 [US5] Update `apps/runner-daemon/src/index.ts` `ClaimedJobResponse` type to include Project data.\n- [x] T041 [US5] Remove normal `MYSTRA_RUNNER_IMAGE` runtime image selection from `apps/runner-daemon/src/index.ts`.\n- [x] T042 [US5] Update Docker execution path in `apps/runner-daemon/src/index.ts` to use `claimedJob.project.image`.\n- [x] T043 [US5] Update `scripts/deploy-dev-machine.sh` to stop writing `MYSTRA_RUNNER_IMAGE`.\n- [x] T044 [US5] Update `scripts/doctor-local.sh` to make runner image checks project-aware or remove global image check.\n\n**Checkpoint**: runner uses Project image; global runner image is no longer the job runtime contract.\n\n---\n\n## Phase 7: User Story 3 - Archive Project (Priority: P2)\n\n**Goal**: Operators can archive and restore Projects without losing historical jobs.\n\n**Independent Test**: Archive Project, reject new jobs, query old jobs, restore Project.\n\n### Tests\n\n- [x] T045 [P] [US3] Add provider tests for archive, unarchive, and archived-project job rejection.\n- [x] T046 [P] [US3] Add API tests for `DELETE /api/projects/{slug}` and `PATCH /api/projects/{slug}`.\n\n### Implementation\n\n- [x] T047 [US3] Implement Project update/archive methods in `apps/control-plane/src/lib/db/sqlite-provider.ts`.\n- [x] T048 [US3] Add `PATCH` and `DELETE` handlers in `apps/control-plane/app/api/projects/[slug]/route.ts`.\n- [x] T049 [US3] Ensure `createJob` rejects archived Project with `400 PROJECT_ARCHIVED`.\n\n**Checkpoint**: Project lifecycle works without physical delete.\n\n---\n\n## Phase 8: User Story 6 - Preserve Prewarm as Provider Capability (Priority: P3)\n\n**Goal**: Store and expose prewarm config while keeping automatic prewarm out of bare Docker lifecycle.\n\n**Independent Test**: Store Project prewarmConfig, see it in Project query and runner claim; no automatic lifecycle prewarm occurs.\n\n### Tests\n\n- [x] T050 [P] [US6] Add provider/API tests verifying `prewarmConfig` round-trips as JSON.\n- [x] T051 [P] [US6] Add script smoke test or dry-run path for `prewarm-project.sh --project <slug>` if script test harness exists.\n\n### Implementation\n\n- [x] T052 [US6] Rename `scripts/prewarm-castrel-ai.sh` to `scripts/prewarm-project.sh`.\n- [x] T053 [US6] Update `scripts/prewarm-project.sh` to resolve Project by slug instead of using Castrel-specific paths.\n- [x] T054 [US6] Document in `scripts/README.md` or nearby script comments that automatic prewarm is a future sandbox provider capability.\n\n**Checkpoint**: prewarm config is durable and visible but not coupled to bare Docker.\n\n---\n\n## Phase 9: Script, Baseline Template, and Documentation Cleanup\n\n**Purpose**: Remove Castrel-specific primary paths and keep AI-built docs aligned.\n\n- [x] T055 Rename `scripts/castrel-job.mjs` to `scripts/submit-job.mjs`.\n- [x] T056 Update `scripts/submit-job.mjs` to require `--project <slug>`, fetch `/api/projects/{slug}`, and submit `projectId`.\n- [x] T057 Update root `package.json` from `job:castrel` to `job:submit`.\n- [x] T058 Move Castrel-oriented runner image context outside git.\n- [x] T059 Update `docs/RUNNER-DOCKER-MVP.md` references from global runner image to Project runtime image.\n- [x] T060 Update `docs/LOCAL-USAGE.md`, `docs/ARCHITECTURE.md`, and `README.md` for Project CRUD, SQLite provider, and `pnpm job:submit`.\n- [x] T061 Delete `apps/control-plane/src/lib/local-store.ts` after all imports are gone.\n- [x] T062 Run `rg \"local-store|castrel-job|MYSTRA_RUNNER_IMAGE\" apps packages scripts docs README.md` and resolve remaining stale primary-path references.\n\n---\n\n## Phase 10: Final Verification\n\n- [x] T063 Run `pnpm --filter @mystra/shared test`.\n- [x] T064 Run `pnpm --filter @mystra/control-plane test`.\n- [x] T065 Run `pnpm --filter @mystra/control-plane typecheck`.\n- [x] T066 Run `pnpm --filter @mystra/runner-daemon typecheck`.\n- [x] T067 Run `pnpm job:submit --project <slug> ...` against a local control plane and record result in [quickstart.md](./quickstart.md) or final notes.\n- [x] T068 Run broad `pnpm typecheck && pnpm test` if local runtime and native dependencies allow.\n\n---\n\n## Dependencies & Execution Order\n\n### Phase Dependencies\n\n- Phase 1 has no dependencies.\n- Phase 2 blocks every user story.\n- Phases 3 and 4 both depend on Phase 2; Phase 4 needs basic Project create/query from Phase 3 for end-to-end checks.\n- Phase 5 depends on Phase 4.\n- Phase 6 depends on Phase 5 because claim response comes from provider state.\n- Phase 7 depends on Phase 3 and affects Phase 4 validation.\n- Phase 8 depends on Phase 3 and Phase 6 for claim visibility.\n- Phase 9 depends on Phases 3-8.\n- Phase 10 depends on all desired implementation phases.\n\n### User Story Dependencies\n\n- **US1 Create Project Configuration**: First independently valuable slice.\n- **US2 Submit Job by Project**: Depends on US1 and foundational provider methods.\n- **US4 Persist Runtime State**: Uses provider foundation and completes local-store replacement.\n- **US5 Runner Uses Project Image**: Depends on claim path from US4.\n- **US3 Archive Project**: Can follow US1/US2; must be done before release.\n- **US6 Prewarm Config**: Lowest priority; stores config and updates manual script.\n\n### Parallel Opportunities\n\n- T012/T013 can run in parallel.\n- T018/T019/T020 can run in parallel.\n- T028/T029 can run in parallel.\n- T037/T038 can run in parallel.\n- T045/T046 can run in parallel.\n- Documentation cleanup tasks can run after contracts stabilize.\n\n## Implementation Strategy\n\n1. Complete Phase 1 and Phase 2.\n2. Ship US1 + US2 as the first working slice: Project CRUD and project-based job creation.\n3. Replace runtime state with SQLite provider and remove local-store.\n4. Update runner claim/image path.\n5. Add archive, prewarm config, scripts, and docs.\n6. Run final verification before implementation is declared complete.\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

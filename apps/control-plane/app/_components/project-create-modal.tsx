@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
 import { SettingGroup, SettingRow } from "./setting-row";
+import { githubConnectionAccountLogin } from "./github-connection-model";
 import { ShellIcon } from "./shell-icons";
 import { UiActionAnchor, UiButton, UiIconButton } from "./ui-actions";
 import { UiInput, UiSelect } from "./ui-fields";
@@ -120,8 +121,12 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(), slug: slug.trim(),
-          repository: { integration: "github", connectionId: activeConnection.id, identifier: selected.fullName },
+          name: name.trim(),
+          slug: slug.trim(),
+          repositoryConnectionId: activeConnection.id,
+          repositoryExternalId: selected.externalId,
+          repositoryBaseBranch: selected.defaultBranch,
+          metadata: { repositoryFullName: selected.fullName },
         }),
       });
       const payload = await response.json() as { project?: { slug: string } };
@@ -182,7 +187,7 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
                     {activeConnections.length > 1 ? <option value="">{zh ? "请选择连接" : "Select a connection"}</option> : null}
                     {activeConnections.map((connection) => (
                       <option key={connection.id} value={connection.id}>
-                        {connection.displayName ?? connection.account.login} · {connection.connectionType === "github-app" ? "GitHub App" : "PAT"}
+                        {connection.displayName ?? githubConnectionAccountLogin(connection)} · {connection.authMethod === "github-app" ? "GitHub App" : "PAT"}
                       </option>
                     ))}
                   </UiSelect>
@@ -221,8 +226,8 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
           ) : (
             <SettingGroup>
               <SettingRow
-                control={<span className="settingRowStatus">{activeConnection.connectionType === "github-app" ? "GitHub App" : "PAT"}</span>}
-                description={activeConnection.account.login}
+                control={<span className="settingRowStatus">{activeConnection.authMethod === "github-app" ? "GitHub App" : "PAT"}</span>}
+                description={githubConnectionAccountLogin(activeConnection)}
                 title={zh ? "连接" : "Connection"}
               />
               <SettingRow

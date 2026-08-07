@@ -6,10 +6,17 @@ Mystra uses Castrel-derived operational structure with the dark-tech visual syst
 
 ## Theme Model
 
-- `dark-tech` is the default explicit scheme and must not be re-derived through seed mixing.
+- Mystra is the deterministic server fallback and default theme family. It provides explicit light and dark variants under the shared `codeThemeId: "mystra"`; the dark variant preserves the former Graphite token values.
 - Selectable alternate themes may remain, but every component consumes semantic roles rather than assuming a concrete palette.
 - Theme changes cannot alter the meaning of navigation, status, focus, or emphasis.
 - Raw colors belong only in theme definitions, token aliases, approved assets, or external brand content.
+- Codex theme import/export uses `codex-theme-v1:{JSON}`. The prefix is the schema version; `codeThemeId` inside JSON is the canonical theme id. Never add a parallel `id` field or use `codex-theme-v1` as an id.
+- Resolve a selected theme by `(variant, codeThemeId)`: the same `codeThemeId` may provide light and dark variants. Mystra-only label, description, and explicit token extensions stay outside the Codex v1 payload.
+- The bundled Codex catalog must come from a named local Codex app build, preserve Codex family ids and supported variants, and record the source version beside the data. Do not substitute a community-maintained or remembered theme list.
+- Store Appearance as one versioned browser preference object, not scattered keys. Normalize damaged JSON, unknown enum values, non-finite or out-of-range numbers, and light/dark scheme mismatches field by field.
+- Resolve active appearance in this order: mode plus `prefers-color-scheme`, matching light/dark scheme, base theme definition, then detail overrides. Keep one media listener and remove it on cleanup.
+- Border mode, code surface, contrast, fonts, and sizes emit semantic CSS variables. Settings controls do not calculate palettes or manipulate document styles directly.
+- Until a persistence feature explicitly owns it, Appearance uses local browser storage only. No API, RDB, Team, or account contract is implied.
 
 ## Dark-Tech Palette
 
@@ -48,8 +55,11 @@ A token family is complete only when it defines relevant default, hover, active/
 
 ## Typography
 
-- Use `Fira Code`, `Maple Mono`, then platform programming-monospace fallbacks throughout.
-- Every selectable preset keeps the same monospaced UI and code stacks. Theme selection changes semantic color roles, never typography genre.
+- Mystra light and dark use three internal font roles: UI=`Arial`, content=`Georgia`, code=`Courier New`.
+- Store only one primary family per role. CSS appends browser/system fallbacks by role: UI → `system-ui, sans-serif`; content → `ui-serif, serif`; code → `ui-monospace, monospace`. Do not persist or hand-author platform-specific family chains.
+- `codex-theme-v1` remains strict and exposes only `theme.fonts.ui` and `theme.fonts.code`. The adapter maps the imported UI primary family to both Mystra UI and content roles, and maps the imported code primary family to code. Never add `content` to the v1 JSON.
+- When a Codex font contains a family list, normalize only its first primary family for Mystra runtime use; exact parser/serializer round-trip retains the original external payload.
+- Legacy saved Graphite stacks migrate to the new Mystra role defaults. A deliberately saved single family such as `Fira Code` remains valid.
 - Default UI, sidebar labels, table cells, and compact controls: 12px.
 - Metadata, badges, section annotations: 10–11px.
 - Compact page/section headings: 14px unless the page family requires a stronger title.
@@ -96,3 +106,5 @@ A token family is complete only when it defines relevant default, hover, active/
 - Persisted theme selection is applied by an inline bootstrap before React hydration and before the first visible paint.
 - Server defaults remain a deterministic fallback only. Hydration must not overwrite a saved preset with the default while preferences are still loading.
 - The bootstrap and runtime theme application consume the same preset definitions and CSS variable builder; divergent hand-authored token maps are forbidden.
+- A legacy single-theme key may be migrated once, but current writes use only the versioned Appearance object. Storage failure falls back to deterministic CSS and keeps the current tab usable.
+- Legacy synthetic preset ids may be accepted only at the parse/bootstrap migration boundary. `graphite-signal` migrates to `dark:mystra`; retired custom presets must map to a valid canonical replacement. Normalized preferences, Settings option values, and DOM datasets emit `codeThemeId`.

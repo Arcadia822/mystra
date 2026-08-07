@@ -2,7 +2,9 @@
 
 **Feature Branch**: `041-github-integration-connections`
 **Created**: 2026-08-06
-**Status**: Architecture revision approved for planning
+**Status**: RDB envelope architecture approved for implementation
+**Persistence Amendment (2026-08-06)**: The owner approved removing the node-local encrypted-file backend. RDB now stores envelope-encrypted ciphertext while the KEK remains outside RDB; `credentialRef` still identifies an immutable secret version and PAT plaintext remains confined to `SecretProvider`.
+**Persistence Supersession Notice (2026-08-06)**: Multi-connection behavior, exact Project binding, deployment policy and SecretProvider rules remain authoritative. Repository-specific top-level Connection columns and Project execution defaults/full Repository snapshot are superseded by `040-prisma-rdb`: Connection capabilities use one validated JSON field and Project keeps provider-stable external ID. Task source, objective and Issue/Repository snapshots are removed, while `dispatchKey` becomes `issueDispatchKey`; current Issue/Repo Info cache is deferred to a later Integration specification. Session persistence and Session credential-delivery projections are not part of 040's three-table schema and require later redesign.
 **Input**: 在 Settings → Integrations 增加 GitHub Integration Detail；支持多连接和显式 PAT；Project 固定绑定所选连接；Mystra GitHub App 仅作为 hosted capability，self-hosted 不支持但开源代码可以保留。
 
 ## 用户场景与验收
@@ -124,9 +126,9 @@
 - **FR-007**：GitHub App OAuth user token MUST 仅用于验证安装访问权，不得持久化或用于仓库交付。
 - **FR-008**：Hosted MUST 提供显式的 `GitHub App` 和 `Personal access token` 添加方式；stock self-hosted 的公开连接方式列表与 UI MUST 只提供 PAT，不呈现 GitHub App 方法；两者不得互为静默 fallback。
 - **FR-009**：系统 MUST 在保存 PAT 前验证 token 身份和仓库可见性，并验证 GitHub 可无副作用观测的仓库操作能力；无法安全探测的写权限必须明确标记为未验证，不得伪造通过状态。
-- **FR-010**：PAT 明文 MUST 只存在于受保护的秘密存储与短期运行时注入中，不得进入关系数据库、客户端状态、公共 API 响应、URL、日志或验收证据。
-- **FR-011**：关系数据库 MUST 只保存连接业务元数据与不透明 secret reference，不得保存可用于 GitHub API 的 PAT 明文。
-- **FR-012**：PAT token replacement MUST 先验证并安全保存新凭据，再切换 connection reference；失败时旧凭据保持有效。
+- **FR-010**：PAT 明文 MUST 只进入 `SecretProvider` 与短期运行时注入，不得进入关系数据库、客户端状态、公共 API 响应、URL、日志、事件或验收证据；RDB 只允许保存无法直接用于 GitHub API 的 authenticated encryption envelope。
+- **FR-011**：关系数据库 MUST 区分连接业务元数据、opaque `credentialRef` 与 envelope 密文；每条 envelope 使用随机 DEK 加密，DEK 再由数据库外的 KEK 包装，KEK 不得进入 RDB。
+- **FR-012**：PAT token replacement MUST 先验证新凭据，再以 immutable credential version 写入新 envelope，并在同一 RDB transaction 切换 connection reference；失败时旧 reference 与旧凭据保持有效。
 - **FR-013**：系统 MUST 支持删除未被 Project 引用的连接，并拒绝删除仍被任何 Project 引用的连接。
 - **FR-014**：连接状态变化 MUST 局限于目标连接，不得修改同一 Integration 的其他连接。
 - **FR-015**：Add Project Modal MUST 使用连接选择器；只有一条可用连接时可默认选中，多条时必须显式确认。
@@ -148,6 +150,8 @@
 - **FR-031**：Hosted `IntegrationConnection` MUST 归属一个 Team；同一 App registration 的 installation 默认不得同时绑定多个 Team，除非未来规格引入明确的跨 Team repository partition 合同。
 - **FR-032**：部署不支持某已有 connection 时，系统 MUST 保留其非秘密元数据以供检查，但其派生 availability 必须阻止 discovery、Project 创建和 Runner credential 签发。
 - **FR-033**：部署 capability 判断 MUST 位于 Integration 管理和 exact-connection credential resolution 边界，不得让 `IntegrationRegistry` 按部署返回不同的核心 provider graph。
+- **FR-034**：Self-hosted `SecretProvider` MUST 通过共享 `RdbProvider` 持久化 envelope，不得依赖节点本地 secret 文件、`MYSTRA_SECRET_STORE_PATH` 或 sticky-session/node affinity。
+- **FR-035**：SQLite、PostgreSQL 与 Supabase-backed PostgreSQL MUST 对 `secret_envelopes` 提供相同的 Prisma-backed CRUD 与 create/replace/delete transaction 行为；Prisma 生成类型不得越过 DB 模块。
 
 ### Key Entities
 
@@ -200,7 +204,7 @@
 - **SC-003**：使用两条不同连接创建的 Project，其仓库发现和交付验证均 100% 使用各自绑定连接，0 次跨连接 fallback。
 - **SC-004**：重复授权同一 App installation 产生 1 条稳定连接；添加另一个 installation 后原连接仍保持可用。
 - **SC-005**：无效 PAT、失败的 PAT replacement、被取消的 OAuth 都不会破坏已有可用连接。
-- **SC-006**：关系数据库、公共 API 响应、UI DOM、日志和测试证据中的 PAT 明文泄露计数为 0。
+- **SC-006**：关系数据库、公共 API 响应、UI DOM、日志、事件和测试证据中的 PAT 明文泄露计数为 0；RDB envelope 在正确 KEK 缺失、错误或 auth tag 被篡改时均无法解密。
 - **SC-007**：现有 039 Project 在 schema 升级后保持相同 `repositoryConnectionId`，无需重新选择仓库。
 - **SC-008**：GitHub Detail 与 Add Project 在键盘操作和 320 / 768 / 1024 / 1440px 视口下完成主要流程，无不可达操作或页面级水平滚动。
 - **SC-009**：self-hosted profile 下 100% 的 GitHub App 管理与凭据入口在任何 GitHub redirect/API 调用前返回结构化 `hosted-only`；仅配置 App secrets 不能改变结果。

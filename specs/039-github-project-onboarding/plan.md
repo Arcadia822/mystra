@@ -2,6 +2,7 @@
 
 **Branch**: `039-github-project-onboarding` | **Date**: 2026-08-05 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/039-github-project-onboarding/spec.md`
+**Supersession Notice (2026-08-06)**: `040-prisma-rdb` supersedes the persisted Project Repository snapshot below with a stable connection + external-ID binding. Task source, objective and Issue/Repository snapshots are removed, and `dispatchKey` becomes `issueDispatchKey`; current external-information cache is deferred. Session persistence and Session-specific delivery flows below are historical and not part of 040's three-table schema.
 
 ## Summary
 

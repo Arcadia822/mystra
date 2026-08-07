@@ -5,6 +5,11 @@ import { integrationErrorResponse } from "@/lib/integrations/errors";
 import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
 import { getDb } from "@/lib/db";
 import { IntegrationFailure } from "@/lib/integrations/errors";
+import {
+  authorizationErrorResponse,
+  requireHumanSession,
+  requireTeamPermission,
+} from "../../../_auth";
 
 export async function GET(
   request: Request,
@@ -16,10 +21,13 @@ export async function GET(
     const limit = url.searchParams.get("limit");
     const cursor = url.searchParams.get("cursor");
     const requestedConnectionId = url.searchParams.get("connectionId");
-    const db = getDb();
+    const db = await getDb();
+    const subject = await requireHumanSession(db, request, "repository-list");
+    const active = await requireTeamPermission(db, subject, "team.resource.access");
     const activeConnections = requestedConnectionId
       ? []
-      : db.listIntegrationConnections({ integration }).filter((candidate) => candidate.status === "active");
+      : (await db.listIntegrationConnections({ integration, teamId: active.team.id }))
+        .filter((candidate) => candidate.status === "active");
     if (!requestedConnectionId && activeConnections.length > 1) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
@@ -27,9 +35,9 @@ export async function GET(
       });
     }
     const connection = requestedConnectionId
-      ? db.getIntegrationConnection(requestedConnectionId)
+      ? await db.getIntegrationConnection(requestedConnectionId)
       : activeConnections[0];
-    if (!connection) {
+    if (!connection || connection.teamId !== active.team.id) {
       throw new IntegrationFailure({
         code: "INTEGRATION_CONNECTION_NOT_FOUND",
         message: "Repository connection is not available",
@@ -52,6 +60,11 @@ export async function GET(
     response.headers.set("cache-control", "no-store");
     return response;
   } catch (error) {
+    try {
+      return authorizationErrorResponse(error);
+    } catch {
+      // Preserve the Integration error contract for provider failures.
+    }
     return integrationErrorResponse(error);
   }
 }

@@ -1,10 +1,14 @@
 :root {
   color-scheme: dark;
-  --font-sans: "Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
-  --font-chat: "Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
-  --font-mono: "Fira Code", "Maple Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --font-ui: Arial, system-ui, sans-serif;
+  --font-content: Arial, system-ui, sans-serif;
+  --font-code: "Courier New", ui-monospace, monospace;
+  --font-sans: var(--font-ui);
+  --font-chat: var(--font-content);
+  --font-mono: var(--font-code);
   --font-size-ui: 12px;
-  --font-size-chat: 12px;
+  --font-size-content: 12px;
+  --font-size-chat: var(--font-size-content);
   --background: #111513;
   --surface1: #181C1A;
   --surface2: #202522;
@@ -73,12 +77,13 @@
   --layout-gap: 12px;
   --stack-gap: 8px;
   --tight-gap: 4px;
-  --composer-inset-top: 9px;
-  --composer-inset-right: 7px;
-  --composer-inset-bottom: 7px;
-  --composer-inset-left: 9px;
+  --composer-inset-top: 8px;
+  --composer-inset-right: 8px;
+  --composer-inset-bottom: 8px;
+  --composer-inset-left: 8px;
   --sidebar-width-expanded: 300px;
-  --shell-header-height: 46px;
+  --right-panel-width: clamp(240px, 22vw, 320px);
+  --shell-header-height: 42px;
   --radius-compact: 2px;
   --radius-control: 4px;
   --radius-panel: 6px;
@@ -120,6 +125,20 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+/*
+ * Every native scroll container uses this single theme-aware scrollbar rule.
+ * Standard properties preserve each platform's overlay scrollbar behavior.
+ * The thumb stays hidden while idle, then follows the active theme border token
+ * on hover, keyboard focus, or while ScrollbarActivity marks active scrolling.
+ */
+*:hover,
+*:focus-within,
+[data-scrolling="true"] {
+  scrollbar-color: var(--border) transparent;
 }
 
 html,
@@ -135,7 +154,7 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text1);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--font-size-ui);
   line-height: 1.45;
 }
@@ -295,6 +314,7 @@ textarea {
 .uiDropdownTrigger {
   max-width: 240px;
   justify-content: flex-start;
+  background: var(--color-surface-panel);
   color: var(--color-text-primary);
 }
 
@@ -339,7 +359,7 @@ textarea {
   overflow-y: auto;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-panel);
-  background: var(--color-surface-popup);
+  background: var(--color-surface-panel);
   color: var(--color-text-primary);
 }
 
@@ -530,6 +550,10 @@ dd {
   --sidebar-width: 0px;
 }
 
+.appShell.hasRightPanel {
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--right-panel-width);
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -545,8 +569,16 @@ dd {
   transition: opacity 360ms ease, transform 560ms cubic-bezier(0.22, 1, 0.36, 1), border-color 360ms ease;
 }
 
+.sidebarContent {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
 .sidebarHeader,
-.shellHeader {
+.shellHeader,
+.rightPanelHeader {
   height: var(--header-height);
   display: flex;
   align-items: center;
@@ -590,7 +622,6 @@ dd {
 .sidebarNav {
   display: grid;
   gap: var(--tight-gap);
-  margin-top: var(--space-1);
 }
 
 .navItem {
@@ -666,7 +697,7 @@ dd {
   border-radius: var(--radius-sm);
   background: var(--surface3);
   color: var(--text2);
-  font: 600 10px/1 var(--font-sans);
+  font: 600 10px/1 var(--font-ui);
   text-align: center;
 }
 
@@ -771,8 +802,6 @@ dd {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: var(--space-2);
-  scrollbar-color: var(--border-visible) transparent;
-  scrollbar-width: thin;
 }
 
 .taskProjectGroup + .taskProjectGroup {
@@ -851,16 +880,55 @@ a.taskProjectHeader:hover,
 
 .shellMain {
   min-width: 0;
+  padding: 0 var(--space-2) var(--space-2);
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+}
+
+.shellMainContent {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .shellHeader {
   gap: var(--layout-gap);
-  padding: 0 var(--page-inset-inline);
+  padding: 0 var(--space-2);
 }
 
 .shellHeader strong {
   font-size: 12px;
   font-weight: 600;
+}
+
+.rightPanel {
+  min-width: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+  border-left: 1px solid var(--border);
+  background: var(--surface1);
+}
+
+.rightPanelHeader {
+  padding: 0 var(--page-inset-inline);
+}
+
+.rightPanelHeader strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rightPanelContent {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--page-inset-top) var(--page-inset-inline) var(--page-inset-bottom);
+  overflow-y: auto;
 }
 
 .collapsedHeaderInset {
@@ -910,7 +978,8 @@ a.taskProjectHeader:hover,
 .pageContent {
   display: grid;
   gap: var(--layout-gap);
-  padding: var(--page-inset-top) var(--page-inset-inline) var(--page-inset-bottom);
+  min-height: 100%;
+  padding: 0;
 }
 
 .pageToolbar,
@@ -983,7 +1052,7 @@ time {
 }
 
 .metric strong {
-  font: 650 24px/1.1 var(--font-mono);
+  font: 650 24px/1.1 var(--font-code);
 }
 
 .dashboardGrid {
@@ -1306,12 +1375,13 @@ button:disabled {
   overflow: hidden;
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-panel);
-  background: var(--background);
+  background: var(--color-surface-popup);
   color: var(--text1);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
 }
 
 .settingsModal::backdrop {
-  background: var(--color-backdrop);
+  background: transparent;
 }
 
 body:has(.settingsModal[open]) {
@@ -1324,6 +1394,9 @@ body:has(.settingsModal[open]) {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface-popup);
 }
 
 .settingsNavigation {
@@ -1376,13 +1449,13 @@ body:has(.settingsModal[open]) {
 }
 
 .settingsSearch {
-  min-height: var(--control-height-header);
+  min-height: var(--row-height-header);
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   gap: var(--space-2);
   align-items: center;
   margin-bottom: var(--space-3);
-  padding: var(--space-1) var(--space-2);
+  padding: 0 var(--space-2);
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-panel);
   color: var(--text3);
@@ -1395,8 +1468,8 @@ body:has(.settingsModal[open]) {
 
 .settingsSearch input {
   min-width: 0;
-  min-height: 20px;
-  padding: var(--space-0);
+  min-height: var(--control-height-header);
+  padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
@@ -1413,12 +1486,12 @@ body:has(.settingsModal[open]) {
 }
 
 .settingsNavItem {
-  min-height: var(--row-height-compact);
+  height: var(--row-height-compact);
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   gap: var(--space-2);
   align-items: center;
-  padding: var(--space-1) var(--space-2);
+  padding: 0 var(--space-2);
   border: 0;
   border-radius: var(--radius-panel);
   background: transparent;
@@ -1465,7 +1538,6 @@ body:has(.settingsModal[open]) {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--content-inset);
-  border-bottom: 1px solid var(--border);
 }
 
 .settingsContentHeader h3 {
@@ -1518,6 +1590,28 @@ body:has(.settingsModal[open]) {
   gap: var(--space-4);
   padding: var(--modal-inset);
   overflow: auto;
+}
+
+.scrollableSurface {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.settingsModalPage {
+  width: 100%;
+  min-height: 0;
+  padding: var(--space-0);
+}
+
+.settingsTabForm {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.settingsTabActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .settingGroup {
@@ -1634,9 +1728,7 @@ body:has(.settingsModal[open]) {
   width: 240px;
 }
 
-.appearanceDropdown .uiDropdownTrigger {
-  width: 100%;
-}
+.appearanceDropdown .uiDropdownTrigger { width: 100%; height: 28px; }
 
 .appearanceSettings {
   gap: var(--space-6);
@@ -1649,13 +1741,13 @@ body:has(.settingsModal[open]) {
   flex-wrap: wrap;
   gap: var(--space-half);
   padding: var(--space-half);
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-panel);
-  background: var(--surface2);
+  background: transparent;
 }
 
 .uiSegmentedOption[data-active] {
-  border-color: var(--border-visible);
+  border-color: transparent;
   background: var(--surface3);
   color: var(--text1);
 }
@@ -1733,7 +1825,7 @@ body:has(.settingsModal[open]) {
 
 .appearanceThemePreview strong {
   color: var(--text1);
-  font: 600 var(--space-6)/1 var(--font-sans);
+  font: 600 var(--space-6)/1 var(--font-ui);
 }
 
 .appearanceThemePreview code {
@@ -1743,12 +1835,12 @@ body:has(.settingsModal[open]) {
   border-radius: var(--radius-control);
   background: var(--code-bg);
   color: var(--code-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
 }
 
 .themeInlineSwatch {
-  width: var(--control-height-header);
-  height: var(--control-height-header);
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   flex: none;
@@ -1756,7 +1848,7 @@ body:has(.settingsModal[open]) {
   border-radius: var(--radius-control);
   background: var(--swatch-surface);
   color: var(--swatch-ink);
-  font: 600 10px/1 var(--font-sans);
+  font: 600 10px/1 var(--font-ui);
 }
 
 .settingsPanel {
@@ -1843,7 +1935,7 @@ body:has(.settingsModal[open]) {
   place-items: center;
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-control);
-  font: 600 10px/1 var(--font-sans);
+  font: 600 10px/1 var(--font-ui);
 }
 
 .settingsChoiceCopy strong,
@@ -1975,7 +2067,7 @@ select {
   color: var(--text1);
 }
 
-.projectCreateModal::backdrop { background: var(--color-backdrop); }
+.projectCreateModal::backdrop { background: transparent; }
 
 .projectCreateModalSurface {
   display: grid;
@@ -1984,6 +2076,7 @@ select {
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-elevated);
   background: var(--surface1);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
 }
 
 .projectCreateModalHeader {
@@ -2038,7 +2131,7 @@ select {
 
 .integrationCapabilityList span {
   color: var(--text3);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: 11px;
 }
 
@@ -2077,9 +2170,10 @@ select {
   padding: var(--space-0);
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-panel);
-  background: transparent;
+  background: var(--color-surface-popup);
   color: var(--text1);
   overflow: hidden;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
 }
 
 body:has(.searchDialog[open]) {
@@ -2087,7 +2181,7 @@ body:has(.searchDialog[open]) {
 }
 
 .searchDialog::backdrop {
-  background: var(--color-backdrop);
+  background: transparent;
 }
 
 .searchDialogPanel {
@@ -2096,7 +2190,7 @@ body:has(.searchDialog[open]) {
   grid-template-rows: var(--space-12) minmax(0, 1fr);
   overflow: hidden;
   border: 0;
-  border-radius: inherit;
+  border-radius: 0;
   background: var(--surface1);
 }
 
@@ -2393,8 +2487,9 @@ body:has(.searchDialog[open]) {
   min-height: calc(100vh - var(--header-height));
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-direction: column;
-  padding: 6vh var(--page-inset-inline) var(--space-12);
+  padding: var(--space-12) var(--page-inset-inline);
 }
 
 .newTaskLogo {
@@ -2408,8 +2503,8 @@ body:has(.searchDialog[open]) {
   height: var(--space-12);
 }
 
-.newTaskComposer {
-  width: min(896px, calc(100% - 32px));
+/* AiComposer base — reusable prompt-input card */
+.aiComposer {
   display: flex;
   flex-direction: column;
   gap: var(--tight-gap);
@@ -2420,15 +2515,11 @@ body:has(.searchDialog[open]) {
   background: var(--surface2);
 }
 
-.newTaskInputLabel {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+.aiComposer:focus-within {
+  border-color: var(--border-visible);
 }
 
-.newTaskComposer textarea {
+.aiComposer .uiTextarea {
   width: 100%;
   min-height: 48px;
   max-height: 160px;
@@ -2440,63 +2531,50 @@ body:has(.searchDialog[open]) {
   outline: 0;
   background: transparent;
   color: var(--text1);
-  font: 400 var(--font-size-chat)/1.333333 var(--font-chat);
+  font: 400 var(--font-size-content)/1.333333 var(--font-content);
 }
 
-.newTaskComposer textarea::placeholder {
+.aiComposer .uiTextarea::placeholder {
   color: var(--text3);
 }
 
-.newTaskComposer:focus-within {
-  border-color: var(--border-visible);
-}
-
-.newTaskComposerFooter {
-  min-height: var(--control-height-default);
+.aiComposerFooter {
+  min-height: var(--control-height-compact);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-0) var(--space-half) var(--space-half) var(--space-0);
   border: 0;
   background: transparent;
 }
 
-.composerTools,
-.composerActions {
+.aiComposerTools,
+.aiComposerActions {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--tight-gap);
-}
-
-.composerTools {
   gap: var(--space-control-gap);
 }
 
-.composerIconButton,
+/* Send button: round, accent-filled, slightly larger than sibling icon buttons (compact=24px → this=32px) */
 .composerSendButton {
   width: var(--control-height-default);
   height: var(--control-height-default);
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  padding: var(--space-0);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text2);
-}
-
-.composerIconButton:hover:not(:disabled) {
-  background: var(--surface3);
-  color: var(--text1);
-}
-
-.composerSendButton {
-  background: var(--accent);
-  color: var(--accent-contrast);
   border-radius: var(--radius-round);
+  margin-block: calc((var(--control-height-default) - var(--control-height-compact)) / -2);
+}
+
+/* newTask-specific composer width */
+.newTaskComposer {
+  width: min(896px, calc(100% - 32px));
+}
+
+.newTaskInputLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 
 .composerSendButton[data-loading="true"] svg {
@@ -2593,11 +2671,14 @@ body:has(.searchDialog[open]) {
 }
 
 .castrelTable {
+  height: 100%;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--background);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .castrelTableToolbar {
@@ -2665,6 +2746,8 @@ body:has(.searchDialog[open]) {
 
 .castrelTableViewport {
   min-width: 0;
+  min-height: 0;
+  display: grid;
   overflow-x: auto;
 }
 
@@ -2719,7 +2802,7 @@ body:has(.searchDialog[open]) {
 }
 
 .castrelTableEmpty {
-  min-height: 192px;
+  min-height: 100%;
   display: grid;
   place-content: center;
   gap: var(--space-2);
@@ -2744,8 +2827,9 @@ body:has(.searchDialog[open]) {
 }
 
 .inboxPage {
-  min-height: calc(100vh - var(--header-height));
-  padding: var(--page-inset-top) var(--page-inset-inline) var(--page-inset-bottom);
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .inboxPage > .statePanel {
@@ -2753,7 +2837,8 @@ body:has(.searchDialog[open]) {
 }
 
 .inboxMasterDetail {
-  min-height: calc(100vh - var(--header-height) - var(--page-inset-top) - var(--page-inset-bottom));
+  min-height: 100%;
+  height: 100%;
   display: grid;
   grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
   overflow: hidden;
@@ -2850,8 +2935,6 @@ body:has(.searchDialog[open]) {
 .inboxCardList,
 .inboxDetailPane {
   overflow-y: auto;
-  scrollbar-color: var(--border-visible) transparent;
-  scrollbar-width: thin;
 }
 
 .inboxCardList {
@@ -3089,7 +3172,7 @@ body:has(.searchDialog[open]) {
 }
 
 .mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: 12px;
 }
 
@@ -3136,8 +3219,17 @@ body:has(.searchDialog[open]) {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .appShell.hasRightPanel,
+  .appShell.sidebarCollapsed.hasRightPanel {
+    grid-template-columns: minmax(0, 1fr) var(--right-panel-width);
+  }
+
   .shellMain {
     grid-column: 1;
+  }
+
+  .rightPanel {
+    grid-column: 2;
   }
 
   .collapsedHeaderInset {
@@ -3215,6 +3307,16 @@ body:has(.searchDialog[open]) {
 }
 
 @media (max-width: 700px) {
+  .appShell.hasRightPanel,
+  .appShell.sidebarCollapsed.hasRightPanel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rightPanel {
+    grid-column: 1;
+    min-height: auto;
+  }
+
   .searchDialog {
     width: calc(100vw - 16px);
     height: calc(100dvh - 16px);
@@ -3333,11 +3435,7 @@ body:has(.searchDialog[open]) {
   }
 
   .pageContent {
-    padding-inline: var(--page-inset-inline-narrow);
-  }
-
-  .inboxPage {
-    padding: var(--page-inset-top) var(--page-inset-inline-narrow) var(--page-inset-bottom);
+    padding: 0;
   }
 
   .inboxMasterDetail {
@@ -3383,7 +3481,7 @@ body:has(.searchDialog[open]) {
     padding: 6vh 0 var(--space-8);
   }
 
-  .composerTools {
+  .aiComposerTools {
     overflow-x: auto;
   }
 
@@ -3520,6 +3618,224 @@ body:has(.searchDialog[open]) {
     min-height: var(--touch-target);
     height: auto;
   }
+}
+
+.accessGate,
+.authPage,
+.passwordGate {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--page-inset-inline);
+}
+
+.accessGate {
+  color: var(--text2);
+}
+
+.authPanel,
+.settingsCard {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+}
+
+.authPanel {
+  width: min(100%, 420px);
+  padding: var(--space-6);
+}
+
+.authPanel h1,
+.settingsPage h1,
+.settingsCard h2,
+.settingsForm h1 {
+  margin: 0;
+  color: var(--text1);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.authEyebrow,
+.authDescription,
+.settingsPage > header > p,
+.settingsForm > p,
+.settingsCard > p,
+.readOnlyState {
+  margin: 0;
+  color: var(--text2);
+}
+
+.authEyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.authPanel label,
+.settingsForm label,
+.inlineForm label {
+  display: grid;
+  gap: var(--tight-gap);
+}
+
+.authPanel label > span,
+.settingsForm label > span,
+.inlineForm label > span {
+  color: var(--text2);
+}
+
+.authPanel .uiFieldControl,
+.settingsForm .uiFieldControl,
+.inlineForm .uiFieldControl {
+  width: 100%;
+}
+
+.authPanel .uiAction[data-block] {
+  justify-content: center;
+}
+
+.authAlternate {
+  margin: 0;
+  color: var(--text3);
+}
+
+.authAlternate a,
+.settingsLink {
+  color: var(--accent);
+}
+
+.settingsPage {
+  width: min(920px, 100%);
+  display: grid;
+  gap: var(--layout-gap);
+  padding: var(--page-inset-top) var(--page-inset-inline) var(--page-inset-bottom);
+}
+
+.settingsPage > header {
+  display: grid;
+  gap: var(--tight-gap);
+}
+
+.settingsCard {
+  padding: var(--panel-inset);
+}
+
+.settingsForm {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.inlineForm {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.inlineForm label {
+  width: min(100%, 320px);
+}
+
+.sessionList,
+.teamList,
+.memberList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sessionList li,
+.teamList li,
+.memberList li {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.sessionList span,
+.teamList li > span,
+.memberList li > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--tight-gap);
+}
+
+.teamList small,
+.memberList small {
+  color: var(--text3);
+}
+
+.confirmDialog {
+  width: min(400px, calc(100vw - var(--space-8)));
+  display: none;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+  color: var(--text1);
+}
+
+.confirmDialog[open] { display: grid; }
+.confirmDialog::backdrop { background: var(--color-backdrop); }
+.confirmDialog h2,
+.confirmDialog p { margin: 0; }
+.confirmDialog p { color: var(--text2); }
+.confirmDialog > div { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+.shellHeaderControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.teamSwitcher { position: relative; }
+.teamSwitcher summary {
+  max-width: 180px;
+  min-height: var(--control-height-compact);
+  overflow: hidden;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text2);
+  cursor: pointer;
+  line-height: var(--control-height-compact);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.teamSwitcherMenu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  width: min(280px, calc(100vw - var(--space-6)));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-panel);
+  background: var(--surface1);
+}
+.teamSwitcherMenu small { margin-left: auto; color: var(--text3); text-transform: capitalize; }
+.teamSwitcherMenu > a { padding: var(--space-2); color: var(--accent); }
+
+@media (max-width: 640px) {
+  .settingsPage { padding-inline: var(--page-inset-inline-narrow); }
+  .authPanel { padding: var(--space-4); }
+  .memberList li { align-items: flex-start; flex-wrap: wrap; }
+  .shellHeaderControls { gap: var(--space-1); }
+  .teamSwitcher summary { max-width: 112px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -3,6 +3,7 @@
 **Feature Branch**: `024-agent-runtime-sdk`  
 **Created**: 2026-05-15  
 **Status**: Cancelled; retained for historical context  
+**Deprecation Notice (2026-08-06)**: This entire standalone SDK proposal is cancelled. It MUST NOT be scheduled, implemented, or treated as a current package/API commitment. The canonical management API, local Mystra skills, and thin MCP adapter remain the intended boundary. Task remains current intent terminology, while `040-prisma-rdb` excludes Session persistence pending a separate redesign; do not derive a Session API from `038-task-session-model` or this document.
 **Dependency Note**: Build after `014-management-api-truth`. This feature defines the default typed agent runtime layer for OpenClaw and similar coordinators. It should consume the canonical management API rather than creating a competing surface.
 **Input**: User description: "Mystra should expose a typed SDK for coordinating agents. The preferred model is skill as policy, API as truth, SDK as the agent runtime surface, and MCP as a thin adapter."
 **Cancellation Note**: This feature is no longer planned as a standalone MVP slice. The desired agent-facing behavior is being carried by the management API, local skills, MCP surface, and adjacent runtime integration work, so this spec is preserved only as a record of the superseded direction.

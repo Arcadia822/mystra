@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>018-coordination-run-summaries</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"018-coordination-run-summaries","title":"018-coordination-run-summaries","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:50:30.542Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: Coordination Run Summaries\n\n**Feature Branch**: `018-coordination-run-summaries`  \n**Created**: 2026-05-15  \n**Status**: Superseded; retained for historical context\n**Supersession Notice (2026-08-06)**: This Spec's `Run`-based object and API contract is superseded. Its proposed compact Session summary is also explicitly deleted by `040-prisma-rdb`; Session persistence itself is deferred for a separate redesign. This document MUST NOT be used to reintroduce a Run resource, Session summary, public event/activity timeline, Session table, or database Artifact entity.\n**Dependency Note**: Build after `014-management-api-truth`. This feature defines the coordination-facing summary layer that OpenClaw and similar agents can relay to Lark without depending on raw logs or custom per-run prompt archaeology.\n**Input**: User description: \"Mystra should provide milestone-friendly run summaries, clear status enums, and failure reasons so a coordinating agent can report progress and outcomes back to Lark.\"\n\n## User Scenarios & Testing *(mandatory)*\n\n### User Story 1 - Coordinating Agent Posts Stable Milestone Updates (Priority: P1)\n\nAs the coordinating agent, I want Mystra to expose stable milestone-friendly run state, so that I can post progress updates back to Lark without inventing my own interpretation on every run.\n\n**Why this priority**: Coordination is part of the actual user journey. If the state model is too raw, OpenClaw has to reconstruct meaning from low-level facts every time.\n\n**Independent Test**: Submit work, observe the run during its lifecycle, and confirm the coordinating agent can convert the returned state into the planned milestone updates without reading raw logs.\n\n**Acceptance Scenarios**:\n\n1. **Given** a run has been accepted, **When** the coordinating agent inspects its state, **Then** it can identify a stable milestone that is suitable for reporting.\n2. **Given** a run progresses from submission to terminal state, **When** the coordinating agent polls Mystra, **Then** the returned summary remains stable enough to support milestone-style updates rather than ad hoc reinterpretation.\n\n---\n\n### User Story 2 - Coordinating Agent Receives Clear Failure Reasons And Recovery Hints (Priority: P1)\n\nAs the coordinating agent, I want failed or blocked work to include clear reason categories and recovery-oriented summary data, so that I can explain what went wrong and decide what to do next.\n\n**Why this priority**: Failure reporting is where rough orchestration systems become unusable. Coordination needs compact, reliable explanation instead of raw stderr fragments.\n\n**Independent Test**: Inspect a failed or blocked run and verify the returned summary identifies what failed and what kind of action is needed next.\n\n**Acceptance Scenarios**:\n\n1. **Given** a run reaches a failed terminal state, **When** the coordinating agent requests the final summary, **Then** the returned data clearly identifies the failure category and the most relevant explanation.\n2. **Given** a run is incomplete because some prerequisite is missing, **When** the coordinating agent inspects it, **Then** the returned summary explains the blocking condition rather than presenting an ambiguous failure.\n\n---\n\n### User Story 3 - Coordinating Agent Delivers A Final Lark-Friendly Summary (Priority: P2)\n\nAs the coordinating agent, I want a compact final summary and result reference that can be forwarded into Lark, so that the human operator receives the end result in one understandable message.\n\n**Why this priority**: The final result is what closes the coordination loop. The summary needs to be ready for relay, not just technically correct.\n\n**Independent Test**: Complete a run and verify the final summary is compact enough to reuse in an external coordination message while still preserving branch or artifact references.\n\n**Acceptance Scenarios**:\n\n1. **Given** a run completes successfully, **When** the coordinating agent retrieves the final summary, **Then** it receives a compact explanation plus the result reference needed for final delivery.\n2. **Given** a run completes unsuccessfully, **When** the coordinating agent retrieves the final summary, **Then** it receives a compact explanation of the failure plus the most relevant next-step hint.\n\n---\n\n### Edge Cases\n\n- What happens when a run changes state rapidly? The summary model should remain stable enough for coordination instead of oscillating between ambiguous meanings.\n- What happens when a run has no final artifact? The final summary should explain that clearly rather than returning an empty success-shaped message.\n- What happens when the coordinating agent resumes polling after restart? The latest durable summary should still be available.\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: The system MUST provide stable coordination-friendly run summaries that a coordinating agent can use for milestone-style progress updates.\n- **FR-002**: The coordination summary model MUST distinguish meaningful run states needed for external progress reporting.\n- **FR-003**: Failed, blocked, or incomplete work MUST return a clear failure or blockage explanation suitable for coordination rather than requiring raw log interpretation.\n- **FR-004**: Successful terminal work MUST return a compact final summary plus any branch or artifact reference needed for delivery.\n- **FR-005**: Coordination summaries MUST remain retrievable from durable state after control-plane restart.\n- **FR-006**: Coordination summaries MUST be usable through the canonical management surfaces rather than being trapped in the UI.\n\n### Key Entities *(include if feature involves data)*\n\n- **CoordinationSummary**: The compact progress or terminal summary used by a coordinating agent.\n- **MilestoneState**: A stable coordination-oriented run state suitable for progress updates.\n- **FailureReason**: The categorized explanation for failed, blocked, or incomplete work.\n- **ResultSummary**: The compact terminal summary plus any delivery reference.\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: A coordinating agent can post stable milestone-style updates from Mystra run state without parsing raw logs.\n- **SC-002**: Failed or blocked work returns a clear coordination-oriented explanation instead of requiring manual debugging to interpret.\n- **SC-003**: Successful or failed runs expose a compact final summary that can be relayed to Lark together with the relevant result reference.\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/018-coordination-run-summaries/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/018-coordination-run-summaries/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/018-coordination-run-summaries/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Coordination Run Summaries\n\n**Branch**: `018-coordination-run-summaries` | **Date**: 2026-05-17 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/018-coordination-run-summaries/spec.md`\n\n## Summary\n\nAdd a shared compact `CoordinationRunSummary` contract derived from existing durable job/run/event/result state, expose it through a dedicated HTTP route, MCP tool, and CLI status command, and keep the existing full job snapshot surfaces unchanged for diagnostic use. The design should prefer poll-friendly machine-readable status with current phase, current milestone, terminal outcome, and core links rather than raw event history.\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9, Node.js 24 runtime assumptions  \n**Primary Dependencies**: Next.js 16 route handlers, Zod 4 shared contracts, Vitest 4, existing fetch-based Node scripts  \n**Storage**: Existing SQLite-backed `RdbProvider` state for jobs, runs, results, and events; no new persistence table planned  \n**Testing**: `pnpm --filter @mystra/shared test`, `pnpm --filter @mystra/control-plane test`, targeted script smoke checks, relevant typechecks/builds  \n**Target Platform**: Headless Mystra control plane, remote MCP callers, and local operator shell usage  \n**Project Type**: TypeScript monorepo with Next.js control plane, shared contract package, and Node CLI scripts  \n**Performance Goals**: Coordinator polling should avoid returning full event arrays and workflow node histories; summary derivation should remain cheap enough for repeated polling on one control-plane node  \n**Constraints**: No logs API, no callback URLs, no UI-first dependency, no fake placeholders for missing review links, and no contract drift between API/MCP/CLI  \n**Scale/Scope**: Single-machine MVP with one or more coordinating agents polling many active jobs across the same shared control-plane surface\n\n## Constitution Check\n\n*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*\n\n- **Specification Owns Product Boundaries**: PASS. The feature stays inside MVP by improving run/result coordination surfaces without adding auth, logs persistence, retry APIs, callbacks, or quality-gate fix loops.\n- **Typed Contracts at Service Boundaries**: PASS. The feature is centered on a new shared summary contract across HTTP API, MCP, and CLI.\n- **Providers Are Replaceable Boundaries**: PASS. Summary projection is derived from Mystra-owned provider state and does not hardcode a new storage or external workflow dependency.\n- **Runner Isolation and Secret Hygiene**: PASS. The feature changes read-side coordination output only and introduces no new secret handling path.\n- **Verification And Documentation Before Delivery**: PASS. The plan includes shared-schema tests, control-plane route/tool tests, CLI verification, and Spec-Kit artifacts.\n\n## Project Structure\n\n### Documentation (this feature)\n\n```text\nspecs/018-coordination-run-summaries/\n├── spec.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   ├── api.md\n│   ├── cli.md\n│   └── mcp.md\n├── tasks.md\n└── checklists/\n    └── requirements.md\n```\n\n### Source Code (repository root)\n\n```text\npackages/shared/src/\n├── index.ts\n├── result.ts\n├── workflow.ts\n└── [new summary contract file]\n\napps/control-plane/\n├── app/\n│   ├── api/jobs/[id]/route.ts\n│   ├── api/jobs/[id]/summary/route.ts\n│   ├── api/jobs/route.ts\n│   ├── api/mcp/route.ts\n│   └── api/routes.test.ts\n└── src/lib/db/\n    ├── rdb-provider.ts\n    ├── sqlite-provider.ts\n    └── sqlite-provider.test.ts\n\nscripts/\n├── submit-job.mjs\n└── [new job-status script]\n```\n\n**Structure Decision**: Keep the existing monorepo split. Put the shared summary schema in `packages/shared/src/` so API, MCP, and CLI all speak the same contract. Keep `RdbProvider` focused on durable records and raw snapshots, then add a dedicated summary query plus a pure control-plane/shared projection layer that turns the lighter query result into `CoordinationRunSummary`. All compact summary surfaces should use the same top-level payload shape. Keep terminal and polling shell affordances in `scripts/`, with one small shared CLI helper reused by both `submit-job.mjs` wait mode and the new status command.\n\n## Complexity Tracking\n\nNo constitution violations require justification.\n\n## Phase 0: Research\n\nResearch decisions are captured in [research.md](./research.md).\n\n## Phase 1: Design & Contracts\n\nDesign artifacts:\n\n- [data-model.md](./data-model.md)\n- [quickstart.md](./quickstart.md)\n- [contracts/api.md](./contracts/api.md)\n- [contracts/mcp.md](./contracts/mcp.md)\n- [contracts/cli.md](./contracts/cli.md)\n\n## Implementation Order\n\n1. Shared compact summary schema and exports.\n2. Lightweight summary query plus pure summary projection, with explicit latest-attempt semantics and link-source precedence.\n3. HTTP summary route and MCP tool with one shared top-level payload shape and aligned structured not-found behavior.\n4. Shared CLI summary helper plus `job:status`, with `submit-job.mjs` wait mode reusing the same helper.\n5. Route/tool/script tests and contract verification.\n\n## What Already Exists\n\n| Existing surface | Current role | Plan action |\n|---|---|---|\n| `GET /api/jobs/{id}` | Full diagnostic job snapshot with run, events, and workflow detail | Reuse as the raw diagnostic surface, do not replace |\n| `mystra_get_job` MCP tool | Full diagnostic job lookup for agents | Reuse as the raw MCP diagnostic surface, add a parallel compact summary tool |\n| `scripts/submit-job.mjs` | Submission plus ad hoc wait-mode summary for terminal CLI use | Reuse as the existing CLI entrypoint, but replace inline summary polling with a shared compact-summary helper |\n| `sqlite-provider.ts` snapshot assembly | Existing provider-owned truth for job/run/workflow aggregation | Reuse as the raw diagnostic path, and add a separate lightweight summary query for poll-heavy reads |\n| `RunResult` plus `reviewResult` | Existing terminal result payload with both normalized and legacy review fields | Reuse as the link truth surface, with explicit precedence so compact summaries do not freeze legacy-only fields |\n\n## ASCII Data Flow\n\n```text\nCoordinator / operator\n   │\n   ├── HTTP: GET /api/jobs/:id/summary\n   ├── MCP: mystra_get_job_summary\n   └── CLI: job:status / submit-job --wait\n           │\n           v\n    compact summary surface\n           │\n           v\n   summary query + pure projector\n           │\n           ├── run state/result\n           ├── latest relevant lifecycle event(s)\n           ├── optional workflow pointer\n           └── project/review link fields\n           │\n           v\n   CoordinationRunSummary\n\nRaw diagnostics stay separate:\n\nGET /api/jobs/:id  +  mystra_get_job\n           │\n           v\n      full JobSnapshot\n```\n\n## Verification Checkpoints\n\n| After | Check | Command / Evidence |\n|---|---|---|\n| Shared contract | Summary schema validates representative queued/running/terminal cases | `pnpm --filter @mystra/shared test` |\n| Summary query + projection | Control-plane tests cover phase matrix for queued, assigned, running, review-ready, succeeded, failed, canceled, timed_out, and stale-marked runs using the lightweight summary read path | `pnpm --filter @mystra/control-plane test` |\n| Regression guard | Raw snapshot route/tool behavior still matches the existing diagnostic surface after projector refactor | `pnpm --filter @mystra/control-plane test` |\n| API + MCP | HTTP summary route and MCP summary tool return the same top-level payload shape plus aligned structured not-found behavior | `pnpm --filter @mystra/control-plane test` |\n| CLI | Shared CLI helper and `job:status` cover wrapped JSON output, wait success, wait failure-like exit, not-found exit code, and timeout exit `124` | `node ./scripts/job-status.mjs --job-id <id>` |\n| Changed packages | Type surfaces remain coherent | `pnpm --filter @mystra/shared typecheck && pnpm --filter @mystra/control-plane typecheck` |\n| Broad scope | Repository still builds/tests cleanly | `pnpm test && pnpm typecheck && pnpm build` |\n\n## Risk Mitigations\n\n| Risk | Mitigation |\n|---|---|\n| Summary contract drifts across API, MCP, and CLI | Define a shared schema in `packages/shared` and validate outputs at each surface |\n| Polling still requires server-side full snapshot work | Add a dedicated summary query statement and keep compact summary derivation on top of that lighter read path instead of forcing full `JobSnapshot` assembly on every request |\n| Phase labels become unstable or UI-shaped | Keep `runState` and `phase` separate, and limit `phase` to values that can be derived from existing durable states/events only |\n| Terminal links leak fake placeholders or legacy GitLab-only fields | Define link precedence explicitly: normalized review result first, legacy compatibility fields second, preview metadata only when present |\n| Retry or rerun semantics get hidden | Include `attempt` in the compact summary and define \"latest\" as the highest persisted attempt for the job |\n| Existing tooling depends on raw snapshots | Keep the current full job routes/tools unchanged and add a new summary surface |\n\n## Failure Modes\n\n| Codepath | Realistic production failure | Test planned | Error handling planned | User-visible result |\n|---|---|---|---|---|\n| Summary query + projection | Latest relevant event is missing or malformed, causing bad phase derivation | Yes, summary matrix tests | Yes, projector falls back to durable run state and headline defaults | Clear but less detailed current phase, not silent corruption |\n| HTTP summary route | Unknown job id | Yes | Yes, structured `job_not_found` | Clear not-found response |\n| MCP summary tool | Summary tool drifts from HTTP payload shape or not-found behavior | Yes, parity tests | Yes, shared schema validation at the tool boundary | Clear contract error during tests rather than silent divergence |\n| CLI wait mode | Poll loop never reaches terminal before timeout or job lookup fails | Yes | Yes, explicit timeout and not-found exits | Clear timeout or not-found error |\n| Raw snapshot regression | Shared projector refactor breaks existing diagnostic route/tool | Yes, explicit regression test | Yes, regression test blocks merge | Existing diagnostic callers stay intact |\n\n## NOT in Scope\n\n- Streaming or push-based progress delivery, because the confirmed job is poll-friendly coordination, not realtime transport.\n- Milestone history timelines, because spec18 only needs the current milestone plus terminal outcome.\n- Logs API or stdout/stderr exposure, because MVP durable truth remains run state, result, and structured events.\n- UI-first dashboard redesign, because management surface priority is API, MCP, and CLI first.\n- New persistence tables or cache infrastructure for summaries, because the accepted approach is one dedicated read query over current durable state, not a second stored truth.\n\n## Worktree Parallelization Strategy\n\n| Step | Modules touched | Depends on |\n|------|-----------------|------------|\n| Shared summary contract | `packages/shared/src/` | — |\n| Summary query + projector | `apps/control-plane/src/lib/db/`, `apps/control-plane/src/lib/` | Shared summary contract |\n| HTTP + MCP summary surfaces | `apps/control-plane/app/api/` | Summary query + projector |\n| CLI helper + status command | `scripts/`, root package scripts | Shared summary contract, HTTP summary route shape |\n| Test backfill | `packages/shared/src/`, `apps/control-plane/`, `scripts/` | Provider projector, HTTP + MCP summary surfaces, CLI helper |\n\nParallel lanes:\n\n- **Lane A**: Shared summary contract → Summary query + projector → HTTP + MCP summary surfaces (sequential, shared contract and control-plane modules)\n- **Lane B**: CLI helper + status command (starts after summary contract shape is frozen, then independent from control-plane internals)\n- **Lane C**: Test backfill (starts once the relevant codepaths land, touches shared + control-plane + scripts)\n\nExecution order:\n\n1. Launch Lane A first.\n2. Once the summary contract is frozen, launch Lane B in parallel with the later half of Lane A.\n3. Merge A + B, then run Lane C for full verification.\n\nConflict flags:\n\n- Lanes A and C both touch `apps/control-plane/`, so test-heavy work should wait until API/provider changes stabilize.\n- Lanes B and C both touch `scripts/`, so avoid parallel edits there once CLI helper work begins.\n\n## Post-Design Constitution Re-Check\n\nPASS. The design remains headless, contract-first, and inside MVP scope. It strengthens API/MCP/CLI management surfaces without introducing a UI dependency or a new persistence seam.\n\n## GSTACK REVIEW REPORT\n\n| Review | Trigger | Why | Runs | Status | Findings |\n|--------|---------|-----|------|--------|----------|\n| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |\n| Codex Review | `/codex review` | Independent 2nd opinion | 1 | ISSUES_FOUND | 8 outside-voice findings, major ones folded back into phase model, light-query path, and contract parity updates |\n| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 21 issues/gaps reviewed, 0 critical gaps left open |\n| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |\n| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |\n\n**CROSS-MODEL:** Both reviews aligned on one important thing, compact summary should be a real polling surface rather than just a smaller JSON payload. The main disagreement was projector placement, and the accepted direction is a dedicated summary query plus pure projection above raw storage records.\n\n**UNRESOLVED:** 0\n\n**VERDICT:** ENG CLEARED — ready for task decomposition and implementation.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Coordination Run Summaries\n\n**Input**: Design documents from `/specs/018-coordination-run-summaries/`\n**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/\n\n**Backfill note**: This task list was reconciled against the landed code on\n`main` after the original execution checklist drifted. It records the completed\ncompact-summary slice that now exists in the repository.\n\n## Completed Tasks\n\n- [x] T001 Add and export the shared `CoordinationRunSummary` schema in `packages/shared/src/coordination-run-summary.ts` and `packages/shared/src/index.ts`\n- [x] T002 Cover queued/running/terminal summary validation in `packages/shared/src/coordination-run-summary.test.ts`\n- [x] T003 Add `getJobSummary()` plus the compact summary projection path in `apps/control-plane/src/lib/db/sqlite-provider.ts`, `apps/control-plane/src/lib/db/rdb-provider.ts`, and `apps/control-plane/src/lib/coordination-run-summary.ts`\n- [x] T004 Keep raw diagnostic job surfaces intact while adding the compact HTTP summary route in `apps/control-plane/app/api/jobs/[id]/summary/route.ts`\n- [x] T005 Expose the same compact summary through MCP with `mystra_get_job_summary` in `apps/control-plane/app/api/mcp/route.ts`\n- [x] T006 Add focused route regressions for HTTP/MCP compact summary behavior in `apps/control-plane/app/api/routes.test.ts`\n- [x] T007 Add the shared CLI polling helper in `scripts/lib/job-summary.mjs` and the `scripts/job-status.mjs` entrypoint\n- [x] T008 Expose the status command at the repo root with `pnpm job:status` in `package.json`\n- [x] T009 Refresh operator docs and Spec-Kit status surfaces after reconciling the landed scope\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

@@ -1,6 +1,8 @@
+import { rm, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import { EXIT_CODES, parseArgs, run } from "../../../../scripts/operator-cli.mjs";
+import { createSessionStore, EXIT_CODES, parseArgs, run } from "../../../../scripts/operator-cli.mjs";
 
 function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -12,7 +14,16 @@ function response(body: unknown, status = 200) {
 async function execute(
   argv: string[],
   responder: (url: string, init?: RequestInit) => Response | Promise<Response>,
-  overrides: { sleep?: (milliseconds: number) => Promise<void>; now?: () => number } = {},
+  overrides: {
+    sleep?: (milliseconds: number) => Promise<void>;
+    now?: () => number;
+    sessionStore?: {
+      read: () => Promise<unknown>;
+      write: (state: unknown) => Promise<void>;
+      clear: () => Promise<void>;
+    };
+    readPassword?: () => Promise<string>;
+  } = {},
 ) {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -22,6 +33,15 @@ async function execute(
     fetchImpl,
     stdout: (text: string) => void stdout.push(text),
     stderr: (text: string) => void stderr.push(text),
+    sessionStore: {
+      read: async () => ({
+        version: 1,
+        controlPlaneUrl: "http://localhost:3000",
+        sessionToken: "operator-cli-test-session-token",
+      }),
+      write: async () => {},
+      clear: async () => {},
+    },
     ...overrides,
   });
   return { exitCode, stdout: stdout.join(""), stderr: stderr.join(""), fetchImpl };
@@ -60,6 +80,106 @@ function sessionDetail(state = "succeeded", result: Record<string, unknown> | un
 }
 
 describe("operator CLI Task and Session commands", () => {
+  it("stores the local human session in a mode-0600 file", async () => {
+    const statePath = join(process.cwd(), ".operator-cli-session.test.json");
+    const store = createSessionStore(statePath);
+    try {
+      await rm(statePath, { force: true });
+      await store.write({
+        version: 1,
+        controlPlaneUrl: "http://localhost:3000",
+        sessionToken: "operator-cli-test-session-token",
+      });
+
+      expect((await stat(statePath)).mode & 0o777).toBe(0o600);
+    } finally {
+      await rm(statePath, { force: true });
+    }
+  });
+
+  it("logs in from stdin, persists the opaque session, and never prints it", async () => {
+    const saved: unknown[] = [];
+    const result = await execute(
+      ["auth", "login", "--username", "operator", "--password-stdin", "--json"],
+      async (url, init) => {
+        expect(url).toBe("http://localhost:3000/api/auth/login");
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          username: "operator",
+          password: "correct horse battery staple",
+        });
+        return new Response(JSON.stringify({ user: { id: "user-1", username: "operator" } }), {
+          headers: {
+            "content-type": "application/json",
+            "set-cookie": "mystra_session=opaque-human-session-token; Path=/; HttpOnly",
+          },
+        });
+      },
+      {
+        readPassword: async () => "correct horse battery staple\n",
+        sessionStore: {
+          read: async () => undefined,
+          write: async (state) => void saved.push(state),
+          clear: async () => {},
+        },
+      },
+    );
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
+    expect(saved).toEqual([{
+      version: 1,
+      controlPlaneUrl: "http://localhost:3000",
+      sessionToken: "opaque-human-session-token",
+    }]);
+    expect(result.stdout).toContain("operator");
+    expect(result.stdout).not.toContain("opaque-human-session-token");
+  });
+
+  it("attaches the persisted human session and updates its active Team context", async () => {
+    const state = {
+      version: 1,
+      controlPlaneUrl: "http://localhost:3000",
+      sessionToken: "operator-cli-test-session-token",
+    };
+    const writes: unknown[] = [];
+    const teamId = "00000000-0000-4000-8000-000000000099";
+    const result = await execute(["teams", "use", teamId, "--json"], async (url, init) => {
+      expect(url).toBe("http://localhost:3000/api/teams/switch");
+      expect(init?.headers).toMatchObject({
+        authorization: "Bearer operator-cli-test-session-token",
+      });
+      expect(JSON.parse(String(init?.body))).toEqual({ teamId });
+      return response({ team: { id: teamId, displayName: "Operations", currentUserRole: "owner" } });
+    }, {
+      sessionStore: {
+        read: async () => state,
+        write: async (value) => void writes.push(value),
+        clear: async () => {},
+      },
+    });
+
+    expect(result.exitCode).toBe(EXIT_CODES.OK);
+    expect(writes).toEqual([{ ...state, activeTeamId: teamId }]);
+    expect(JSON.parse(result.stdout)).toEqual({
+      team: { id: teamId, displayName: "Operations", currentUserRole: "owner" },
+    });
+  });
+
+  it("fails closed before sending protected requests when no local human session exists", async () => {
+    const result = await execute(["tasks", "list"], async () => {
+      throw new Error("protected request must not be sent");
+    }, {
+      sessionStore: {
+        read: async () => undefined,
+        write: async () => {},
+        clear: async () => {},
+      },
+    });
+
+    expect(result.exitCode).toBe(EXIT_CODES.UNAVAILABLE);
+    expect(result.stderr).toContain("UNAUTHENTICATED");
+  });
+
   it("rejects removed command groups", () => {
     // legacy-term-audit: allow
     expect(parseArgs(["runs", "list"])).toMatchObject({ ok: false });

@@ -2,23 +2,24 @@
 
 **Branch**: `041-github-integration-connections` | **Date**: 2026-08-06 | **Spec**: [spec.md](spec.md)
 **Input**: GitHub Integration Detail、多连接、Project 精确连接绑定，以及 GitHub App hosted-only / PAT self-hosted-supported 的部署边界。
+**Supersession Notice (2026-08-06)**: `040-prisma-rdb` supersedes Project full Repository snapshot persistence with connection + provider-stable external ID. Task source, objective and Issue/Repository snapshots are removed, and `dispatchKey` becomes `issueDispatchKey`; current external-information cache is deferred. Session persistence and Session credential-delivery flows below are historical and not part of 040's three-table schema.
 
 ## Summary
 
 在现有 041 多连接实现上增加服务端 deployment capability。Self-hosted 只正式支持 PAT；Mystra GitHub App 只在 hosted profile 可用。开源仓库保留 App adapter、路由和测试，但 capability API、管理路由与 exact-connection credential resolver 必须一致地阻止 self-hosted App 流程。Hosted OAuth 增加 caller/Team authorization 与一次性 durable transaction，App installation token 继续按需签发且不持久化。
 
-Settings 继续使用现有双栏 Modal。Stock self-hosted 的公开方式列表和 UI 只呈现 PAT；Hosted distribution 才可注入并优先显示 App。PAT 是否可用仍由 SecretProvider capability 决定。Add Project、Project exact binding、Agent/image 全局默认和 Runner delivery 合同保持不变。
+Settings 继续使用现有双栏 Modal。Stock self-hosted 的公开方式列表和 UI 只呈现 PAT；Hosted distribution 才可注入并优先显示 App。PAT 是否可用仍由 SecretProvider capability 决定。Self-hosted SecretProvider 改为 Prisma/RdbProvider-backed envelope encryption，移除 node-local file backend；Add Project、Project exact binding、Agent/image 全局默认和 Runner delivery 合同保持不变。
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9，Node.js 24.14.0
-**Primary Dependencies**: Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto` / `fs`、GitHub REST API、现有 `better-sqlite3`
-**Storage**: Self-hosted 使用 SQLite schema v5 + encrypted-file `SecretProvider`；Hosted 使用 `RdbProvider` 的 hosted 实现、managed `SecretProvider` 与 durable OAuth transaction store
-**Testing**: Vitest 4、现有 API/SQLite/provider/component model tests、真实浏览器验证
-**Target Platform**: self-hosted Linux/macOS 单节点 + Hosted Mystra 多实例控制面；Web 为 secondary client
+**Primary Dependencies**: Next.js 16 Route Handlers、React 19、Zod 4、Node `crypto`、Prisma 7、GitHub REST API、现有 SQLite/PostgreSQL adapters
+**Storage**: SQLite、PostgreSQL 或 Supabase-backed PostgreSQL 经 `RdbProvider` 保存 connection metadata 与 envelope ciphertext；KEK 由部署 secret/KMS 提供
+**Testing**: Vitest 4、Prisma SQLite/PostgreSQL contract tests、API/component model tests、真实浏览器验证
+**Target Platform**: self-hosted Linux/macOS 单节点或多副本 PostgreSQL control-plane + Hosted Mystra 多实例控制面；Web 为 secondary client
 **Project Type**: monorepo web service + Runner daemon + shared contracts
 **Performance Goals**: 10 条连接的 GitHub Detail 首次加载不产生逐连接 GitHub 请求；capability 解析无网络调用；repo 列表保持分页；installation token 只按 exact connection mint
-**Constraints**: deployment capability 只由可信服务端策略决定；self-hosted App 在外部 redirect/API 调用前 fail closed；OAuth transaction 一次性且绑定 actor/Team；PAT 与 OAuth user token 不进 RDB/URL/log/public response；App/PAT 不 fallback
+**Constraints**: deployment capability 只由可信服务端策略决定；self-hosted App 在外部 redirect/API 调用前 fail closed；OAuth transaction 一次性且绑定 actor/Team；PAT plaintext、KEK 与 OAuth user token 不进 RDB/URL/log/public response；RDB 只保存 envelope ciphertext；App/PAT 不 fallback
 **Scale/Scope**: self-hosted 单节点与 Hosted 多 Team；一个 App installation 默认只归属一个 Team；不引入通用 Integration catalog
 
 ## Constitution Check
@@ -27,7 +28,7 @@ Settings 继续使用现有双栏 Modal。Stock self-hosted 的公开方式列�
 
 - **Product boundary**：PASS。Constitution 2.5.0 明确 self-hosted PAT / hosted App；开源保留 adapter 不等于 self-hosted 支持。通用 catalog、GitLab intake 和本阶段 webhook 仍排除。
 - **Typed boundaries**：PASS。Connection list/create/replace/delete、PAT input、public view 和 Runner credential 继续使用 shared Zod contracts。
-- **Provider replaceability**：PASS。`IntegrationRegistry` 保持稳定；deployment capability 位于管理与凭据解析边界。`RdbProvider` 不接触秘密，`SecretProvider` 可按部署替换。
+- **Provider replaceability**：PASS。`IntegrationRegistry` 保持稳定；deployment capability 位于管理与凭据解析边界。`RdbProvider` 只持久化 opaque encrypted envelope，永不接触 plaintext/KEK；`SecretProvider` 可将 KEK wrapping 替换为 hosted KMS。
 - **Secret hygiene**：PASS。PAT 与 OAuth user token 仅在短期验证/使用路径存在；App identity secret 平台持有；所有公开 mapper fail closed。
 - **Verification/documentation**：PASS。计划包含 capability matrix、OAuth transaction、Team authorization、遗留连接、API/Runner/UI 一致性与 leakage 检查。
 
@@ -118,14 +119,14 @@ GitHub App 能力。
 
 Hosted connection 增加 `teamId`、`createdByActorId` 和 `updatedByActorId` 作为授权与审计边界。Self-hosted 使用平台的 implicit local Team，不从请求接受任意 Team id。`status` 继续表示持久生命周期；`availability` 是 deployment + credential + policy 派生值，不回写 connection row。
 
-### D2. SecretProvider 按部署替换
+### D2. SecretProvider 与 RDB envelope 分层
 
-- `SecretProvider`：`put(ref, plaintext)`、`get(ref)`、`delete(ref)`，opaque ref 不进入公共合同。
-- Self-hosted `EncryptedFileSecretProvider`：AES-256-GCM，随机 96-bit IV，JSON envelope，目录 `0700`、文件 `0600`、临时文件后原子 rename。
-- Hosted `ManagedSecretProvider`：使用平台 KMS/secret manager；provider contract 不把厂商 SDK 或 key identifier 泄漏到 RDB、shared schema 或 Runner 协议。
-- master key：`MYSTRA_SECRET_STORE_KEY`，base64 32 bytes；缺失时 PAT method 显示 disabled，GitHub App 不受影响。
-- 默认目录：与 `MYSTRA_DB_PATH` 同一 data root 下的 `secrets/`；可由 `MYSTRA_SECRET_STORE_PATH` 覆盖。
-- secret ref：`github-pat/<connection-uuid>`；provider 必须校验允许字符并拒绝 path traversal。
+- `SecretProvider` 是唯一 plaintext boundary：`seal(ref, plaintext)`、`put/get/delete`；opaque ref 与 ciphertext 均不进入公共合同。
+- 每个 immutable credential version 使用随机 DEK 做 AES-256-GCM content encryption；部署 KEK 再独立包装 DEK。两次加密使用不同 96-bit IV 和 reference-bound AAD。
+- `RdbProvider`/Prisma 保存 envelope ciphertext、wrapped DEK、auth tags、算法版本和非秘密 `keyId`，但不接触 plaintext 或 KEK。
+- `MYSTRA_SECRET_STORE_KEY` 为 base64 32-byte KEK；缺失时 PAT method 显示 disabled。`MYSTRA_SECRET_STORE_KEY_ID` 默认 `env-v1`，为后续 rotation/KMS rewrap 提供标签。
+- secret ref：`github-pat/<connection-uuid>/<credential-version-uuid>`；create/replace 把 envelope write 与 connection ref switch 放入同一 serializable RDB transaction。
+- 不保留 `EncryptedFileSecretProvider`、`MYSTRA_SECRET_STORE_PATH`、dual read 或 file migration。Hosted 未来只替换 KEK wrapping adapter，不改变 RDB/public contract。
 
 GitHub App private key/client secret 是 hosted platform secret，不是 `IntegrationConnection` secret。Self-hosted distribution 不分发这些值。installation token 与 OAuth user token 都不进入任一 SecretProvider。
 
@@ -244,13 +245,14 @@ POST/PUT JSON body { token, label? }
   -> Zod parse, no logging
   -> GET /user + authenticated repo validation
   -> derive non-public fingerprint + public metadata
-  -> SecretProvider.put(ciphertext)
-  -> RdbProvider insert/update metadata + opaque ref
+  -> SecretProvider.seal(new immutable ref, plaintext)
+  -> RdbProvider transaction: insert envelope + insert/update metadata + switch opaque ref
+  -> replace transaction deletes previous envelope after reference switch
   -> explicit public mapper
   -> no-store response without token/ref
 ```
 
-Replace 在 GitHub validation 成功前不写 secret；atomic file rename 只发生在有效新 token 已知之后。
+Replace 在 GitHub validation 成功前不写 envelope；transaction 失败时旧 reference 与旧 envelope 继续有效。
 
 ### Delete connection
 
@@ -258,12 +260,10 @@ Replace 在 GitHub validation 成功前不写 secret；atomic file rename 只发
 DELETE connection
   -> count Project references
   -> if count > 0: 409 CONNECTION_IN_USE
-  -> mark connection inactive/deleting
-  -> delete secret if PAT
-  -> delete metadata row
+  -> RdbProvider transaction deletes metadata row + referenced envelope
 ```
 
-secret deletion 失败时保留 inactive record 和可重试错误，避免出现“界面说已删、磁盘仍留 token”。
+transaction 失败时 connection 与 envelope 都保持原状，避免“界面说已删、RDB 仍留 credential material”。
 
 ### Add Project
 
@@ -317,7 +317,7 @@ apps/control-plane/src/lib/
 │   └── capabilities.ts    # trusted profile + Integration method availability
 ├── secrets/
 │   ├── secret-provider.ts
-│   ├── encrypted-file-secret-provider.ts
+│   ├── rdb-secret-provider.ts
 │   └── managed-secret-provider.ts # hosted adapter, provider chosen later
 ├── integrations/
 │   ├── github-app.ts      # existing App path
@@ -355,11 +355,11 @@ apps/control-plane/app/
 | App ownership | 同一 installation 被另一个 Team 重连 | global installation ownership conflict | RDB/API | 显式冲突，不泄露原 Team 详情 |
 | App upsert | 添加第二安装触发旧 unique-active 逻辑 | v5 drop index + connection-level upsert | SQLite + OAuth API | 两条连接同时 active |
 | PAT create | token 401/403/SSO blocked | stable integration error；不写 secret | provider/API | form 保留并显示恢复建议 |
-| PAT create | secret 写成功但 DB insert 失败 | 删除新 secret；返回非泄露错误 | service integration | 未创建连接，可重试 |
+| PAT create | envelope/DB insert 失败 | 同一 transaction rollback；返回非泄露错误 | service integration | 未创建连接、无 orphan envelope |
 | PAT replace | 新 token invalid | validation-before-write | provider/API | 旧 token 保持有效 |
-| PAT replace | metadata update fail after atomic replace | 新有效 token 可继续解析；Detail 标记需刷新 | integration | 不造成连接中断 |
+| PAT replace | envelope insert 或 metadata switch 失败 | transaction rollback | integration | 旧 token/reference 保持有效 |
 | Delete | Project still references connection | DB reference count 409 | SQLite/API | 显示阻止原因 |
-| Delete | secret file cannot delete | 保留 inactive record | SecretProvider/API | 显示 Retry，不宣称完成 |
+| Delete | envelope/connection delete transaction fails | 保留原 connection + envelope | SecretProvider/API | 显示 Retry，不宣称完成 |
 | Repo list | multiple connections but no id | `CONNECTION_SELECTION_REQUIRED` | API | UI 要求选择连接 |
 | Runner credential | PAT decrypt/auth failure | no-store 409/502；不 fallback | route integration | Session 失败指向绑定连接 |
 | Runner credential | self-hosted 遗留 App connection | exact resolver capability guard before mint | route integration | Session 失败指向 Hosted-only |
@@ -369,6 +369,24 @@ apps/control-plane/app/
 Hosted caller authentication、Team RBAC、shared transaction store 或 managed SecretProvider 尚未落地时，hosted App capability 必须整体 unavailable；不得只因为 App env 配齐就开放半条流程。计划覆盖后没有允许 silent failure 且同时缺少 test/error handling 的路径。
 
 ## Test Coverage Plan
+
+### Engineering review: RDB envelope amendment
+
+- **Architecture**: approved. Connection metadata/reference and encrypted material remain distinct logical models; only their transaction boundary is shared. `SecretProvider` alone sees plaintext/KEK, while `RdbProvider` sees portable envelope fields.
+- **Consistency**: create/replace/delete require serializable Prisma transactions. Immutable credential refs avoid in-place ciphertext overwrite; failed replace leaves the old reference readable and commits no orphan envelope.
+- **Security**: random DEK per credential, distinct GCM IVs for content/wrap, reference/key/version-bound AAD, no plaintext/error echo, and fail-closed wrong-key/tamper behavior. Key rotation stores `keyId`; bulk rewrap and hosted KMS are later operational work.
+- **Operations**: SQLite backup includes metadata and ciphertext but still requires separately backed-up KEK. PostgreSQL/Supabase backups become replica-portable without copying node-local files. Loss of KEK is intentionally unrecoverable.
+- **Performance**: indexed primary-key lookup is O(1); PAT envelopes are small and add one row lookup plus two local AES-GCM operations per credential resolution. No list path loads ciphertext.
+- **Testing gate**: provider contract on SQLite and optional PostgreSQL, schema parity, cryptographic integrity/leak tests, lifecycle rollback tests, public response tests, typecheck/build, and real API/UI evidence. GitNexus impact remains `UNKNOWN` if the LadybugDB native storage version mismatch persists; direct reference inventory then becomes recorded fallback evidence.
+
+### Verification evidence (2026-08-06)
+
+- Node `24.14.0` and pnpm `10.25.0`; both Prisma schemas validate and the SQLite preview applied both committed migrations.
+- 9 focused files / 27 tests pass for SQLite RdbProvider contract, schema parity, adoption, config parsing, envelope encryption, PAT lifecycle, credential resolution, and connection API; migration-wrapper tests add 3 passes.
+- Scoped strict TypeScript checking for the changed DB/secret/PAT modules passes. Next production compilation succeeds, then the full TypeScript gate stops on pre-existing 040/041 field drift in `github-connection-model.ts` (`connectionType` versus `authMethod`); the branch-wide gate is therefore not claimed as green.
+- Port 3000 detached `mystra-preview` returns PAT `configured: true`; real browser navigation opens the password-type PAT form. Empty input remains unsent in the UI and direct empty JSON returns 400 `INVALID_REQUEST` with zero connections.
+- Preview DB, preview log, git diff, API response, and UI DOM contain zero PAT/key matches. No real PAT was submitted.
+- GitNexus impact and change detection remain unavailable because LadybugDB reports database storage version 42 versus runtime version 40; risk is conservatively treated as high and source/tests/runtime are the evidence of record.
 
 ```text
 CODE PATH COVERAGE

@@ -2,7 +2,8 @@
 
 **Feature Branch**: `033-issue-agent-execution`
 **Created**: 2026-07-23
-**Status**: Draft
+**Status**: Partially superseded; retained for historical execution evidence
+**Supersession Notice (2026-08-06)**: The direct Issue -> Agent execution direction and removal of workflow orchestration remain valid. However, this Spec's `Job`/`Run` execution-object contract, runner-capacity projection, event model, and database artifact assumptions are obsolete and MUST NOT be used for current API, persistence, Prisma, MCP, CLI, or Web design. Task remains current intent terminology, but `040-prisma-rdb` excludes Session and Runner persistence entirely; `session_events` and `artifacts` are also excluded pending separate Session, Task Activity, Runtime/Runner and Artifact specifications.
 **Input**: 用户希望 Mystra 从以 `WorkflowProvider`、blueprint 和 node 为核心的编排模型，转向由 Issue 驱动、Agent 自主完成工作的直接执行模型；第一条可验证路径使用只读 Linear Integration、本机 Docker sandbox、Copilot CLI autopilot、GitHub demo repository、测试、预览和人工 Review 交接。
 **Owner Story Review**: 用户已在 2026-07-23 的正式 Goal 中确认主要操作员、端到端场景、成功证据与明确非目标，因此本规格直接采用该故事集，不再重复发起一次仪式化确认。
 

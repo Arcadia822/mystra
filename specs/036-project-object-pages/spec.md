@@ -3,6 +3,7 @@
 **Feature Branch**: `codex/webui`
 **Created**: 2026-07-25
 **Status**: Complete
+**Project Field Supersession Notice (2026-08-06)**: This remains historical UI implementation evidence, but its Project `defaultAgent`, runtime, prewarm and ContextBundle-facing fields are not part of the pending first Prisma model. `040-prisma-rdb` keeps repository identity with `repositoryBaseBranch`, removes those execution/context defaults, and excludes Session persistence entirely pending redesign. The affected Project fields and any Session-derived projections must not be used as target persistence contracts.
 **Baseline**: `be7d584`
 **Owner Story Review**: Owner 已同意将 Projects 增加为一级对象，同时明确要求暂不实现
 Issues，因为 Linear Issue 与 GitHub Issue 必须由各自 Integration 提供，展示逻辑也不同。

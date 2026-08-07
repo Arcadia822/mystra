@@ -15,7 +15,7 @@ export function MystraLogo({ className, title }: MystraLogoProps) {
       xmlns="http://www.w3.org/2000/svg"
     >
       {title ? <title>{title}</title> : null}
-      <rect className="mystraLogoSurface" height="1024" width="1024" />
+      <rect className="mystraLogoSurface" height="1024" width="1024" rx="228" />
       <g className="mystraLogoSeams" fill="none" strokeLinecap="butt" strokeWidth="48">
         <path d="M -64 -64 L 512 512" />
         <path d="M 1088 -64 L 512 512" />

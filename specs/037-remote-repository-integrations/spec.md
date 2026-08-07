@@ -3,6 +3,7 @@
 **Feature Branch**: `037-remote-repository-integrations`
 **Created**: 2026-07-25
 **Status**: Ready for planning
+**Repository Persistence Supersession Notice (2026-08-06)**: The remote-only selector boundary remains valid. The requirement that Project persist a complete immutable `RepositorySnapshot` is superseded by `040-prisma-rdb`: Project persists the exact IntegrationConnection plus provider-stable Repository external ID. Task repository/issue snapshots, source and objective are also removed; current Issue/Repo Info cache belongs to a later Integration specification. Job, Session and Runner persistence references here are historical; `040` excludes Session and Runner tables and they must not be used as current schema authority.
 **Input**: Project 不再接受本地仓库；每个 Project 必须绑定由可扩展 RepoProvider 解析的远程 Git 仓库。当前支持 GitHub 与 Linear 两个 Integration 插件，其中 GitHub 提供 Repository 与 Issue capability，Linear 提供 Issue capability。使用全新 GitHub 测试仓库完成 E2E，不使用现有仓库。
 
 ## User Scenarios & Testing

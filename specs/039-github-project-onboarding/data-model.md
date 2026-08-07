@@ -1,5 +1,11 @@
 # Data Model: GitHub Project Onboarding
 
+> **Superseded persistence model (2026-08-06):** Connection capability columns and Project's full
+> Repository snapshot below are historical. `040-prisma-rdb` uses one Connection `capabilities` JSON plus Project
+> `repository_connection_id + repository_external_id`. Task source, objective and Issue/Repository snapshots are
+> removed, while `dispatch_key` becomes `issue_dispatch_key`; cache is deferred to a later Integration specification.
+> Session persistence is excluded from 040 and requires a separate future design.
+
 ## IntegrationConnection
 
 表示一次已验证的 provider installation 绑定。它是业务实体，但不包含任何 secret。

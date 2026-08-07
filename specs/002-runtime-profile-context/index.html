@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>002-runtime-profile-context</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"002-runtime-profile-context","title":"002-runtime-profile-context","prototypeHref":"mockups/index.html","generatedAt":"2026-08-06T09:49:22.702Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# Feature Specification: Runtime Config Resolution and Context Bundles\n\n**Feature Branch**: `002-runtime-profile-context`\n**Created**: 2026-05-09\n**Status**: Implemented; closure verified\n**Persistence Supersession Notice (2026-08-06)**: The implementation history remains useful, but this Spec is no longer authoritative for the next schema. Project-owned `defaultAgent`, runtime config and prewarm config, the ContextBundle entity/catalog/table/CRUD, Runner capability persistence, and all Session persistence are removed from the first `040-prisma-rdb` model pending dedicated redesign. Session-local runtime snapshots remain conceptual input to deferred Runtime/Session work, not an approved table or field contract. Do not recreate `sessions`, `context_bundles` or Project execution-default columns from this document.\n**Input**: User correction: \"A Project may own runtime image configuration, but it should live in a typed runtime config object. This first version does not need legacy top-level image compatibility; Mystra should resolve image and context from Project runtime configuration instead of baking source-owned runtime contents or hard-coding runner access paths.\"\n\n## User Scenarios & Testing *(mandatory)*\n\nThis feature is a low-level platform and contract refactor. The scenarios below\nare written as technical scenarios and validation slices rather than\nconsumer-style user stories.\n\n### Technical Scenario 1 - Define Project Runtime Config (Priority: P1)\n\nA platform operator creates or updates a Project with an explicit runtime configuration object that may include a Docker image, provider family, context bundle references, mounts, ports, caches, and secret references.\n\n**Why this priority**: The Project is the durable configuration owner for repository work. It is reasonable for a Project to specify the runtime image it needs. The problem is not image configuration; the problem is representing it as an ad hoc top-level Project field instead of `Project.runtime.image`.\n\n**Independent Test**: Create a Project with `runtime: { provider: \"docker\", image: \"mystra-castrel-runner:local\" }`, retrieve it, and verify runtime fields are validated as a structured object rather than as loose Project-level Docker-only fields.\n\n**Acceptance Scenarios**:\n\n1. **Given** a Project payload includes a valid Docker runtime config, **When** the operator creates the Project, **Then** Mystra persists the config as `Project.runtime`.\n2. **Given** a Project payload includes invalid provider, empty image, forbidden mount, or embedded secret value, **When** the operator submits it, **Then** Mystra rejects the Project with a clear validation error.\n3. **Given** two Projects use different runtime images, **When** jobs are submitted for each, **Then** Mystra preserves the per-Project runtime distinction without requiring runner-global image configuration.\n\n---\n\n### Technical Scenario 2 - Resolve Runtime From Project Default And Constrained Job Overrides (Priority: P1)\n\nMystra resolves an effective runtime contract for each run from the Project default runtime plus permitted job-level overrides. The first version supports one default runtime per Project, while the contract leaves room for future named runtime profiles such as `frontend-dev`, `backend-dev`, `docs`, or `test`.\n\n**Why this priority**: Callers need a small stable submission contract. They may usually rely on the Project default runtime, while advanced callers can request an allowed override without mutating the Project. Future Projects may need multiple managed runtime profiles, but MVP execution should prove the default-runtime path before adding profile management.\n\n**Independent Test**: Submit one job using the Project runtime and another with an allowed image/context override; verify each claim receives a resolved runtime contract and the Project itself remains unchanged.\n\n**Acceptance Scenarios**:\n\n1. **Given** a Project has runtime config, **When** a caller submits a job without runtime fields, **Then** Mystra resolves the run from the Project runtime config.\n2. **Given** a caller provides an allowed job runtime override, **When** the job is accepted, **Then** Mystra records the resolved runtime snapshot for that run without mutating the Project.\n3. **Given** a future caller selects a named runtime profile, **When** profile support is implemented, **Then** Mystra resolves from that Project-managed profile before applying allowed job overrides.\n4. **Given** a caller requests an unsupported provider, forbidden mount, disallowed context bundle, embedded secret value, or disallowed override field, **When** the job is submitted, **Then** Mystra rejects the job or fails resolution before agent execution begins.\n\n---\n\n### Technical Scenario 3 - Design API/MCP Runtime Boundaries (Priority: P0)\n\nMystra exposes a clear API and MCP contract for Project runtime config, future runtime profiles, constrained job overrides, context bundle references, and resolved runtime claims.\n\n**Why this priority**: The runtime model is a service boundary. If API and MCP callers can write loosely shaped runtime data, the control plane will accumulate provider-specific exceptions and chat-history assumptions before the first version is even finished. A charmingly common failure mode.\n\n**Independent Test**: Submit Project and job payloads through HTTP and MCP route tests, verifying that accepted payloads match the shared schemas and invalid top-level image fields, unsafe overrides, malformed runtime fields, or unsupported provider fields are rejected at the boundary.\n\n**Acceptance Scenarios**:\n\n1. **Given** a Project create payload includes `runtime.provider` and `runtime.image`, **When** it is submitted through HTTP or MCP, **Then** the boundary validates the same shared runtime schema used by persistence.\n2. **Given** a Project create payload uses top-level `image`, **When** it is submitted through HTTP or MCP, **Then** Mystra rejects it before persistence.\n3. **Given** a job submits a runtime override, **When** the Project policy permits that override field, **Then** the boundary accepts the payload and runtime resolution records the final snapshot.\n4. **Given** a job submits a runtime override for mounts, secrets, or another MVP-forbidden field, **When** it reaches the API or MCP boundary, **Then** Mystra rejects it with a clear validation or policy error.\n\n---\n\n### Technical Scenario 4 - Provide Context Through Explicit Bundles (Priority: P1)\n\nMystra provides task containers with explicit context bundles, such as agent skills, frozen execution-facing spec artifacts, issue summaries, repository instructions, or operator-provided task context, without baking concrete context contents into the Mystra source tree.\n\n**Why this priority**: Mystra should manage how context is attached and isolated, but the contents of skills, issue context, and project-specific guidance are runtime inputs or release artifacts. Baking them into the platform repository makes the platform look like a specific project's runtime image.\n\n**Independent Test**: Configure Project runtime with named context bundles, submit a job, and inspect the claim to confirm the runner receives resolved bundle contracts and access policy, including the frozen execution-facing spec created at submission time, rather than hard-coded source-tree paths, prompt fragments, or live collaboration history.\n\n**Acceptance Scenarios**:\n\n1. **Given** Project runtime includes the `agent-skills` context bundle, **When** a run is claimed, **Then** the runner receives a resolved context-bundle contract that identifies what must be made available, under which access mode, and which bundle represents the run's frozen execution-facing spec when applicable.\n2. **Given** a job contains task-specific issue context and an approved spec, **When** Mystra prepares the run, **Then** the execution-facing spec is frozen at job submission and attached as an explicit run-scoped artifact instead of being inferred from runner-daemon source text or external chat history.\n3. **Given** a required context bundle is missing or cannot be resolved, **When** runtime resolution occurs, **Then** Mystra fails clearly before agent execution begins.\n\n---\n\n### Technical Scenario 5 - Keep Sandbox Providers Replaceable (Priority: P2)\n\nA platform engineer can add or replace a sandbox provider without changing Project or job submission contracts.\n\n**Why this priority**: The current MVP uses a single-machine Docker provider, but the product boundary says stronger sandbox providers remain future replacements. Runtime config should describe intent while each provider translates that intent into its own execution shape.\n\n**Independent Test**: Define a non-Docker provider shape in contracts and verify the same Project/job runtime config envelope can resolve into provider-specific execution details without adding another Project-level image field.\n\n**Acceptance Scenarios**:\n\n1. **Given** Project runtime declares provider `docker`, **When** a compatible runner claims work, **Then** the runner receives Docker-specific execution details derived from the resolved runtime contract.\n2. **Given** a runner does not support the resolved provider or required features, **When** it attempts to claim work, **Then** Mystra does not assign that run to the incompatible runner.\n3. **Given** a future provider does not use container images, **When** it resolves runtime config, **Then** Project and job contracts remain unchanged.\n\n---\n\n### Technical Scenario 6 - Retire Source-Owned Baseline Runtime Truth (Priority: P2)\n\nA platform operator can keep a baseline runtime image or example builder for local development while preventing source-owned image/context contents from becoming the authoritative per-project runtime contract.\n\n**Why this priority**: A baseline image can help bootstrap local testing, but concrete runtime configuration belongs to Project/job runtime config and release artifacts, not hard-coded runner-daemon prompt text or source-owned bundled context.\n\n**Independent Test**: Build/use the local baseline image by referencing it from Project runtime config and verify job execution uses the resolved runtime contract rather than global env vars or source-owned context assumptions.\n\n**Acceptance Scenarios**:\n\n1. **Given** a baseline runtime builder exists in the repository, **When** documentation describes it, **Then** it is labeled as a local development/template artifact.\n2. **Given** a job is submitted for a Project with runtime image config, **When** the run is claimed, **Then** execution uses the resolved runtime contract.\n3. **Given** runtime config points to an external runtime artifact, **When** Mystra resolves it, **Then** the artifact reference is treated as configuration, not as source content that must live in the platform repository.\n\n### Edge Cases\n\n- Project runtime config is missing, malformed, or names an unsupported provider.\n- Project runtime image is empty for Docker provider.\n- Job override tries to replace runtime image when Project policy does not allow overrides.\n- Job override selects a named runtime profile before profile management exists.\n- Job override tries to change mounts, secrets, cache, or ports before those override surfaces are explicitly allowed.\n- Context bundle resolves successfully but the content is unavailable at execution time.\n- Collaborative requirements continue changing after job submission.\n- Runtime config requests forbidden host resources such as host home or Docker socket.\n- Runtime config stores a secret value instead of a secret reference.\n- Project payload still uses a top-level `image` field instead of `runtime.image`.\n- Baseline local runtime artifacts exist but are stale relative to Project runtime config.\n- Exposed preview ports requested by runtime config conflict with runner policy.\n\n## Requirements *(mandatory)*\n\n### Functional Requirements\n\n- **FR-001**: Project configuration MUST support a typed default `runtime` object that can include provider family, Docker image, context bundle references, mount policy, exposed port policy, cache policy, secret references, and override policy.\n- **FR-002**: Docker image MAY be specified by the user during Project creation as part of `Project.runtime`; it MUST NOT be treated as source-owned runtime content.\n- **FR-003**: Job submission MUST resolve an effective runtime from Project runtime config unless the caller provides a permitted job-level override.\n- **FR-004**: Mystra MUST reject runtime config or job overrides that reference unsupported providers, invalid images, forbidden mounts, embedded secret values, or disallowed context bundles.\n- **FR-005**: Runner claim responses MUST include a resolved runtime contract required for execution, including provider family, environment reference, context bundle contracts, effective mount set, exposed port policy, cache policy, and secret references.\n- **FR-006**: Runner daemon MUST obtain the Docker image through the resolved runtime contract, not by independently interpreting an ad hoc top-level Project image field.\n- **FR-007**: Mystra MUST keep context bundle contents separate from the Mystra platform source tree unless the bundle is explicitly documented as a local development example.\n- **FR-008**: Mystra MUST provide a way to attach job-scoped context, such as issue summaries or task-specific instructions, as explicit context bundles rather than hard-coded runner prompt text.\n- **FR-009**: Mystra MUST fail a run clearly before agent execution when a required runtime config, image, context bundle, mount, port, cache, or secret reference cannot be resolved or is not permitted.\n- **FR-010**: Runtime policy MUST prevent task containers from receiving forbidden host resources, including host home directories and the host container runtime socket.\n- **FR-011**: Secret references MUST remain runtime-injected and MUST NOT be committed, baked into runtime artifacts, or exposed as source-managed context bundle content.\n- **FR-012**: Runner compatibility MUST be evaluated against the resolved runtime contract before a run is assigned.\n- **FR-013**: Existing baseline runtime image or skills-bundle artifacts in the repository MUST be reclassified as development templates and referenced through runtime config when used.\n- **FR-014**: This first version MUST NOT preserve a top-level `Project.image` compatibility field; Docker image belongs under `Project.runtime.image`.\n- **FR-015**: Runtime config, context bundle, and resolved runtime contracts MUST be validated through shared service-boundary schemas.\n- **FR-016**: Documentation MUST state the ownership boundary between Project runtime config, job runtime overrides, context bundles, sandbox provider translation, and baseline local templates.\n- **FR-017**: The first version MUST implement one Project default runtime while preserving a contract path for future Project-managed named runtime profiles.\n- **FR-018**: Job runtime override MUST be allowed only for explicit MVP fields, initially provider/image/context bundle references and metadata as permitted by Project policy; mounts, secrets, cache, and ports remain Project-managed until their management model is designed.\n- **FR-019**: Runtime mount resolution MUST distinguish system-managed mounts, Project-managed mounts, and runtime/image-declared mounts before producing the effective mount set for a runner.\n- **FR-020**: Secret references, including project-specific repository tokens such as GitLab tokens, MUST be modeled as managed Project/runtime inputs rather than hard-coded Mystra system secrets; full secret management can remain outside the MVP execution slice.\n- **FR-021**: API and MCP boundaries MUST validate Project runtime config and job runtime override shapes explicitly instead of relying only on downstream persistence parsing.\n- **FR-022**: Job submission MUST freeze execution-facing spec context into a run-specific artifact before runner claim or sandbox execution begins.\n- **FR-023**: Sandbox agents MUST treat injected execution artifacts, especially the frozen execution-facing spec, as the primary contract and MUST NOT depend on collaborative chat history as live execution truth.\n- **FR-024**: Run outputs and review surfaces MUST remain attributable to the frozen execution-facing spec artifact that governed execution.\n\n### Key Entities\n\n- **Project Runtime Config**: Project-owned structured default runtime configuration. It may include a Docker image for the MVP provider and owns default context, mount, port, cache, secret reference, and override policy.\n- **Runtime Profile**: Future Project-managed named runtime configuration for different work modes, such as frontend development, backend development, documentation-only work, or testing. MVP stores only the default runtime, but contracts should not block this evolution.\n- **Job Runtime Override**: Optional job-level runtime changes permitted by Project policy and captured as part of the run's resolved runtime snapshot. MVP override scope is intentionally narrow.\n- **Context Bundle**: Named package of context made available to a run, such as agent skills, a frozen execution-facing spec artifact, issue summaries, repository instructions, operator guidance, or task-specific context. It defines source, access mode, freshness expectations, and failure behavior.\n- **Frozen Spec Artifact**: The immutable execution-facing snapshot of approved requirements created when a job is submitted and injected into the run context.\n- **Runtime Resolver**: Control-plane logic that combines Project runtime config, job overrides, context bundles, runner compatibility, and policy checks into a resolved runtime contract.\n- **Resolved Runtime Contract**: The run-specific, provider-ready contract returned to a compatible runner after Project defaults, job overrides, context bundles, and policy checks are resolved.\n- **Execution Contract Reference**: The durable attribution path from a run or review artifact back to the frozen spec artifact that governed execution.\n- **Sandbox Provider Capability**: Runner-declared ability to execute a provider family and its required runtime features, such as environment artifact type, mounts, ports, caches, and secret injection modes.\n\n### Assumptions\n\n- The first implementation will preserve the current single-machine Docker provider as the MVP provider while changing the contract so that future providers do not inherit top-level image semantics.\n- Project runtime config is operator-managed platform configuration, not arbitrary public caller input.\n- Job-level runtime overrides are opt-in and constrained by Project policy.\n- Collaborative planning or review surfaces may continue iterating outside Mystra, but an accepted run executes only against the frozen spec artifact created at submission time.\n- Future named runtime profiles are expected, but the MVP implements only a default Project runtime.\n- Project mount and secret management are required concepts, but full mount and secret management UI/CRUD can be deferred while the first business flow is made executable.\n- There is no production compatibility requirement for top-level Project image data because this is the first implementation of the Project runtime contract.\n- Baseline local runtime artifacts may remain in the repository only when clearly scoped to local development and not treated as production or per-project truth.\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: 100% of accepted jobs resolve a runtime contract before runner claim.\n- **SC-002**: A Project can specify Docker image as runtime config and the runner obtains it from the resolved runtime contract.\n- **SC-003**: At least two Projects can use different runtime images without runner-global image configuration.\n- **SC-004**: A required missing image, runtime config, or context bundle fails before agent execution with a clear operator-readable reason.\n- **SC-005**: A runner that lacks required provider capabilities is not assigned incompatible work.\n- **SC-006**: Existing local baseline runtime artifacts are either reclassified as development templates or referenced only through runtime config.\n- **SC-007**: The feature documentation enables a future agent to identify the owner of Project runtime config, job overrides, context bundles, sandbox provider translation, and local-only Castrel image context without relying on chat history.\n- **SC-008**: HTTP API and MCP submissions reject top-level `image`, malformed runtime config, and MVP-forbidden override fields before creating executable runs.\n- **SC-009**: A submitted run can identify the frozen execution-facing spec artifact created at job submission time.\n- **SC-010**: Later changes in collaborative review or planning spaces do not mutate the execution context of an accepted run.\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Features\n\n_specs/002-runtime-profile-context/features.md is not present for this spec yet._"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Checklists\n\n_specs/002-runtime-profile-context/checklists.md is not present for this spec yet._"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/002-runtime-profile-context/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Runtime Config Resolution and Context Bundles\n\n**Branch**: `002-runtime-profile-context` | **Date**: 2026-05-09 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/002-runtime-profile-context/spec.md`\n\n## Summary\n\nRefactor Mystra's runtime contract so Projects own a typed default runtime config object, including Docker image for the current provider, while the control plane resolves that config into a provider-ready runtime contract for runners. The work keeps user-specified Project image configuration valid, designs the missing runtime resolution path, moves context loading into explicit bundles, and prevents source-owned runner image/context contents from becoming per-project runtime truth. The contract should leave room for future Project-managed runtime profiles, but the MVP implements one default runtime first.\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9, Node.js 24 runtime assumptions  \n**Primary Dependencies**: Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider  \n**Storage**: SQLite via `SqliteRdbProvider`, with future PG/Supabase compatibility preserved behind `RdbProvider`  \n**Testing**: Vitest package tests plus TypeScript typecheck; runner Docker behavior covered by focused runner-daemon tests  \n**Target Platform**: Private high-capacity Linux server running control plane, runner daemon, and Docker sandbox workloads  \n**Project Type**: TypeScript monorepo with Next.js control plane, Node runner daemon, shared contracts, and scripts. The current Castrel-oriented runner image context is local-only under `/tmp/mystra-castrel-runner-image` and is not part of the git repository.  \n**Performance Goals**: Claim-time runtime resolution should be bounded and should not scan unrelated context bundles; accepted jobs must resolve runtime before runner assignment  \n**Constraints**: Do not add caller auth, logs API, retry API, callback URLs, quality-gate fix loops, Claude CLI, Kubernetes workloads, cross-runner shared caches, or per-repository secret management; task containers must not mount host home or Docker socket; secrets remain runtime-injected  \n**Scale/Scope**: Single-machine Docker MVP, multiple Projects with different default runtime images, constrained job runtime overrides, explicit context bundles, no top-level Project image compatibility for the first version. Named runtime profiles, full mount management, and full secret management are future management surfaces.\n\n## Constitution Check\n\n*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*\n\n- **Specification Owns Product Boundaries**: PASS. This feature changes runtime configuration ownership inside the MVP boundary and does not introduce excluded platform features.\n- **Typed Contracts at Service Boundaries**: PASS. Project runtime config, job runtime overrides, context bundles, runner capabilities, and claim payloads are explicit TypeScript/Zod contract changes.\n- **Providers Are Replaceable Boundaries**: PASS. Docker image remains valid config for the Docker provider, but runner execution receives it through provider translation rather than ad hoc top-level field reads.\n- **Runner Isolation and Secret Hygiene**: PASS. Mount and secret policy become explicit runtime constraints; host home and Docker socket remain forbidden for task containers.\n- **Verification And Documentation Before Delivery**: PASS. The plan requires shared schema tests, control-plane provider tests, runner claim tests, runner-daemon translation tests, and feature-local documentation.\n\n## Project Structure\n\n### Documentation (this feature)\n\n```text\nspecs/002-runtime-profile-context/\n├── spec.md\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/\n│   ├── api.md\n│   ├── mcp.md\n│   └── runner-claim.md\n├── tasks.md\n└── checklists/\n    └── requirements.md\n```\n\n### Source Code (repository root)\n\n```text\npackages/shared/src/\n├── schemas.ts\n└── schemas.test.ts\n\napps/control-plane/\n├── app/api/\n│   ├── projects/**/route.ts\n│   ├── context-bundles/**/route.ts\n│   ├── jobs/route.ts\n│   ├── mcp/route.ts\n│   ├── runner/register/route.ts\n│   └── runner/jobs/route.ts\n└── src/lib/db/\n    ├── migrations.ts\n    ├── rdb-provider.ts\n    ├── sqlite-provider.ts\n    └── sqlite-provider.test.ts\n\napps/runner-daemon/\n├── src/index.ts\n└── src/container-task.test.ts\n\nscripts/\n├── build-runner-image.sh\n├── doctor-local.sh\n└── sync-runner-skills.sh\n```\n\n**Structure Decision**: Keep the existing monorepo layout. Shared runtime contracts live in `packages/shared/src/schemas.ts`. Project runtime config and context bundle persistence are added to the control-plane DB provider because the control plane resolves claims. Docker-specific translation remains in `apps/runner-daemon/src/index.ts` for the MVP, but it consumes a resolved runtime contract instead of independently reading `Project.image`. The Castrel-oriented runner image context is local-only and must not be treated as Mystra platform baseline or committed runtime truth.\n\n## Complexity Tracking\n\nNo constitution violations require justification.\n\n## Phase 0: Research\n\nResearch decisions are captured in [research.md](./research.md).\n\n## Phase 1: Design & Contracts\n\nDesign artifacts:\n\n- [data-model.md](./data-model.md)\n- [quickstart.md](./quickstart.md)\n- [contracts/api.md](./contracts/api.md)\n- [contracts/mcp.md](./contracts/mcp.md)\n- [contracts/runner-claim.md](./contracts/runner-claim.md)\n\n## Implementation Order\n\n1. Shared schema contracts for Project runtime config, job runtime overrides, context bundles, runner capabilities, and resolved runtime contracts.\n2. SQLite/RdbProvider persistence for Project runtime config and context bundles; Docker image is stored under `projects.runtime`.\n3. Project CRUD and job submission changes to validate runtime config and permitted overrides.\n4. API/MCP route validation for Project default runtime and constrained job overrides, so the boundary rejects malformed runtime payloads before persistence.\n5. Runtime resolver and runner claim matching against provider/capability requirements.\n6. Effective mount resolution that distinguishes system-managed mounts, Project-managed mounts, and runtime/image-declared mounts before runner translation.\n7. Runner daemon translation from resolved Docker runtime contract to container args, mounts, env, ports, and context bundle placement.\n8. Castrel-oriented runner image removal from git, with local image context support through scripts and docs.\n9. Cleanup once tests prove no normal runner path independently interprets top-level `project.image`.\n\n## Verification Checkpoints\n\n| After | Check | Command / Evidence |\n|---|---|---|\n| Shared schemas | Runtime config/context bundle schemas reject top-level Project image and accept `runtime.image` | `pnpm --filter @mystra/shared test` |\n| DB provider | Project runtime config, job override, runtime resolution, and claim snapshots pass | `pnpm --filter @mystra/control-plane test` |\n| API/MCP contracts | Route tests cover Project runtime create/update and job runtime override rejection | `pnpm --filter @mystra/control-plane test` |\n| Mount ownership | Effective runner mounts are resolved from system, Project, and runtime/image inputs without promoting Castrel-specific mounts to system truth | `pnpm --filter @mystra/runner-daemon test` plus resolver tests |\n| Runner claim | Incompatible runners do not receive jobs; compatible runners receive resolved runtime | `pnpm --filter @mystra/control-plane test` |\n| Runner daemon | Docker args use resolved runtime contract, not an ad hoc `project.image` read | `pnpm --filter @mystra/runner-daemon test` |\n| Broad contract | TypeScript contracts compile across packages | `pnpm typecheck` when practical |\n\n## Risk Mitigations\n\n| Risk | Mitigation |\n|---|---|\n| Callers send top-level `image` | Reject the payload; first-version Project runtime image must be `Project.runtime.image` |\n| Runtime config becomes an untyped metadata blob | Define shared schemas for provider, image, context bundles, mounts, ports, caches, secrets, and override policy |\n| Docker semantics leak into future providers | Use provider-specific translation; Docker provider interprets `runtime.image`, future providers define their own environment fields inside the same runtime envelope |\n| Context bundles become source-owned again | Store bundle references and access policy in runtime config; treat repo-bundled skills only as local development examples |\n| Secret references become secret storage | Store only secret reference names and injection mode; values stay in runner environment or external secret source |\n| Project-specific secrets are mistaken for Mystra system secrets | Treat repository tokens, including GitLab tokens, as Project/runtime-managed references; defer full secret management while preserving the contract |\n| Castrel-specific mounts become Mystra system defaults | Define mount ownership levels and only classify truly runner-required mounts as system-managed |\n| Claim matching assigns incompatible work | Extend runner capabilities and claim selection to check provider and required runtime features before assignment |\n| Castrel image language drifts into platform baseline | Keep image context outside git, require Projects to reference concrete `Project.runtime.image`, and ensure claim tests assert resolved runtime usage |\n\n## Post-Design Constitution Re-Check\n\nPASS. The design keeps feature artifacts under `specs/002-runtime-profile-context/`, introduces typed contracts at service boundaries, preserves Docker as the first sandbox provider while allowing Project-owned image config, keeps secrets runtime-injected, and defines concrete verification checkpoints before implementation.\n\n## Engineering Review Report\n\nReviewed with `plan-eng-review` on 2026-05-09.\n\n### Verdict\n\nProceed after tightening the implementation plan. The product and contract direction is sound: `Project.runtime.image` is valid runtime configuration, and the control plane should resolve it into a runner-ready contract. The main implementation risk is overloading persistence classes with runtime policy and building a larger context-bundle management surface than the MVP needs.\n\n### Required Plan Adjustments\n\n1. Extract runtime resolution into a small control-plane runtime module instead of implementing it directly inside `sqlite-provider.ts`.\n   - Recommended path: `apps/control-plane/src/lib/runtime/resolve-runtime.ts`.\n   - The DB provider should persist and load Projects, jobs, runs, bundles, and snapshots; it should not become the owner of override policy, provider compatibility, or mount/secret validation.\n\n2. Persist the resolved runtime snapshot on the run before runner assignment.\n   - The resolved contract must explain historical execution even if Project runtime config or context bundle definitions change later.\n   - Claim responses should return the stored snapshot, not recompute a mutable view after assignment.\n\n3. Do not add legacy image migration.\n   - Store Project runtime as `projects.runtime`.\n   - Reject new Project payloads that use top-level `image`.\n   - Keep normal claim/runtime paths free of `project.image`.\n\n4. Treat context-bundle CRUD as optional for the first implementation slice.\n   - The core need is explicit bundle resolution, not necessarily full operator-facing CRUD.\n   - A local registry or seed-backed bundle table is sufficient if it proves `Project.runtime.contextBundleRefs -> resolved contextBundles`.\n\n5. Replace opaque policy objects with discriminated, bounded schemas.\n   - `mountPolicy`, `exposedPortPolicy`, `cachePolicy`, `secretRefs`, and `overridePolicy` should use narrow MVP shapes.\n   - Avoid `Record<string, unknown>` for policy fields that are part of safety decisions.\n\n6. Add explicit indexes and lookup constraints for claim-time runtime resolution.\n   - Context bundle lookup should be by slug/id and bounded to requested bundles.\n   - Claim selection must not scan or resolve unrelated bundle rows for every queued run.\n\n### Test Additions\n\n- Top-level Project image rejection: create Project with top-level `image`, assert validation fails.\n- Runtime snapshot stability: mutate Project runtime after job creation or assignment, assert the run claim/history still uses the stored resolved runtime.\n- Override rejection: image override denied by Project policy creates no executable run.\n- Secret hygiene: reject secret values in Project runtime, job override, and context bundle source metadata.\n- Forbidden mounts: reject host home and Docker socket across Project runtime, job override, and bundle mount paths.\n- Incompatible runner: queued run remains unassigned when runner lacks provider or required runtime features.\n- Docker runner: image comes from `claim.runtime.environment.image`; tests should fail if runner reads `claim.project.image`.\n- API/MCP boundary: Project and job routes reject top-level `image`, malformed runtime payloads, and MVP-forbidden override fields before creating executable runs.\n- Mount ownership: a Project/runtime mount does not replace system-managed execution mounts, and Castrel-specific image/context mounts are not classified as universal system mounts.\n\n### Scope Guidance\n\nImplement in three verifiable slices:\n\n1. `Project.runtime` plus API/MCP boundary validation plus resolver plus stored runtime snapshot plus runner claim contract.\n2. Effective mount ownership and merge semantics for system, Project, and runtime/image mounts.\n3. Context bundle resolution plus runner context rendering plus baseline image/template documentation cleanup.\n\nNamed runtime profile management, full mount management, and full secret\nmanagement are explicit follow-up surfaces. The MVP should preserve these\ncontracts while first proving the default Project runtime business path.\n\nDo not make a full context bundle administration product unless a first slice proves the runtime contract.\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Runtime Config Resolution and Context Bundles\n\n**Input**: Design documents from `/specs/002-runtime-profile-context/`\n**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md\n\n**Tests**: Contract and focused unit tests are required because this feature changes shared schemas, persistence, runner protocol, and Docker execution behavior.\n\n**Organization**: Tasks are grouped by technical scenario. `[TS#]` maps to the numbered Technical Scenarios in [spec.md](./spec.md). Some API/MCP boundary tasks sit beside the Project/job route files they change, but are labeled `[TS3]` because boundary design is now the highest-priority scenario.\n\n## Format: `[ID] [P?] [Scenario] Description`\n\n- **[P]**: Can run in parallel after its dependencies are satisfied\n- **[TS#]**: Technical scenario label\n- All implementation tasks include exact file paths\n- Before editing code symbols, run GitNexus impact analysis for the target symbols per `AGENTS.md`\n\n## Phase 1: Setup (Shared Planning And Safety)\n\n**Purpose**: Prepare the branch for contract work and protect existing behavior.\n\n- [x] T001 Run `npx gitnexus analyze` in `/Users/arcadia/Documents/mystra` to refresh the code intelligence index before code edits\n- [x] T002 [P] Review existing image/runtime references in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/migrations.ts`, and `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`\n- [x] T003 [P] Confirm current focused verification commands from `/Users/arcadia/Documents/mystra/PLATFORM.md` and `/Users/arcadia/Documents/mystra/package.json`\n- [x] T004 Create a runtime contract checklist in `/Users/arcadia/Documents/mystra/specs/002-runtime-profile-context/checklists/runtime-contract.md`\n\n---\n\n## Phase 2: Foundational (Blocking Contracts)\n\n**Purpose**: Define shared contracts and persistence foundations that all scenarios depend on.\n\n**Critical**: No scenario implementation should begin until this phase is complete.\n\n- [x] T005 Run GitNexus impact analysis for `projectSchema`, `projectCreateSchema`, `projectUpdateSchema`, `jobSpecSchema`, `platformCapabilitiesSchema`, and `JobSpec` before editing `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`\n- [x] T006 Add Project runtime config, job runtime override, context bundle, resolved runtime, and expanded runner capability schemas in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts`\n- [x] T007 Update shared schema tests for Project runtime config, job runtime override, context bundles, runner capabilities, resolved runtime, and top-level image rejection in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`\n- [x] T008 Run GitNexus impact analysis for `RdbProvider`, `ProjectClaim`, `JobSnapshot`, and `RegisterRunnerInput` before editing `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`\n- [x] T009 Extend `RdbProvider` types and methods for Project runtime config, context bundle lookup, job runtime overrides, and resolved runtime snapshots in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/rdb-provider.ts`\n- [x] T010 Update SQLite migrations for Project runtime JSON, context bundles, and resolved runtime snapshot fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/migrations.ts`\n- [x] T011 Add DB row parsing helpers for runtime config, context bundle JSON, and resolved runtime fields in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T012 [P] Add runtime resolver module skeleton and focused tests in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`\n- [x] T013 Verify foundational contracts with `pnpm --filter @mystra/shared test`\n\n**Checkpoint**: Shared contracts and DB surfaces exist; scenario work can begin.\n\n---\n\n## Phase 3: Technical Scenario 1 - Define Project Runtime Config (Priority: P1)\n\n**Goal**: Platform operators can create and update Projects with typed runtime config, including Docker image, without loose top-level runtime fields.\n\n**Independent Test**: Create a Project with `runtime.provider=docker` and `runtime.image`, retrieve it, and verify invalid runtime config is rejected.\n\n### Tests for TS1\n\n- [x] T014 [P] [TS1] Add shared Project runtime config tests for valid Docker image, invalid image, forbidden mounts, and embedded secret values in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`\n- [x] T015 [P] [TS1] Add SQLite provider tests for Project runtime create/update/read and top-level image rejection in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`\n- [x] T016 [P] [TS1] Add route tests for Project runtime config create/update behavior in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`\n\n### Implementation for TS1\n\n- [x] T017 [TS1] Update Project create/update persistence to store `runtime` without a top-level image compatibility field in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T018 [TS3] Update Project API route boundary validation for runtime config fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/route.ts`\n- [x] T019 [TS3] Update Project detail API route boundary validation for runtime config fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/[slug]/route.ts`\n- [x] T020 [TS1] Update control-plane UI or minimal operator surface to show Project runtime provider and image in `/Users/arcadia/Documents/mystra/apps/control-plane/app/page.tsx`\n- [x] T021 [TS1] Run `pnpm --filter @mystra/shared test` and `pnpm --filter @mystra/control-plane test`\n\n**Checkpoint**: TS1 works independently: Projects can own typed runtime image config.\n\n---\n\n## Phase 4: Technical Scenario 2 - Resolve Runtime From Project Default And Overrides (Priority: P1)\n\n**Goal**: Job submission resolves an effective runtime from Project runtime config and permitted overrides.\n\n**Independent Test**: Submit jobs with Project default runtime and allowed overrides; verify unknown/disallowed overrides create no run or fail before execution.\n\n### Tests for TS2\n\n- [x] T022 [P] [TS2] Add shared job runtime override tests for allowed image/context overrides and rejected forbidden overrides in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`\n- [x] T023 [P] [TS2] Add runtime resolver tests for Project defaults, override acceptance, override rejection, forbidden mounts, secret hygiene, and snapshot stability in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`\n- [x] T024 [P] [TS3] Add API/MCP route tests for Project runtime config, constrained job runtime override fields, top-level image rejection, and MVP-forbidden override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`\n\n### Implementation for TS2\n\n- [x] T025 [TS2] Implement runtime resolver logic in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`\n- [x] T026 [TS2] Update job creation to call the runtime resolver and persist the resolved runtime snapshot in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T027 [TS3] Update job API boundary validation for constrained runtime override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/route.ts`\n- [x] T028 [TS3] Update MCP project/job tool schemas for Project runtime, future profile reservation, and constrained job override fields in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/mcp/route.ts`\n- [x] T029 [TS2] Run `pnpm --filter @mystra/shared test` and `pnpm --filter @mystra/control-plane test`\n\n**Checkpoint**: TS2 works independently: jobs resolve runtime contracts from Project runtime config.\n\n---\n\n## Phase 4.5: Technical Scenario 3 - Design API/MCP Runtime Boundaries (Priority: P0)\n\n**Goal**: HTTP API and MCP submissions validate Project runtime config, future profile reservation, and constrained job overrides at the service boundary before persistence or run creation.\n\n**Task Mapping**: TS3 work is attached to the route files it changes: T018, T019, T024, T027, T028, T068, and T069.\n\n**Checkpoint**: TS3 works independently: API and MCP callers cannot create executable runs with top-level Project image, malformed runtime config, or MVP-forbidden override fields.\n\n---\n\n## Phase 5: Technical Scenario 4 - Provide Context Through Explicit Bundles (Priority: P1)\n\n**Goal**: Context bundles are explicit runtime inputs with resolution and failure policy, not hard-coded runner prompt or source-owned content.\n\n**Independent Test**: Configure `agent-skills` in Project runtime, submit a job with job-scoped context, and verify missing required bundles fail before agent start.\n\n### Tests for TS4\n\n- [x] T030 [P] [TS4] Add context bundle schema tests for source, access mode, freshness, failure mode, and forbidden mount paths in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`\n- [x] T031 [P] [TS4] Add SQLite provider tests for required context bundle lookup/resolution failures; full context bundle CRUD is optional for the first slice in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`\n- [x] T032 [P] [TS4] Add runner-daemon test asserting prompt/context setup is driven by resolved bundles rather than hard-coded issue-context text in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`\n\n### Implementation for TS4\n\n- [x] T033 [TS4] Implement minimal context bundle lookup/persistence needed for resolution in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T034 [TS4] Implement minimal context bundle collection route handlers for create/list in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/context-bundles/route.ts`\n- [x] T035 [TS4] Defer or implement single context bundle route handlers only if the first slice needs operator-managed bundles in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/context-bundles/[slug]/route.ts`\n- [x] T036 [TS4] Add context bundle resolution into the runtime resolver in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`\n- [x] T037 [TS4] Replace hard-coded task prompt context sections with resolved context bundle rendering in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`\n- [x] T038 [TS4] Run `pnpm --filter @mystra/control-plane test` and `pnpm --filter @mystra/runner-daemon test`\n\n**Checkpoint**: TS4 works independently: required context is explicit and missing context fails before agent execution.\n\n---\n\n## Phase 6: Technical Scenario 5 - Keep Sandbox Providers Replaceable (Priority: P2)\n\n**Goal**: Runner registration and claim matching use provider and runtime capabilities so future providers do not require Project or job contract changes.\n\n**Independent Test**: Register compatible and incompatible runners, submit a Project-runtime-backed job, and verify only compatible runners can claim it.\n\n### Tests for TS5\n\n- [x] T039 [P] [TS5] Add shared runner capability tests for providers, mount kinds, context bundle modes, port exposure, and secret injection modes in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts`\n- [x] T040 [P] [TS5] Add control-plane claim tests for compatible runner assignment and incompatible runner non-assignment in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`\n- [x] T041 [P] [TS5] Add runner claim contract route tests for resolved runtime payload shape in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`\n\n### Implementation for TS5\n\n- [x] T042 [TS5] Update runner registration capability parsing in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T043 [TS5] Update claim selection to check provider and required runtime features before assignment in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.ts`\n- [x] T044 [TS5] Update runner registration route handling for expanded capabilities in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/register/route.ts`\n- [x] T045 [TS5] Update runner claim route to return `{ job, run, project, runtime }` including empty runtime nulls in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/runner/jobs/route.ts`\n- [x] T046 [TS5] Update runner-daemon `ClaimedJobResponse` type and compatibility checks in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`\n- [x] T047 [TS5] Run `pnpm --filter @mystra/control-plane test` and `pnpm --filter @mystra/runner-daemon test`\n\n**Checkpoint**: TS5 works independently: provider compatibility is enforced before assignment.\n\n---\n\n## Phase 7: Technical Scenario 6 - Retire Source-Owned Baseline Runtime Truth (Priority: P2)\n\n**Goal**: Baseline image and skill sync remain local development templates, while normal execution uses resolved runtime config.\n\n**Independent Test**: Build/use the local template through `Project.runtime.image` and verify runner execution uses `runtime.environment.image`.\n\n### Tests for TS6\n\n- [x] T048 [P] [TS6] Update runner-daemon test to assert Docker image selection uses `runtime.environment.image` and does not independently interpret `project.image` in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts`\n- [x] T049 [P] [TS6] Update control-plane provider tests to assert claim payloads include resolved runtime from Project runtime config in `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/db/sqlite-provider.test.ts`\n\n### Implementation for TS6\n\n- [x] T050 [TS6] Update Docker execution path to use the resolved runtime contract for image, env, mounts, ports, caches, and secrets in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts`\n- [x] T051 [TS6] Move Castrel-oriented runner image context out of git to `/tmp/mystra-castrel-runner-image`\n- [x] T052 [TS6] Update skill sync script to target the local image context instead of a git-tracked image package in `/Users/arcadia/Documents/mystra/scripts/sync-runner-skills.sh`\n- [x] T053 [TS6] Update runner image build and doctor scripts to reference local Castrel image context and Project runtime config in `/Users/arcadia/Documents/mystra/scripts/build-runner-image.sh` and `/Users/arcadia/Documents/mystra/scripts/doctor-local.sh`\n- [x] T054 [TS6] Update local usage and runner docs to describe Project runtime config and the local-only Castrel image in `/Users/arcadia/Documents/mystra/docs/LOCAL-USAGE.md` and `/Users/arcadia/Documents/mystra/docs/RUNNER-DOCKER-MVP.md`\n- [x] T055 [TS6] Run `pnpm --filter @mystra/runner-daemon test`\n\n**Checkpoint**: TS6 works independently: local templates exist, but source-owned runtime truth is retired.\n\n---\n\n## Phase 8: Current Corrections From Core Logic Review\n\n**Purpose**: Incorporate owner clarification before continuing implementation: MVP has one Project default runtime, future runtime profiles are reserved, API/MCP boundary design is P0, mount ownership has three levels, and secrets are managed Project/runtime inputs but not a full first-slice manager.\n\n- [x] T066 [P] [TS2] Add schema/resolver tests that document the MVP default-runtime path and reserved future `runtimeProfile` behavior in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`\n- [x] T067 [TS2] Ensure job runtime override remains constrained to MVP-allowed fields and cannot override mounts, secrets, cache, or ports in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`\n- [x] T068 [P] [TS3] Add API/MCP tests that reject MVP-forbidden runtime override fields and top-level Project image before persistence in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`\n- [x] T069 [TS3] Tighten API and MCP route schemas to validate Project runtime and job runtime override at the boundary in `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/route.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/projects/[slug]/route.ts`, `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/jobs/route.ts`, and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/mcp/route.ts`\n- [x] T070 [P] [TS5] Add focused tests for effective mount ownership and merge semantics across system, Project, and runtime/image mounts in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/container-task.test.ts` or `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.test.ts`\n- [x] T071 [TS5] Refactor resolved mount translation so system-managed runner mounts are not confused with Castrel Project/runtime mounts in `/Users/arcadia/Documents/mystra/apps/runner-daemon/src/index.ts` and, if needed, `/Users/arcadia/Documents/mystra/apps/control-plane/src/lib/runtime/resolve-runtime.ts`\n- [x] T072 [P] [TS1] Update the minimal operator surface to show Project runtime provider, image, and runtime summary in `/Users/arcadia/Documents/mystra/apps/control-plane/app/page.tsx`\n- [x] T073 Run `pnpm --filter @mystra/shared test`, `pnpm --filter @mystra/control-plane test`, `pnpm --filter @mystra/runner-daemon test`, and `pnpm typecheck` after the correction slice\n\n---\n\n## Phase 9: Polish And Broad Verification\n\n**Purpose**: Complete documentation reconciliation and broad checks.\n\n- [x] T056 Add coverage that top-level Project `image` is rejected in shared schema, control-plane routes, and MCP project creation in `/Users/arcadia/Documents/mystra/packages/shared/src/schemas.test.ts` and `/Users/arcadia/Documents/mystra/apps/control-plane/app/api/routes.test.ts`\n- [x] T057 Remove any remaining feature documentation that implies legacy top-level Project image migration in `/Users/arcadia/Documents/mystra/specs/002-runtime-profile-context/`\n- [x] T058 Update feature quickstart with any implementation-specific command changes in `/Users/arcadia/Documents/mystra/specs/002-runtime-profile-context/quickstart.md`\n- [x] T059 [P] Update `PLATFORM.md` runtime shape and provider-boundary notes for Project runtime config in `/Users/arcadia/Documents/mystra/PLATFORM.md`\n- [x] T060 [P] Update `PRODUCT.md` success measures or boundaries only if implementation changes durable product scope in `/Users/arcadia/Documents/mystra/PRODUCT.md`\n- [x] T061 Run `pnpm --filter @mystra/shared test`\n- [x] T062 Run `pnpm --filter @mystra/control-plane test`\n- [x] T063 Run `pnpm --filter @mystra/runner-daemon test`\n- [x] T064 Run `pnpm typecheck` when focused tests pass\n- [x] T065 Run GitNexus detect changes before committing to verify affected symbols and execution flows\n\n---\n\n## Dependencies & Execution Order\n\n### Phase Dependencies\n\n- **Phase 1 Setup**: No dependencies.\n- **Phase 2 Foundational**: Depends on Phase 1.\n- **TS1 Project Runtime Config**: Depends on Phase 2.\n- **TS2 Runtime Resolution**: Depends on TS1 Project runtime config.\n- **TS3 API/MCP Boundary**: Depends on TS1 and TS2 schemas; blocks clean external submission.\n- **TS4 Context Bundles**: Depends on Phase 2 and can overlap with TS2 after schemas exist.\n- **TS5 Provider Compatibility**: Depends on TS1 and TS2 resolved runtime contracts.\n- **TS6 Baseline Runtime Truth Cleanup**: Depends on TS5 runner claim contract.\n- **Phase 8 Corrections**: Depends on owner clarification and the current partial implementation state.\n- **Phase 9 Migration/Polish**: Depends on all selected technical scenarios.\n\n### Parallel Opportunities\n\n- T002 and T003 can run in parallel.\n- T014, T015, and T016 can run in parallel after foundational schemas.\n- T022, T023, and T024 can run in parallel after TS1 contracts.\n- T030, T031, and T032 can run in parallel after context bundle schemas.\n- T039, T040, and T041 can run in parallel after runner capability schemas.\n- T048 and T049 can run in parallel after resolved runtime claim contract exists.\n- T066, T068, T070, and T072 can run in parallel after this clarification is recorded.\n- T059 and T060 can run in parallel after implementation behavior is known.\n\n## Implementation Strategy\n\n### MVP First\n\n1. Complete Phase 1 and Phase 2.\n2. Complete TS1 and TS2.\n3. Validate that Projects can own runtime image config and jobs resolve runtime contracts.\n4. Stop and review before changing runner execution.\n\n### Incremental Delivery\n\n1. Project runtime config contract and persistence.\n2. Job runtime override and runtime resolver.\n3. Context bundle resolution.\n4. Runner compatibility and claim contract.\n5. Docker runner translation and local Castrel image cleanup.\n\n### Coordination Notes\n\n- Shared schema and DB provider tasks are sequentially sensitive; avoid parallel edits to the same files.\n- Runner-daemon and documentation cleanup can proceed after the claim contract is stable.\n- Every code-symbol edit requires GitNexus impact analysis before modification.\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

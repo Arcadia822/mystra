@@ -1,4 +1,5 @@
 import type { TaskListItem } from "../_lib/types";
+import { taskTitle } from "../_lib/task-view";
 
 export function filterTasks(tasks: TaskListItem[], query: string): TaskListItem[] {
   const normalized = query.trim().toLowerCase();
@@ -6,16 +7,15 @@ export function filterTasks(tasks: TaskListItem[], query: string): TaskListItem[
 
   return tasks.filter((task) => [
     task.id,
-    task.objective,
-    task.issue?.reference.identifier,
-    task.issue?.title,
-    task.repository.fullName,
-    task.latestSession?.branch,
+    task.projectId,
+    task.issueDispatchKey,
+    taskTitle(task),
   ].some((value) => value?.toLowerCase().includes(normalized)));
 }
 
 export function inboxTasks(tasks: TaskListItem[]): TaskListItem[] {
-  return tasks.filter((task) => task.latestSession?.state === "waiting_for_review");
+  void tasks;
+  return [];
 }
 
 export function selectedSearchTask(
