@@ -67,62 +67,7 @@ export function createSqlitePrismaClient(input: {
   databaseUrl: string;
 }): MystraPrismaClient {
   const adapter = new PrismaBetterSqlite3({ url: input.databaseUrl });
-  const client = new SqlitePrismaClient({ adapter });
-  const delegates = protectDelegates({
-    integrationConnection: {
-      upsert: async (args) => client.integrationConnection.upsert(args),
-      updateMany: async (args) => client.integrationConnection.updateMany(args),
-      findUnique: async (args) => client.integrationConnection.findUnique(args),
-      findMany: async (args) => client.integrationConnection.findMany(args),
-      deleteMany: async (args) => client.integrationConnection.deleteMany(args),
-    },
-    project: {
-      create: async (args) => client.project.create(args),
-      updateMany: async (args) => client.project.updateMany(args),
-      findUnique: async (args) => client.project.findUnique(args),
-      findMany: async (args) => client.project.findMany(args),
-    },
-    task: {
-      create: async (args) => client.task.create(args),
-      findUnique: async (args) => client.task.findUnique(args),
-      findMany: async (args) => client.task.findMany(args),
-    },
-    secretEnvelope: {
-      create: async (args) => client.secretEnvelope.create(args),
-      findUnique: async (args) => client.secretEnvelope.findUnique(args),
-      deleteMany: async (args) => client.secretEnvelope.deleteMany(args),
-    },
-  });
-  return {
-    ...delegates,
-    transaction: async (operation) => safeClientOperation(() => client.$transaction(async (transaction) => operation(protectDelegates({
-      integrationConnection: {
-        upsert: async (args) => transaction.integrationConnection.upsert(args),
-        updateMany: async (args) => transaction.integrationConnection.updateMany(args),
-        findUnique: async (args) => transaction.integrationConnection.findUnique(args),
-        findMany: async (args) => transaction.integrationConnection.findMany(args),
-        deleteMany: async (args) => transaction.integrationConnection.deleteMany(args),
-      },
-      project: {
-        create: async (args) => transaction.project.create(args),
-        updateMany: async (args) => transaction.project.updateMany(args),
-        findUnique: async (args) => transaction.project.findUnique(args),
-        findMany: async (args) => transaction.project.findMany(args),
-      },
-      task: {
-        create: async (args) => transaction.task.create(args),
-        findUnique: async (args) => transaction.task.findUnique(args),
-        findMany: async (args) => transaction.task.findMany(args),
-      },
-      secretEnvelope: {
-        create: async (args) => transaction.secretEnvelope.create(args),
-        findUnique: async (args) => transaction.secretEnvelope.findUnique(args),
-        deleteMany: async (args) => transaction.secretEnvelope.deleteMany(args),
-      },
-    })), { isolationLevel: "Serializable" })),
-    connect: async () => safeClientOperation(() => client.$connect()),
-    disconnect: async () => client.$disconnect(),
-  };
+  return wrapPrismaClient(new SqlitePrismaClient({ adapter }));
 }
 
 export function createPostgresqlPrismaClient(input: {
@@ -137,90 +82,56 @@ export function createPostgresqlPrismaClient(input: {
     connectionTimeoutMillis: input.connectionTimeoutMs,
     idleTimeoutMillis: input.idleTimeoutMs,
   });
-  const client = new PostgresqlPrismaClient({ adapter });
-  const delegates = protectDelegates({
-    integrationConnection: {
-      upsert: async (args) => client.integrationConnection.upsert(args),
-      updateMany: async (args) => client.integrationConnection.updateMany(args),
-      findUnique: async (args) => client.integrationConnection.findUnique(args),
-      findMany: async (args) => client.integrationConnection.findMany(args),
-      deleteMany: async (args) => client.integrationConnection.deleteMany(args),
-    },
-    project: {
-      create: async (args) => client.project.create(args),
-      updateMany: async (args) => client.project.updateMany(args),
-      findUnique: async (args) => client.project.findUnique(args),
-      findMany: async (args) => client.project.findMany(args),
-    },
-    task: {
-      create: async (args) => client.task.create(args),
-      findUnique: async (args) => client.task.findUnique(args),
-      findMany: async (args) => client.task.findMany(args),
-    },
-    secretEnvelope: {
-      create: async (args) => client.secretEnvelope.create(args),
-      findUnique: async (args) => client.secretEnvelope.findUnique(args),
-      deleteMany: async (args) => client.secretEnvelope.deleteMany(args),
-    },
-  });
+  return wrapPrismaClient(new PostgresqlPrismaClient({ adapter }));
+}
+
+/**
+ * Minimal structural view of a generated Prisma client (or an interactive
+ * transaction handle) that this module drives. Both the root client and the
+ * `$transaction` argument satisfy it, so delegate protection is defined once.
+ */
+type RawPrismaSource = MystraPrismaDelegates & {
+  $transaction<T>(
+    operation: (transaction: MystraPrismaDelegates) => Promise<T>,
+    options: { isolationLevel: "Serializable" },
+  ): Promise<T>;
+  $connect(): Promise<void>;
+  $disconnect(): Promise<void>;
+};
+
+function wrapPrismaClient(client: RawPrismaSource): MystraPrismaClient {
   return {
-    ...delegates,
-    transaction: async (operation) => safeClientOperation(() => client.$transaction(async (transaction) => operation(protectDelegates({
-      integrationConnection: {
-        upsert: async (args) => transaction.integrationConnection.upsert(args),
-        updateMany: async (args) => transaction.integrationConnection.updateMany(args),
-        findUnique: async (args) => transaction.integrationConnection.findUnique(args),
-        findMany: async (args) => transaction.integrationConnection.findMany(args),
-        deleteMany: async (args) => transaction.integrationConnection.deleteMany(args),
-      },
-      project: {
-        create: async (args) => transaction.project.create(args),
-        updateMany: async (args) => transaction.project.updateMany(args),
-        findUnique: async (args) => transaction.project.findUnique(args),
-        findMany: async (args) => transaction.project.findMany(args),
-      },
-      task: {
-        create: async (args) => transaction.task.create(args),
-        findUnique: async (args) => transaction.task.findUnique(args),
-        findMany: async (args) => transaction.task.findMany(args),
-      },
-      secretEnvelope: {
-        create: async (args) => transaction.secretEnvelope.create(args),
-        findUnique: async (args) => transaction.secretEnvelope.findUnique(args),
-        deleteMany: async (args) => transaction.secretEnvelope.deleteMany(args),
-      },
-    })), { isolationLevel: "Serializable" })),
-    connect: async () => safeClientOperation(() => client.$connect()),
-    disconnect: async () => client.$disconnect(),
+    ...protectDelegates(client),
+    transaction: (operation) => safeClientOperation(() => client.$transaction(
+      (transaction) => operation(protectDelegates(transaction)),
+      { isolationLevel: "Serializable" },
+    )),
+    connect: () => safeClientOperation(() => client.$connect()),
+    disconnect: () => client.$disconnect(),
   };
 }
 
-function protectDelegates(delegates: MystraPrismaDelegates): MystraPrismaDelegates {
-  return {
-    integrationConnection: {
-      upsert: (args) => safeClientOperation(() => delegates.integrationConnection.upsert(args)),
-      updateMany: (args) => safeClientOperation(() => delegates.integrationConnection.updateMany(args)),
-      findUnique: (args) => safeClientOperation(() => delegates.integrationConnection.findUnique(args)),
-      findMany: (args) => safeClientOperation(() => delegates.integrationConnection.findMany(args)),
-      deleteMany: (args) => safeClientOperation(() => delegates.integrationConnection.deleteMany(args)),
-    },
-    project: {
-      create: (args) => safeClientOperation(() => delegates.project.create(args)),
-      updateMany: (args) => safeClientOperation(() => delegates.project.updateMany(args)),
-      findUnique: (args) => safeClientOperation(() => delegates.project.findUnique(args)),
-      findMany: (args) => safeClientOperation(() => delegates.project.findMany(args)),
-    },
-    task: {
-      create: (args) => safeClientOperation(() => delegates.task.create(args)),
-      findUnique: (args) => safeClientOperation(() => delegates.task.findUnique(args)),
-      findMany: (args) => safeClientOperation(() => delegates.task.findMany(args)),
-    },
-    secretEnvelope: {
-      create: (args) => safeClientOperation(() => delegates.secretEnvelope.create(args)),
-      findUnique: (args) => safeClientOperation(() => delegates.secretEnvelope.findUnique(args)),
-      deleteMany: (args) => safeClientOperation(() => delegates.secretEnvelope.deleteMany(args)),
-    },
-  };
+const modelMethods = {
+  integrationConnection: ["upsert", "updateMany", "findUnique", "findMany", "deleteMany"],
+  project: ["create", "updateMany", "findUnique", "findMany"],
+  task: ["create", "findUnique", "findMany"],
+  secretEnvelope: ["create", "findUnique", "deleteMany"],
+} as const;
+
+function protectDelegates(source: MystraPrismaDelegates): MystraPrismaDelegates {
+  const protectedDelegates = {} as Record<string, Record<string, (args: unknown) => Promise<unknown>>>;
+  for (const [model, methods] of Object.entries(modelMethods)) {
+    const delegate = source[model as keyof MystraPrismaDelegates] as Record<
+      string,
+      (args: unknown) => Promise<unknown>
+    >;
+    const wrapped: Record<string, (args: unknown) => Promise<unknown>> = {};
+    for (const method of methods) {
+      wrapped[method] = (args) => safeClientOperation(() => delegate[method]!(args));
+    }
+    protectedDelegates[model] = wrapped;
+  }
+  return protectedDelegates as unknown as MystraPrismaDelegates;
 }
 
 async function safeClientOperation<T>(operation: () => Promise<T>): Promise<T> {
