@@ -8,6 +8,53 @@ import {
 export const agentNameSchema = z.enum(["codex", "copilot"]);
 export type AgentName = z.infer<typeof agentNameSchema>;
 
+export const providerSourceSchema = z.enum(["path", "login-shell", "env-override"]);
+export type ProviderSource = z.infer<typeof providerSourceSchema>;
+
+export const providerUnavailableReasonSchema = z.enum([
+  "not-found",
+  "exec-failed",
+  "version-below-threshold",
+  "override-path-missing",
+]);
+export type ProviderUnavailableReason = z.infer<typeof providerUnavailableReasonSchema>;
+
+export const providerCapabilitySchema = z
+  .object({
+    provider: agentNameSchema,
+    discovered: z.boolean(),
+    available: z.boolean(),
+    source: providerSourceSchema,
+    resolvedPath: z.string().min(1).nullable(),
+    version: z.string().min(1).nullable(),
+    unavailableReason: providerUnavailableReasonSchema.nullable(),
+  })
+  .strict()
+  .superRefine((capability, ctx) => {
+    if (capability.available && !capability.discovered) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An available Provider must be discovered",
+        path: ["available"],
+      });
+    }
+    if (!capability.discovered && capability.resolvedPath !== null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An undiscovered Provider cannot have a resolved path",
+        path: ["resolvedPath"],
+      });
+    }
+    if (!capability.available && capability.unavailableReason === null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An unavailable Provider must include an unavailable reason",
+        path: ["unavailableReason"],
+      });
+    }
+  });
+export type ProviderCapability = z.infer<typeof providerCapabilitySchema>;
+
 export const taskSourceSchema = z.enum(["mcp", "api", "issue"]);
 export type TaskSource = z.infer<typeof taskSourceSchema>;
 

@@ -17,6 +17,7 @@ import {
   taskCreateSchema,
   platformCapabilitiesSchema,
   platformDefaultsSchema,
+  providerCapabilitySchema,
   projectCreateSchema,
   projectCreateRequestSchema,
   projectRuntimeConfigSchema,
@@ -681,6 +682,70 @@ describe("runnerRegistrationSchema", () => {
         },
       }),
     ).toThrow();
+  });
+});
+
+describe("providerCapabilitySchema", () => {
+  it("accepts an available discovered Provider", () => {
+    const parsed = providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: true,
+      available: true,
+      source: "path",
+      resolvedPath: "/usr/local/bin/copilot",
+      version: "1.0.0",
+      unavailableReason: null,
+    });
+
+    expect(parsed.available).toBe(true);
+  });
+
+  it("requires availability to imply discovery", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: false,
+      available: true,
+      source: "path",
+      resolvedPath: null,
+      version: null,
+      unavailableReason: null,
+    })).toThrow();
+  });
+
+  it("requires undiscovered Providers to omit the resolved path", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: false,
+      available: false,
+      source: "path",
+      resolvedPath: "/usr/local/bin/copilot",
+      version: null,
+      unavailableReason: "not-found",
+    })).toThrow();
+  });
+
+  it("requires unavailable Providers to explain why", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: true,
+      available: false,
+      source: "path",
+      resolvedPath: "/usr/local/bin/copilot",
+      version: null,
+      unavailableReason: null,
+    })).toThrow();
+  });
+
+  it("represents a missing explicit override as unavailable", () => {
+    expect(() => providerCapabilitySchema.parse({
+      provider: "copilot",
+      discovered: false,
+      available: false,
+      source: "env-override",
+      resolvedPath: null,
+      version: null,
+      unavailableReason: "override-path-missing",
+    })).not.toThrow();
   });
 });
 
