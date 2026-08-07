@@ -142,7 +142,12 @@ describe("GitHubCredentialResolver", () => {
       code: "INTEGRATION_CONNECTION_SELECTION_REQUIRED",
     });
 
-    const inactive = connection({ ...app, status: "inactive" });
+    const inactive = connection({
+      id: app.id,
+      authMethod: "github-app",
+      providerExternalId: app.providerExternalId,
+      status: "inactive",
+    });
     await expect(new GitHubCredentialResolver({ db: new ConnectionDb([inactive]) }).resolve(inactive.id))
       .rejects.toMatchObject({ code: "INTEGRATION_CREDENTIAL_UNAVAILABLE" });
   });

@@ -7,26 +7,28 @@ artifact, and summary persistence, plus obsolete Project execution defaults/snap
 source/objective/snapshots. No compatibility columns, tables, aliases, stubs, or raw SQL fallback
 were added.
 
-## Current compile impact
+## Current upper-surface status
 
-Evidence captured on 2026-08-06 after the three-table provider landed:
+Evidence refreshed on 2026-08-07 after the owner authorized temporary upper-surface disablement:
 
-- `@mystra/shared` typecheck and all 131 shared tests pass after replacing legacy Project/Task/
-  Connection fixtures and the Artifact-shaped execution-spec fixture.
-- `@mystra/control-plane` typecheck reports 179 errors across approved upper break surfaces.
-- full workspace tests reach control-plane and report 19 failures there; shared and
-  agent-adapters pass (131 and 6 tests respectively). The failures are concentrated in legacy
-  Project resolution, GitHub App/Connection API fixtures, and removed route behavior.
-- API/MCP/Runner routes still call removed Session/Runner/ContextBundle/event/summary methods.
-- several routes and the Integration registry still treat async `getDb()`/CRUD as synchronous.
-- UI and onboarding code still read removed Project repository snapshots/execution defaults,
-  Task objective/session summaries, and legacy IntegrationConnection top-level GitHub fields.
-- old GitHub credential/PAT tests still import the deleted raw-SQL `SqliteRdbProvider`.
+- IntegrationConnection, Project, and Task HTTP/MCP callers now await the asynchronous
+  `RdbProvider` contract and use the current three-table schemas.
+- Session, Runner, ContextBundle, event, result, repository-credential, summary, and Task
+  child-Session API routes are absent. MCP advertises only Task CRUD/health tools from this phase.
+- direct `/sessions/:id` and `/runners/:id` Web routes remain reachable as explicit unavailable
+  states; Inbox also reports that Session review persistence is unavailable. These pages issue no
+  removed database calls and do not fabricate empty records.
+- Project and Task pages render only retained relational identity/metadata. New Task intake stores
+  a generic `metadata.title`; it does not restore source/objective/snapshot fields in metadata.
+- the full workspace lint, typecheck, tests, build, both Prisma schema validations, and terminology
+  audit pass. Runtime validation used a migrated temporary SQLite database and a production Next.js
+  server; `/`, `/runners`, `/sessions/:id`, and `/inbox` rendered without browser console warnings
+  or errors. Removed API paths returned 404 while retained Task/Project/control-plane paths returned
+  200.
 
-These failures are not evidence that Prisma CRUD is untested. The scoped persistence suite passes
-schema parity, safe error normalization, config/lifecycle, SQLite and adoption contracts. The
-upper surfaces require separate product redesign specifications; restoring deleted persistence to
-silence them is prohibited.
+Future Session persistence, Runner capacity, Context delivery, and Issue-to-Session dispatch remain
+separate redesign work. The explicit unavailable UI is a temporary product state, not a persistence
+compatibility layer.
 
 ## External database evidence
 
@@ -47,9 +49,11 @@ diagnostic unless its migration subprocess had `RUST_LOG=info`. The migration wr
 environment value to the child process; runtime Prisma clients are unaffected. This is an observed
 toolchain behavior, not a domain contract.
 
-`pnpm audit --prod` could not reach the configured Tencent npm mirror during this run. Dependency
-audit therefore remains unverified; the failure was network resolution, not an empty vulnerability
-report.
+The configured Tencent npm mirror still cannot serve `pnpm audit`, but a retry against the official
+npm registry completed. The existing lockfile reports 42 advisories: 23 high, 15 moderate, and 4
+low. High findings include Next.js 16.2.4 and transitive Prisma tooling dependencies. No dependency
+was added by this upper-surface cleanup; framework/toolchain remediation requires a separately
+scoped dependency upgrade and regression pass.
 
 GitNexus `detect_changes` was run before commits as required, but the configured service indexes the
 dirty main checkout rather than this isolated worktree. Its 65-file/198-symbol CRITICAL report was

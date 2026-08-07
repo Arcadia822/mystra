@@ -142,9 +142,9 @@ SQL；保留三表调用正确 await；删除 surface 的失败清单与 Owner �
 
 ### Implementation for User Story 4
 
-- [ ] T045 [US4] 更新 `apps/control-plane/src/lib/integrations/dispatch.ts` 与保留的 Integration/Project/Task route/MCP callers 显式 await 三表方法，确保 try/catch 捕获 Promise rejection
+- [x] T045 [US4] 删除依赖旧 Session 合同的 `apps/control-plane/src/lib/integrations/dispatch.ts`，并让保留的 Integration/Project/Task route/MCP callers 显式 await 三表方法，确保 try/catch 捕获 Promise rejection
 - [x] T046 [US4] 删除 `apps/control-plane/src/lib/db/sqlite-provider.ts` 与 `apps/control-plane/src/lib/db/migrations.ts` 的运行时 ownership，移除 `better-sqlite3` 业务 CRUD 和 constructor migration
-- [ ] T047 [US4] 从 `apps/control-plane/src/lib/db/`、`apps/control-plane/app/api/sessions/[id]/summary/route.ts`、`apps/control-plane/app/api/mcp/route.ts` 与测试 fixtures 移除旧 Session/Runner/ContextBundle/event/artifact persistence adapters、summary route/tool 和 Task child-Session projections，不增加 stub 表或 raw SQL fallback
+- [x] T047 [US4] 从 `apps/control-plane/src/lib/db/`、`apps/control-plane/app/api/sessions/[id]/summary/route.ts`、`apps/control-plane/app/api/mcp/route.ts` 与测试 fixtures 移除旧 Session/Runner/ContextBundle/event/artifact persistence adapters、summary route/tool 和 Task child-Session projections，不增加 stub 表或 raw SQL fallback
 - [x] T048 [US4] 在 `specs/040-prisma-rdb/implementation-impact.md` 记录因删除字段/方法失败的 UI、API、MCP、Runner 调用者、错误类别与后续独立规格归属
 - [x] T049 [US4] 运行 persistence boundary tests、核心 scoped typecheck/test 与全仓 typecheck/test；只修复三表核心回归，将批准删除面失败精确登记到 `specs/040-prisma-rdb/implementation-impact.md`
 

@@ -7,6 +7,10 @@ import type {
 import { type FormEvent, useMemo, useRef, useState } from "react";
 
 import { SettingGroup, SettingRow } from "./setting-row";
+import {
+  githubConnectionAccountLogin,
+  githubConnectionRepositorySelection,
+} from "./github-connection-model";
 import { UiActionAnchor, UiButton } from "./ui-actions";
 import { UiInput } from "./ui-fields";
 
@@ -79,8 +83,9 @@ function repositorySummary(
   connection: IntegrationConnection,
   copy: typeof COPY.en | typeof COPY["zh-CN"],
 ): string {
-  if (connection.repositorySelection === "all") return copy.repositoryAll;
-  if (connection.repositorySelection === "token") return copy.repositoryToken;
+  const selection = githubConnectionRepositorySelection(connection);
+  if (selection === "all") return copy.repositoryAll;
+  if (selection === "token") return copy.repositoryToken;
   return copy.repositorySelected;
 }
 
@@ -272,7 +277,7 @@ export function GitHubIntegrationDetail({
               key={connection.id}
               control={(
                 <div className="githubConnectionActions">
-                  {connection.connectionType === "personal-access-token" ? (
+                  {connection.authMethod === "personal-access-token" ? (
                     <UiButton size="compact" tone="soft" onClick={() => openPatForm(connection)}>{copy.replace}</UiButton>
                   ) : null}
                   <UiButton
@@ -285,8 +290,8 @@ export function GitHubIntegrationDetail({
                   </UiButton>
                 </div>
               )}
-              description={`${connection.connectionType === "github-app" ? copy.app : "PAT"} · ${repositorySummary(connection, copy)} · ${connection.status}/${connection.credentialState}`}
-              title={connection.displayName ?? connection.account.login}
+              description={`${connection.authMethod === "github-app" ? copy.app : "PAT"} · ${repositorySummary(connection, copy)} · ${connection.status}/${connection.credentialState}`}
+              title={connection.displayName ?? githubConnectionAccountLogin(connection)}
             />
           ))}
         </SettingGroup>

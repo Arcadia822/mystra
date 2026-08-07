@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 
 import { relativeTime, taskLabel } from "../_lib/format";
+import { taskTitle } from "../_lib/task-view";
 import type { TaskListItem } from "../_lib/types";
-import { StatusBadge } from "./status-badge";
 import { ShellIcon } from "./shell-icons";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
 import { UiInput } from "./ui-fields";
@@ -53,9 +53,8 @@ export function TaskTable({
           <thead>
             <tr>
               <th>Task</th>
-              <th>Sessions</th>
-              <th>Latest</th>
-              <th>Repository</th>
+              <th>Project</th>
+              <th>Issue dispatch</th>
               <th>Updated</th>
             </tr>
           </thead>
@@ -67,14 +66,13 @@ export function TaskTable({
                   <td>
                     <CellLink href={href}>
                       <span className="primaryCell">
-                        <strong>{taskLabel(task.id, task.issue?.reference.identifier)}</strong>
-                        <small>{task.issue?.title ?? task.objective}</small>
+                        <strong>{taskLabel(task.id, task.issueDispatchKey)}</strong>
+                        <small>{taskTitle(task)}</small>
                       </span>
                     </CellLink>
                   </td>
-                  <td><CellLink href={href}>{task.sessionCount} total · {task.activeSessionCount} active</CellLink></td>
-                  <td><CellLink href={href}>{task.latestSession ? <StatusBadge state={task.latestSession.state} /> : <span className="quietCell">none</span>}</CellLink></td>
-                  <td><CellLink href={href}><span className="mono">{task.repository.fullName}</span></CellLink></td>
+                  <td><CellLink href={href}><span className="mono">{task.projectId}</span></CellLink></td>
+                  <td><CellLink href={href}><span className="mono">{task.issueDispatchKey ?? "none"}</span></CellLink></td>
                   <td><CellLink href={href}><time dateTime={task.updatedAt}>{relativeTime(task.updatedAt)}</time></CellLink></td>
                 </tr>
               );

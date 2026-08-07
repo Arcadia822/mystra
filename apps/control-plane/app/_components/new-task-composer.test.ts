@@ -28,11 +28,12 @@ describe("New Task composer UX contract", () => {
     expect(composer).not.toMatch(/aria-label="Issue"[^>]*<UiSelect/);
   });
 
-  it("loads repository-scoped Issues after Project selection and renders selectable cards", () => {
-    expect(composer).toContain("/issues?repository=");
-    expect(composer).toMatch(/className="newTaskIssueList"/);
-    expect(composer).toMatch(/className="newTaskIssueCard"/);
-    expect(composer).toMatch(/aria-pressed=\{selectedIssue/);
+  it("creates only durable Task data while Issue dispatch and Sessions are paused", () => {
+    expect(composer).toContain('fetch("/api/tasks"');
+    expect(composer).toContain("metadata: { title: title.trim() }");
+    expect(composer).not.toContain("metadata: { objective:");
+    expect(composer).not.toContain("/issues?repository=");
+    expect(composer).not.toContain("/dispatch");
   });
 
   it("balances the composer's effective right and bottom inset around its controls", () => {

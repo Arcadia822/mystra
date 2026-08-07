@@ -17,7 +17,7 @@ export default function TasksPage() {
       {resource.error ? <ErrorState message={resource.error} onRetry={() => void resource.refresh()} /> : null}
       {!resource.error ? (
         <TaskTable
-          emptyDescription="Create a Task through API, CLI, MCP, or Issue dispatch."
+          emptyDescription="Create a Task through the Web client, API, CLI, or MCP."
           emptyTitle="No matching tasks"
           isLoading={resource.isLoading}
           onQueryChange={setQuery}

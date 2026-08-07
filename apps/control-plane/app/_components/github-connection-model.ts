@@ -1,4 +1,4 @@
-import type { IntegrationConnectionListResponse } from "@mystra/shared";
+import type { IntegrationConnection, IntegrationConnectionListResponse } from "@mystra/shared";
 
 export type GitHubConnectionView = {
   state: "loading" | "not-configured" | "disconnected" | "connected" | "error";
@@ -7,6 +7,20 @@ export type GitHubConnectionView = {
   accountLogin?: string;
   repositorySelection?: "all" | "selected" | "token";
 };
+
+export function githubConnectionAccountLogin(connection: IntegrationConnection): string {
+  const login = connection.providerSubject.login;
+  return typeof login === "string" && login.trim() ? login : connection.providerExternalId;
+}
+
+export function githubConnectionRepositorySelection(
+  connection: IntegrationConnection,
+): "all" | "selected" | "token" | undefined {
+  const selection = connection.capabilities.repositories?.config.selection;
+  return selection === "all" || selection === "selected" || selection === "token"
+    ? selection
+    : undefined;
+}
 
 export function githubConnectionView(
   data: IntegrationConnectionListResponse | null,
@@ -30,11 +44,12 @@ export function githubConnectionView(
       ...(appMethod ? { connectUrl: appMethod.connectUrl } : {}),
     };
   }
+  const repositorySelection = githubConnectionRepositorySelection(connection);
   return {
     state: "connected",
-    action: connection.connectionType === "github-app" ? "reconnect" : "none",
+    action: connection.authMethod === "github-app" ? "reconnect" : "none",
     ...(appMethod ? { connectUrl: appMethod.connectUrl } : {}),
-    accountLogin: connection.account.login,
-    repositorySelection: connection.repositorySelection,
+    accountLogin: githubConnectionAccountLogin(connection),
+    ...(repositorySelection ? { repositorySelection } : {}),
   };
 }

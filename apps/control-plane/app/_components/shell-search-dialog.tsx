@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { taskLabel } from "../_lib/format";
+import { taskTitle } from "../_lib/task-view";
 import type { TaskListItem } from "../_lib/types";
 import { filterTasks, selectedSearchTask } from "./shell-model";
 import { ShellIcon } from "./shell-icons";
-import { StatusBadge } from "./status-badge";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
 import { UiInput } from "./ui-fields";
 import { UiDialogSurface, UiSurface, UiSurfaceBody, UiSurfaceHeader } from "./ui-surfaces";
@@ -145,8 +145,8 @@ export function ShellSearchDialog({
                           onClick={() => setSelectedId(task.id)}
                         >
                           <span className="searchResultCopy">
-                            <strong>{task.issue?.title ?? task.objective}</strong>
-                            <small>{taskLabel(task.id, task.issue?.reference.identifier)} · {task.repository.fullName}</small>
+                            <strong>{taskTitle(task)}</strong>
+                            <small>{taskLabel(task.id, task.issueDispatchKey)} · {task.projectId}</small>
                           </span>
                           <time dateTime={task.updatedAt}>{formatSearchDate(task.updatedAt, locale)}</time>
                         </UiButton>
@@ -166,20 +166,19 @@ export function ShellSearchDialog({
                 <UiSurfaceHeader className="searchPreviewHeader">
                   <div>
                     <span className="searchPreviewEyebrow">{tasksLabel}</span>
-                    <h3>{selectedTask.issue?.title ?? selectedTask.objective}</h3>
+                    <h3>{taskTitle(selectedTask)}</h3>
                   </div>
                   <div className="searchPreviewActions">
-                    {selectedTask.latestSession ? <StatusBadge state={selectedTask.latestSession.state} /> : null}
                     <UiActionLink href={`/tasks/${selectedTask.id}`} size="compact" tone="soft" onClick={onClose}>{openTaskLabel}</UiActionLink>
                   </div>
                 </UiSurfaceHeader>
                 <UiSurfaceBody className="searchPreviewBody">
-                  <p>{selectedTask.objective}</p>
+                  <p>Execution details are temporarily unavailable.</p>
                   <dl className="searchPreviewFacts">
-                    <div><dt>{repositoryLabel}</dt><dd>{selectedTask.repository.fullName}</dd></div>
-                    <div><dt>{sessionsLabel}</dt><dd>{selectedTask.sessionCount}</dd></div>
+                    <div><dt>{repositoryLabel}</dt><dd>{selectedTask.projectId}</dd></div>
+                    <div><dt>{sessionsLabel}</dt><dd>Temporarily unavailable</dd></div>
                     <div><dt>{updatedLabel}</dt><dd><time dateTime={selectedTask.updatedAt}>{formatSearchDate(selectedTask.updatedAt, locale)}</time></dd></div>
-                    <div><dt>Task ID</dt><dd>{taskLabel(selectedTask.id, selectedTask.issue?.reference.identifier)}</dd></div>
+                    <div><dt>Task ID</dt><dd>{taskLabel(selectedTask.id, selectedTask.issueDispatchKey)}</dd></div>
                   </dl>
                 </UiSurfaceBody>
               </UiSurface>
