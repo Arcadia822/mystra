@@ -22,6 +22,11 @@ TypeScript 开发，不采用 multica 的 Go。
 4. **执行模型方向 = 宿主机直跑（前瞻）**：长期方向是宿主机 worktree 直跑取代 Docker sandbox 成为
    默认执行模型，但**本 spec 不交付任何执行**，仅建立"可提供计算能力的 host Runtime"这一纳管地基。
 
+## UX Intent
+
+Runtime 管理是操作者日常可达的控制面路由。它在侧栏中与现有顶层导航行使用相同的路由、选中态与视觉层级，
+避免把 Runtime 隐藏为一个脱离主导航节奏的孤立管理区；它仍不改变 Task、Session 或执行边界。
+
 ## 概念方向（前瞻，非本 spec 交付范围）
 
 后续任务启动将采用四轴模型 `Task × Runtime(provides Provider) × Agent(provider+prompt+skills) ×

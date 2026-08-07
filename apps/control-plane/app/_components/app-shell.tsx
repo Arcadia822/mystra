@@ -60,7 +60,7 @@ function writeBrowserPreference(key: string, value: string): void {
 }
 
 const PRIMARY_ITEMS: Array<{
-  key: "new" | "search" | "inbox" | "issues";
+  key: "new" | "search" | "inbox" | "issues" | "runtimes";
   icon: ShellIconName;
   href?: string;
 }> = [
@@ -68,6 +68,7 @@ const PRIMARY_ITEMS: Array<{
   { key: "search", icon: "search" },
   { key: "inbox", icon: "inbox", href: "/inbox" },
   { key: "issues", icon: "issue", href: "/tasks" },
+  { key: "runtimes", icon: "repository", href: "/runners" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -277,19 +278,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               </VerticalNavItem>
             );
           })}
-        </nav>
-        <nav aria-label={copy.runtimes} className="sidebarNav">
-          <VerticalNavItem
-            active={isActive(pathname, "/runners")}
-            {...(isActive(pathname, "/runners") ? { ariaCurrent: "page" as const } : {})}
-            ariaLabel={copy.runtimes}
-            className="navItem"
-            href="/runners"
-            onClick={() => setNarrowSidebarOpen(false)}
-          >
-            <SidebarIcon name="repository" />
-            <span className="sidebarLabel">{copy.runtimes}</span>
-          </VerticalNavItem>
         </nav>
         <section aria-labelledby="sidebar-projects-title" className="sidebarProjectSection">
           <div className="sidebarSectionHeader">
