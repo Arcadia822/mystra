@@ -55,6 +55,71 @@ export const providerCapabilitySchema = z
   });
 export type ProviderCapability = z.infer<typeof providerCapabilitySchema>;
 
+export const hostRuntimeRegistrationSchema = z
+  .object({
+    runnerId: z.string().min(1),
+    name: z.string().min(1),
+    type: z.literal("host"),
+    platform: z.string().min(1),
+    providers: z.array(providerCapabilitySchema).default([]),
+  })
+  .strict();
+export type HostRuntimeRegistration = z.infer<typeof hostRuntimeRegistrationSchema>;
+
+export const hostRuntimeRegistrationResponseSchema = z
+  .object({ runtimeId: z.string().uuid() })
+  .strict();
+export type HostRuntimeRegistrationResponse = z.infer<typeof hostRuntimeRegistrationResponseSchema>;
+
+export const hostHeartbeatSchema = z
+  .object({ runnerId: z.string().min(1) })
+  .strict();
+export type HostHeartbeat = z.infer<typeof hostHeartbeatSchema>;
+
+export const hostHeartbeatResponseSchema = z
+  .object({ acknowledgedAt: z.string().datetime() })
+  .strict();
+export type HostHeartbeatResponse = z.infer<typeof hostHeartbeatResponseSchema>;
+
+export const hostProviderReportSchema = z
+  .object({
+    runnerId: z.string().min(1),
+    providers: z.array(providerCapabilitySchema),
+  })
+  .strict();
+export type HostProviderReport = z.infer<typeof hostProviderReportSchema>;
+
+export const runtimeStatusSchema = z.enum(["online", "offline"]);
+export type RuntimeStatus = z.infer<typeof runtimeStatusSchema>;
+
+export const hostRuntimeMetadataSchema = z
+  .object({
+    runnerId: z.string().min(1),
+    platform: z.string().min(1).optional(),
+  })
+  .strict();
+export type HostRuntimeMetadata = z.infer<typeof hostRuntimeMetadataSchema>;
+
+export const runtimeViewSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string().min(1),
+    type: z.literal("host"),
+    metadata: hostRuntimeMetadataSchema,
+    status: runtimeStatusSchema,
+    lastSeenAt: z.string().datetime().nullable(),
+    providers: z.array(providerCapabilitySchema),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export type RuntimeView = z.infer<typeof runtimeViewSchema>;
+
+export const runtimeRenameSchema = z
+  .object({ name: z.string().min(1) })
+  .strict();
+export type RuntimeRename = z.infer<typeof runtimeRenameSchema>;
+
 export const taskSourceSchema = z.enum(["mcp", "api", "issue"]);
 export type TaskSource = z.infer<typeof taskSourceSchema>;
 

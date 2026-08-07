@@ -39,8 +39,8 @@ description: "Task list for 044 host runtime daemon"
 ### 共享 Zod 契约（`packages/shared/src/schemas.ts`）
 
 - [x] T003 [FND] 新增 `providerCapabilitySchema`（字段：`provider` 键、`discovered`、`available`、`version?`、`resolvedPath?`、`source: 'path'|'login-shell'|'env-override'`、`unavailableReason?`），并实现四条不变量校验（`available⇒discovered`、`未发现⇒resolvedPath=null`、`不可用⇒有 unavailableReason`、override 缺失语义），见 contracts §1。
-- [ ] T004 [FND] 新增 `hostRuntimeRegistrationSchema`（含 `runnerId`、`type:'host'`、显示名 `name`、`platform`、`providers: providerCapabilitySchema[]`）、`hostHeartbeatSchema`（**仅 `runnerId`·纯存活·不含 Provider 集合**）、`hostProviderReportSchema`（`{runnerId, providers}`·独立变更上报），见 contracts §2/§3/§3b。执行相关字段（`maxConcurrency`/`eligibleRuntimeProviders`）**不复用**。
-- [ ] T005 [FND] 新增 `runtimeViewSchema`（control-plane→读取方：`id`、`name`、`type`、`metadata:{runnerId,platform?}`、派生 `status`、`lastSeenAt`（取自内存·可空·非持久）、`providers: providerCapabilitySchema[]`、`createdAt`、`updatedAt`），见 contracts §4。
+- [x] T004 [FND] 新增 `hostRuntimeRegistrationSchema`（含 `runnerId`、`type:'host'`、显示名 `name`、`platform`、`providers: providerCapabilitySchema[]`）、`hostHeartbeatSchema`（**仅 `runnerId`·纯存活·不含 Provider 集合**）、`hostProviderReportSchema`（`{runnerId, providers}`·独立变更上报），见 contracts §2/§3/§3b。执行相关字段（`maxConcurrency`/`eligibleRuntimeProviders`）**不复用**。
+- [x] T005 [FND] 新增 `runtimeViewSchema`（control-plane→读取方：`id`、`name`、`type`、`metadata:{runnerId,platform?}`、派生 `status`、`lastSeenAt`（取自内存·可空·非持久）、`providers: providerCapabilitySchema[]`、`createdAt`、`updatedAt`），见 contracts §4。
 - [ ] T006 [FND] 按 pre-0.1 政策**直接替换/移除**过时的 `runnerRegistrationSchema`（docker/执行语义，约 schemas.ts:571）在本 feature 范围的引用点，不留兼容别名（见 contracts "迁移"）。仅处理会因新契约产生冲突的调用点；执行语义的历史消费方若超出本 feature，标注 TODO 交由执行 spec。
 
 ### Prisma 持久化模型（无 status 列）

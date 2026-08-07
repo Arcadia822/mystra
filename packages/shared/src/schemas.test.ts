@@ -9,6 +9,12 @@ import {
   executionSpecBundleSlug,
   executionSpecMountPath,
   contextBundleSchema,
+  hostHeartbeatSchema,
+  hostProviderReportSchema,
+  hostRuntimeMetadataSchema,
+  hostRuntimeRegistrationSchema,
+  runtimeRenameSchema,
+  runtimeViewSchema,
   sessionCreateRequestSchema,
   sessionCreateSchema,
   sessionInlineContextBundlePayloadSchema,
@@ -746,6 +752,54 @@ describe("providerCapabilitySchema", () => {
       version: null,
       unavailableReason: "override-path-missing",
     })).not.toThrow();
+  });
+});
+
+describe("host Runtime schemas", () => {
+  const provider = {
+    provider: "copilot",
+    discovered: true,
+    available: true,
+    source: "path",
+    resolvedPath: "/usr/local/bin/copilot",
+    version: "1.0.0",
+    unavailableReason: null,
+  };
+
+  it("accepts host registration with Provider capabilities", () => {
+    const parsed = hostRuntimeRegistrationSchema.parse({
+      runnerId: "runner-1",
+      name: "Build machine",
+      type: "host",
+      platform: "darwin-arm64",
+      providers: [provider],
+    });
+
+    expect(parsed.providers).toEqual([provider]);
+  });
+
+  it("keeps liveness heartbeats separate from Provider reports", () => {
+    expect(hostHeartbeatSchema.parse({ runnerId: "runner-1" })).toEqual({ runnerId: "runner-1" });
+    expect(() => hostHeartbeatSchema.parse({ runnerId: "runner-1", providers: [provider] })).toThrow();
+    expect(hostProviderReportSchema.parse({ runnerId: "runner-1", providers: [provider] }))
+      .toEqual({ runnerId: "runner-1", providers: [provider] });
+  });
+
+  it("accepts a derived Runtime view and a strict rename request", () => {
+    expect(runtimeViewSchema.parse({
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Build machine",
+      type: "host",
+      metadata: { runnerId: "runner-1", platform: "darwin-arm64" },
+      status: "online",
+      lastSeenAt: "2026-08-07T10:00:00.000Z",
+      providers: [provider],
+      createdAt: "2026-08-07T10:00:00.000Z",
+      updatedAt: "2026-08-07T10:00:00.000Z",
+    })).toMatchObject({ metadata: { runnerId: "runner-1" }, status: "online" });
+    expect(hostRuntimeMetadataSchema.parse({ runnerId: "runner-1" })).toEqual({ runnerId: "runner-1" });
+    expect(runtimeRenameSchema.parse({ name: "Renamed host" })).toEqual({ name: "Renamed host" });
+    expect(() => runtimeRenameSchema.parse({ name: "Renamed host", type: "host" })).toThrow();
   });
 });
 
