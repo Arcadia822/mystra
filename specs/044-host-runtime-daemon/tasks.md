@@ -51,8 +51,8 @@ description: "Task list for 044 host runtime daemon"
 
 ### RdbProvider 契约与实现
 
-- [ ] T010 [FND] 在 `apps/control-plane/src/lib/db/rdb-provider.contract.ts` 增加方法签名：`registerHostRuntime(input)`、`getRuntime(id)`、`listRuntimes()`（**纯读**）、`renameRuntime(id,name)`、`reportHostProviders(runnerId,providers)`。**无 `recordHostHeartbeat`（心跳不入 RdbProvider）、无 `deleteRuntime`**。契约保持 dialect-neutral（不泄漏 Prisma 类型/SQL；`metadata` 暴露为已解析强类型对象）。
-- [ ] T011 [FND] 在 `apps/control-plane/src/lib/db/prisma-provider.ts` 实现上述方法：`registerHostRuntime` 按 `metadata.runnerId` **幂等 upsert** `type=host` Runtime（写 `metadata={runnerId,platform}`）并用 `input.providers` **覆盖** `runtime_providers` 边集合；`reportHostProviders` 按 `metadata.runnerId` 定位并覆盖边集合；`listRuntimes`/`getRuntime` **不回写任何状态**；`metadata` JSON string ⇆ 结构转换。**无心跳写路径**。
+- [x] T010 [FND] 在 `apps/control-plane/src/lib/db/rdb-provider.contract.ts` 增加方法签名：`registerHostRuntime(input)`、`getRuntime(id)`、`listRuntimes()`（**纯读**）、`renameRuntime(id,name)`、`reportHostProviders(runnerId,providers)`。**无 `recordHostHeartbeat`（心跳不入 RdbProvider）、无 `deleteRuntime`**。契约保持 dialect-neutral（不泄漏 Prisma 类型/SQL；`metadata` 暴露为已解析强类型对象）。
+- [x] T011 [FND] 在 `apps/control-plane/src/lib/db/prisma-provider.ts` 实现上述方法：`registerHostRuntime` 按 `metadata.runnerId` **幂等 upsert** `type=host` Runtime（写 `metadata={runnerId,platform}`）并用 `input.providers` **覆盖** `runtime_providers` 边集合；`reportHostProviders` 按 `metadata.runnerId` 定位并覆盖边集合；`listRuntimes`/`getRuntime` **不回写任何状态**；`metadata` JSON string ⇆ 结构转换。**无心跳写路径**。
 - [x] T012 [FND] 新增 `apps/control-plane/src/lib/runtime/host-liveness.ts`：**内存** `HostLivenessRegistry`（`markSeen(runnerId, at)` / `getLastSeen(runnerId)`·进程级·非持久·可替换 seam）+ 服务层 `resolveRuntimeStatus(lastSeenAt, now, staleAfter)`（contracts §6）：`null⇒offline`；`now - lastSeenAt > staleAfter ⇒ offline` 否则 online。`lastSeenAt` 取自 registry；默认 `staleAfter` 采用 multica 参考值（~3min），常量集中可调。**不**将存活写入持久层。
 
 **Checkpoint**: 契约、模型、持久化方法就绪——三个 user story 可开始。

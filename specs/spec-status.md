@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=d848478605da06df7205259181264453aec1cc3f updated=2026-08-07T10:09:42Z -->
+<!-- spec-status: project=mystra commit=fbb2c2996d963303a8cce1b60cf08ce3d49a0000 updated=2026-08-07T10:19:36Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -38,7 +38,7 @@
 | 041-github-integration-connections | ✓     | ✓  | ✓   | ● 14/63 (22%) |
 | 042-runtime-sandbox-capacity       | ✓     | -    | -     | -         |
 | 043-identity-team-rbac             | ✓     | ✓  | ✓   | ✓ Complete |
-| 044-host-runtime-daemon            | ✓     | ✓  | ✓   | ● 6/39 (15%) |
+| 044-host-runtime-daemon            | ✓     | ✓  | ✓   | ● 8/39 (20%) |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -75,4 +75,4 @@
 <!-- feature: 041-github-integration-connections has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=63 tasks_completed=14 checklist_files=requirements.md -->
 <!-- feature: 042-runtime-sandbox-capacity has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
 <!-- feature: 043-identity-team-rbac has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=10 tasks_completed=10 checklist_files=requirements.md -->
-<!-- feature: 044-host-runtime-daemon has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=false tasks_total=39 tasks_completed=6 checklist_files= -->
+<!-- feature: 044-host-runtime-daemon has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=false tasks_total=39 tasks_completed=8 checklist_files= -->

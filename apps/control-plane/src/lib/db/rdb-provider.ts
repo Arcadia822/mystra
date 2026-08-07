@@ -6,6 +6,7 @@ import type {
   IntegrationConnectionActivation,
   IntegrationConnectionStatus,
   IntegrationCredentialState,
+  HostRuntimeRegistration,
   MemberView,
   Project,
   ProjectCreate,
@@ -16,6 +17,9 @@ import type {
   TeamListItem,
   TeamRole,
   TeamStatus,
+  ProviderCapability,
+  RuntimeRename,
+  RuntimeView,
   MembershipStatus,
 } from "@mystra/shared";
 
@@ -112,6 +116,8 @@ export type IssueDispatchResult = {
   created: boolean;
 };
 
+export type RegisterHostRuntimeInput = HostRuntimeRegistration;
+
 export type SecretEnvelopeWrite = {
   reference: string;
   version: 1;
@@ -194,6 +200,12 @@ export interface RdbProvider {
   getTask(id: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
   getTaskByIssueDispatchKey(issueDispatchKey: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
   listTasks(options?: { projectId?: string; teamId?: string }): Promise<TaskListItem[]>;
+
+  registerHostRuntime(input: RegisterHostRuntimeInput): Promise<RuntimeView>;
+  getRuntime(id: string): Promise<RuntimeView | undefined>;
+  listRuntimes(): Promise<RuntimeView[]>;
+  renameRuntime(id: string, input: RuntimeRename): Promise<RuntimeView | undefined>;
+  reportHostProviders(runnerId: string, providers: ProviderCapability[]): Promise<RuntimeView | undefined>;
 
   registerLocalUser(input: RegisterLocalUserInput): Promise<{
     user: UserRecord;
