@@ -10,8 +10,7 @@
 
 | 面 | 覆盖内容 | 对应用户故事 |
 | --- | --- | --- |
-| **Runtimes 列表** | 已纳管 Runtime 表格：名称、类型（host）、online/offline、可用 Provider（含"不可用"标记）、最近心跳；顶部「Add a computer」入口 | US1、US2、US3 |
-| **Add a computer** | 安装 `mystra-runner`（TypeScript）→ 配 endpoint 直接启动（无 pairing/校验）→ `MYSTRA_<PROVIDER>_PATH` 覆盖示例 | US1、US2 |
+| **Runtimes 列表** | 已纳管 Runtime 表格：名称、类型（host）、online/offline、可用 Provider（含"不可用"标记）、最近心跳 | US1、US2、US3 |
 | **Runtime 详情** | 稳定 id / runner id / 类型 / 状态 / 最近心跳（服务端接收时间）/ 连接方式（outbound）/ 发现来源；可用 Provider 表区分「发现」与「可用性确认」两态并给出不可用原因；重命名操作（MVP 无服务端移除） | US1、US2、US3 |
 
 ## 演示的关键规格点
@@ -27,4 +26,4 @@
 - 纯静态，数据为示意；无真实注册/心跳/发现逻辑。
 - 未覆盖发起任务、Context/worktree、Agent 配置、执行回放（均为后续 feature，不在 044）。
 - 具体数值（心跳间隔、offline 阈值、重扫周期、最低版本）见 `spec.md` 的 Deferred Decisions，原型仅占位展示。
-- 跨平台服务托管（launchd/systemd/Windows service）安装细节未在原型体现。
+- **不含**产品内的 runner 安装引导（"Add a computer" 面）：runner 由 operator 自行安装启动，安装/托管细节见 `quickstart.md`，不在管理 UI 范围。

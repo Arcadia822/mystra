@@ -281,7 +281,8 @@ Provider，这样我能判断哪台机器此刻可堪使用。
 
 ## 后续必需产物（进入 tasks/实现前）
 
-- 本 spec 为 **UI-facing**（Runtimes 管理页 + Add a computer 安装指引 + Runtime 详情：在线状态与
-  可用 Provider）。按 `aaa-spec-kit` 门禁，进入 tasks/实现前 **MUST** 有可打开的原型；本目录
-  `prototype.md` 指向 `mockups/index.html`，覆盖：Runtimes 列表、Add a computer（安装+启动命令）、
-  Runtime 详情（online/offline + 可用/不可用 Provider）。
+- 本 spec 为 **UI-facing**（Runtimes 管理页 + Runtime 详情：在线状态与可用 Provider）。按
+  `aaa-spec-kit` 门禁，进入 tasks/实现前 **MUST** 有可打开的原型；本目录 `prototype.md` 指向
+  `mockups/index.html`，覆盖：Runtimes 列表、Runtime 详情（online/offline + 可用/不可用 Provider）。
+  runner 的安装与启动**不在产品 UI 范围**（无 "Add a computer" 引导面），由 operator 按
+  `quickstart.md` 自行完成。

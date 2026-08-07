@@ -16,7 +16,7 @@ agent CLI 作为该 Runtime 的 **Provider** 能力并确认其可用，持续�
 | --- | --- |
 | `spec.md` | 功能规格（用户故事、FR、实体、边界门禁、成功标准、非目标） |
 | `research.md` | 对 multica runtime 实现的源码级研究 + 与 Mystra 现状差异 |
-| `prototype.md` | UI 原型入口（Runtimes 列表 / Add a computer / Runtime 详情） |
+| `prototype.md` | UI 原型入口（Runtimes 列表 / Runtime 详情） |
 | `mockups/index.html` | 可打开的静态原型 |
 | `contracts/` | （plan 阶段填充）Runtime 注册/心跳/Provider 能力的 Zod 契约 |
 
@@ -39,5 +39,5 @@ Draft。**实现前门禁**：本 feature 引入 host Runtime 作为一类执行
 ## 下一步
 
 1. 修订 constitution / AGENTS.md / PLATFORM.md 边界（host Runtime + Runtime 持久化）。
-2. `prototype.md` + `mockups/index.html`（Runtimes 页 + Add a computer + Runtime 详情/Provider）。
+2. `prototype.md` + `mockups/index.html`（Runtimes 页 + Runtime 详情/Provider）。
 3. `/speckit.plan` → `plan-eng-review` → `/speckit.tasks`。

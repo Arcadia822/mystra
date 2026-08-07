@@ -10,14 +10,13 @@
    ```sh
    pnpm dev:control-plane        # 起管理 API + Web
    ```
-2. **在目标机器安装并启动 runner（TypeScript）**
+2. **在目标机器启动 runner（TypeScript，从 monorepo 源码运行）**
    ```sh
-   # 仓库内开发态
-   pnpm --filter @mystra/runner dev -- --endpoint http://localhost:3000/api --name "$(hostname)"
-   # 或未来打包态
-   mystra-runner --endpoint https://mystra.local/api --name "$(hostname)"
+   # 仓库内运行（runner 为私有工作区包 @mystra/runner-daemon，未发布 npm）
+   pnpm --filter @mystra/runner-daemon dev -- --endpoint http://localhost:3000/api --name "$(hostname)"
    ```
    - 无 pairing / 无 token：配好 `--endpoint` 直接启动即注册。
+   - 打包分发（可执行/服务托管）不在本 feature 范围，后续另议。
 3. **在管理面确认**：打开 Web 的 **Runtimes**，应看到该机器一行，`status=online`，可用 Provider 列出实际
    发现并确认可用者。
 4. **验证发现≠可用**：若某受支持 CLI 装了但版本过低/无法执行，它出现在详情页但标注"不可用 + 原因"，
@@ -54,7 +53,7 @@
 
 ```sh
 pnpm --filter @mystra/shared test           # Zod 契约（ProviderCapability 不变量、注册/心跳/状态）
-pnpm --filter @mystra/runner test           # provider-discovery（PATH/登录 shell/覆盖/可用性/重扫）
+pnpm --filter @mystra/runner-daemon test    # provider-discovery（PATH/登录 shell/覆盖/可用性/重扫）
 pnpm --filter @mystra/control-plane test     # RdbProvider 契约（Runtime CRUD/心跳）+ /api/runtimes、/api/runner/* 路由
 pnpm typecheck && pnpm lint
 ```

@@ -122,7 +122,6 @@
 
           <div class="tabs" role="tablist">
             <button role="tab" aria-selected="true" data-tab="list">Runtimes 列表</button>
-            <button role="tab" aria-selected="false" data-tab="add">Add a computer</button>
             <button role="tab" aria-selected="false" data-tab="detail">Runtime 详情</button>
           </div>
 
@@ -131,7 +130,6 @@
             <div class="card">
               <div class="card-h">
                 <strong>已纳管 Runtime</strong>
-                <button class="btn primary" onclick="showTab('add')">+ Add a computer</button>
               </div>
               <table>
                 <thead>
@@ -163,33 +161,6 @@
               </table>
             </div>
             <p class="quiet">状态基于服务端接收心跳的时间判定；超过阈值未心跳判为 offline。</p>
-          </section>
-
-          <!-- ADD -->
-          <section class="panel" data-panel="add">
-            <button class="back" onclick="showTab('list')">← 返回列表</button>
-            <div class="card">
-              <div class="card-h"><strong>Add a computer</strong><span class="quiet">MVP 无 pairing / 无校验</span></div>
-              <div class="card-b">
-                <p class="muted">在目标机器上安装并以指定 endpoint 启动 <code>mystra-runner</code>。配好 endpoint 直接启动即完成注册。
-                  假定该机器上目标 agent CLI 已安装并已登录。</p>
-                <div class="step"><span class="n">1</span><div>
-                  <div>安装 runner（TypeScript）</div>
-                  <pre>npm i -g @mystra/runner   <span class="quiet"># 或 pnpm dlx @mystra/runner</span></pre>
-                </div></div>
-                <div class="step"><span class="n">2</span><div>
-                  <div>配置 control-plane endpoint 并启动</div>
-                  <pre>mystra-runner --endpoint https://mystra.local/api \
-              --name "$(hostname)"</pre>
-                </div></div>
-                <div class="step"><span class="n">3</span><div>
-                  <div>（可选）覆盖某个 Provider 的可执行路径</div>
-                  <pre>MYSTRA_COPILOT_PATH=/opt/bin/copilot mystra-runner --endpoint ...</pre>
-                </div></div>
-                <div class="note">启动后本页 Runtimes 列表会出现该机器；runner 会自动发现 PATH 上受支持的 agent CLI、
-                  确认可用性，并持续回报心跳。运行期新装 CLI 无需重启。</div>
-              </div>
-            </div>
           </section>
 
           <!-- DETAIL -->
