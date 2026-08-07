@@ -75,8 +75,8 @@ function isActive(pathname: string, href: string) {
 }
 function routeTitle(pathname: string, locale: ShellLocale): string {
   const zh = locale === "zh-CN";
-  if (pathname.startsWith("/runners/")) return zh ? "Runner 详情" : "Runner detail";
-  if (pathname === "/runners") return "Runners";
+  if (pathname.startsWith("/runners/")) return zh ? "运行环境详情" : "Runtime detail";
+  if (pathname === "/runners") return zh ? "运行环境" : "Runtimes";
   if (pathname.startsWith("/sessions/")) return zh ? "Session 详情" : "Session detail";
   if (pathname === "/automations") return zh ? "自动化" : "Automations";
   if (pathname.startsWith("/tasks/")) return zh ? "Task 详情" : "Task detail";
@@ -278,7 +278,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-
+        <nav aria-label={copy.runtimes} className="sidebarNav">
+          <VerticalNavItem
+            active={isActive(pathname, "/runners")}
+            {...(isActive(pathname, "/runners") ? { ariaCurrent: "page" as const } : {})}
+            ariaLabel={copy.runtimes}
+            className="navItem"
+            href="/runners"
+            onClick={() => setNarrowSidebarOpen(false)}
+          >
+            <SidebarIcon name="repository" />
+            <span className="sidebarLabel">{copy.runtimes}</span>
+          </VerticalNavItem>
+        </nav>
         <section aria-labelledby="sidebar-projects-title" className="sidebarProjectSection">
           <div className="sidebarSectionHeader">
             <h2 id="sidebar-projects-title">{copy.projects}</h2>
