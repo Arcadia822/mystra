@@ -15,5 +15,8 @@ describe("auth UI model", () => {
     expect(apiErrorMessage("last-owner-protected")).toBe(
       "At least one active Owner must remain on this Team.",
     );
+    expect(apiErrorMessage("csrf-failed")).toBe(
+      "Your browser session could not be verified. Reload the page and try again.",
+    );
   });
 });

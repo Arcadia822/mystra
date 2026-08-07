@@ -122,6 +122,27 @@ describe("session presentation", () => {
       .not.toContain("; Secure");
   });
 
+  it("accepts loopback preview origins that match the received Host header", () => {
+    expect(() => assertNewSessionRequestOrigin(
+      new Request("http://localhost:4317/api/auth/register", {
+        method: "POST",
+        headers: {
+          host: "127.0.0.1:4317",
+          origin: "http://127.0.0.1:4317",
+        },
+      }),
+    )).not.toThrow();
+    expectThrownCode(() => assertNewSessionRequestOrigin(
+      new Request("http://localhost:4317/api/auth/register", {
+        method: "POST",
+        headers: {
+          host: "127.0.0.1:4317",
+          origin: "http://localhost:4317",
+        },
+      }),
+    ), "csrf-failed");
+  });
+
   it("rejects malformed Bearer and cookie tokens", () => {
     expect(extractSessionToken(new Request("https://control.example.test", {
       headers: { authorization: "Bearer token extra" },

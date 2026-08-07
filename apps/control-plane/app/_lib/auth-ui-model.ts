@@ -6,6 +6,7 @@ export function safeReturnDestination(value: string | null): string {
 export function apiErrorMessage(code: string): string {
   const messages: Record<string, string> = {
     conflict: "That value is already in use.",
+    "csrf-failed": "Your browser session could not be verified. Reload the page and try again.",
     forbidden: "You do not have permission to make this change.",
     "invalid-credentials": "The username or password is incorrect.",
     "invalid-current-password": "The current password is incorrect.",
