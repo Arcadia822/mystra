@@ -1,4 +1,4 @@
-# 交互原型：本地用户、Personal Team 与 RBAC
+# 交互原型：本地用户、Team 与 RBAC
 
 ## 原型入口
 
@@ -17,17 +17,16 @@
 
 1. **Sign in**：username/password；示例显示 `admin` 默认账户和首次改密提示。
 2. **Account**：修改 display name 与 password；login username 只读。
-3. **Team switcher**：标识当前 Team、Personal Team，并提供创建 Team 入口。
-4. **Team settings**：重命名 Team；Personal/唯一 Team 删除禁用，普通 Team可确认归档。
+3. **Team switcher**：标识当前 Team，并提供创建 Team 入口。
+4. **Team settings**：重命名 Team；唯一 active Team 删除禁用，其他 Team 可确认归档。
 5. **Members**：display name、username、role、status 与 add/remove actions。
 6. **Roles**：Owner/Admin/Member permission summary 与保护规则。
 
 ## Interaction Notes
 
 - 默认 `admin/admin` 登录成功后进入强制修改 password 状态，不可直接进入 Team shell。
-- Personal Team 的 display name 可改，但 Personal 标识独立存在。
 - Team switcher 只列 active memberships；创建 Team 后创建者成为 Owner。
-- 删除只针对普通 Team，表现为确认后的归档；Personal Team 和唯一 Team均禁用。
+- 删除表现为确认后的归档；某 User 唯一 active Team 禁用删除与退出。
 - Members 按准确 username 添加已有本地 User，不使用 email invitation。
 - Castrel AI Workspace Members 视觉参考未提供，本轮不猜测其具体布局、组件或交互。
 
@@ -41,6 +40,6 @@
 ## High-fidelity 升级目标
 
 - 获得 Castrel AI 页面路径或截图后，补充 Workspace Members 视觉与交互映射。
-- 覆盖 forced password change、duplicate username、last Owner、personal owner、last Team 和 Team delete confirmation 状态。
+- 覆盖 forced password change、duplicate username、last Owner、last active Team 和 Team delete confirmation 状态。
 - 映射现有 Account/Team Settings components。
 - 040 合入 `main` 后再制作真实 runtime prototype；041 已是当前基线。

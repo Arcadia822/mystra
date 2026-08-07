@@ -125,9 +125,16 @@ In scope:
   repository discovery and delivery. The open-source tree may retain the hosted
   GitHub App adapter and tests without making that method a supported
   self-hosted capability.
-  Hosted App runtime activation is phased behind caller authentication, Team
-  authorization, hosted persistence, and managed secret prerequisites; those
-  prerequisites are not part of the current self-hosted MVP.
+  Hosted App runtime activation is phased behind hosted caller-identity
+  federation, hosted Team administration, hosted persistence, and managed secret
+  prerequisites; those prerequisites are not part of the current self-hosted MVP.
+- Self-hosted single-node human identity and access: username/password
+  authentication with no email dependency, and Owner/Admin/Member Team RBAC.
+  Registration grants every human User an initial Team they own, every User
+  always belongs to at least one Team, Team is the
+  top-level tenant boundary, and all protected API/MCP/CLI/Web operations resolve
+  effective permissions server-side. Feature 043 owns this contract and waits for
+  the 040 Prisma RDB integration on `main`.
 - Stable pull-based Runner enrollment, credential rotation, heartbeat,
   eligibility, capacity, claim, cancellation, and terminal completion.
 - Direct Docker sandbox and Agent execution with test, build, preview, branch,
@@ -137,7 +144,7 @@ In scope:
 
 Out of scope:
 
-- Caller authentication, logs API or log persistence, retry API, callbacks, or
+- Hosted multi-tenant caller-identity federation, logs API or log persistence, retry API, callbacks, or
   quality-fix loops.
 - Public activity timeline or a public internal-fact collection.
 - Claude CLI, Kubernetes sandboxes, cross-Runner shared caches, per-repository

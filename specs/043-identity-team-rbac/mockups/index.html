@@ -161,7 +161,7 @@
                 </form>
                 <div class="notice" style="margin-top:16px">The bootstrap admin must change the default password before opening any Team.</div>
                 <div class="rule"></div>
-                <p class="caption">New local users register with username and password. Every account receives its own Personal Team.</p>
+                <p class="caption">New local users register with username and password. Every account receives its own initial Team.</p>
               </div>
             </div>
           </section>
@@ -176,32 +176,32 @@
           </section>
 
           <section class="screen" data-panel="teams">
-            <div class="header"><div><div class="eyebrow">Team context</div><h1>Switch Team</h1><p class="muted">Only active memberships appear here. Personal ownership is independent from the display name.</p></div><button class="button primary" type="button">Create Team</button></div>
+            <div class="header"><div><div class="eyebrow">Team context</div><h1>Switch Team</h1><p class="muted">Only active memberships appear here. You always belong to at least one active Team.</p></div><button class="button primary" type="button">Create Team</button></div>
             <div class="card">
               <div class="card-head"><h2>Your Teams</h2><span class="tag">3 active</span></div>
-              <div class="row"><div class="identity"><span class="avatar">P</span><div><strong>Personal</strong><span class="caption">Personal Team · you are permanent Owner</span></div></div><div class="tags"><span class="tag ok">Current</span><span class="tag">Personal</span></div><button class="button ghost" type="button">Settings</button></div>
-              <div class="row"><div class="identity"><span class="avatar">M</span><div><strong>Mystra</strong><span class="caption">Standard Team · Owner</span></div></div><div class="tags"><span class="tag">4 members</span></div><button class="button" type="button">Switch</button></div>
-              <div class="row"><div class="identity"><span class="avatar">C</span><div><strong>Castrel Product</strong><span class="caption">Standard Team · Member</span></div></div><div class="tags"><span class="tag">12 members</span></div><button class="button" type="button">Switch</button></div>
+              <div class="row"><div class="identity"><span class="avatar">D</span><div><strong>Default</strong><span class="caption">Initial Team · Owner</span></div></div><div class="tags"><span class="tag ok">Current</span></div><button class="button ghost" type="button">Settings</button></div>
+              <div class="row"><div class="identity"><span class="avatar">M</span><div><strong>Mystra</strong><span class="caption">Team · Owner</span></div></div><div class="tags"><span class="tag">4 members</span></div><button class="button" type="button">Switch</button></div>
+              <div class="row"><div class="identity"><span class="avatar">C</span><div><strong>Castrel Product</strong><span class="caption">Team · Member</span></div></div><div class="tags"><span class="tag">12 members</span></div><button class="button" type="button">Switch</button></div>
             </div>
           </section>
 
           <section class="screen" data-panel="team-settings">
-            <div class="header"><div><div class="eyebrow">Settings / Team / General</div><h1>Personal Team settings</h1><p class="muted">The name is editable. The Personal ownership invariant is not.</p></div><span class="tag ok">Personal</span></div>
+            <div class="header"><div><div class="eyebrow">Settings / Team / General</div><h1>Team settings</h1><p class="muted">Rename, transfer ownership, or delete — subject to the last-owner and last-active-team guards.</p></div><span class="tag ok">Owner</span></div>
             <div class="stack">
-              <article class="card"><div class="card-head"><h2>Team profile</h2></div><div class="card-body form"><label>Display name<input value="Personal" /></label><button class="button primary" type="button">Rename Team</button></div></article>
-              <article class="card"><div class="card-head"><h2>Delete Team</h2><span class="tag warn">Protected</span></div><div class="card-body stack"><p class="muted">Personal Teams cannot be deleted or transferred. A standard Team is also protected when it is your only active Team.</p><button class="button danger" type="button" disabled>Delete Team</button></div></article>
+              <article class="card"><div class="card-head"><h2>Team profile</h2></div><div class="card-body form"><label>Display name<input value="Default" /></label><button class="button primary" type="button">Rename Team</button></div></article>
+              <article class="card"><div class="card-head"><h2>Delete Team</h2><span class="tag warn">Protected</span></div><div class="card-body stack"><p class="muted">A Team is protected from deletion or exit when it is a member's only active Team.</p><button class="button danger" type="button" disabled>Delete Team</button></div></article>
             </div>
           </section>
 
           <section class="screen" data-panel="members">
             <div class="header"><div><div class="eyebrow">Settings / Team / Members</div><h1>Members</h1><p class="muted">Add an existing local User by exact username and assign one Team role.</p></div><button class="button primary" type="button">Add member</button></div>
             <div class="card">
-              <div class="card-head"><h2>Personal</h2><span class="tag">3 members</span></div>
-              <div class="row"><div class="identity"><span class="avatar">AD</span><div><strong>Administrator</strong><span class="caption">@admin · Personal owner</span></div></div><div class="tags"><span class="tag ok">Owner</span><span class="tag">Protected</span></div><div class="actions"><button class="button ghost" type="button" disabled>Manage</button></div></div>
+              <div class="card-head"><h2>Default</h2><span class="tag">3 members</span></div>
+              <div class="row"><div class="identity"><span class="avatar">AD</span><div><strong>Administrator</strong><span class="caption">@admin · Owner</span></div></div><div class="tags"><span class="tag ok">Owner</span></div><div class="actions"><button class="button ghost" type="button">Manage</button></div></div>
               <div class="row"><div class="identity"><span class="avatar">DL</span><div><strong>Dev Lead</strong><span class="caption">@devlead · active</span></div></div><div><select aria-label="Role for devlead"><option>Owner</option><option selected>Admin</option><option>Member</option></select></div><div class="actions"><button class="button ghost" type="button">Save</button><button class="button ghost danger" type="button">Remove</button></div></div>
               <div class="row"><div class="identity"><span class="avatar">AN</span><div><strong>Analyst</strong><span class="caption">@analyst · disabled</span></div></div><div><select aria-label="Role for analyst"><option>Owner</option><option>Admin</option><option selected>Member</option></select></div><div class="actions"><button class="button ghost" type="button">Enable</button><button class="button ghost danger" type="button">Remove</button></div></div>
             </div>
-            <p class="footer-note">The permanent Personal owner cannot be removed or downgraded. Standard Teams protect their final active Owner.</p>
+            <p class="footer-note">Each Team protects its final active Owner, and no action may leave a User with zero active Teams.</p>
           </section>
 
           <section class="screen" data-panel="roles">

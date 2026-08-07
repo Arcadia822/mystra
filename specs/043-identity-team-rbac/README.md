@@ -1,11 +1,11 @@
-# 043 本地用户、Personal Team 与 RBAC
+# 043 本地用户、Team 与 RBAC
 
-本目录定义开源 Mystra 的 username/password Human User、每 User 一个 Personal Team、Team lifecycle 与 Owner/Admin/Member RBAC。外部安装流程未来提供 `admin/admin` + `Personal` bootstrap state；043 不实现安装器。self-host 不引入 email，Agent authentication 与强认证因子不属于本期实现。
+本目录定义开源 Mystra 的 username/password Human User、每 User 注册时自动获得一个初始 Team、Team lifecycle 与 Owner/Admin/Member RBAC。外部安装流程未来提供 `admin/admin` + 初始 Team bootstrap state；043 不实现安装器。self-host 不引入 email，Agent authentication 与强认证因子不属于本期实现。
 
 ## 当前阶段
 
 - Specify：已生成，等待 Owner 评审。
-- Plan：尚未开始。
+- Plan：已生成（research/data-model/contracts/quickstart），等待 Owner 评审。
 - Implementation：041 已落地；等待 040 Prisma RDB 合入和 5xP boundary amendment。
 
 ## 分支选择

@@ -131,12 +131,14 @@ remain inspectable, but are never silently treated as operable.
 
 Deployment shape is selected by the server composition root, not by request data
 or an operator-facing mode flag. The open-source entrypoint always assembles
-self-hosted services and does not construct a GitHub App identity provider. The
-managed Mystra Cloud entrypoint assembles hosted caller authentication, Team
-authorization, durable OAuth transaction state, managed SecretProvider/KMS, and
-the platform GitHub App identity. App environment variables are inputs to that
-hosted assembly only; they are not a deployment-mode switch. A partial hosted
-assembly reports `PREREQUISITE_UNAVAILABLE` and fails closed.
+self-hosted services — including single-node human username/password
+authentication (no email) and Owner/Admin/Member Team RBAC — and does not
+construct a GitHub App identity provider. The managed Mystra Cloud entrypoint
+adds hosted multi-tenant caller-identity federation, hosted Team administration,
+durable OAuth transaction state, managed SecretProvider/KMS, and the platform
+GitHub App identity. App environment variables are inputs to that hosted
+assembly only; they are not a deployment-mode switch. A partial hosted assembly
+reports `PREREQUISITE_UNAVAILABLE` and fails closed.
 
 The Hosted composition root, Cloud-only adapters, infrastructure manifests, and
 final image pipeline live in a separate private distribution project. That
@@ -176,6 +178,8 @@ runtime or persistence contract.
 
 Self-hosted supports SQLite single-node operation and shared PostgreSQL-backed
 control-plane replicas; its SecretProvider does not impose node-local storage or
-affinity. Hosted operation adds Team authorization, managed secrets, durable OAuth
-transactions, and shared provider pools without changing Task, Session, Runner,
-or Project repository provenance contracts.
+affinity. Self-hosted includes single-node human authentication and
+Owner/Admin/Member Team RBAC. Hosted operation adds hosted multi-tenant Team
+administration, managed secrets, durable OAuth transactions, and shared provider
+pools without changing Task, Session, Runner, or Project repository provenance
+contracts.

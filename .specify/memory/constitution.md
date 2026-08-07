@@ -4,7 +4,7 @@
 
 ### I. Specification Owns Product Boundaries
 
-Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. Hosted caller authentication, Team authorization, managed platform secrets, and installation lifecycle handling are prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
+Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. Self-hosted Mystra provides single-node human username/password authentication and Owner/Admin/Member Team RBAC as in-scope capabilities; registration grants each human User an initial Team they own, every User always belongs to at least one Team, and Team is the top-level tenant boundary (feature 043 owns this contract). Self-host identity introduces no email dependency and no Agent/workload identity. Hosted multi-tenant caller identity federation, caller-login OAuth (SSO/social), managed platform secrets, hosted Team administration, public multi-tenancy, and installation lifecycle handling remain prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
 
 ### II. Typed Contracts at Service Boundaries
 
@@ -64,6 +64,19 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
 
 ## Amendment Notes
+
+- 2026-08-07: Brought self-hosted single-node human authentication and Team RBAC
+  into the MVP boundary. Self-hosted Mystra now provides username/password human
+  authentication (no email) and Owner/Admin/Member Team RBAC, where registration
+  grants every human User an initial Team they own, every User always belongs to
+  at least one Team, and Team is the top-level tenant. This amends the prior
+  blanket exclusion that treated all caller
+  authentication and Team authorization as hosted-only prerequisites. Hosted
+  multi-tenant caller identity federation, caller-login OAuth (SSO/social),
+  managed platform secrets, hosted Team administration, and public
+  multi-tenancy remain out of the open-source self-hosted scope. Feature 043
+  owns the identity/Team/RBAC contract; its implementation still waits for the
+  040 Prisma RDB integration to land on `main`.
 
 - 2026-08-06: Replaced the node-local encrypted-file SecretProvider with an
   RdbProvider-backed envelope model. PAT plaintext remains confined to
@@ -135,4 +148,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.6.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-06
+**Version**: 2.7.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-07

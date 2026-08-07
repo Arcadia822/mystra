@@ -222,12 +222,19 @@ platform-owned, and installation tokens are short-lived. App and PAT modes
 never silently fall back to one another. Repository discovery and
 RepoDeliveryProvider clone/push/review always resolve the exact connection bound
 by the Project.
-The current self-hosted MVP does not implement the hosted caller/Team/RDB/secret
-prerequisites; until they land, hosted App capability remains unavailable.
-The current self-hosted MVP otherwise excludes caller auth, caller-login OAuth, logs
+The current self-hosted MVP does not implement the hosted App activation
+prerequisites (hosted caller-identity federation, hosted Team tenancy, hosted
+RDB, and managed secrets); until they land, hosted App capability remains
+unavailable. Self-hosted Mystra does provide single-node human username/password
+authentication (no email) and Owner/Admin/Member Team RBAC, where registration
+grants every human User an initial Team they own, every User always belongs to at
+least one Team, and Team is the top-level
+tenant boundary (feature 043 owns this contract; it waits for 040 to land on
+`main`).
+The current self-hosted MVP otherwise excludes caller-login OAuth (SSO/social), logs
 API/persistence, retry API, arbitrary callback URLs, quality-gate fix loops,
 webhooks/Issue write-back, a general-purpose Integration management catalog,
-public hosted multi-tenancy, Claude CLI, Kubernetes sandbox workloads,
+public hosted multi-tenancy, hosted Team administration, Claude CLI, Kubernetes sandbox workloads,
 cross-runner shared caches, per-repository secret management, and managed hosted
 RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
 PostgreSQL remain approved deployment targets. Hosted platform persistence

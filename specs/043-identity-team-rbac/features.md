@@ -1,19 +1,18 @@
-# 功能说明：本地用户、Personal Team 与 RBAC
+# 功能说明：本地用户、Team 与 RBAC
 
 ## 目标
 
-开源 Mystra 部署后从登录页开始。外部安装流程未来提供默认 `admin/admin` 和 admin 的 `Personal` Team；043 消费这个 bootstrap state，但不实现安装器。默认 admin 首次登录必须修改 password。
+开源 Mystra 部署后从登录页开始。外部安装流程未来提供默认 `admin/admin` 和 admin 的初始 Team；043 消费这个 bootstrap state，但不实现安装器。默认 admin 首次登录必须修改 password。
 
-每个本地 User 使用唯一 username/password，拥有可修改的 display name，并始终拥有一个 Personal Team。用户可以切换 Team、创建普通 Team、重命名任意拥有的 Team，并删除非 Personal、非唯一的普通 Team。
+每个本地 User 使用唯一 username/password，拥有可修改的 display name，并在注册时自动获得一个由自己拥有的初始 Team。用户可以切换 Team、创建 Team、重命名任意拥有的 Team，并删除 Team（唯一 active Team 不可删除或退出）。
 
 ## 功能地图
 
 - **Authentication**：登录、注册、退出、session 撤销、默认 admin 强制改密。
 - **Account**：修改 password 与 display name；login username 首期只读。
-- **Personal Team**：每 User 恰好一个，初始名 `Personal`，可改名、可加成员、不可删除或转移 personal owner。
-- **Team lifecycle**：Team switcher、创建、切换、重命名与归档删除；唯一 Team 不可删除。
+- **Team lifecycle**：注册即获得一个初始 Team；Team switcher、创建、切换、重命名与归档删除；唯一 active Team 不可删除或退出。
 - **Members**：Settings > Team Members 按 username 添加、停用、移除成员并设置角色。
-- **RBAC**：首期固定 Owner、Admin、Member，服务端统一 enforcement，保护 last Owner 与 personal owner。
+- **RBAC**：首期固定 Owner、Admin、Member，服务端统一 enforcement，保护 last Owner 与每 User 至少一个 active Team。
 - **Persistence**：SQLite、PostgreSQL、Supabase-backed PostgreSQL 使用相同 Prisma-owned 逻辑模型。
 
 ## 明确边界
