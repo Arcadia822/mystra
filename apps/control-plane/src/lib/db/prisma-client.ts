@@ -10,6 +10,8 @@ import {
   type AuthSession,
   type IntegrationConnection,
   type Project,
+  type Runtime,
+  type RuntimeProvider,
   type SecretEnvelope,
   type Task,
   type Team,
@@ -29,6 +31,7 @@ type MembershipUpdate = Partial<Pick<TeamMembership, "role" | "status" | "update
 type SessionUpdate = Partial<Pick<AuthSession, "activeTeamId" | "updatedAt">>;
 type UserUpdate = Partial<Pick<User, "displayName" | "status" | "requirePasswordChange" | "updatedAt">>;
 type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSalt" | "passwordParams" | "updatedAt">>;
+type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
 
 export interface MystraPrismaDelegates {
   integrationConnection: {
@@ -59,6 +62,23 @@ export interface MystraPrismaDelegates {
     create(args: { data: Task }): Promise<Task>;
     findUnique(args: { where: { id: string } | { issueDispatchKey: string } }): Promise<Task | null>;
     findMany(args: { where?: { projectId?: string; teamId?: string }; orderBy: OrderBy }): Promise<Task[]>;
+  };
+  runtime: {
+    create(args: { data: Runtime }): Promise<Runtime>;
+    updateMany(args: { where: { id: string }; data: RuntimeUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } }): Promise<Runtime | null>;
+    findMany(args: {
+      where?: { type?: string };
+      orderBy: Array<{ updatedAt: SortOrder } | { id: SortOrder }>;
+    }): Promise<Runtime[]>;
+  };
+  runtimeProvider: {
+    create(args: { data: RuntimeProvider }): Promise<RuntimeProvider>;
+    deleteMany(args: { where: { runtimeId: string } }): Promise<CountResult>;
+    findMany(args: {
+      where: { runtimeId: string };
+      orderBy: Array<{ provider: SortOrder }>;
+    }): Promise<RuntimeProvider[]>;
   };
   secretEnvelope: {
     create(args: { data: SecretEnvelope }): Promise<SecretEnvelope>;
@@ -164,6 +184,8 @@ const modelMethods = {
   integrationConnection: ["upsert", "updateMany", "findUnique", "findMany", "deleteMany"],
   project: ["create", "updateMany", "findUnique", "findMany"],
   task: ["create", "findUnique", "findMany"],
+  runtime: ["create", "updateMany", "findUnique", "findMany"],
+  runtimeProvider: ["create", "deleteMany", "findMany"],
   secretEnvelope: ["create", "findUnique", "deleteMany"],
   user: ["create", "updateMany", "findUnique", "findMany"],
   authAccount: ["create", "updateMany", "findUnique"],

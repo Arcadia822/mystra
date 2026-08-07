@@ -2,13 +2,18 @@ import {
   accountViewSchema,
   integrationCapabilitiesSchema,
   integrationConnectionSchema,
+  hostRuntimeMetadataSchema,
+  providerCapabilitySchema,
   projectSchema,
+  runtimeViewSchema,
   taskRecordSchema,
   teamRoleSchema,
   teamStatusSchema,
   membershipStatusSchema,
   type IntegrationConnection,
   type Project,
+  type ProviderCapability,
+  type RuntimeView,
   type TaskRecord,
 } from "@mystra/shared";
 
@@ -17,6 +22,8 @@ import type {
   AuthSession as PrismaAuthSession,
   IntegrationConnection as PrismaIntegrationConnection,
   Project as PrismaProject,
+  Runtime as PrismaRuntime,
+  RuntimeProvider as PrismaRuntimeProvider,
   Task as PrismaTask,
   Team as PrismaTeam,
   TeamMembership as PrismaTeamMembership,
@@ -103,6 +110,44 @@ export function mapTask(row: PrismaTask): TaskRecord {
     metadata: parseJsonObject(row.metadata),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  });
+}
+
+export function mapRuntime(
+  row: PrismaRuntime,
+  providers: PrismaRuntimeProvider[],
+): RuntimeView {
+  return runtimeViewSchema.parse({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    metadata: mapHostRuntimeMetadata(row.metadata),
+    // Liveness is intentionally outside relational persistence; API composition
+    // replaces these defaults from HostLivenessRegistry on read.
+    status: "offline",
+    lastSeenAt: null,
+    providers: providers.map(mapProviderCapability),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
+}
+
+export function mapHostRuntimeMetadata(value: string | null) {
+  if (value === null) {
+    throw new RdbError("RDB_UNAVAILABLE", "Persisted runtime metadata is invalid");
+  }
+  return hostRuntimeMetadataSchema.parse(parseJsonObject(value));
+}
+
+export function mapProviderCapability(row: PrismaRuntimeProvider): ProviderCapability {
+  return providerCapabilitySchema.parse({
+    provider: row.provider,
+    discovered: row.discovered,
+    available: row.available,
+    source: row.source,
+    resolvedPath: row.resolvedPath,
+    version: row.version,
+    unavailableReason: row.unavailableReason,
   });
 }
 

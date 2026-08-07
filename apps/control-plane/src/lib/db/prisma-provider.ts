@@ -3,8 +3,12 @@ import { randomUUID } from "node:crypto";
 import {
   integrationConnectionActivationSchema,
   integrationCapabilitiesSchema,
+  hostProviderReportSchema,
+  hostRuntimeMetadataSchema,
+  hostRuntimeRegistrationSchema,
   projectCreateSchema,
   projectUpdateSchema,
+  runtimeRenameSchema,
   taskCreateRequestSchema,
   type IntegrationCapabilities,
   type IntegrationConnection,
@@ -12,9 +16,12 @@ import {
   type IntegrationConnectionStatus,
   type IntegrationCredentialState,
   type MemberView,
+  type ProviderCapability,
   type Project,
   type ProjectCreate,
   type ProjectUpdate,
+  type RuntimeRename,
+  type RuntimeView,
   type TaskCreateRequest,
   type TaskListItem,
   type TaskRecord,
@@ -22,15 +29,22 @@ import {
   type TeamRole,
   normalizeUsername,
 } from "@mystra/shared";
+import type {
+  Runtime as PrismaRuntime,
+  RuntimeProvider as PrismaRuntimeProvider,
+} from "../../generated/prisma/sqlite/client";
 
 import type { MystraPrismaClient, MystraPrismaDelegates } from "./prisma-client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 import {
   mapAuthAccount,
   mapAuthSession,
+  mapHostRuntimeMetadata,
   mapIntegrationConnectionRecord,
+  mapProviderCapability,
   mapProject,
   mapPublicIntegrationConnection,
+  mapRuntime,
   mapTask,
   mapTeam,
   mapTeamMembership,
@@ -43,6 +57,7 @@ import type {
   IntegrationConnectionRecord,
   IntegrationConnectionUpsert,
   IssueDispatchResult,
+  RegisterHostRuntimeInput,
   RdbProvider,
   SecretEnvelopeRecord,
   SecretEnvelopeWrite,
@@ -503,6 +518,111 @@ export class PrismaRdbProvider implements RdbProvider {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
     return rows.map(mapTask);
+  }
+
+  async registerHostRuntime(input: RegisterHostRuntimeInput): Promise<RuntimeView> {
+    const parsed = hostRuntimeRegistrationSchema.parse(input);
+    const metadata = hostRuntimeMetadataSchema.parse({
+      runnerId: parsed.runnerId,
+      platform: parsed.platform,
+    });
+    const metadataJson = serializeJson(metadata);
+
+    return this.#retryRuntimeWrite(() => this.#client.transaction(async (transaction) => {
+      const existing = await this.#findHostRuntimeByRunnerId(parsed.runnerId, transaction);
+      if (!existing) {
+        const timestamp = this.#now();
+        const runtime = await transaction.runtime.create({
+          data: {
+            id: this.#newId(),
+            name: parsed.name,
+            type: "host",
+            metadata: metadataJson,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        });
+        const providers = await this.#replaceRuntimeProviders(
+          runtime.id,
+          parsed.providers,
+          transaction,
+        );
+        return mapRuntime(runtime, providers);
+      }
+
+      const providersChanged = !sameProviderCapabilities(existing.providers, parsed.providers);
+      const runtimeChanged = existing.runtime.name !== parsed.name
+        || existing.runtime.metadata !== metadataJson;
+      if (!runtimeChanged && !providersChanged) {
+        return mapRuntime(existing.runtime, existing.providers);
+      }
+
+      const timestamp = this.#now();
+      await transaction.runtime.updateMany({
+        where: { id: existing.runtime.id },
+        data: {
+          ...(runtimeChanged ? { name: parsed.name, metadata: metadataJson } : {}),
+          updatedAt: timestamp,
+        },
+      });
+      const providers = providersChanged
+        ? await this.#replaceRuntimeProviders(existing.runtime.id, parsed.providers, transaction)
+        : existing.providers;
+      return mapRuntime(
+        { ...existing.runtime, name: parsed.name, metadata: metadataJson, updatedAt: timestamp },
+        providers,
+      );
+    }));
+  }
+
+  async getRuntime(id: string): Promise<RuntimeView | undefined> {
+    const runtime = await this.#client.runtime.findUnique({ where: { id } });
+    if (!runtime) return undefined;
+    return mapRuntime(runtime, await this.#listRuntimeProviders(id));
+  }
+
+  async listRuntimes(): Promise<RuntimeView[]> {
+    const runtimes = await this.#client.runtime.findMany({
+      where: { type: "host" },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    });
+    return Promise.all(runtimes.map(async (runtime) => (
+      mapRuntime(runtime, await this.#listRuntimeProviders(runtime.id))
+    )));
+  }
+
+  async renameRuntime(id: string, input: RuntimeRename): Promise<RuntimeView | undefined> {
+    const parsed = runtimeRenameSchema.parse(input);
+    const result = await this.#client.runtime.updateMany({
+      where: { id },
+      data: { name: parsed.name, updatedAt: this.#now() },
+    });
+    return result.count === 0 ? undefined : this.getRuntime(id);
+  }
+
+  async reportHostProviders(
+    runnerId: string,
+    providers: ProviderCapability[],
+  ): Promise<RuntimeView | undefined> {
+    const parsed = hostProviderReportSchema.parse({ runnerId, providers });
+    return this.#retryRuntimeWrite(() => this.#client.transaction(async (transaction) => {
+      const existing = await this.#findHostRuntimeByRunnerId(parsed.runnerId, transaction);
+      if (!existing) return undefined;
+      if (!sameProviderCapabilities(existing.providers, parsed.providers)) {
+        const timestamp = this.#now();
+        await transaction.runtime.updateMany({
+          where: { id: existing.runtime.id },
+          data: { updatedAt: timestamp },
+        });
+        const replaced = await this.#replaceRuntimeProviders(
+          existing.runtime.id,
+          parsed.providers,
+          transaction,
+        );
+        return mapRuntime({ ...existing.runtime, updatedAt: timestamp }, replaced);
+      }
+      return mapRuntime(existing.runtime, existing.providers);
+    }));
   }
 
   async registerLocalUser(input: RegisterLocalUserInput): Promise<{
@@ -1021,6 +1141,68 @@ export class PrismaRdbProvider implements RdbProvider {
     });
   }
 
+  async #findHostRuntimeByRunnerId(
+    runnerId: string,
+    client: MystraPrismaDelegates = this.#client,
+  ): Promise<{ runtime: PrismaRuntime; providers: PrismaRuntimeProvider[] } | undefined> {
+    const runtimes = await client.runtime.findMany({
+      where: { type: "host" },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    });
+    const runtime = runtimes.find((candidate) => (
+      mapHostRuntimeMetadata(candidate.metadata).runnerId === runnerId
+    ));
+    if (!runtime) return undefined;
+    return { runtime, providers: await this.#listRuntimeProviders(runtime.id, client) };
+  }
+
+  async #listRuntimeProviders(
+    runtimeId: string,
+    client: MystraPrismaDelegates = this.#client,
+  ): Promise<PrismaRuntimeProvider[]> {
+    return client.runtimeProvider.findMany({
+      where: { runtimeId },
+      orderBy: [{ provider: "asc" }],
+    });
+  }
+
+  async #replaceRuntimeProviders(
+    runtimeId: string,
+    providers: ProviderCapability[],
+    client: MystraPrismaDelegates = this.#client,
+  ): Promise<PrismaRuntimeProvider[]> {
+    await client.runtimeProvider.deleteMany({ where: { runtimeId } });
+    const created: PrismaRuntimeProvider[] = [];
+    for (const provider of sortProviderCapabilities(providers)) {
+      created.push(await client.runtimeProvider.create({
+        data: {
+          id: this.#newId(),
+          runtimeId,
+          provider: provider.provider,
+          discovered: provider.discovered,
+          available: provider.available,
+          source: provider.source,
+          resolvedPath: provider.resolvedPath,
+          version: provider.version,
+          unavailableReason: provider.unavailableReason,
+        },
+      }));
+    }
+    return created;
+  }
+
+  async #retryRuntimeWrite<T>(write: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await write();
+      } catch (error) {
+        if (isDatabaseErrorCode(error, "P2034") && attempt < 2) continue;
+        throw normalizeDatabaseError(error);
+      }
+    }
+    throw new RdbError("RDB_UNAVAILABLE", "Runtime write transaction could not be serialized");
+  }
+
   async #insertTask(
     input: TaskCreateRequest,
     client: MystraPrismaDelegates = this.#client,
@@ -1109,6 +1291,20 @@ function connectionWriteData(input: IntegrationConnectionUpsert, updatedAt: stri
     status: input.status ?? "active",
     updatedAt,
   };
+}
+
+function sameProviderCapabilities(
+  existing: PrismaRuntimeProvider[],
+  desired: ProviderCapability[],
+): boolean {
+  return JSON.stringify(existing.map(mapProviderCapability))
+    === JSON.stringify(sortProviderCapabilities(desired));
+}
+
+function sortProviderCapabilities(
+  providers: ProviderCapability[],
+): ProviderCapability[] {
+  return [...providers].sort((left, right) => left.provider.localeCompare(right.provider));
 }
 
 function requireTeamId(teamId: string | undefined): string {

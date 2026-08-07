@@ -272,6 +272,62 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.getTaskByIssueDispatchKey(`linear:ENG-4:${parent.id}`)).toBeUndefined();
   });
 
+  it("persists host Runtimes and atomically replaces their Provider capabilities", async () => {
+    const registration = {
+      runnerId: "runner-contract",
+      name: "Contract host",
+      type: "host" as const,
+      platform: "darwin-arm64",
+      providers: [{
+        provider: "copilot" as const,
+        discovered: true,
+        available: true,
+        source: "path" as const,
+        resolvedPath: "/usr/local/bin/copilot",
+        version: "1.0.0",
+        unavailableReason: null,
+      }],
+    };
+    const registered = await db.registerHostRuntime(registration);
+
+    expect(registered).toMatchObject({
+      name: registration.name,
+      type: "host",
+      metadata: { runnerId: registration.runnerId, platform: registration.platform },
+      status: "offline",
+      lastSeenAt: null,
+      providers: registration.providers,
+    });
+    expect(await db.registerHostRuntime(registration)).toEqual(registered);
+    expect(await db.getRuntime(registered.id)).toEqual(registered);
+    expect(await db.listRuntimes()).toEqual([registered]);
+
+    const reported = await db.reportHostProviders(registration.runnerId, [{
+      provider: "codex",
+      discovered: false,
+      available: false,
+      source: "env-override",
+      resolvedPath: null,
+      version: null,
+      unavailableReason: "override-path-missing",
+    }]);
+    expect(reported).toMatchObject({
+      id: registered.id,
+      providers: [expect.objectContaining({ provider: "codex", available: false })],
+    });
+    expect(reported?.updatedAt).not.toBe(registered.updatedAt);
+
+    await expect(db.reportHostProviders(registration.runnerId, [
+      ...reported!.providers,
+      ...reported!.providers,
+    ])).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    expect((await db.getRuntime(registered.id))?.providers).toEqual(reported!.providers);
+
+    const renamed = await db.renameRuntime(registered.id, { name: "Renamed host" });
+    expect(renamed).toMatchObject({ id: registered.id, name: "Renamed host" });
+    expect(await db.reportHostProviders("unknown-runner", registration.providers)).toBeUndefined();
+  });
+
   it("normalizes slug, foreign-key, and dispatch conflicts", async () => {
     const parent = await project();
     await expect(db.createProject({

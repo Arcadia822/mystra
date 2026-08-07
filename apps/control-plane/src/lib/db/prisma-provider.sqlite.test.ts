@@ -1,5 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import Database from "better-sqlite3";
@@ -9,11 +8,14 @@ import { createSqlitePrismaClient } from "./prisma-client";
 import { PrismaRdbProvider } from "./prisma-provider";
 import { runRdbProviderContract } from "./rdb-provider.contract";
 
-const tempDirectory = mkdtempSync(path.join(tmpdir(), "mystra-prisma-contract-"));
+const tempDirectory = path.join(process.cwd(), `.test-prisma-contract-${process.pid}`);
+rmSync(tempDirectory, { recursive: true, force: true });
+mkdirSync(tempDirectory, { recursive: true });
 const migrations = [
   "20260806182000_init",
   "20260806210000_secret_envelopes",
   "20260807150000_identity_team_rbac",
+  "20260807181000_runtime_provider",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
