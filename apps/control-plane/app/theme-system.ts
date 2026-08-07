@@ -478,6 +478,49 @@ function readableForeground(background: string): string {
   return luminance(background) > 0.45 ? "#11151b" : "#ffffff";
 }
 
+const DERIVED_HIGH_CONTRAST_BORDER_WEIGHT = 0.72;
+
+export function derivedHighContrastBorder(surface: string, ink: string): string {
+  return mix(surface, ink, DERIVED_HIGH_CONTRAST_BORDER_WEIGHT);
+}
+
+export function derivedColorBorder(surface: string, color: string): string {
+  return mix(surface, color, DERIVED_HIGH_CONTRAST_BORDER_WEIGHT);
+}
+
+export function deriveBorderTokens(
+  themeDefinition: ControlPlaneThemeDefinition,
+  borderMode: ThemeBorderMode,
+): Record<string, string> {
+  if (borderMode === "default") return {};
+
+  const surface = themeDefinition.tokens?.canvas ?? themeDefinition.theme.surface;
+  const { accent, ink, semanticColors } = themeDefinition.theme;
+  const warning = themeDefinition.tokens?.signalNumber ?? mix(semanticColors.diffRemoved, accent, 0.55);
+  if (borderMode === "high-contrast") {
+    const edge = derivedHighContrastBorder(surface, ink);
+    return {
+      "--border": edge,
+      "--border-visible": edge,
+      "--code-border": edge,
+      "--success-border": edge,
+      "--warning-border": edge,
+      "--danger-border": edge,
+      "--color-focus": edge,
+    };
+  }
+
+  return {
+    "--border": derivedColorBorder(surface, accent),
+    "--border-visible": derivedColorBorder(surface, accent),
+    "--code-border": derivedColorBorder(surface, semanticColors.skill),
+    "--success-border": derivedColorBorder(surface, semanticColors.diffAdded),
+    "--warning-border": derivedColorBorder(surface, warning),
+    "--danger-border": derivedColorBorder(surface, semanticColors.diffRemoved),
+    "--color-focus": derivedColorBorder(surface, accent),
+  };
+}
+
 export function getThemeById(themeId: string, variant?: ThemeVariant): ControlPlaneThemeDefinition | undefined {
   if (variant) {
     const codeThemeId = LEGACY_THEME_IDS[variant][themeId] ?? themeId;
@@ -759,6 +802,7 @@ export function buildAppearanceCssVariables(
     variables["--code-border"] = "#3a424d";
     variables["--code-text"] = "#e2e7ee";
   }
+  Object.assign(variables, deriveBorderTokens(theme, normalized.borderMode));
   return variables;
 }
 
@@ -783,6 +827,7 @@ export function buildThemeBootstrapScript(): string {
       codeThemeId: theme.codeThemeId,
       accent: theme.theme.accent,
       ink: theme.theme.ink,
+      semanticColors: theme.theme.semanticColors,
       surface: theme.tokens?.canvas ?? theme.theme.surface,
       variables: buildThemeCssVariables(theme),
       variant: theme.variant,
@@ -845,12 +890,10 @@ export function buildThemeBootstrapScript(): string {
     const depth=preferences.contrast/100;
     const hex=(value)=>{const raw=value.replace("#","");const parsed=parseInt(raw,16);return[(parsed>>16)&255,(parsed>>8)&255,parsed&255]};
     const mix=(a,b,w)=>{const x=hex(a),y=hex(b),c=x.map((v,i)=>Math.round(v+(y[i]-v)*Math.min(1,Math.max(0,w))).toString(16).padStart(2,"0"));return"#"+c.join("")};
-    const borderInk=preferences.borderMode==="color-high-contrast"?theme.accent:theme.ink;
     const base=variant==="light"?.1:.16;
-    const boost=preferences.borderMode==="default"?0:preferences.borderMode==="high-contrast"?.16:.12;
     variables["--surface3"]=mix(theme.surface,theme.ink,base*.45+depth*.12);
-    variables["--border"]=mix(theme.surface,borderInk,base+depth*.12+boost*.55);
-    variables["--border-visible"]=mix(theme.surface,borderInk,base+.08+depth*.2+boost);
+    variables["--border"]=mix(theme.surface,theme.ink,base+depth*.12);
+    variables["--border-visible"]=mix(theme.surface,theme.ink,base+.08+depth*.2);
     variables["--font-ui"]=stack(preferences.uiFont,defaults.uiFont,"system-ui, sans-serif");
     variables["--font-content"]=stack(preferences.contentFont,defaults.contentFont,"system-ui, sans-serif");
     variables["--font-code"]=stack(preferences.codeFont,defaults.codeFont,"ui-monospace, monospace");
@@ -864,6 +907,22 @@ export function buildThemeBootstrapScript(): string {
       variables["--code-bg"]="#f7f8fa";variables["--code-border"]="#c7ccd4";variables["--code-text"]="#20242b";
     }else{
       variables["--code-bg"]="#15191f";variables["--code-border"]="#3a424d";variables["--code-text"]="#e2e7ee";
+    }
+    if(preferences.borderMode!=="default"){
+      if(preferences.borderMode==="high-contrast"){
+        const edge=mix(theme.surface,theme.ink,.72);
+        variables["--border"]=edge;variables["--border-visible"]=edge;variables["--code-border"]=edge;
+        variables["--success-border"]=edge;variables["--warning-border"]=edge;variables["--danger-border"]=edge;
+        variables["--color-focus"]=edge;
+      }else{
+        const edge=(color)=>mix(theme.surface,color,.72);
+        variables["--border"]=edge(theme.accent);variables["--border-visible"]=edge(theme.accent);
+        variables["--code-border"]=edge(variables["--skill-accent"]);
+        variables["--success-border"]=edge(theme.semanticColors.diffAdded);
+        variables["--warning-border"]=edge(variables["--warning"]);
+        variables["--danger-border"]=edge(theme.semanticColors.diffRemoved);
+        variables["--color-focus"]=edge(theme.accent);
+      }
     }
     const root=document.documentElement;
     root.dataset.themeId=theme.codeThemeId;

@@ -49,17 +49,29 @@ export function sessionCookieOptions(request: Request): { secure: boolean } {
   return { secure: url.protocol === "https:" || !isLoopback };
 }
 
+function requestOrigin(request: Request): string {
+  const url = new URL(request.url);
+  const host = request.headers.get("host");
+  if (!host) return url.origin;
+
+  try {
+    return new URL(`${url.protocol}//${host}`).origin;
+  } catch {
+    return url.origin;
+  }
+}
+
 export function assertRequestOrigin(request: Request, source: SessionPresentationSource): void {
   if (source !== "cookie" || ["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
   const origin = request.headers.get("origin");
-  if (!origin || origin !== new URL(request.url).origin) {
+  if (!origin || origin !== requestOrigin(request)) {
     throw new AuthError("csrf-failed");
   }
 }
 
 export function assertNewSessionRequestOrigin(request: Request): void {
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  if (origin && origin !== requestOrigin(request)) {
     throw new AuthError("csrf-failed");
   }
 }

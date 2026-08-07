@@ -520,7 +520,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -1214,7 +1214,7 @@ time {
 }
 
 .statusBadge.active {
-  border-color: var(--accent);
+  border-color: var(--color-focus);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -1331,7 +1331,7 @@ time {
 }
 
 .primaryButton {
-  border-color: var(--accent);
+  border-color: var(--color-focus);
   background: var(--accent);
   color: var(--accent-contrast);
 }
@@ -1964,7 +1964,7 @@ body:has(.settingsModal[open]) {
 }
 
 [data-selected="true"] > .settingsSelectedMark {
-  border: 3px solid var(--accent);
+  border: 3px solid var(--color-focus);
 }
 
 .languageOptions {
