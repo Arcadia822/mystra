@@ -2,7 +2,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createRunnerAgentAdapterRegistry } from "./agent-adapters.js";
+import {
+  createRunnerAgentAdapterRegistry,
+  supportedHostProviderKeys,
+} from "./agent-adapters.js";
 
 const tempDirs: string[] = [];
 
@@ -19,6 +22,10 @@ describe("runner agent adapters", () => {
     await Promise.all(tempDirs.splice(0).map(async (dir) => {
       await rm(dir, { recursive: true, force: true });
     }));
+  });
+
+  it("exposes the built-in host provider keys for discovery", () => {
+    expect(supportedHostProviderKeys).toEqual(["codex", "copilot"]);
   });
 
   it("loads a startup-registered agent adapter module", async () => {

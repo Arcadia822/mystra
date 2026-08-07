@@ -14,6 +14,8 @@ interface RunnerAgentAdapterRegistryOptions {
   codexAuthDir?: string | undefined;
 }
 
+export const supportedHostProviderKeys = ["codex", "copilot"] as const;
+
 export interface RunnerAgentAdapterRegistryBundle {
   registry: ReturnType<typeof createAgentAdapterRegistry>;
   agentNames: string[];

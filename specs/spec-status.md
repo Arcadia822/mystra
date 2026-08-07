@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=517eb0bddc8e5f8385f40a4d3a14107651cc6090 updated=2026-08-07T06:38:16Z -->
+<!-- spec-status: project=mystra commit=063c9bfb99c7018752cc703f41f0f365e42555de updated=2026-08-07T10:04:53Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -37,8 +37,8 @@
 | 040-prisma-rdb                     | ✓     | ✓  | ✓   | ● 56/60 (93%) |
 | 041-github-integration-connections | ✓     | ✓  | ✓   | ● 14/63 (22%) |
 | 042-runtime-sandbox-capacity       | ✓     | -    | -     | -         |
-| 043-identity-team-rbac             | ✓     | ✓  | -     | -         |
-| 044-host-runtime-daemon            | -       | -    | -     | -         |
+| 043-identity-team-rbac             | ✓     | ✓  | ✓   | ✓ Complete |
+| 044-host-runtime-daemon            | ✓     | ✓  | ✓   | ● 2/39 (5%) |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -74,5 +74,5 @@
 <!-- feature: 040-prisma-rdb has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=60 tasks_completed=56 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 041-github-integration-connections has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=63 tasks_completed=14 checklist_files=requirements.md -->
 <!-- feature: 042-runtime-sandbox-capacity has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
-<!-- feature: 043-identity-team-rbac has_spec=true has_plan=true has_tasks=false has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
-<!-- feature: 044-host-runtime-daemon has_spec=false has_plan=false has_tasks=false has_research=true has_data_model=false has_quickstart=false has_contracts=false has_checklists=false tasks_total=0 tasks_completed=0 checklist_files= -->
+<!-- feature: 043-identity-team-rbac has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=10 tasks_completed=10 checklist_files=requirements.md -->
+<!-- feature: 044-host-runtime-daemon has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=false tasks_total=39 tasks_completed=2 checklist_files= -->

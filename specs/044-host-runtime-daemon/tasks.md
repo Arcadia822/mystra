@@ -27,8 +27,8 @@ description: "Task list for 044 host runtime daemon"
 
 **Purpose**: 确认工作面、锁定 Provider 键来源，不改动业务行为。
 
-- [ ] T001 [SET] 确认 044 依赖前置：`apps/runner-daemon` 现有 `register()`/心跳骨架打的是被 040 删除的 `/api/runner/register`（现 404）；在 `specs/044-host-runtime-daemon/plan.md` 顶部或 quickstart 记录"需重建 `/api/runner/*` 摄取路由"这一事实基线，供实现者对齐。
-- [ ] T002 [P] [SET] 从 `apps/runner-daemon/src/agent-adapters.ts` 抽出本 feature host 发现所需的**受支持 Provider 键名单**（如 `codex`/`copilot`/`claude`/`qwen`/`cursor-agent` 等），集中为一个可复用常量（如 `apps/runner-daemon/src/provider-keys.ts` 或复用现有导出），供 `provider-discovery.ts` 与契约枚举引用。仅整理来源，不改发现逻辑。
+- [x] T001 [SET] 确认 044 依赖前置：`apps/runner-daemon` 现有 `register()`/心跳骨架打的是被 040 删除的 `/api/runner/register`（现 404）；在 `specs/044-host-runtime-daemon/plan.md` 顶部或 quickstart 记录"需重建 `/api/runner/*` 摄取路由"这一事实基线，供实现者对齐。
+- [x] T002 [P] [SET] 从 `apps/runner-daemon/src/agent-adapters.ts` 抽出本 feature host 发现所需的**受支持 Provider 键名单**（如 `codex`/`copilot`/`claude`/`qwen`/`cursor-agent` 等），集中为一个可复用常量（如 `apps/runner-daemon/src/provider-keys.ts` 或复用现有导出），供 `provider-discovery.ts` 与契约枚举引用。仅整理来源，不改发现逻辑。
 
 ---
 
