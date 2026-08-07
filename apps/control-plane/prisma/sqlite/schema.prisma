@@ -72,6 +72,36 @@ model Task {
   @@map("tasks")
 }
 
+model Runtime {
+  id        String            @id
+  name      String
+  type      String
+  metadata  String?           @map("metadata")
+  createdAt String            @map("created_at")
+  updatedAt String            @map("updated_at")
+  providers RuntimeProvider[]
+
+  @@index([updatedAt, id])
+  @@index([createdAt, id])
+  @@map("runtimes")
+}
+
+model RuntimeProvider {
+  id                String  @id
+  runtimeId         String  @map("runtime_id")
+  provider          String
+  discovered        Boolean
+  available         Boolean
+  source            String
+  resolvedPath      String? @map("resolved_path")
+  version           String?
+  unavailableReason String? @map("unavailable_reason")
+  runtime           Runtime @relation(fields: [runtimeId], references: [id])
+
+  @@unique([runtimeId, provider])
+  @@map("runtime_providers")
+}
+
 model SecretEnvelope {
   reference             String @id
   version               Int
