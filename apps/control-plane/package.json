@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "prebuild": "pnpm --filter @mystra/shared build",
+    "predev": "pnpm --filter @mystra/shared build && pnpm run db:generate",
     "pretest": "pnpm --filter @mystra/shared build",
     "pretypecheck": "pnpm --filter @mystra/shared build",
     "build": "next build --webpack",
