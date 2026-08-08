@@ -1,10 +1,14 @@
 import {
   issueListResponseSchema,
   issueSchema,
+  linearIssueListRequestSchema,
+  linearIssueListResponseSchema,
   type Issue,
   type IssueGetRequest,
   type IssueListRequest,
   type IssueListResponse,
+  type LinearIssueListRequest,
+  type LinearIssueListResponse,
 } from "@mystra/shared";
 import { z } from "zod";
 
@@ -25,6 +29,7 @@ const issueFields = `
   state { id name type }
   assignee { id name }
   labels { nodes { id name } }
+  cycle { id name number }
   createdAt
   updatedAt
 `;
@@ -32,6 +37,15 @@ const issueFields = `
 const listQuery = `
   query MystraIssues($first: Int!, $after: String) {
     issues(first: $first, after: $after) {
+      nodes { ${issueFields} }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`;
+
+const projectListQuery = `
+  query MystraProjectIssues($first: Int!, $after: String, $filter: IssueFilter) {
+    issues(first: $first, after: $after, filter: $filter, orderBy: updatedAt) {
       nodes { ${issueFields} }
       pageInfo { hasNextPage endCursor }
     }
@@ -68,6 +82,11 @@ const rawIssueSchema = z
         name: z.string().min(1),
       }).strict()),
     }).strict(),
+    cycle: z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      number: z.number().int().positive().nullable(),
+    }).strict().nullable().optional().default(null),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
@@ -154,6 +173,49 @@ export class LinearIssueProvider implements IssueProvider {
     const fetchedAt = new Date().toISOString();
     return issueListResponseSchema.parse({
       items: parsed.issues.nodes.map((issue) => normalizeIssue(issue, fetchedAt)),
+      pageInfo: parsed.issues.pageInfo,
+    });
+  }
+
+  async listProjectIssues(
+    input: LinearIssueListRequest & { linearTeamExternalId: string },
+  ): Promise<LinearIssueListResponse> {
+    const request = linearIssueListRequestSchema.parse({
+      first: input.first,
+      ...(input.after ? { after: input.after } : {}),
+      ...(input.status ? { status: input.status } : {}),
+      ...(input.priority !== undefined ? { priority: input.priority } : {}),
+      ...(input.assignee ? { assignee: input.assignee } : {}),
+      ...(input.cycle ? { cycle: input.cycle } : {}),
+    });
+    const filter = {
+      team: { id: { eq: input.linearTeamExternalId } },
+      ...(request.status ? { state: { id: { eq: request.status } } } : {}),
+      ...(request.priority !== undefined ? { priority: { eq: request.priority } } : {}),
+      ...(request.assignee ? { assignee: { id: { eq: request.assignee } } } : {}),
+      ...(request.cycle ? { cycle: { id: { eq: request.cycle } } } : {}),
+    };
+    const envelope = await this.query(projectListQuery, {
+      first: request.first,
+      ...(request.after ? { after: request.after } : {}),
+      filter,
+    });
+    const parsed = this.parseData(listDataSchema, envelope.data);
+    return linearIssueListResponseSchema.parse({
+      provider: "linear",
+      items: parsed.issues.nodes.map((issue) => ({
+        externalId: issue.id,
+        identifier: issue.identifier,
+        title: issue.title,
+        status: issue.state,
+        priority: issue.priority === null || issue.priorityLabel === null
+          ? null
+          : { value: issue.priority, label: issue.priorityLabel },
+        assignee: issue.assignee,
+        cycle: issue.cycle,
+        updatedAt: issue.updatedAt,
+        url: issue.url,
+      })),
       pageInfo: parsed.issues.pageInfo,
     });
   }

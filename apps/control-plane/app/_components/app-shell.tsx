@@ -26,6 +26,8 @@ import { ShellIcon, type ShellIconName } from "./shell-icons";
 import { ShellSearchDialog } from "./shell-search-dialog";
 import { ShellSettings, type SettingsSection } from "./shell-settings";
 import { ShellTasksProvider } from "./shell-resources";
+import { ShellLocaleProvider } from "./shell-locale";
+import { PRIMARY_ITEMS } from "./shell-navigation";
 import { ShellRightPanelProvider } from "./shell-right-panel";
 import { MystraLogo } from "./mystra-logo";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
@@ -59,18 +61,6 @@ function writeBrowserPreference(key: string, value: string): void {
   }
 }
 
-const PRIMARY_ITEMS: Array<{
-  key: "new" | "search" | "inbox" | "issues" | "runtimes";
-  icon: ShellIconName;
-  href?: string;
-}> = [
-  { key: "new", icon: "new", href: "/" },
-  { key: "search", icon: "search" },
-  { key: "inbox", icon: "inbox", href: "/inbox" },
-  { key: "issues", icon: "issue", href: "/tasks" },
-  { key: "runtimes", icon: "repository", href: "/runners" },
-];
-
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
@@ -81,7 +71,8 @@ function routeTitle(pathname: string, locale: ShellLocale): string {
   if (pathname.startsWith("/sessions/")) return zh ? "Session 详情" : "Session detail";
   if (pathname === "/automations") return zh ? "自动化" : "Automations";
   if (pathname.startsWith("/tasks/")) return zh ? "Task 详情" : "Task detail";
-  if (pathname === "/tasks") return zh ? "议题" : "Issues";
+  if (pathname === "/issues") return zh ? "议题" : "Issues";
+  if (pathname === "/tasks") return zh ? "任务" : "Tasks";
   if (pathname === "/inbox") return zh ? "收件箱" : "Inbox";
   if (pathname.startsWith("/projects/")) return zh ? "Project 详情" : "Project detail";
   if (pathname === "/projects") return "Projects";
@@ -229,6 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <ShellRightPanelProvider>
     {(rightPanel) => (
+    <ShellLocaleProvider locale={locale}>
     <ShellTasksProvider resource={tasksResource}>
     <div className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""} ${narrowSidebarOpen ? "sidebarNarrowOpen" : ""} ${rightPanel ? "hasRightPanel" : ""}`}>
       <aside aria-hidden={sidebarHidden || undefined} className="sidebar" data-collapsed={sidebarHidden || undefined} id="primary-sidebar" inert={sidebarHidden}>
@@ -433,6 +425,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
     </div>
     </ShellTasksProvider>
+    </ShellLocaleProvider>
     )}
     </ShellRightPanelProvider>
   );

@@ -7,6 +7,7 @@ import {
   hostRuntimeMetadataSchema,
   hostRuntimeRegistrationSchema,
   projectCreateSchema,
+  projectIssueSourceSchema,
   projectUpdateSchema,
   runtimeRenameSchema,
   taskCreateRequestSchema,
@@ -18,6 +19,7 @@ import {
   type MemberView,
   type ProviderCapability,
   type Project,
+  type ProjectIssueSource,
   type ProjectCreate,
   type ProjectUpdate,
   type RuntimeRename,
@@ -43,6 +45,7 @@ import {
   mapIntegrationConnectionRecord,
   mapProviderCapability,
   mapProject,
+  mapProjectIssueSource,
   mapPublicIntegrationConnection,
   mapRuntime,
   mapTask,
@@ -56,6 +59,7 @@ import type {
   AuthSessionRecord,
   IntegrationConnectionRecord,
   IntegrationConnectionUpsert,
+  ProjectIssueSourceUpsert,
   IssueDispatchResult,
   RegisterHostRuntimeInput,
   RdbProvider,
@@ -239,6 +243,80 @@ export class PrismaRdbProvider implements RdbProvider {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
     return rows.map(mapProject);
+  }
+
+  async upsertProjectIssueSource(input: ProjectIssueSourceUpsert): Promise<ProjectIssueSource> {
+    const parsed = projectIssueSourceSchema.omit({ id: true, createdAt: true, updatedAt: true }).parse(input);
+    const timestamp = this.#now();
+    try {
+      const row = await this.#client.transaction(async (transaction) => {
+        const [project, connection] = await Promise.all([
+          transaction.project.findUnique({ where: { id: parsed.projectId } }),
+          transaction.integrationConnection.findUnique({ where: { id: parsed.connectionId } }),
+        ]);
+        if (!project || project.teamId !== parsed.teamId || project.archivedAt) {
+          throw new RdbError("RDB_NOT_FOUND", "Active Project not found for Team");
+        }
+        if (
+          !connection
+          || connection.teamId !== parsed.teamId
+          || connection.integration !== "linear"
+          || connection.provider !== "linear"
+          || connection.status !== "active"
+        ) {
+          throw new RdbError("RDB_RELATION_CONFLICT", "Usable Linear connection not found for Team");
+        }
+        return transaction.projectIssueSource.upsert({
+          where: { projectId_integration: { projectId: parsed.projectId, integration: parsed.integration } },
+          create: { id: this.#newId(), ...parsed, createdAt: timestamp, updatedAt: timestamp },
+          update: {
+            teamId: parsed.teamId,
+            connectionId: parsed.connectionId,
+            scopeType: parsed.scopeType,
+            scopeExternalId: parsed.scopeExternalId,
+            updatedAt: timestamp,
+          },
+        });
+      });
+      return mapProjectIssueSource(row);
+    } catch (error) {
+      throw normalizeDatabaseError(error);
+    }
+  }
+
+  async getProjectIssueSource(
+    projectId: string,
+    integration: "linear",
+    options: { teamId?: string } = {},
+  ): Promise<ProjectIssueSource | undefined> {
+    const row = await this.#client.projectIssueSource.findUnique({
+      where: { projectId_integration: { projectId, integration } },
+    });
+    return row && (!options.teamId || row.teamId === options.teamId)
+      ? mapProjectIssueSource(row)
+      : undefined;
+  }
+
+  async listProjectIssueSourcesForConnection(
+    id: string,
+    options: { teamId?: string } = {},
+  ): Promise<ProjectIssueSource[]> {
+    const rows = await this.#client.projectIssueSource.findMany({
+      where: { connectionId: id, ...(options.teamId ? { teamId: options.teamId } : {}) },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return rows.map(mapProjectIssueSource);
+  }
+
+  async deleteProjectIssueSource(
+    projectId: string,
+    integration: "linear",
+    options: { teamId?: string } = {},
+  ): Promise<boolean> {
+    const result = await this.#client.projectIssueSource.deleteMany({
+      where: { projectId, integration, ...(options.teamId ? { teamId: options.teamId } : {}) },
+    });
+    return result.count > 0;
   }
 
   async createSecretEnvelope(input: SecretEnvelopeWrite): Promise<void> {

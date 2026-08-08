@@ -64,6 +64,18 @@ describe("RdbSecretProvider", () => {
     expect(left.wrappedDataKeyIv).not.toBe(right.wrappedDataKeyIv);
   });
 
+  it("accepts only the explicit GitHub PAT and Linear API-key namespaces", () => {
+    const secrets = provider(new MemoryEnvelopeStore());
+    expect(() => secrets.seal(
+      "linear-api-key/00000000-0000-4000-8000-000000000041/00000000-0000-4000-8000-000000000042",
+      "linear-secret",
+    )).not.toThrow();
+    expect(() => secrets.seal(
+      "arbitrary/00000000-0000-4000-8000-000000000041/00000000-0000-4000-8000-000000000042",
+      "secret",
+    )).toThrow("Invalid secret reference");
+  });
+
   it("fails closed for a wrong KEK, tampering, a missing row, or an invalid reference", async () => {
     const store = new MemoryEnvelopeStore();
     const secrets = provider(store, 2);

@@ -89,7 +89,7 @@ export function defaultIntegrationRegistry(options: { githubConnectionId?: strin
       fetchImpl: globalThis.fetch,
     }),
     createLinearIntegration({
-      apiKey: process.env.LINEAR_API_KEY,
+      apiKey: undefined,
       fetchImpl: globalThis.fetch,
     }),
   ]);

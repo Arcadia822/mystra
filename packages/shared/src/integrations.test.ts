@@ -5,6 +5,8 @@ import {
   integrationConnectionMethodSchema,
   integrationConnectionSchema,
   integrationProviderStatusSchema,
+  linearApiKeyConnectionInputSchema,
+  linearTeamListResponseSchema,
   personalAccessTokenConnectionInputSchema,
 } from "./integrations.js";
 
@@ -125,6 +127,28 @@ describe("integration connection schemas", () => {
       displayName: "Arcadia delivery",
     });
     expect(() => personalAccessTokenConnectionInputSchema.parse({ token: "  " })).toThrow();
+  });
+
+  it("accepts Linear API key only as one-time management input", () => {
+    expect(linearApiKeyConnectionInputSchema.parse({
+      apiKey: "lin_api_key_example",
+      displayName: "Product workspace",
+    })).toEqual({
+      apiKey: "lin_api_key_example",
+      displayName: "Product workspace",
+    });
+    expect(() => linearApiKeyConnectionInputSchema.parse({ apiKey: "  " })).toThrow();
+  });
+
+  it("validates secret-free, cursor-paginated Linear Teams", () => {
+    const parsed = linearTeamListResponseSchema.parse({
+      teams: [{ id: "team-id", key: "ENG", name: "Engineering", archivedAt: null }],
+      pageInfo: { hasNextPage: true, endCursor: "opaque" },
+    });
+    expect(parsed.teams[0]?.key).toBe("ENG");
+    for (const leaked of [{ apiKey: "secret" }, { credentialRef: "linear-api-key/ref" }]) {
+      expect(() => linearTeamListResponseSchema.parse({ ...parsed, ...leaked })).toThrow();
+    }
   });
 
   it("rejects OAuth, installation and private-key material", () => {

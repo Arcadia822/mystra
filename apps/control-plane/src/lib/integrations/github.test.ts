@@ -159,6 +159,39 @@ describe("GitHubIntegrationProvider repositories", () => {
 });
 
 describe("GitHubIntegrationProvider issues", () => {
+  it("lists repository-ID-scoped native Issue rows and excludes Pull Requests", async () => {
+    const nativeIssue = {
+      ...githubIssue,
+      assignees: [{ id: 3, login: "arcadia", avatar_url: "https://avatars.githubusercontent.com/u/3" }],
+      labels: [{ id: 9, name: "demo", color: "d73a4a" }],
+      milestone: { id: 11, title: "v1" },
+    };
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(githubRepository))
+      .mockResolvedValueOnce(jsonResponse([
+        nativeIssue,
+        { ...nativeIssue, id: 102, number: 8, pull_request: { url: "ignored" } },
+      ]));
+    const provider = new GitHubIntegrationProvider({ token: "github-test-token", fetchImpl });
+
+    const result = await provider.listProjectIssues({
+      repositoryExternalId: "42",
+      first: 25,
+      state: "open",
+      label: "demo",
+    });
+
+    expect(result.provider).toBe("github");
+    expect(result.items).toEqual([expect.objectContaining({
+      number: 7,
+      assignees: [expect.objectContaining({ login: "arcadia" })],
+      labels: [expect.objectContaining({ color: "d73a4a" })],
+      milestone: { id: "11", title: "v1" },
+    })]);
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://api.github.com/repositories/42");
+    expect(String(fetchImpl.mock.calls[1]?.[0])).toContain("labels=demo");
+  });
+
   it("requires repository scope and filters pull requests from issue lists", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse([
       githubIssue,

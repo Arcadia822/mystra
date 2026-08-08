@@ -16,6 +16,7 @@ const linearIssue = {
   labels: { nodes: [{ id: "label-id", name: "demo" }] },
   createdAt: "2026-07-23T01:00:00.000Z",
   updatedAt: "2026-07-23T02:00:00.000Z",
+  cycle: { id: "cycle-id", name: "Cycle 12", number: 12 },
 };
 
 function graphQlResponse(body: unknown, init: ResponseInit = {}): Response {
@@ -27,6 +28,28 @@ function graphQlResponse(body: unknown, init: ResponseInit = {}): Response {
 }
 
 describe("LinearIssueProvider", () => {
+  it("lists native Issue rows through an exact Linear Team filter", async () => {
+    const fetchImpl = vi.fn(async (..._args: Parameters<typeof fetch>) => graphQlResponse({
+      data: { issues: { nodes: [linearIssue], pageInfo: { hasNextPage: false, endCursor: null } } },
+    }));
+    const provider = new LinearIssueProvider({ apiKey: "linear-test-key", fetchImpl });
+    const result = await provider.listProjectIssues({
+      linearTeamExternalId: "team-id",
+      first: 25,
+      priority: 2,
+      cycle: "cycle-id",
+    });
+
+    expect(result.provider).toBe("linear");
+    expect(result.items[0]).toMatchObject({ identifier: "MYS-101", cycle: { number: 12 } });
+    const request = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as { variables: Record<string, unknown> };
+    expect(request.variables.filter).toEqual({
+      team: { id: { eq: "team-id" } },
+      priority: { eq: 2 },
+      cycle: { id: { eq: "cycle-id" } },
+    });
+  });
+
   it("lists normalized Issues and forwards an opaque cursor", async () => {
     const fetchImpl = vi.fn(async (..._args: Parameters<typeof fetch>) =>
       graphQlResponse({

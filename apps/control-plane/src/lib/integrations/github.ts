@@ -1,12 +1,16 @@
 import {
   issueListResponseSchema,
   issueSchema,
+  githubIssueListRequestSchema,
+  githubIssueListResponseSchema,
   repositoryListResponseSchema,
   repositorySnapshotSchema,
   type Issue,
   type IssueGetRequest,
   type IssueListRequest,
   type IssueListResponse,
+  type GitHubIssueListRequest,
+  type GitHubIssueListResponse,
   type RepositoryListRequest,
   type RepositoryListResponse,
   type RepositorySnapshot,
@@ -49,10 +53,20 @@ const rawIssueSchema = z.object({
     id: z.union([z.number().int(), z.string().min(1)]),
     login: z.string().min(1),
   }).passthrough().nullable(),
+  assignees: z.array(z.object({
+    id: z.union([z.number().int(), z.string().min(1)]),
+    login: z.string().min(1),
+    avatar_url: z.string().url().nullable().optional(),
+  }).passthrough()).optional().default([]),
   labels: z.array(z.object({
     id: z.union([z.number().int(), z.string().min(1)]),
     name: z.string().min(1),
+    color: z.string().regex(/^[0-9a-fA-F]{6}$/u).optional().default("000000"),
   }).passthrough()),
+  milestone: z.object({
+    id: z.union([z.number().int(), z.string().min(1)]),
+    title: z.string().min(1),
+  }).passthrough().nullable().optional().default(null),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   pull_request: z.unknown().optional(),
@@ -225,6 +239,62 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
         hasNextPage: endCursor !== undefined,
         ...(endCursor ? { endCursor } : {}),
       },
+    });
+  }
+
+  async listProjectIssues(
+    input: GitHubIssueListRequest & { repositoryExternalId: string },
+  ): Promise<GitHubIssueListResponse> {
+    const request = githubIssueListRequestSchema.parse({
+      first: input.first,
+      ...(input.after ? { after: input.after } : {}),
+      state: input.state,
+      ...(input.assignee ? { assignee: input.assignee } : {}),
+      ...(input.label ? { label: input.label } : {}),
+      ...(input.milestone ? { milestone: input.milestone } : {}),
+    });
+    const repositoryResponse = await this.request(
+      `/repositories/${encodeURIComponent(input.repositoryExternalId)}`,
+      { allowNotFound: true },
+    );
+    if (repositoryResponse.status === 404) {
+      throw new IntegrationFailure({ code: "ISSUE_SCOPE_UNAVAILABLE", message: "GitHub Repository is unavailable" });
+    }
+    const repository = await this.parseJson(rawRepositorySchema, repositoryResponse);
+    if (String(repository.id) !== input.repositoryExternalId) {
+      throw new IntegrationFailure({ code: "ISSUE_SCOPE_UNAVAILABLE", message: "GitHub Repository identity changed" });
+    }
+    const params = new URLSearchParams({
+      state: request.state,
+      per_page: String(request.first),
+      page: request.after ?? "1",
+      ...(request.assignee ? { assignee: request.assignee } : {}),
+      ...(request.label ? { labels: request.label } : {}),
+      ...(request.milestone ? { milestone: request.milestone } : {}),
+    });
+    const response = await this.request(
+      `/repos/${repositoryPath(repository.full_name)}/issues?${params.toString()}`,
+    );
+    const raw = await this.parseJson(z.array(rawIssueSchema), response);
+    const endCursor = nextPage(response);
+    return githubIssueListResponseSchema.parse({
+      provider: "github",
+      items: raw.filter((issue) => issue.pull_request === undefined).map((issue) => ({
+        externalId: String(issue.id),
+        number: issue.number,
+        title: issue.title,
+        state: issue.state,
+        assignees: issue.assignees.map((assignee) => ({
+          id: String(assignee.id),
+          login: assignee.login,
+          avatarUrl: assignee.avatar_url ?? null,
+        })),
+        labels: issue.labels.map((label) => ({ id: String(label.id), name: label.name, color: label.color })),
+        milestone: issue.milestone ? { id: String(issue.milestone.id), title: issue.milestone.title } : null,
+        updatedAt: issue.updated_at,
+        url: issue.html_url,
+      })),
+      pageInfo: { hasNextPage: endCursor !== undefined, ...(endCursor ? { endCursor } : {}) },
     });
   }
 

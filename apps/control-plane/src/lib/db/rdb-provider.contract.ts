@@ -195,6 +195,52 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.getSecretEnvelope(secondReference)).toBeUndefined();
   });
 
+  it("persists exactly one Linear Team source per Project and protects its connection", async () => {
+    const parent = await project();
+    const connection = await db.upsertIntegrationConnection({
+      teamId: parent.teamId,
+      integration: "linear",
+      provider: "linear",
+      authMethod: "api-key",
+      providerExternalId: randomUUID(),
+      displayName: "Linear product",
+      providerSubject: { name: "Ada" },
+      connectionConfig: { workspaceId: "workspace-1" },
+      capabilities: { issues: { state: "enabled", config: {}, permissions: { read: true }, accessSummary: {}, verifiedAt: "2026-08-08T00:00:00.000Z" } },
+      credentialRef: `linear-api-key/${randomUUID()}`,
+      credentialState: "ready",
+    });
+
+    const created = await db.upsertProjectIssueSource({
+      teamId: parent.teamId,
+      projectId: parent.id,
+      integration: "linear",
+      connectionId: connection.id,
+      scopeType: "linear-team",
+      scopeExternalId: "linear-team-1",
+    });
+    expect(await db.getProjectIssueSource(parent.id, "linear", { teamId: parent.teamId })).toEqual(created);
+
+    const replaced = await db.upsertProjectIssueSource({
+      teamId: parent.teamId,
+      projectId: parent.id,
+      integration: "linear",
+      connectionId: connection.id,
+      scopeType: "linear-team",
+      scopeExternalId: "linear-team-2",
+    });
+    expect(replaced.id).toBe(created.id);
+    expect(replaced.scopeExternalId).toBe("linear-team-2");
+    expect(await db.listProjectIssueSourcesForConnection(connection.id, { teamId: parent.teamId }))
+      .toEqual([replaced]);
+
+    await expect(db.deleteIntegrationConnection(connection.id)).rejects.toMatchObject({
+      code: "INTEGRATION_CONNECTION_IN_USE",
+    });
+    expect(await db.deleteProjectIssueSource(parent.id, "linear", { teamId: parent.teamId })).toBe(true);
+    expect(await db.getProjectIssueSource(parent.id, "linear", { teamId: parent.teamId })).toBeUndefined();
+  });
+
   it("persists projects with immutable repository identity and deterministic ordering", async () => {
     const first = await project();
     const second = await project();

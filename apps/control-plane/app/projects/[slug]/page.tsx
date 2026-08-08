@@ -1,12 +1,6 @@
-import { EmptyState } from "../../_components/states";
+import { ProjectDetail } from "../../_components/project-detail";
 
-export default function ProjectDetailPage() {
-  return (
-    <div className="pageContent">
-      <EmptyState
-        title="Project details are being redesigned"
-        description="This page is temporarily unavailable."
-      />
-    </div>
-  );
+export default async function ProjectDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  return <ProjectDetail slug={slug} />;
 }

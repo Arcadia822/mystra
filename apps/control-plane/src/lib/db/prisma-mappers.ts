@@ -5,6 +5,7 @@ import {
   hostRuntimeMetadataSchema,
   providerCapabilitySchema,
   projectSchema,
+  projectIssueSourceSchema,
   runtimeViewSchema,
   taskRecordSchema,
   teamRoleSchema,
@@ -12,6 +13,7 @@ import {
   membershipStatusSchema,
   type IntegrationConnection,
   type Project,
+  type ProjectIssueSource,
   type ProviderCapability,
   type RuntimeView,
   type TaskRecord,
@@ -22,6 +24,7 @@ import type {
   AuthSession as PrismaAuthSession,
   IntegrationConnection as PrismaIntegrationConnection,
   Project as PrismaProject,
+  ProjectIssueSource as PrismaProjectIssueSource,
   Runtime as PrismaRuntime,
   RuntimeProvider as PrismaRuntimeProvider,
   Task as PrismaTask,
@@ -99,6 +102,10 @@ export function mapProject(row: PrismaProject): Project {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });
+}
+
+export function mapProjectIssueSource(row: PrismaProjectIssueSource): ProjectIssueSource {
+  return projectIssueSourceSchema.parse(row);
 }
 
 export function mapTask(row: PrismaTask): TaskRecord {

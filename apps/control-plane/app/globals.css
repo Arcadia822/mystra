@@ -3558,6 +3558,15 @@ body:has(.searchDialog[open]) {
 }
 
 @media (max-width: 420px) {
+  .shellHeader > strong,
+  .collapsedHeaderBrand,
+  .collapsedHeaderAction[href="/"],
+  .shellHeaderControls > a[href="/account"] {
+    display: none;
+  }
+
+  .teamSwitcher summary { max-width: 96px; }
+
   .metricGrid {
     grid-template-columns: 1fr;
   }
@@ -3634,6 +3643,225 @@ body:has(.searchDialog[open]) {
 }
 
 .authPanel,
+.projectDetailPage,
+.issuesLandingPage {
+  min-width: 0;
+  align-content: start;
+}
+
+.projectContext {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.projectContext h1 {
+  margin: 0 0 var(--space-half);
+  font-size: 17px;
+}
+
+.projectContext p {
+  margin: 0;
+  color: var(--text3);
+  overflow-wrap: anywhere;
+}
+
+.projectContext > div { min-width: 0; }
+
+.projectContext .uiFieldControl {
+  width: min(280px, 100%);
+}
+
+.projectObjectTabs {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.projectObjectTabs .uiAction,
+.issueProviderTabs .uiAction {
+  position: relative;
+}
+
+.projectObjectTabs .uiAction[data-active]::after {
+  position: absolute;
+  right: var(--control-padding-header);
+  bottom: -1px;
+  left: var(--control-padding-header);
+  height: 2px;
+  background: var(--accent);
+  content: "";
+}
+
+.projectOverview,
+.projectSourceSettings,
+.projectIssuesBrowser {
+  min-width: 0;
+}
+
+.projectOverview dl {
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.projectOverview dl > div {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.projectOverview dt { color: var(--text3); }
+.projectOverview dd { margin: 0; overflow-wrap: anywhere; font-family: var(--font-mono); }
+
+.issueProviderTabs {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface2);
+}
+
+.issueProviderTabs .uiAction { min-width: 96px; }
+.issueProviderTabs .uiAction[data-active] { background: var(--surface3); color: var(--text1); }
+
+.issueSourceLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 44px;
+  color: var(--text3);
+  font-size: 11px;
+}
+
+.issueSourceLine strong { color: var(--text2); font-weight: 500; }
+
+.issueFilters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.issueFilters .uiFieldControl { width: min(180px, 100%); }
+.issueFilters .uiAction { margin-left: auto; }
+
+.issueTableViewport {
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.issueNativeTable {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.issueNativeTable th {
+  height: 34px;
+  padding: 0 var(--space-3);
+  background: var(--surface1);
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.issueNativeTable td {
+  height: 48px;
+  padding: 0 var(--space-3);
+  border-top: 1px solid var(--border);
+  color: var(--text2);
+}
+
+.issueNativeTable tbody tr:hover td { background: var(--surface2); }
+.issueNativeTable .issueTitle { min-width: 280px; color: var(--text1); white-space: normal; }
+.issueIdentifier { color: var(--text1) !important; font-family: var(--font-mono); }
+
+.issuePill {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  font-size: 10px;
+}
+
+.issuePill[data-tone="success"] { color: var(--success); }
+.issuePill[data-tone="info"] { color: var(--color-info); }
+
+.issueExternalLink {
+  display: inline-grid;
+  width: var(--control-height-header);
+  height: var(--control-height-header);
+  place-items: center;
+  border-radius: var(--radius-control);
+  color: var(--text2);
+  text-decoration: none;
+}
+
+.issueExternalLink:hover,
+.issueExternalLink:focus-visible { background: var(--surface3); color: var(--text1); outline: none; }
+
+.issueState {
+  min-height: 240px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface2);
+  color: var(--text3);
+  text-align: center;
+}
+
+.issueState strong { color: var(--text1); }
+
+.issuePager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  color: var(--text3);
+  font-size: 11px;
+}
+
+.issuePager > div { display: flex; gap: var(--space-1); }
+
+.projectSourceSettings { max-width: 900px; }
+.projectSourceSettings .settingGroup + .settingGroup { margin-top: var(--space-5); }
+.sourceReadOnly { display: grid; gap: var(--space-half); text-align: right; }
+.sourceReadOnly small { color: var(--text3); font-family: var(--font-mono); }
+.projectSourceActions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); }
+
+@media (max-width: 760px) {
+  .projectContext,
+  .issueSourceLine,
+  .issuePager { display: grid; }
+  .projectContext .uiFieldControl { width: 100%; }
+  .issueFilters { display: grid; grid-template-columns: 1fr 1fr; }
+  .issueFilters .uiFieldControl { width: 100%; }
+  .issueFilters .uiAction { width: 100%; margin-left: 0; }
+  .issueTableViewport { margin-inline: calc(-1 * var(--page-inset-inline-narrow)); border-inline: 0; border-radius: 0; }
+  .projectOverview dl > div { grid-template-columns: 1fr; gap: var(--space-1); }
+  .sourceReadOnly { text-align: left; }
+}
+
 .settingsCard {
   display: grid;
   gap: var(--space-3);
@@ -3836,6 +4064,17 @@ body:has(.searchDialog[open]) {
   .memberList li { align-items: flex-start; flex-wrap: wrap; }
   .shellHeaderControls { gap: var(--space-1); }
   .teamSwitcher summary { max-width: 112px; }
+}
+
+@media (max-width: 420px) {
+  .shellHeader > strong,
+  .collapsedHeaderBrand,
+  .collapsedHeaderAction[href="/"],
+  .shellHeaderControls > a[href="/account"] {
+    display: none;
+  }
+
+  .teamSwitcher summary { max-width: 96px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

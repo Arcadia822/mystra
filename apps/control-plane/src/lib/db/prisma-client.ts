@@ -10,6 +10,7 @@ import {
   type AuthSession,
   type IntegrationConnection,
   type Project,
+  type ProjectIssueSource,
   type Runtime,
   type RuntimeProvider,
   type SecretEnvelope,
@@ -26,6 +27,7 @@ type OrderBy = Array<{ createdAt: SortOrder } | { id: SortOrder }>;
 type ConnectionMutable = Omit<IntegrationConnection, "id" | "createdAt">;
 type ConnectionUpdate = Partial<ConnectionMutable>;
 type ProjectUpdate = Partial<Pick<Project, "name" | "slug" | "repositoryBaseBranch" | "metadata" | "archivedAt" | "updatedAt">>;
+type ProjectIssueSourceUpdate = Pick<ProjectIssueSource, "teamId" | "connectionId" | "scopeType" | "scopeExternalId" | "updatedAt">;
 type TeamUpdate = Partial<Pick<Team, "displayName" | "status" | "archivedAt" | "updatedAt">>;
 type MembershipUpdate = Partial<Pick<TeamMembership, "role" | "status" | "updatedAt">>;
 type SessionUpdate = Partial<Pick<AuthSession, "activeTeamId" | "updatedAt">>;
@@ -57,6 +59,16 @@ export interface MystraPrismaDelegates {
       where?: { archivedAt?: null; repositoryConnectionId?: string; teamId?: string };
       orderBy: OrderBy;
     }): Promise<Project[]>;
+  };
+  projectIssueSource: {
+    upsert(args: {
+      where: { projectId_integration: Pick<ProjectIssueSource, "projectId" | "integration"> };
+      create: ProjectIssueSource;
+      update: ProjectIssueSourceUpdate;
+    }): Promise<ProjectIssueSource>;
+    findUnique(args: { where: { projectId_integration: Pick<ProjectIssueSource, "projectId" | "integration"> } }): Promise<ProjectIssueSource | null>;
+    findMany(args: { where: { connectionId: string; teamId?: string }; orderBy: OrderBy }): Promise<ProjectIssueSource[]>;
+    deleteMany(args: { where: { projectId: string; integration: string; teamId?: string } }): Promise<CountResult>;
   };
   task: {
     create(args: { data: Task }): Promise<Task>;
@@ -183,6 +195,7 @@ function wrapPrismaClient(client: RawPrismaSource): MystraPrismaClient {
 const modelMethods = {
   integrationConnection: ["upsert", "updateMany", "findUnique", "findMany", "deleteMany"],
   project: ["create", "updateMany", "findUnique", "findMany"],
+  projectIssueSource: ["upsert", "findUnique", "findMany", "deleteMany"],
   task: ["create", "findUnique", "findMany"],
   runtime: ["create", "updateMany", "findUnique", "findMany"],
   runtimeProvider: ["create", "deleteMany", "findMany"],

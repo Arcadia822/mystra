@@ -16,6 +16,7 @@ const migrations = [
   "20260806210000_secret_envelopes",
   "20260807150000_identity_team_rbac",
   "20260807181000_runtime_provider",
+  "20260808173000_project_issue_sources",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",

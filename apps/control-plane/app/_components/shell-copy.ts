@@ -1,5 +1,38 @@
 export type ShellLocale = "en" | "zh-CN";
 
+export const ISSUE_COPY = {
+  en: {
+    issues: "Issues", selectProjectHelp: "Select a Project first, then browse one provider at a time.", selectProject: "Select Project…",
+    selectProjectTitle: "Select a Project", selectProjectDescription: "Mystra will not request GitHub or Linear Issues without an explicit Project scope.",
+    overview: "Overview", settings: "Settings", projectScope: "Project-scoped repository and Issue sources",
+    sourceUnavailable: "Issue source unavailable", sourceUnavailableHelp: "The configured provider source could not be resolved. Mystra did not fall back to another connection.",
+    sourcesUnavailable: "Issue sources unavailable", loadingSources: "Loading Issue sources…", retry: "Retry", refresh: "Refresh",
+    linearMissing: "Linear source is not configured", linearMissingHelp: "Open the Project Settings tab to select an exact Linear connection and Team.",
+    noFallback: "No workspace-wide fallback", derivedRepository: "Derived from Project repository", exactTeamScope: "Exact Linear Team scope",
+    loadingIssues: "Loading Issues…", loadFailed: "Could not load Issues", noIssues: "No Issues found", noIssuesHelp: "The current provider scope and filters returned no rows.",
+    previous: "Previous", next: "Next", page: "Page", cursorIndependent: "provider cursor retained independently",
+    open: "Open", closed: "Closed", allStates: "All states", assignee: "Assignee", label: "Label", milestone: "Milestone",
+    allPriorities: "All priorities", noPriority: "No priority", urgent: "Urgent", high: "High", medium: "Medium", low: "Low", statusId: "Status ID", assigneeId: "Assignee ID", cycleId: "Cycle ID",
+    githubHeaders: ["Number", "Title", "State", "Assignees", "Labels", "Milestone", "Updated"],
+    linearHeaders: ["Identifier", "Title", "Status", "Priority", "Assignee", "Cycle", "Updated"],
+  },
+  "zh-CN": {
+    issues: "议题", selectProjectHelp: "先选择一个 Project，再一次浏览一个 provider。", selectProject: "选择 Project…",
+    selectProjectTitle: "先选择 Project", selectProjectDescription: "没有明确的 Project 范围时，Mystra 不会请求 GitHub 或 Linear Issue。",
+    overview: "概览", settings: "设置", projectScope: "Project 范围内的仓库与 Issue 来源",
+    sourceUnavailable: "Issue 来源不可用", sourceUnavailableHelp: "已配置的 provider 来源无法解析。Mystra 没有回退到其他连接。",
+    sourcesUnavailable: "Issue 来源不可用", loadingSources: "正在加载 Issue 来源…", retry: "重试", refresh: "刷新",
+    linearMissing: "尚未配置 Linear 来源", linearMissingHelp: "请在 Project 的设置 tab 中选择 exact Linear connection 和 Team。",
+    noFallback: "不会回退到整个 workspace", derivedRepository: "由 Project repository 自动派生", exactTeamScope: "精确 Linear Team 范围",
+    loadingIssues: "正在加载 Issue…", loadFailed: "无法加载 Issue", noIssues: "没有找到 Issue", noIssuesHelp: "当前 provider 范围和筛选条件没有返回数据。",
+    previous: "上一页", next: "下一页", page: "第", cursorIndependent: "provider 游标独立保留",
+    open: "开放", closed: "已关闭", allStates: "全部状态", assignee: "负责人", label: "标签", milestone: "里程碑",
+    allPriorities: "全部优先级", noPriority: "无优先级", urgent: "紧急", high: "高", medium: "中", low: "低", statusId: "状态 ID", assigneeId: "负责人 ID", cycleId: "周期 ID",
+    githubHeaders: ["编号", "标题", "状态", "负责人", "标签", "里程碑", "更新时间"],
+    linearHeaders: ["标识", "标题", "状态", "优先级", "负责人", "周期", "更新时间"],
+  },
+} as const;
+
 export const SHELL_COPY = {
   en: {
     account: "Account",

@@ -72,6 +72,10 @@ export const integrationConnectionMethodSchema = z.discriminatedUnion("type", [
     type: z.literal("personal-access-token"),
     createUrl: z.string().startsWith("/"),
   }),
+  integrationConnectionMethodBaseSchema.extend({
+    type: z.literal("api-key"),
+    createUrl: z.string().startsWith("/"),
+  }),
 ]);
 export type IntegrationConnectionMethod = z.infer<typeof integrationConnectionMethodSchema>;
 
@@ -92,3 +96,26 @@ export const personalAccessTokenConnectionInputSchema = z
 export type PersonalAccessTokenConnectionInput = z.infer<
   typeof personalAccessTokenConnectionInputSchema
 >;
+
+export const linearApiKeyConnectionInputSchema = z.object({
+  apiKey: z.string().trim().min(1).max(2_048),
+  displayName: z.string().trim().min(1).max(255).optional(),
+}).strict();
+export type LinearApiKeyConnectionInput = z.infer<typeof linearApiKeyConnectionInputSchema>;
+
+export const linearTeamSchema = z.object({
+  id: z.string().trim().min(1).max(1_000),
+  key: z.string().trim().min(1).max(255),
+  name: z.string().trim().min(1).max(500),
+  archivedAt: z.string().datetime().nullable().default(null),
+}).strict();
+export type LinearTeam = z.infer<typeof linearTeamSchema>;
+
+export const linearTeamListResponseSchema = z.object({
+  teams: z.array(linearTeamSchema),
+  pageInfo: z.object({
+    hasNextPage: z.boolean(),
+    endCursor: z.string().min(1).nullable().optional(),
+  }).strict(),
+}).strict();
+export type LinearTeamListResponse = z.infer<typeof linearTeamListResponseSchema>;

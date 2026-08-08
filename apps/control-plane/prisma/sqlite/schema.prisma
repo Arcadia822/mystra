@@ -24,6 +24,7 @@ model IntegrationConnection {
   createdAt          String    @map("created_at")
   updatedAt          String    @map("updated_at")
   projects           Project[]
+  issueSources       ProjectIssueSource[]
   team               Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([teamId, integration, provider, providerExternalId])
@@ -47,12 +48,33 @@ model Project {
   updatedAt              String                @map("updated_at")
   repositoryConnection   IntegrationConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   tasks                  Task[]
+  issueSources           ProjectIssueSource[]
   team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([teamId])
   @@index([repositoryConnectionId])
   @@index([createdAt, id])
   @@map("projects")
+}
+
+model ProjectIssueSource {
+  id              String                @id
+  teamId          String                @map("team_id")
+  projectId       String                @map("project_id")
+  integration     String
+  connectionId    String                @map("connection_id")
+  scopeType       String                @map("scope_type")
+  scopeExternalId String                @map("scope_external_id")
+  createdAt       String                @map("created_at")
+  updatedAt       String                @map("updated_at")
+  connection      IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  project         Project               @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team            Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([projectId, integration])
+  @@index([teamId])
+  @@index([connectionId])
+  @@map("project_issue_sources")
 }
 
 model Task {
@@ -179,6 +201,7 @@ model Team {
   integrationConnections IntegrationConnection[]
   projects               Project[]
   tasks                  Task[]
+  issueSources           ProjectIssueSource[]
 
   @@index([status])
   @@index([createdAt, id])

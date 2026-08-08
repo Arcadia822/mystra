@@ -11,6 +11,7 @@ import type {
   Project,
   ProjectCreate,
   ProjectUpdate,
+  ProjectIssueSource,
   TaskCreateRequest,
   TaskListItem,
   TaskRecord,
@@ -42,6 +43,8 @@ export type IntegrationConnectionUpsert = {
   credentialRef?: string;
   status?: IntegrationConnectionStatus;
 };
+
+export type ProjectIssueSourceUpsert = Omit<ProjectIssueSource, "id" | "createdAt" | "updatedAt">;
 
 export type UserRecord = AccountView & {
   displayUsername: string;
@@ -171,6 +174,10 @@ export interface RdbProvider {
   ): Promise<IntegrationConnectionRecord | undefined>;
   deleteIntegrationConnection(id: string): Promise<boolean>;
   listProjectsForIntegrationConnection(id: string, options?: { teamId?: string }): Promise<Project[]>;
+  upsertProjectIssueSource(input: ProjectIssueSourceUpsert): Promise<ProjectIssueSource>;
+  getProjectIssueSource(projectId: string, integration: "linear", options?: { teamId?: string }): Promise<ProjectIssueSource | undefined>;
+  listProjectIssueSourcesForConnection(id: string, options?: { teamId?: string }): Promise<ProjectIssueSource[]>;
+  deleteProjectIssueSource(projectId: string, integration: "linear", options?: { teamId?: string }): Promise<boolean>;
 
   createSecretEnvelope(input: SecretEnvelopeWrite): Promise<void>;
   getSecretEnvelope(reference: string): Promise<SecretEnvelopeRecord | undefined>;

@@ -78,25 +78,38 @@ afterEach(async () => {
   await rm(tempDir, { recursive: true, force: true });
 });
 
-describe("self-hosted GitHub connection routes", () => {
-  it("lists only PAT even when complete GitHub App secrets are present", async () => {
+describe("self-hosted Integration connection routes", () => {
+  it("lists only self-hosted credential methods even when complete GitHub App secrets are present", async () => {
     const response = await listConnections(new Request(
       "http://localhost/api/integration-connections",
       { headers: { authorization: `Bearer ${sessionToken}` } },
     ));
     const body = await response.json();
     expect(body).toEqual({
-      providers: [{
-        integration: "github",
-        methods: [
-          {
-            type: "personal-access-token",
-            configured: false,
-            createUrl: "/api/integration-connections/github/pat",
-            disabledReason: "Secret store is not configured",
-          },
-        ],
-      }],
+      providers: [
+        {
+          integration: "github",
+          methods: [
+            {
+              type: "personal-access-token",
+              configured: false,
+              createUrl: "/api/integration-connections/github/pat",
+              disabledReason: "Secret store is not configured",
+            },
+          ],
+        },
+        {
+          integration: "linear",
+          methods: [
+            {
+              type: "api-key",
+              configured: false,
+              createUrl: "/api/integration-connections/linear/api-key",
+              disabledReason: "Secret store is not configured",
+            },
+          ],
+        },
+      ],
       connections: [],
     });
     expect(JSON.stringify(body)).not.toMatch(/github-app|connectUrl|client-secret|private.key|github_pat_|credentialRef/i);

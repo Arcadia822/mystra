@@ -13,6 +13,7 @@ import { UiDialogSurface, UiSurface } from "./ui-surfaces";
 import { VerticalNavItem } from "./vertical-nav-item";
 import { useResource } from "../_lib/use-resource";
 import { GitHubIntegrationDetail } from "./github-integration-detail";
+import { LinearIntegrationDetail } from "./linear-integration-detail";
 import {
   AppearanceSettingsPanel,
   IntegrationsSettingsPanel,
@@ -112,7 +113,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
   const copy = SHELL_COPY[locale];
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
-  const [integrationDetail, setIntegrationDetail] = useState<"github" | null>(null);
+  const [integrationDetail, setIntegrationDetail] = useState<"github" | "linear" | null>(null);
   const [query, setQuery] = useState("");
   const connections = useResource<IntegrationConnectionListResponse>("/api/integration-connections");
   const searchLabel = `${copy.search}${locale === "zh-CN" ? "" : " "}${copy.settings}`;
@@ -131,15 +132,17 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
   }, [locale, query, sections]);
   const activeLabel = integrationDetail === "github"
     ? "GitHub"
+    : integrationDetail === "linear"
+      ? "Linear"
     : sections.find((section) => section.id === activeSection)?.label ?? copy.settings;
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     const params = new URLSearchParams(window.location.search);
-    if (params.get("integration") === "github") {
+    if (params.get("integration") === "github" || params.get("integration") === "linear") {
       setActiveSection("integrations");
-      setIntegrationDetail("github");
+      setIntegrationDetail(params.get("integration") as "github" | "linear");
     }
   }, []);
 
@@ -149,7 +152,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
     setActiveSection(firstVisible.id);
   }, [activeSection, visibleSections]);
 
-  function showIntegrationDetail(detail: "github" | null) {
+  function showIntegrationDetail(detail: "github" | "linear" | null) {
     setIntegrationDetail(detail);
     const url = new URL(window.location.href);
     url.searchParams.set("settings", "integrations");
@@ -244,6 +247,8 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
                 onChanged={connections.refresh}
                 onRetry={() => void connections.refresh()}
               />
+            ) : integrationDetail === "linear" ? (
+              <LinearIntegrationDetail data={connections.data} error={connections.error} isLoading={connections.isLoading} locale={locale} onChanged={connections.refresh} onRetry={() => void connections.refresh()} />
             ) : activeSection === "account" ? (
               <AccountSettings embedded />
             ) : activeSection === "appearance" ? (
@@ -267,6 +272,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
                 isLoading={connections.isLoading}
                 locale={locale}
                 onOpenGitHub={() => showIntegrationDetail("github")}
+                onOpenLinear={() => showIntegrationDetail("linear")}
               />
             )}
           </div>

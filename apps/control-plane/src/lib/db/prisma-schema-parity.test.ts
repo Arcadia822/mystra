@@ -30,6 +30,7 @@ describe("Prisma provider schema parity", () => {
     expect(models).toEqual([
       "IntegrationConnection",
       "Project",
+      "ProjectIssueSource",
       "Task",
       "Runtime",
       "RuntimeProvider",
@@ -43,6 +44,7 @@ describe("Prisma provider schema parity", () => {
     expect(schema.match(/@@map\("[^"]+"\)/gu)).toEqual([
       '@@map("integration_connections")',
       '@@map("projects")',
+      '@@map("project_issue_sources")',
       '@@map("tasks")',
       '@@map("runtimes")',
       '@@map("runtime_providers")',

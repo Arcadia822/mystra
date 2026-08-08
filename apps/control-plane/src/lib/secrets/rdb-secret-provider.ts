@@ -13,7 +13,7 @@ interface RdbSecretProviderOptions {
   keyId: string;
 }
 
-const SECRET_REFERENCE_PATTERN = /^github-pat\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SECRET_REFERENCE_PATTERN = /^(?:github-pat|linear-api-key)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ALGORITHM = "aes-256-gcm+aes-256-gcm-wrap" as const;
 
 export class RdbSecretProvider implements SecretProvider {

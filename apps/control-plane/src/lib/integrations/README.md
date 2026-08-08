@@ -15,15 +15,14 @@ The default registry contains exactly:
 - GitHub repository and Issue access uses the REST API. GitHub Issues require a
   repository scope and Pull Requests are filtered from Issue results.
 - Linear access is read-only: list and get use the native GraphQL API.
-- Project inputs carry a RepositorySelector. The control plane resolves it
-  through the selected RepoProvider before a persistence method is called.
-- Provider-specific payloads are normalized into shared Issue contracts.
+- Project repository onboarding resolves a RepositorySelector before persistence. Project Issue
+  browsing later resolves the current GitHub repository by its persisted stable external ID.
+- Legacy provider routes retain normalized Issue contracts. Project Issue list routes return a
+  provider-discriminated native contract; GitHub and Linear columns, filters and cursors are not fused.
 - Provider errors are mapped to stable public codes without leaking credentials.
 - Pagination cursors remain opaque.
-- Dispatch always refetches the selected Issue and atomically creates or reuses
-  one Task plus its initial Session using a unique dispatch key.
-- The dispatch request explicitly selects the initial Session's Agent and
-  branch; subsequent sibling Sessions may make independent selections.
+- Feature 045 is read-only and adds no Issue detail or Issue-to-Task dispatch control. Task runtime
+  creation remains undefined and requires a separate specification.
 - The HTTP API is the canonical implementation. The operator CLI only calls
   those routes and does not import provider or persistence code.
 - Every GitHub repository operation resolves the exact
@@ -43,9 +42,9 @@ The default registry contains exactly:
   only by `SecretProvider`; public contracts and RDB receive no plaintext. RDB
   stores only an authenticated envelope with a wrapped per-secret DEK; the KEK
   remains in deployment secret management.
-- `LINEAR_API_KEY` and GitHub App deployment secrets are read by the control
-  plane only; values are never included in API responses, events, evidence, or
-  logs.
+- Self-hosted Linear credentials are explicit Team-owned API-key connections behind
+  `SecretProvider`. Product request paths do not fall back to `LINEAR_API_KEY`; values are never
+  included in API responses, events, evidence, or logs.
 
 ## Hosted GitHub App deployment
 
@@ -83,11 +82,18 @@ GET  /api/integration-connections/github/oauth/callback
 POST /api/integration-connections/github/pat
 PUT  /api/integration-connections/github/pat/:id
 DELETE /api/integration-connections/:id
+POST /api/integration-connections/linear/api-key
+PUT  /api/integration-connections/linear/api-key/:id
+DELETE /api/integration-connections/linear/api-key/:id
+GET  /api/integration-connections/linear/api-key/:id/teams
+GET  /api/projects/:slug/issue-sources
+PUT  /api/projects/:slug/issue-sources/linear
+DELETE /api/projects/:slug/issue-sources/linear
+GET  /api/projects/:slug/issues/:provider
 GET  /api/integrations/:integration/repositories
 POST /api/integrations/:integration/repositories/resolve
 GET  /api/integrations/:integration/issues
 GET  /api/integrations/:integration/issues/:identifier
-POST /api/integrations/:integration/issues/:identifier/dispatch
 ```
 
 The operator CLI and Web Projects surface call these routes. They do not import

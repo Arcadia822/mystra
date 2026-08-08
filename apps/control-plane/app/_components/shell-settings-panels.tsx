@@ -147,12 +147,14 @@ export function IntegrationsSettingsPanel({
   isLoading,
   locale,
   onOpenGitHub,
+  onOpenLinear,
 }: {
   data: IntegrationConnectionListResponse | null;
   error: string | null;
   isLoading: boolean;
   locale: ShellLocale;
   onOpenGitHub: () => void;
+  onOpenLinear: () => void;
 }) {
   const copy = SHELL_COPY[locale];
   const connectionCount = data?.connections.filter((connection) => connection.integration === "github").length ?? 0;
@@ -174,6 +176,11 @@ export function IntegrationsSettingsPanel({
         control={<UiButton size="compact" tone="soft" onClick={onOpenGitHub}>{locale === "zh-CN" ? "打开" : "Open"}</UiButton>}
         description={description}
         title="GitHub"
+      />
+      <SettingRow
+        control={<UiButton size="compact" tone="soft" onClick={onOpenLinear}>{locale === "zh-CN" ? "打开" : "Open"}</UiButton>}
+        description={isLoading ? "…" : error ? "Connection data unavailable" : `${data?.connections.filter((connection) => connection.integration === "linear").length ?? 0} connections · API key`}
+        title="Linear"
       />
     </SettingGroup>
   );

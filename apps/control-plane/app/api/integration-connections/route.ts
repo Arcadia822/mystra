@@ -23,19 +23,36 @@ export async function GET(request: Request) {
       patDisabledReason = "Secret store configuration is invalid";
     }
     const response = NextResponse.json(integrationConnectionListResponseSchema.parse({
-      providers: [{
-        integration: "github",
-        methods: [
-          {
-            type: "personal-access-token",
-            configured: patConfigured,
-            createUrl: "/api/integration-connections/github/pat",
-            ...(patDisabledReason ? { disabledReason: patDisabledReason } : {}),
-          },
-        ],
-      }],
+      providers: [
+        {
+          integration: "github",
+          methods: [
+            {
+              type: "personal-access-token",
+              configured: patConfigured,
+              createUrl: "/api/integration-connections/github/pat",
+              ...(patDisabledReason ? { disabledReason: patDisabledReason } : {}),
+            },
+          ],
+        },
+        {
+          integration: "linear",
+          methods: [
+            {
+              type: "api-key",
+              configured: patConfigured,
+              createUrl: "/api/integration-connections/linear/api-key",
+              ...(patDisabledReason ? { disabledReason: patDisabledReason } : {}),
+            },
+          ],
+        },
+      ],
       connections: (await db.listIntegrationConnections({ teamId: active.team.id }))
-        .filter((connection) => connection.authMethod === "personal-access-token"),
+        .filter((connection) => (
+          connection.integration === "github" && connection.authMethod === "personal-access-token"
+        ) || (
+          connection.integration === "linear" && connection.authMethod === "api-key"
+        )),
     }));
     response.headers.set("cache-control", "no-store");
     return response;

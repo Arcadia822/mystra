@@ -1,7 +1,7 @@
 # Control Plane DB Provider
 
 This module owns Mystra's async `RdbProvider` boundary and the complete first-phase business
-model: `IntegrationConnection`, `Project`, and `Task`. Feature 041 additionally uses one internal
+model: `IntegrationConnection`, `Project`, `ProjectIssueSource`, and `Task`. Feature 041 additionally uses one internal
 `SecretEnvelope` persistence model for authenticated ciphertext and wrapped per-secret DEKs.
 PAT plaintext and the KEK never enter Prisma or RDB; `SecretProvider` owns cryptography.
 
@@ -16,6 +16,8 @@ PAT plaintext and the KEK never enter Prisma or RDB; `SecretProvider` owns crypt
   leaving the provider.
 - Project stores stable Repository identity only. Mutable repository names, URLs, issue data,
   and repository snapshots belong in provider caches, not these tables.
+- `ProjectIssueSource` stores the optional exact Linear connection + provider-stable Team ID.
+  GitHub Issue scope remains derived from the Project repository binding; Issue rows are never persisted.
 - Task stores six fields only. `issue_dispatch_key` provides nullable unique dispatch identity.
 - Session, Runner, ContextBundle, event, artifact, and derived summary persistence are absent.
 - The provider singleton caches the initialization promise, clears failed initialization, and
