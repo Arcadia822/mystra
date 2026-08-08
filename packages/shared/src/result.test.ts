@@ -77,7 +77,7 @@ const waitingForReviewHandoff = {
     metadata: {},
   },
   agentExecution: {
-    agent: "copilot",
+    provider: "copilot",
     cliVersion: "1.0.69-0",
     mode: "autopilot",
     maxAutopilotContinues: 10,

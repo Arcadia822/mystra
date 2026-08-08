@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import {
+  agentArchiveRequestSchema,
+  agentCreateRequestSchema,
+  agentListQuerySchema,
+  agentPageSchema,
+  agentResponseSchema,
+  agentUpdateRequestSchema,
   taskCreateRequestSchema,
   taskCreateResponseSchema,
   taskDetailResponseSchema,
@@ -8,6 +14,7 @@ import {
 import { z } from "zod";
 
 import { getDb } from "@/lib/db";
+import { requirePermission } from "@/lib/rbac";
 import { requireHumanSession, requireTeamPermission } from "../_auth";
 
 const jsonRpcRequestSchema = z.object({
@@ -66,8 +73,65 @@ function parseArguments<T extends z.ZodType>(
 }
 
 const idArgumentSchema = z.object({ id: z.string().uuid() }).strict();
+const agentUpdateToolSchema = agentUpdateRequestSchema.extend({ id: z.string().uuid() }).strict();
+const agentArchiveToolSchema = agentArchiveRequestSchema.extend({ id: z.string().uuid() }).strict();
 
 const tools = [
+  {
+    name: "mystra_create_agent",
+    description: "Create a Team-owned Agent with a system prompt.",
+    inputSchema: {
+      type: "object",
+      required: ["name", "systemPrompt"],
+      properties: {
+        name: { type: "string", minLength: 1, maxLength: 120 },
+        systemPrompt: { type: "string", minLength: 1, maxLength: 32768 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "mystra_list_agents",
+    description: "List Agents in the active Team.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", minimum: 1, maximum: 100 },
+        cursor: { type: "string", format: "uuid" },
+        includeArchived: { type: "boolean" },
+      },
+      additionalProperties: false,
+    },
+  },
+  { name: "mystra_get_agent", description: "Inspect one Agent, including archived records.", inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string", format: "uuid" } }, additionalProperties: false } },
+  {
+    name: "mystra_update_agent",
+    description: "Rename an active Agent or update its system prompt with revision protection.",
+    inputSchema: {
+      type: "object",
+      required: ["id", "expectedRevision"],
+      properties: {
+        id: { type: "string", format: "uuid" },
+        expectedRevision: { type: "integer", minimum: 1 },
+        name: { type: "string", minLength: 1, maxLength: 120 },
+        systemPrompt: { type: "string", minLength: 1, maxLength: 32768 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "mystra_archive_agent",
+    description: "Archive an Agent with revision protection.",
+    inputSchema: {
+      type: "object",
+      required: ["id", "expectedRevision"],
+      properties: {
+        id: { type: "string", format: "uuid" },
+        expectedRevision: { type: "integer", minimum: 1 },
+      },
+      additionalProperties: false,
+    },
+  },
   {
     name: "mystra_create_task",
     description: "Create an empty Mystra Task.",
@@ -140,6 +204,54 @@ export async function POST(request: Request) {
   }
   const call = callResult.data;
   try {
+    if (call.name === "mystra_create_agent") {
+      requirePermission(active, "team.settings.manage");
+      const parsed = parseArguments(rpc.id, call.name, agentCreateRequestSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      return jsonRpc(rpc.id, textToolResult(agentResponseSchema.parse({
+        agent: await db.createAgent({ ...parsed.data, teamId: active.team.id }),
+      })));
+    }
+    if (call.name === "mystra_list_agents") {
+      const parsed = parseArguments(rpc.id, call.name, agentListQuerySchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      return jsonRpc(rpc.id, textToolResult(agentPageSchema.parse(await db.listAgents({
+        teamId: active.team.id,
+        limit: parsed.data.limit,
+        includeArchived: parsed.data.includeArchived,
+        ...(parsed.data.cursor ? { cursor: parsed.data.cursor } : {}),
+      }))));
+    }
+    if (call.name === "mystra_get_agent") {
+      const parsed = parseArguments(rpc.id, call.name, idArgumentSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const agent = await db.getAgent(parsed.data.id, { teamId: active.team.id });
+      return jsonRpc(rpc.id, textToolResult(agent
+        ? agentResponseSchema.parse({ agent })
+        : { error: { code: "AGENT_NOT_FOUND", message: `Agent not found: ${parsed.data.id}` } }));
+    }
+    if (call.name === "mystra_update_agent") {
+      requirePermission(active, "team.settings.manage");
+      const parsed = parseArguments(rpc.id, call.name, agentUpdateToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const { id, ...input } = parsed.data;
+      const agent = await db.updateAgent(id, { ...input, teamId: active.team.id });
+      return jsonRpc(rpc.id, textToolResult(agent
+        ? agentResponseSchema.parse({ agent })
+        : { error: { code: "AGENT_NOT_FOUND", message: `Agent not found: ${id}` } }));
+    }
+    if (call.name === "mystra_archive_agent") {
+      requirePermission(active, "team.settings.manage");
+      const parsed = parseArguments(rpc.id, call.name, agentArchiveToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const agent = await db.archiveAgent(parsed.data.id, {
+        teamId: active.team.id,
+        expectedRevision: parsed.data.expectedRevision,
+      });
+      return jsonRpc(rpc.id, textToolResult(agent
+        ? agentResponseSchema.parse({ agent })
+        : { error: { code: "AGENT_NOT_FOUND", message: `Agent not found: ${parsed.data.id}` } }));
+    }
     if (call.name === "mystra_create_task") {
       const parsed = parseArguments(
         rpc.id,
@@ -175,7 +287,23 @@ export async function POST(request: Request) {
       }));
     }
     return jsonRpcError(rpc.id, -32601, `Unknown tool: ${call.name}`, { tool: call.name });
-  } catch {
+  } catch (error) {
+    const authorizationCode = mcpAuthorizationErrorCode(error);
+    if (authorizationCode === "forbidden") {
+      return jsonRpcError(rpc.id, -32003, "Forbidden", { tool: call.name });
+    }
+    const agentCode = agentDomainErrorCode(error);
+    if (agentCode) {
+      const message = error instanceof Error ? error.message : agentCode;
+      return jsonRpc(rpc.id, textToolResult({ error: { code: agentCode, message } }));
+    }
     return jsonRpcError(rpc.id, -32603, "Internal error", { tool: call.name });
   }
+}
+
+function agentDomainErrorCode(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+  return ["AGENT_ARCHIVED", "AGENT_REVISION_CONFLICT"].includes(String(error.code))
+    ? String(error.code) as "AGENT_ARCHIVED" | "AGENT_REVISION_CONFLICT"
+    : undefined;
 }

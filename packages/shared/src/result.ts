@@ -42,7 +42,7 @@ export type QualityResult = z.infer<typeof qualityResultSchema>;
 
 export const agentExecutionMetadataSchema = z
   .object({
-    agent: z.literal("copilot"),
+    provider: z.literal("copilot"),
     cliVersion: z.string().min(1),
     mode: z.literal("autopilot"),
     maxAutopilotContinues: z.number().int().min(1).max(100),

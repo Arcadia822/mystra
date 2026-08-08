@@ -1,4 +1,5 @@
 import {
+  agentSchema,
   accountViewSchema,
   integrationCapabilitiesSchema,
   integrationConnectionSchema,
@@ -12,6 +13,7 @@ import {
   teamStatusSchema,
   membershipStatusSchema,
   type IntegrationConnection,
+  type Agent,
   type Project,
   type ProjectIssueSource,
   type ProviderCapability,
@@ -20,6 +22,7 @@ import {
 } from "@mystra/shared";
 
 import type {
+  Agent as PrismaAgent,
   AuthAccount as PrismaAuthAccount,
   AuthSession as PrismaAuthSession,
   IntegrationConnection as PrismaIntegrationConnection,
@@ -115,6 +118,20 @@ export function mapTask(row: PrismaTask): TaskRecord {
     projectId: row.projectId,
     ...(row.issueDispatchKey ? { issueDispatchKey: row.issueDispatchKey } : {}),
     metadata: parseJsonObject(row.metadata),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
+}
+
+export function mapAgent(row: PrismaAgent): Agent {
+  return agentSchema.parse({
+    id: row.id,
+    teamId: row.teamId,
+    name: row.name,
+    systemPrompt: row.systemPrompt,
+    revision: row.revision,
+    status: row.status,
+    archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });

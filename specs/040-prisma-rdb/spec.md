@@ -2,6 +2,8 @@
 
 > **041 amendment (2026-08-06):** The three-business-table scope remains intact for IntegrationConnection, Project, and Task. The owner subsequently approved one internal `SecretEnvelope` persistence model so PAT ciphertext can share the selected RDB without placing plaintext or the KEK in it. Feature 041 owns that encrypted-secret contract and its atomic connection lifecycle.
 
+> **046 supersession (2026-08-08):** The implemented Task `projectId` relation is now an obsolete pre-0.1 contract. Task is Team-scoped and does not belong to Project. Session is independently Team-scoped, belongs to neither Task nor Project, and may separately reference `0..1` of each. Feature 046 and the current constitution are authoritative; this completed RDB feature does not itself implement the replacement.
+
 **Feature Branch**: `040-prisma-rdb`
 **Created**: 2026-08-05
 **Revised**: 2026-08-06

@@ -5,8 +5,8 @@ import {
   repositorySnapshotSchema,
 } from "./repository.js";
 
-export const agentNameSchema = z.enum(["codex", "copilot"]);
-export type AgentName = z.infer<typeof agentNameSchema>;
+export const providerNameSchema = z.enum(["codex", "copilot"]);
+export type ProviderName = z.infer<typeof providerNameSchema>;
 
 export const providerSourceSchema = z.enum(["path", "login-shell", "env-override"]);
 export type ProviderSource = z.infer<typeof providerSourceSchema>;
@@ -21,7 +21,7 @@ export type ProviderUnavailableReason = z.infer<typeof providerUnavailableReason
 
 export const providerCapabilitySchema = z
   .object({
-    provider: agentNameSchema,
+    provider: providerNameSchema,
     discovered: z.boolean(),
     available: z.boolean(),
     source: providerSourceSchema,
@@ -508,7 +508,7 @@ export const executionSpecSnapshotSchema = z
     repository: repositorySnapshotSchema,
     baseBranch: z.string().min(1),
     branch: z.string().min(1),
-    agent: agentNameSchema,
+    provider: providerNameSchema,
     objective: z.string().min(1),
     issue: issueSnapshotSchema.optional(),
     dispatchKey: z.string().min(1).max(1_000).optional(),
@@ -571,10 +571,10 @@ export type ResolvedRuntimeContract = z.infer<typeof resolvedRuntimeContractSche
 
 export const platformCapabilitiesSchema = z
   .object({
-    agents: z.array(agentNameSchema).min(1),
+    executionProviders: z.array(providerNameSchema).min(1),
     executor: runnerExecutorSchema,
     image: z.string().min(1).optional(),
-    providers: z.array(sandboxProviderSchema).default([]),
+    sandboxProviders: z.array(sandboxProviderSchema).default([]),
     contextBundleModes: z.array(contextBundleAccessModeSchema).default([]),
     mountKinds: z.array(runtimeMountKindSchema).default([]),
     portExposure: z.object({
@@ -665,7 +665,7 @@ export const sessionCreateRequestSchema = z
   .object({
     title: z.string().min(1),
     objective: z.string().min(1),
-    agent: agentNameSchema.optional(),
+    provider: providerNameSchema.optional(),
     branch: z.string().min(1).optional(),
     mergeRequest: mergeRequestSpecSchema.optional(),
     runtime: sessionRuntimeOverrideSchema.optional(),
@@ -677,7 +677,7 @@ export type SessionCreateRequest = z.input<typeof sessionCreateRequestSchema>;
 export const sessionCreateSchema = sessionCreateRequestSchema
   .extend({
     taskId: z.string().uuid(),
-    agent: agentNameSchema,
+    provider: providerNameSchema,
     branch: z.string().min(1),
   })
   .strict();

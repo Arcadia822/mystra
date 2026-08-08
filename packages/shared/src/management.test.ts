@@ -70,7 +70,7 @@ const session = {
   taskId: task.id,
   title: "Implement API slice",
   objective: "Add the management resources",
-  agent: "copilot",
+  provider: "copilot",
   branch: "mystra/task-session-api",
   state: "succeeded",
   result: {
@@ -320,7 +320,7 @@ describe("Runner management views", () => {
   const runner = {
     id: "00000000-0000-4000-8000-000000000003",
     name: "runner-a",
-    capabilities: { agents: ["codex"], executor: "docker" },
+    capabilities: { executionProviders: ["codex"], executor: "docker" },
     maxConcurrency: 2,
     activeSessionCount: 1,
     health: "healthy",

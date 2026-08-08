@@ -94,6 +94,23 @@ model Task {
   @@map("tasks")
 }
 
+model Agent {
+  id           String  @id
+  teamId       String  @map("team_id")
+  name         String
+  systemPrompt String  @map("system_prompt")
+  revision     Int
+  status       String
+  archivedAt   String? @map("archived_at")
+  createdAt    String  @map("created_at")
+  updatedAt    String  @map("updated_at")
+  team         Team    @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([teamId, status, id])
+  @@index([createdAt, id])
+  @@map("agents")
+}
+
 model Runtime {
   id        String            @id
   name      String
@@ -202,6 +219,7 @@ model Team {
   projects               Project[]
   tasks                  Task[]
   issueSources           ProjectIssueSource[]
+  agents                 Agent[]
 
   @@index([status])
   @@index([createdAt, id])

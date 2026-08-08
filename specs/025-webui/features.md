@@ -1,5 +1,7 @@
 # 功能说明：025-webui
 
+> **Current ownership note (2026-08-08):** 下文的 Project-grouped Tasks 是历史 UI 方向，不再代表领域归属。Task 直属 Team；Session 也直属 Team，并可独立选择 `0..1` Task 与 `0..1` Project。
+
 ## 摘要
 
 025 定义 Mystra MVP 操作 Web UI 的框架层能力。它提供面向人类操作者的稳定 shell：统一导航、侧边栏、路由承载、布局范式、基础组件期望、主题与本地化脚手架、响应式行为，以及未来 Electron 宿主兼容边界。

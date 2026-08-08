@@ -24,6 +24,9 @@ export function managementException(
   const message = error instanceof Error ? error.message : "Unknown error";
   const prefix = message.split(":", 1)[0] as ManagementErrorCode;
   const statusByCode: Partial<Record<ManagementErrorCode, number>> = {
+    AGENT_NOT_FOUND: 404,
+    AGENT_ARCHIVED: 409,
+    AGENT_REVISION_CONFLICT: 409,
     PROJECT_NOT_FOUND: 404,
     PROJECT_ARCHIVED: 409,
     TASK_NOT_FOUND: 404,

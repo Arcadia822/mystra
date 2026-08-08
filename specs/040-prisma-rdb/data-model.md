@@ -1,5 +1,7 @@
 # 数据模型：Prisma 多数据库 RDB
 
+> **Superseded ownership note (2026-08-08):** The Task-to-Project relation documented below reflects the implemented 040 snapshot and is not the current product contract. Task is Team-scoped and not Project-owned; Session is independently Team-scoped with optional `0..1` Task and Project references. Feature 046 owns the replacement boundary.
+
 > **041 amendment (2026-08-06):** In addition to the three approved business models below, the Prisma schema now owns one internal `SecretEnvelope` model. It contains authenticated ciphertext and a wrapped per-secret DEK, is not a business/public model, and never contains PAT plaintext or the deployment KEK.
 
 **Status**: Owner approved

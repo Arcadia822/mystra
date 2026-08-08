@@ -19,11 +19,12 @@ workflow graph above the Agent.
 
 ## Current domain boundary
 
-- **Task** is currently a durable identity under one Project. The first Prisma
-  model deliberately omits source, objective and Issue/Repository snapshots;
-  those contracts will be redesigned with Linear/Issue Integration and cache.
-- **Session** remains a future execution concept, but its persistence, Task
-  relation, fields, lifecycle and CRUD are currently undefined and deferred.
+- **Task** is a durable Team-scoped identity and does not belong to Project. The
+  current Prisma `projectId` relation is an obsolete pre-0.1 implementation gap;
+  source, objective and Issue/Repository snapshots remain deferred.
+- **Session** is a Team-scoped execution concept and belongs to neither Task nor
+  Project. It may independently reference `0..1` Task and `0..1` Project; its
+  remaining persistence fields, lifecycle and CRUD are deferred.
 - **Runtime/Runner** persistence is deferred for a separate capacity and sandbox
   provider design; the first Prisma schema does not define either table.
 - Runner protocol bookkeeping and internal execution facts are implementation
@@ -32,18 +33,21 @@ workflow graph above the Agent.
 ## North-star operating model
 
 Mystra's long-term model is a hosted **Mystra platform** serving many independent
-**Teams**. Each Team may contain multiple Projects with their own Integrations,
-Agent profiles, runtime images, product routes, user stories, and acceptance
-criteria while sharing platform-owned provider pools.
+**Teams**. Each Team may contain multiple Projects, Tasks, Sessions, and Agents
+while sharing platform-owned provider pools. Team is the tenant boundary;
+Project and Task are optional Session references rather than ownership parents.
 
 ```text
 Mystra platform
   -> Team
+    -> Agent
     -> Project
-      -> Task
-        -> Session (future, 0..N)
-          -> review evidence (future)
-      -> Issue Integration / Agent profile / runtime defaults
+      -> Issue Integration / repository binding
+    -> Task
+    -> Session
+      -> project? (0..1 reference)
+      -> task? (0..1 reference)
+      -> review evidence (future)
 ```
 
 The intended experience is similar in spirit to Stripe Minion: fast intake,
@@ -77,26 +81,32 @@ The north-star is a hosted **Mystra platform** with an open-source core:
 - **Project** — durable product/repository binding through one exact connection
   and provider-stable repository external ID. Mutable repository information is
   not persisted on Project.
-- **Task** — durable Project-scoped identity with optional Issue dispatch key
-  and metadata. It has no execution state.
-- **Session** and **Runtime/Runner** remain future execution-capacity concepts;
-  their persistence contracts are intentionally absent from the first Prisma
-  schema.
+- **Task** — durable Team-scoped identity with optional Issue dispatch key and
+  metadata. It has no Project ownership or execution state.
+- **Agent** — Team-scoped behavior configuration with stable identity and one
+  effect-related field, system prompt. It has no Project relation.
+- **Session** — Team-scoped execution object with independent optional Task and
+  Project references; neither object owns it.
+- **Runtime/Runner** remains an execution-capacity concept owned by its separate
+  specifications.
 
 ## Platform topology
 
 ```text
 Mystra platform
   → Team
+    → Agent
     → Project
-      → Task
-        → Session (0..N)
-          → sandbox → Agent → tested PR
+    → Task
+    → Session
+      → Project? (0..1 reference)
+      → Task? (0..1 reference)
+      → sandbox → Agent → tested PR
 ```
 
-Each Team may contain multiple Projects with their own integrations, agent
-profiles, and runtime configuration, while sharing platform-owned execution
-pools.
+Each Team may contain multiple Projects, Tasks, Sessions, and Agents while
+sharing platform-owned execution pools. Session selects Agent independently of
+its optional Project and Task references.
 
 ## MVP scope
 

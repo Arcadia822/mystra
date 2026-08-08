@@ -144,7 +144,7 @@ Web / Desktop / iOS
 | 维度 | Multica | Mystra MVP 取舍（本 feature） |
 | --- | --- | --- |
 | 执行模型 | 宿主机 worktree 直跑，无容器 | **采纳**：宿主机 worktree 直跑成为 MVP 默认；Docker sandbox 降级为可选/后置 |
-| 概念模型 | Runtime(机器×CLI) + Agent(teammate=provider+skills+runtime 绑定) | **四轴轻量模型**：`Task × Runtime(provides Provider) × Agent(provider+prompt+skills) × Context`；Provider 为能力维度，Agent 可移植不绑机器 |
+| 概念模型 | Runtime(机器×CLI) + Agent(teammate=provider+skills+runtime 绑定) | **Session 四要素模型**：`Runtime × Provider × Agent × Context`；Project/Task 是独立 `0..1` 可选引用而非父级，Provider 是独立 CLI/协议能力，Agent 属于 Team 且仅以 system prompt 影响执行效果（由 046 定义） |
 | runtime 粒度 | 机器 × CLI × workspace = 一条 runtime | Runtime = **一台机器**，携 `provides`（Provider 能力集合，**来源无关**：host 发现 / 未来 image 声明） |
 | worktree 归属 | 每任务 dispatch 内联创建 worktree | **解耦**：Context（repo/worktree）为独立上下文管理能力；dispatch 只针对已备 Context 运行 |
 | 传输 | WS RPC 为主 + HTTP 兜底 | MVP 先做 HTTP 心跳/claim（现有 `runner-daemon` 已具备）；WS 唤醒可后置优化 |

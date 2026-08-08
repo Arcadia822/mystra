@@ -7,8 +7,9 @@ agent CLI 作为该 Runtime 的 **Provider** 能力并确认其可用，持续�
 
 > **范围收窄**：本 feature **只做**注册 host Runtime + Provider 发现/可用性确认 + 心跳/状态。
 > 发起任务、Context（repo/worktree）管理、Agent 配置、执行/Session 均**不在本 spec**，由后续
-> 独立 feature 承接。四轴模型 `Task × Runtime × Agent × Context` 仅作前瞻方向记录，本 feature
-> 只落地 Runtime + Provider 两块。
+> 独立 feature 承接。后续 Session 发起采用 `Runtime × Provider × Agent × Context` 四要素；Project 与
+> Task 只是 Session 上彼此独立的 `0..1` 可选引用，都不是父级。Agent 的 Team-scoped、
+> system-prompt-only 定义由 046 拥有，本 feature 只落地 Runtime + Provider 两块。
 
 ## 产物
 

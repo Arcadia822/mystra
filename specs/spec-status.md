@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=d49df1262428c0ca2b50c37226ce630e698a3026 updated=2026-08-08T10:21:31Z -->
+<!-- spec-status: project=mystra commit=5ce938524323fcc632414edac7586a29929abd87 updated=2026-08-08T10:45:00Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -40,6 +40,7 @@
 | 043-identity-team-rbac             | ✓     | ✓  | ✓   | ✓ Complete |
 | 044-host-runtime-daemon            | ✓     | ✓  | ✓   | ✓ Complete |
 | 045-project-issue-sources          | ✓     | ✓  | ✓   | ✓ Complete |
+| 046-agent-definition               | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -78,3 +79,4 @@
 <!-- feature: 043-identity-team-rbac has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=10 tasks_completed=10 checklist_files=requirements.md -->
 <!-- feature: 044-host-runtime-daemon has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=false tasks_total=39 tasks_completed=39 checklist_files= -->
 <!-- feature: 045-project-issue-sources has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=47 tasks_completed=47 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 046-agent-definition has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=41 tasks_completed=41 checklist_files=engineering-review.md,requirements.md,verification.md -->

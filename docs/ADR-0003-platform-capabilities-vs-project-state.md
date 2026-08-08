@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted
+Superseded by 040, 044, and 046
+
+The platform-capability separation remains valid. The Project field list and
+ownership statements below are historical: Project no longer owns Agent,
+Runtime, image, prewarm, Task, or Session defaults. Agent, Project, Task, and
+Session are Team-scoped peers; Session independently selects Runtime, Provider,
+Agent, and Context and may optionally reference Project and Task.
 
 ## Context
 
@@ -22,17 +28,21 @@ Introduce explicit shared schemas:
 
 1. `PlatformCapabilities`
    - Runner/platform-scoped declared capabilities.
-   - Current fields: `agents`, `executor`, optional `image`.
+   - Historical fields: `agents`, `executor`, optional `image`; current Provider
+     terminology uses `executionProviders` and separates sandbox providers.
 
 2. `PlatformDefaults`
    - Platform-level runtime defaults.
    - Current fields include concurrency, timeout, heartbeat, polling, CPU, and memory defaults.
 
 3. `Project`
-   - Durable project-scoped parent configuration.
-   - Current fields: `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`, `image`, `prewarmConfig`, and `metadata`.
+   - Historical project-scoped parent configuration.
+   - Historical fields: `name`, `slug`, `repo`, `baseBranch`, `defaultAgent`,
+     `image`, `prewarmConfig`, and `metadata`.
 
-Task remains durable intent and immutable Project/Repository context. Session owns branch, Agent, runtime resolution, lifecycle, and review metadata. Platform concerns do not move into either object.
+Current replacement: Task is Team-scoped and not owned by Project. Session is
+also Team-scoped, may independently reference `0..1` Task and `0..1` Project,
+and selects Runtime, Provider, Agent and Context without Project defaults.
 
 Runner registration must use typed `PlatformCapabilities` instead of an arbitrary capability record.
 

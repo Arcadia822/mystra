@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  CodexAdapter,
-  CopilotAdapter,
-  createAgentAdapterRegistry,
+  CodexProviderAdapter,
+  CopilotProviderAdapter,
+  createProviderAdapterRegistry,
 } from "./index.js";
 
-describe("agent adapters", () => {
+describe("Provider adapters", () => {
   it("builds the codex command and environment from a typed adapter", () => {
-    const adapter = new CodexAdapter({
+    const adapter = new CodexProviderAdapter({
       authDir: "/auth/codex",
       timeoutSeconds: 45,
     });
@@ -39,7 +39,7 @@ describe("agent adapters", () => {
   });
 
   it("uses stdin-backed prompt files for codex when the prompt is spilled from argv", () => {
-    const adapter = new CodexAdapter();
+    const adapter = new CodexProviderAdapter();
 
     expect(adapter.buildCommand({
       prompt: "Implement the requested change",
@@ -63,7 +63,7 @@ describe("agent adapters", () => {
   });
 
   it("builds the copilot command and sandbox environment from a typed adapter", () => {
-    const adapter = new CopilotAdapter({
+    const adapter = new CopilotProviderAdapter({
       cliConfigDir: "/sandbox/.copilot",
       homeDir: "/sandbox",
       configDir: "/sandbox/.config",
@@ -107,7 +107,7 @@ describe("agent adapters", () => {
       success: false,
       errorMessage: "copilot exited with 9",
       metadata: {
-        agent: "copilot",
+        provider: "copilot",
         cliVersion: "1.0.69-0",
         mode: "autopilot",
         maxAutopilotContinues: 10,
@@ -121,7 +121,7 @@ describe("agent adapters", () => {
   });
 
   it("uses prompt attachments for copilot when the prompt is spilled from argv", () => {
-    const adapter = new CopilotAdapter({
+    const adapter = new CopilotProviderAdapter({
       cliConfigDir: "/sandbox/.copilot",
       homeDir: "/sandbox",
       configDir: "/sandbox/.config",
@@ -151,8 +151,8 @@ describe("agent adapters", () => {
   });
 
   it("parses unexpected process output defensively instead of throwing", () => {
-    const codex = new CodexAdapter();
-    const copilot = new CopilotAdapter({
+    const codex = new CodexProviderAdapter();
+    const copilot = new CopilotProviderAdapter({
       cliConfigDir: "/sandbox/.copilot",
       homeDir: "/sandbox",
       configDir: "/sandbox/.config",
@@ -178,7 +178,7 @@ describe("agent adapters", () => {
       success: false,
       errorMessage: "copilot exited with 1",
       metadata: {
-        agent: "copilot",
+        provider: "copilot",
         cliVersion: "1.0.69-0",
         mode: "autopilot",
         maxAutopilotContinues: 10,
@@ -187,12 +187,12 @@ describe("agent adapters", () => {
     });
   });
 
-  it("registers adapters by agent name and supports startup extension", () => {
-    const registry = createAgentAdapterRegistry({
-      codex: new CodexAdapter({
+  it("registers adapters by Provider name and supports startup extension", () => {
+    const registry = createProviderAdapterRegistry({
+      codex: new CodexProviderAdapter({
         authDir: "/auth/codex",
       }),
-      copilot: new CopilotAdapter({
+      copilot: new CopilotProviderAdapter({
         cliConfigDir: "/sandbox/.copilot",
         homeDir: "/sandbox",
         configDir: "/sandbox/.config",
@@ -202,8 +202,8 @@ describe("agent adapters", () => {
       }),
     });
 
-    expect(registry.get("codex")).toBeInstanceOf(CodexAdapter);
-    expect(registry.get("copilot")).toBeInstanceOf(CopilotAdapter);
-    expect(() => registry.get("claude")).toThrow('Unknown agent adapter "claude"');
+    expect(registry.get("codex")).toBeInstanceOf(CodexProviderAdapter);
+    expect(registry.get("copilot")).toBeInstanceOf(CopilotProviderAdapter);
+    expect(() => registry.get("claude")).toThrow('Unknown Provider adapter "claude"');
   });
 });

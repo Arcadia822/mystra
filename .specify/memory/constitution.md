@@ -8,7 +8,7 @@ Mystra changes must preserve the documented MVP boundary unless the boundary is 
 
 ### II. Typed Contracts at Service Boundaries
 
-Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Task intent, future Session execution, Runtime/Runner identity, Project configuration, and external Issue identity remain separate concepts. Session persistence is currently deferred and must not be inferred from the legacy schema.
+Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs. Session persistence is currently deferred and must not be inferred from the legacy schema.
 
 ### III. Providers Are Replaceable Boundaries
 
@@ -52,7 +52,7 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Mystra remote MCP is the primary submission path for other agents and skills.
 - Web API is the canonical management implementation; CLI and MCP are thin adapters over the same contracts.
 - Web UI is a secondary client. Its demo shell exposes New, Search, Inbox, and
-  Issues, followed by Projects and Project-grouped Tasks with latest-Session
+  Issues, followed by Projects and Team-scoped Tasks with latest-Session
   status icons. Existing Task, Session, Runner, and Project object routes remain
   directly reachable. `/automations` remains directly addressable as a Coming
   soon placeholder, is not a primary menu entry, and does not create
@@ -64,6 +64,15 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
 
 ## Amendment Notes
+
+- 2026-08-08: Confirmed Team as the tenant boundary. Agent, Task, Project, and
+  Session are Team-scoped siblings; Agent and Task do not belong to Project,
+  and Session belongs to neither Task nor Project. Session may independently
+  reference `0..1` Project and `0..1` Task while resolving Runtime, Provider,
+  Agent, and Context as four execution inputs. Agent contributes only its system
+  prompt to execution effect. Project-owned Agent/Task models, Task-owned
+  Sessions, `MYSTRA_DEFAULT_AGENT`, and Project Agent filters are obsolete
+  pre-0.1 directions.
 
 - 2026-08-07: Brought host Runtime enrollment into the MVP execution boundary.
   Runtime is now a first-class, replaceable execution backend that advertises
@@ -130,10 +139,11 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   repository discovery and Runner delivery share short-lived installation
   tokens without a personal-token fallback. Caller auth, webhooks, Issue
   write-back, and a general Integration management catalog remain excluded.
-- 2026-08-05: Updated the 025 demo shell taxonomy to the owner-approved
-  Castrel-inspired menu and Project-grouped Task list, while keeping existing
-  object routes reachable and preserving the exclusion of platform-owned
-  workflow automation.
+- 2026-08-05: Updated the 025 demo shell taxonomy to the then-approved
+  Castrel-inspired menu and Project-grouped Task list. The 2026-08-08 Team-scope
+  amendment supersedes that grouping because Task no longer belongs to Project;
+  existing object routes remain reachable and platform-owned workflow
+  automation remains excluded.
 - 2026-08-03: Reconciled the durable MVP boundary with landed features 033,
   035, 036, and 037 and the remaining 025 UI work. Current intake uses GitHub
   and Linear Integrations, every Project repository is remote and

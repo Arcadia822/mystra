@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  agentNameSchema,
+  providerNameSchema,
   cancelSessionOutcomeSchema,
   cancellationRequestMetadataSchema,
   contextBundleCreateSchema,
@@ -85,11 +85,11 @@ describe("Task and Session schemas", () => {
       title: "Implement API slice",
       objective: "Make the requested change",
       branch: "UPPER/space allowed by task",
-      agent: "copilot",
+      provider: "copilot",
     });
 
     expect(parsed.branch).toBe("UPPER/space allowed by task");
-    expect(parsed.agent).toBe("copilot");
+    expect(parsed.provider).toBe("copilot");
   });
 
   it("accepts a public Session request before defaults are resolved", () => {
@@ -98,7 +98,7 @@ describe("Task and Session schemas", () => {
       objective: "Find the root cause",
     });
 
-    expect(parsed.agent).toBeUndefined();
+    expect(parsed.provider).toBeUndefined();
     expect(parsed.branch).toBeUndefined();
     expect(parsed.metadata).toEqual({});
   });
@@ -117,9 +117,9 @@ describe("Task and Session schemas", () => {
     })).toThrow();
   });
 
-  it("rejects agents outside the MVP adapter set", () => {
-    expect(() => agentNameSchema.parse("claude")).toThrow();
-    expect(() => agentNameSchema.parse("opencode")).toThrow();
+  it("rejects Providers outside the MVP adapter set", () => {
+    expect(() => providerNameSchema.parse("claude")).toThrow();
+    expect(() => providerNameSchema.parse("opencode")).toThrow();
   });
 
   it("rejects callback URLs because callbacks are not in the MVP contract", () => {
@@ -136,20 +136,20 @@ describe("Task and Session schemas", () => {
 describe("platformCapabilitiesSchema", () => {
   it("accepts typed runner capabilities", () => {
     const parsed = platformCapabilitiesSchema.parse({
-      agents: ["codex", "copilot"],
+      executionProviders: ["codex", "copilot"],
       executor: "docker",
       image: "ghcr.io/acme/mystra-runner:latest",
-      providers: ["docker"],
+      sandboxProviders: ["docker"],
       contextBundleModes: ["read-only"],
       mountKinds: ["workspace", "gitMirror"],
       portExposure: { supportsDynamicHostPorts: true },
       secretInjectionModes: ["env"],
     });
 
-    expect(parsed.agents).toEqual(["codex", "copilot"]);
+    expect(parsed.executionProviders).toEqual(["codex", "copilot"]);
     expect(parsed.executor).toBe("docker");
     expect(parsed.image).toBe("ghcr.io/acme/mystra-runner:latest");
-    expect(parsed.providers).toEqual(["docker"]);
+    expect(parsed.sandboxProviders).toEqual(["docker"]);
     expect(parsed.contextBundleModes).toEqual(["read-only"]);
     expect(parsed.mountKinds).toEqual(["workspace", "gitMirror"]);
     expect(parsed.portExposure.supportsDynamicHostPorts).toBe(true);
@@ -158,28 +158,28 @@ describe("platformCapabilitiesSchema", () => {
 
   it("accepts capabilities without an image override", () => {
     const parsed = platformCapabilitiesSchema.parse({
-      agents: ["codex"],
+      executionProviders: ["codex"],
       executor: "fake",
     });
 
     expect(parsed.image).toBeUndefined();
-    expect(parsed.providers).toEqual([]);
+    expect(parsed.sandboxProviders).toEqual([]);
   });
 
   it("rejects unknown capability keys", () => {
     expect(() =>
       platformCapabilitiesSchema.parse({
-        agents: ["codex"],
+        executionProviders: ["codex"],
         executor: "docker",
         skills: ["gnhf"],
       }),
     ).toThrow();
   });
 
-  it("rejects empty agent lists", () => {
+  it("rejects empty execution Provider lists", () => {
     expect(() =>
       platformCapabilitiesSchema.parse({
-        agents: [],
+        executionProviders: [],
         executor: "docker",
       }),
     ).toThrow();
@@ -188,7 +188,7 @@ describe("platformCapabilitiesSchema", () => {
   it("rejects unsupported executors", () => {
     expect(() =>
       platformCapabilitiesSchema.parse({
-        agents: ["codex"],
+        executionProviders: ["codex"],
         executor: "kubernetes",
       }),
     ).toThrow();
@@ -197,28 +197,28 @@ describe("platformCapabilitiesSchema", () => {
   it("rejects unsupported runtime capability values", () => {
     expect(() =>
       platformCapabilitiesSchema.parse({
-        agents: ["codex"],
+        executionProviders: ["codex"],
         executor: "docker",
         providers: ["kubernetes"],
       }),
     ).toThrow();
     expect(() =>
       platformCapabilitiesSchema.parse({
-        agents: ["codex"],
+        executionProviders: ["codex"],
         executor: "docker",
         mountKinds: ["dockerSocket"],
       }),
     ).toThrow();
     expect(() =>
       platformCapabilitiesSchema.parse({
-        agents: ["codex"],
+        executionProviders: ["codex"],
         executor: "docker",
         contextBundleModes: ["mutable"],
       }),
     ).toThrow();
     expect(() =>
       platformCapabilitiesSchema.parse({
-        agents: ["codex"],
+        executionProviders: ["codex"],
         executor: "docker",
         secretInjectionModes: ["vault"],
       }),
@@ -395,7 +395,7 @@ describe("runtime schemas", () => {
       repository: remoteRepository,
       baseBranch: "main",
       branch: "feature/execution-spec",
-      agent: "codex",
+      provider: "codex",
       objective: "Implement the approved spec",
       metadata: { sourceRevision: "spec-v1" },
       frozenAt: "2026-05-18T00:00:00.000Z",
@@ -670,7 +670,7 @@ describe("runnerRegistrationSchema", () => {
     const parsed = runnerRegistrationSchema.parse({
       runnerName: "runner-1",
       capabilities: {
-        agents: ["codex", "copilot"],
+        executionProviders: ["codex", "copilot"],
         executor: "fake",
       },
     });

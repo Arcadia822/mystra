@@ -1,5 +1,7 @@
 # Contract：异步 RdbProvider
 
+> **Superseded ownership note (2026-08-08):** Any Task-to-Project requirement below is an implemented 040 snapshot, not the current product contract. Feature 046 requires Team-scoped Task and Session objects, with Session independently referencing `0..1` Task and `0..1` Project.
+
 ## Stable domain surface
 
 保留的方法继续使用 Mystra-owned domain types；合同变化包括返回值统一包装为 `Promise`、删除 Session

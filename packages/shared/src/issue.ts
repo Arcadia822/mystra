@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import {
-  agentNameSchema,
+  providerNameSchema,
   mergeRequestSpecSchema,
   sessionRuntimeOverrideSchema,
 } from "./schemas.js";
@@ -14,7 +14,7 @@ const safeBranchNamePattern =
 export const issueDispatchRequestSchema = z
   .object({
     projectId: z.string().uuid(),
-    agent: agentNameSchema,
+    provider: providerNameSchema,
     branch: z.string().min(1).max(255).regex(safeBranchNamePattern),
     sessionObjective: z.string().min(1).optional(),
     mergeRequest: mergeRequestSpecSchema.optional(),

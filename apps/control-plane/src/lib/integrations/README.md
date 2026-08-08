@@ -99,6 +99,8 @@ GET  /api/integrations/:integration/issues/:identifier
 The operator CLI and Web Projects surface call these routes. They do not import
 provider implementations.
 
-Project creation resolves omitted execution defaults server-side from
-`MYSTRA_DEFAULT_AGENT` and `MYSTRA_DEFAULT_DEV_IMAGE`. Repository onboarding
-does not ask the operator to choose either value.
+Project creation binds only an exact IntegrationConnection and stable remote
+repository identity. Agent, Runtime, Provider and Context are independent
+Session launch choices; Project onboarding does not accept, resolve or persist
+execution defaults. The operator CLI currently exposes Project list/inspect but
+not create, pending a thin client for the current connection-ID contract.
