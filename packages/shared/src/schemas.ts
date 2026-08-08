@@ -629,7 +629,7 @@ export const projectCreateSchema = z
   .strict();
 export type ProjectCreate = z.infer<typeof projectCreateSchema>;
 
-export const projectCreateRequestSchema = projectCreateSchema;
+export const projectCreateRequestSchema = projectCreateSchema.omit({ teamId: true });
 export type ProjectCreateRequest = z.input<typeof projectCreateRequestSchema>;
 
 export const projectUpdateSchema = z

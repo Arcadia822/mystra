@@ -35,7 +35,6 @@ export async function POST(request: Request) {
       db,
       subject,
       "team.resource.access",
-      parsed.teamId,
     );
     const project = await db.createProject({ ...parsed, teamId: active.team.id });
     return NextResponse.json({ project }, { status: 201 });

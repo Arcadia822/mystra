@@ -77,7 +77,6 @@ beforeEach(async () => {
     credentialState: "ready",
   });
   const projectResponse = await postProject(jsonRequest("http://localhost/api/projects", {
-    teamId,
     name: "Local Fixture",
     slug: "local-fixture",
     repositoryConnectionId: connection.id,
@@ -93,6 +92,26 @@ afterEach(async () => {
   await resetDbForTests();
   delete process.env.MYSTRA_DB_PATH;
   await rm(tempDir, { force: true, recursive: true });
+});
+
+describe("Project route tenancy", () => {
+  it("derives the Team from the authenticated Session when the browser request omits teamId", async () => {
+    const db = await getDb();
+    const [connection] = await db.listIntegrationConnections({ teamId });
+    const response = await postProject(jsonRequest("http://localhost/api/projects", {
+      name: "Browser Project",
+      slug: "browser-project",
+      repositoryConnectionId: connection!.id,
+      repositoryExternalId: "84",
+      repositoryBaseBranch: "main",
+      metadata: { repositoryFullName: "arcadia/browser-project" },
+    }));
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({
+      project: expect.objectContaining({ slug: "browser-project", teamId }),
+    });
+  });
 });
 
 describe("active Task routes", () => {
