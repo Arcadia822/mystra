@@ -5,9 +5,9 @@ This onboarding snapshot is GitNexus-first and 5xP-aware. Read `PRODUCT.md`,
 
 ## Purpose
 
-Mystra is a headless coding-Agent execution control plane. Callers create durable
-Tasks, create zero or many independent child Sessions, and use stable Runners to
-produce reviewable repository evidence.
+Mystra is a headless coding-Agent execution control plane. Callers may capture
+durable Task context independently from Session execution and use stable Runners
+to produce reviewable repository evidence.
 
 ## Runtime shape
 
@@ -21,16 +21,17 @@ plugins/mystra        MCP-facing Agent skills
 
 ## Main flows
 
-1. Create Task through HTTP/MCP/CLI or atomically dispatch an Issue to a Task
-   plus initial Session.
-2. Create additional sibling Sessions for independent subtasks.
+1. Create a manual Task through HTTP/MCP/CLI/Web, optionally with Project
+   context, or create/open the one Task for an exact Project-scoped Issue.
+2. Resolve Session execution independently in its owning specification.
 3. Enroll a stable Runner and atomically claim an eligible queued Session.
 4. Execute sandbox, Agent, quality, preview, branch, and review delivery.
 5. Persist terminal Session result and release Runner capacity transactionally.
 
 ## Boundaries
 
-- Task is intent and immutable Project/Repository context, never lifecycle.
+- Task is editable Mystra-owned title/description plus immutable optional
+  Project/exact Issue context, never external requirements lifecycle.
 - Session owns objective, Agent, branch, runtime, state, cancellation, result.
 - Runner owns stable identity, health, capacity, credential, and assignments.
 - Internal execution facts are not public business resources.
@@ -48,4 +49,4 @@ pnpm dlx gitnexus analyze --force
 ```
 
 Use `specs/spec-status.md` for Spec-Kit completion and
-`specs/038-task-session-model/` for the current model contract.
+`specs/047-task-context/` for the current Task contract.

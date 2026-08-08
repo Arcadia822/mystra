@@ -200,24 +200,46 @@ describe("operator CLI Task and Session commands", () => {
 
   it("creates and inspects Tasks through canonical APIs", async () => {
     const created = await execute([
-      "tasks", "create", "--project", projectId, "--objective", "Ship it", "--json",
+      "tasks", "create", "--title", "Ship it", "--description", "Durable context",
+      "--idempotency-key", "00000000-0000-4000-8000-000000000090", "--json",
     ], async (url, init) => {
       expect(url).toBe("http://localhost:3000/api/tasks");
       expect(init?.method).toBe("POST");
       expect(JSON.parse(String(init?.body))).toEqual({
-        source: "api",
-        projectId,
-        objective: "Ship it",
+        title: "Ship it",
+        description: "Durable context",
+        idempotencyKey: "00000000-0000-4000-8000-000000000090",
       });
-      return response({ task: { id: taskId } }, 201);
+      return response({ task: { id: taskId, title: "Ship it", projectId: null, issue: null, description: "Durable context" }, created: true }, 201);
     });
     const inspected = await execute(["tasks", "inspect", taskId, "--json"], async (url) => {
       expect(url).toBe(`http://localhost:3000/api/tasks/${taskId}`);
-      return response({ task: { id: taskId }, sessionSummary: { sessionCount: 0, activeSessionCount: 0 } });
+      return response({ task: { id: taskId, title: "Ship it", projectId: null, issue: null, description: "Durable context" } });
     });
 
     expect(created.exitCode).toBe(EXIT_CODES.OK);
     expect(inspected.exitCode).toBe(EXIT_CODES.OK);
+  });
+
+  it("creates with optional Project and updates Task-owned text", async () => {
+    const created = await execute([
+      "tasks", "create", "--title", "Project Task", "--project", projectId, "--json",
+    ], async (url, init) => {
+      expect(url).toBe("http://localhost:3000/api/tasks");
+      expect(JSON.parse(String(init?.body))).toMatchObject({ title: "Project Task", projectId });
+      expect(JSON.parse(String(init?.body)).idempotencyKey).toMatch(/^[0-9a-f-]{36}$/u);
+      return response({ task: { id: taskId }, created: true }, 201);
+    });
+    const updated = await execute([
+      "tasks", "update", taskId, "--title", "Renamed", "--description", "New context", "--json",
+    ], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/tasks/${taskId}`);
+      expect(init?.method).toBe("PATCH");
+      expect(JSON.parse(String(init?.body))).toEqual({ title: "Renamed", description: "New context" });
+      return response({ task: { id: taskId, title: "Renamed" } });
+    });
+    expect(created.exitCode).toBe(EXIT_CODES.OK);
+    expect(updated.exitCode).toBe(EXIT_CODES.OK);
   });
 
   it("lists and creates independent Sessions beneath one Task", async () => {

@@ -24,12 +24,14 @@ describe("provider-specific Project Issue contracts", () => {
         milestone: { id: "3", title: "v1" },
         updatedAt: "2026-08-08T00:00:00.000Z",
         url: "https://github.com/mystra-ai/mystra/issues/42",
+        taskId: "00000000-0000-4000-8000-000000000099",
       }],
       pageInfo,
     });
 
     expect(response.items[0]?.assignees).toHaveLength(1);
     expect(response.items[0]?.milestone?.title).toBe("v1");
+    expect(response.items[0]?.taskId).toBe("00000000-0000-4000-8000-000000000099");
   });
 
   it("preserves Linear-native list fields", () => {

@@ -110,8 +110,9 @@ function usage() {
   pnpm operator:cli -- issues get <identifier> --integration NAME [--repository IDENTIFIER] [--json]
   pnpm operator:cli -- issues dispatch <identifier> --integration NAME --project SLUG --provider copilot --branch NAME [--json]
   pnpm operator:cli -- tasks list [--json] [--control-plane-url URL]
-  pnpm operator:cli -- tasks create --project PROJECT_ID --objective TEXT [--json]
+  pnpm operator:cli -- tasks create --title TEXT [--description TEXT] [--project PROJECT_ID] [--idempotency-key UUID] [--json]
   pnpm operator:cli -- tasks inspect <task-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- tasks update <task-id> [--title TEXT] [--description TEXT] [--json]
   pnpm operator:cli -- sessions list <task-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- sessions create <task-id> --title TITLE --objective TEXT [--provider NAME] [--branch NAME] [--json]
   pnpm operator:cli -- sessions inspect <session-id> [--json] [--control-plane-url URL]
@@ -219,6 +220,8 @@ function parseArgs(argv) {
     repositoryIntegration: undefined,
     title: undefined,
     objective: undefined,
+    description: undefined,
+    idempotencyKey: undefined,
     systemPrompt: undefined,
     expectedRevision: undefined,
     includeArchived: false,
@@ -270,6 +273,8 @@ function parseArgs(argv) {
       ["--repository-integration", "repositoryIntegration"],
       ["--title", "title"],
       ["--objective", "objective"],
+      ["--description", "description"],
+      ["--idempotency-key", "idempotencyKey"],
       ["--system-prompt", "systemPrompt"],
       ["--expected-revision", "expectedRevision"],
       ["--username", "username"],
@@ -301,7 +306,7 @@ function parseArgs(argv) {
     (group === "repositories" && command === "get") ||
     (group === "runners" && command === "inspect") ||
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
-    (group === "tasks" && command === "inspect") ||
+    (group === "tasks" && ["inspect", "update"].includes(command)) ||
     (group === "agents" && ["inspect", "update", "archive"].includes(command)) ||
     (group === "teams" && command === "use") ||
     (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command))
@@ -334,7 +339,7 @@ function parseArgs(argv) {
   if (group === "agents" && !["list", "inspect", "create", "update", "archive"].includes(command)) {
     return { ok: false, message: `Unknown agents command: ${command}` };
   }
-  if (group === "tasks" && !["list", "create", "inspect"].includes(command)) {
+  if (group === "tasks" && !["list", "create", "inspect", "update"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
   }
   if (group === "sessions" && !["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command)) {
@@ -381,8 +386,11 @@ function parseArgs(argv) {
       message: "issues dispatch requires --project, --provider, and --branch",
     };
   }
-  if (group === "tasks" && command === "create" && (!flags.project || !flags.objective)) {
-    return { ok: false, message: "tasks create requires --project and --objective" };
+  if (group === "tasks" && command === "create" && !flags.title) {
+    return { ok: false, message: "tasks create requires --title" };
+  }
+  if (group === "tasks" && command === "update" && !flags.title && flags.description === undefined) {
+    return { ok: false, message: "tasks update requires --title or --description" };
   }
   if (group === "sessions" && command === "create" && (!flags.title || !flags.objective)) {
     return { ok: false, message: "sessions create requires --title and --objective" };
@@ -437,6 +445,8 @@ function parseArgs(argv) {
         : {}),
       ...(flags.title ? { title: flags.title } : {}),
       ...(flags.objective ? { objective: flags.objective } : {}),
+      ...(flags.description !== undefined ? { description: flags.description } : {}),
+      ...(flags.idempotencyKey ? { idempotencyKey: flags.idempotencyKey } : {}),
       ...(flags.systemPrompt ? { systemPrompt: flags.systemPrompt } : {}),
       ...(flags.expectedRevision !== undefined ? { expectedRevision: flags.expectedRevision } : {}),
       ...(flags.includeArchived ? { includeArchived: true } : {}),
@@ -807,10 +817,10 @@ function formatSessionInspect(snapshot) {
 
 function formatTaskInspect(payload) {
   const lines = [`Task ${payload.task.id}`];
-  pushLine(lines, `  project: ${payload.task.projectId}`);
-  pushLine(lines, `  objective: ${payload.task.objective}`);
-  pushLine(lines, `  sessions: ${payload.sessionSummary.sessionCount}`);
-  pushLine(lines, `  activeSessions: ${payload.sessionSummary.activeSessionCount}`);
+  pushLine(lines, `  title: ${payload.task.title}`);
+  pushLine(lines, `  project: ${payload.task.projectId ?? "none"}`);
+  pushLine(lines, `  issue: ${payload.task.issue?.identifier ?? "none"}`);
+  pushLine(lines, `  description: ${payload.task.description ?? "none"}`);
   return lines.join("\n");
 }
 
@@ -912,7 +922,7 @@ function formatSuccess(command, payload, jsonMode) {
   if (command.group === "tasks" && command.command === "list") {
     return `${formatTasksList(payload)}\n`;
   }
-  if (command.group === "tasks" && command.command === "inspect") {
+  if (command.group === "tasks" && ["inspect", "create", "update"].includes(command.command)) {
     return `${formatTaskInspect(payload)}\n`;
   }
   if (command.group === "sessions" && command.command === "list") {
@@ -1202,14 +1212,24 @@ async function executeCommand(command, fetchImpl, deps = {}) {
     return await readJson(new URL("/api/tasks", baseUrl), fetchImpl, {
       method: "POST",
       body: JSON.stringify({
-        source: "api",
-        projectId: command.project,
-        objective: command.objective,
+        title: command.title,
+        ...(command.description !== undefined ? { description: command.description } : {}),
+        ...(command.project ? { projectId: command.project } : {}),
+        idempotencyKey: command.idempotencyKey ?? crypto.randomUUID(),
       }),
     });
   }
   if (command.group === "tasks" && command.command === "inspect") {
     return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
+  }
+  if (command.group === "tasks" && command.command === "update") {
+    return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl, {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...(command.title ? { title: command.title } : {}),
+        ...(command.description !== undefined ? { description: command.description } : {}),
+      }),
+    });
   }
   if (command.group === "sessions" && command.command === "list") {
     return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}/sessions`, baseUrl), fetchImpl);

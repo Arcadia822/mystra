@@ -275,4 +275,27 @@ describe("GitHubIntegrationProvider issues", () => {
     await expect(provider.getIssue({ identifier: "8", repository })).resolves.toBeUndefined();
     await expect(provider.getIssue({ identifier: "404", repository })).resolves.toBeUndefined();
   });
+
+  it("resolves one exact Project Issue and preserves provider-stable external ID", async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(githubRepository))
+      .mockResolvedValueOnce(jsonResponse(githubIssue));
+    const provider = new GitHubIntegrationProvider({ token: "github-test-token", fetchImpl });
+
+    await expect(provider.getProjectIssue({ repositoryExternalId: "42", identifier: "7" }))
+      .resolves.toMatchObject({ externalId: "101", number: 7, title: githubIssue.title });
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://api.github.com/repositories/42");
+    expect(fetchImpl.mock.calls[1]?.[0]).toBe("https://api.github.com/repos/arcadia/mystra-fixture/issues/7");
+  });
+
+  it("fails closed on malformed exact Issue responses", async () => {
+    const provider = new GitHubIntegrationProvider({
+      token: "github-test-token",
+      fetchImpl: vi.fn()
+        .mockResolvedValueOnce(jsonResponse(githubRepository))
+        .mockResolvedValueOnce(jsonResponse({ id: 101, number: 7 })),
+    });
+    await expect(provider.getProjectIssue({ repositoryExternalId: "42", identifier: "7" }))
+      .rejects.toMatchObject({ code: "INTEGRATION_INVALID_RESPONSE" });
+  });
 });

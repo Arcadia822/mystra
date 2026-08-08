@@ -28,24 +28,30 @@ pnpm operator:cli -- agents list
 pnpm operator:cli -- agents inspect AGENT_ID
 ```
 
-### Legacy Task/Session commands
+### Task commands
 
-The commands below expose the pre-0.1 Task/Session routes that remain in the
-client. Their required Task→Project and Session→Task arguments are obsolete
-domain assumptions, not the target model. A separate Task/Session specification
-must replace them with Team-scoped objects and optional Session references.
-
-Create a Task without starting execution:
+Create a Team-owned Task without starting execution; `--project` is optional:
 
 ```sh
 pnpm operator:cli -- tasks create \
+  --title "Investigate the failing acceptance test" \
+  --description "Preserve findings for later Agent work" \
   --project PROJECT_ID \
-  --objective "Investigate the failing acceptance test" \
   --json
+
+pnpm operator:cli -- tasks list
+pnpm operator:cli -- tasks inspect TASK_ID
+pnpm operator:cli -- tasks update TASK_ID --description "Updated context"
 ```
 
-The legacy CLI still accepts a Task-targeted Session route. Under the current
-domain model this is an optional Task reference, not Task ownership:
+Task Project and Issue references are fixed at creation. Issue-derived Tasks are
+created from the Project-scoped Issue row or canonical HTTP endpoint, not by
+supplying Issue identity to this command.
+
+### Legacy Session commands
+
+The client may still expose pre-redesign Session commands. Feature 047 does not
+define or invoke their launch behavior:
 
 ```sh
 pnpm operator:cli -- sessions create TASK_ID \
@@ -68,16 +74,6 @@ pnpm operator:cli -- sessions inspect SESSION_ID
 pnpm operator:cli -- sessions wait SESSION_ID --interval-seconds 2 --timeout-seconds 3600
 ```
 
-## Issue dispatch
-
-```sh
-pnpm operator:cli -- issues dispatch MYS-101 \
-  --integration linear \
-  --project mystra \
-  --provider copilot \
-  --branch codex/mys-101 \
-  --json
-```
 
 The response contains `task.id`, `session.id`, and `created`. Repeating the same
 Issue/Project dispatch returns the same pair. A conflicting branch is rejected.

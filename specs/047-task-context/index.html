@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>047-task-context</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"047-task-context","title":"047-task-context","prototypeHref":"mockups/index.html?v=1786183086072","generatedAt":"2026-08-08T14:02:15.670Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：Task 上下文容器与创建入口\n\n**Feature Branch**: `047-task-context`\n**Created**: 2026-08-08\n**Status**: Implemented\n**Input**: 定义新的 Task 对象：Task 直属 Team，可保存零或一个 Project 上下文引用、关联零或一个 Issue，作为面向 Agent 的工作容器；New 页面用于手动创建 Task，Issue 列表通过一个按钮直接创建 Task；Task 不承担复杂需求状态机，也不设计任何 Session 启动逻辑。\n\n**Owner Decisions**:\n\n- Task 是 Team 直属、可独立存在的持久工作容器，不归属于 Project，也不是 Session 的父级前置条件。\n- Session 可以没有 Project、没有 Task；本规格不得设计 Session 创建、四要素默认值或自动路由算法。\n- Project 与 Task 未来只可为 Session 附加上下文，并为四要素自动路由提供策略输入；这些策略不属于本规格。\n- `/new` 是手动创建 Task 的页面，不是启动 Session 的页面。\n- Issue → Task 没有中间页面或配置步骤；它是 Issue 行上的单一显式按钮。\n- 一个 exact Issue 最多关联一个 Task；已有 Task 时显示 `Open Task`。\n- Issue 行创建成功后留在当前列表，不自动跳转。\n- Task 的可选 Project 与 Issue 引用只在创建时确定，创建后不得修改。\n\n## Contract Summary\n\nTask 保存人类或 Agent 要持续处理的意图与工作说明。它直属 Team，可以独立存在，也可以在创建时保存一个可选 Project 上下文引用；该引用不构成 Project ownership。当 Task 由外部 Issue 创建时，只保存可解析该 Issue 的稳定引用，不复制外部需求管理状态。\n\n| 关系或能力 | 本规格合同 |\n| --- | --- |\n| Team | 每个 Task 属于且隔离于一个 Mystra Team |\n| Project | 零或一个不可变可选引用；不是所有权，没有 Project 的 Task 合法且必须可发现 |\n| Issue | 零或一个不可变引用；只由 Issue 行创建路径写入，并同时写入该 Issue 所属 Project |\n| Session | 无必需关系；创建或更新 Task 不得创建、启动、排队或配置 Session |\n| 生命周期 | 不引入需求管理状态机；Issue status、priority、assignee、cycle、milestone 等继续由外部 Issue 拥有 |\n\n## User Scenarios & Testing *(mandatory)*\n\n### User Story 1 - 从 New 页面手动创建 Task（Priority: P1）\n\n作为 Mystra 操作者，我希望在 `/new` 输入 Task 标题和工作说明，并按需选择一个 Project 上下文引用，以便先建立一个可持续补充的 Agent 工作容器，而不被迫立即启动 Session。\n\n**Why this priority**: New 是主导航中的快速入口。若它仍要求 Project 或把创建等同于执行，独立 Task 与独立 Session 都只是文档上的装饰品。\n\n**Independent Test**: 分别创建无 Project 和带 Project 引用的 Task；每次只产生一个 Task，成功后进入 Task 对象页，Issue 与 Session mutation 数量始终为零。\n\n**Acceptance Scenarios**:\n\n1. **Given** 操作者位于 active Team，**When** 在 `/new` 输入有效标题并提交，**Then** 系统创建无 Project、无 Issue 的 Task，并进入其 Task 对象页。\n2. **Given** 操作者选择一个可访问 Project，**When** 创建 Task，**Then** Task 保存该 Project 的可选上下文引用，但仍直属 Team，且不要求 Issue、Agent、Runtime、Provider、Context 或 Session 参数。\n3. **Given** 操作者使用 `/new`，**When** 查看全部创建控件，**Then** 页面不存在 Issue picker、Issue 搜索或 Issue 引用输入；Issue 关联只能从 Project-scoped Issue 行创建。\n4. **Given** 标题为空或只有空白，**When** 提交，**Then** 页面在本地与服务端边界均拒绝创建并把焦点移到标题字段。\n5. **Given** 创建请求进行中，**When** 操作者重复点击或请求被安全重试，**Then** 同一个创建操作最多产生一个 Task。\n6. **Given** Task 创建成功，**When** 页面导航到 Task 对象页，**Then** 未完成草稿被清除，之前选择的 Project 不会自动继承给下一次 New 创建。\n\n---\n\n### User Story 2 - 从 Issue 行一键创建 Task（Priority: P1）\n\n作为正在浏览 Project Issues 的操作者，我希望点击 Issue 行上的 `Create Task` 按钮就直接创建 Task，以便把外部需求变成 Mystra 的 Agent 上下文，而不经过表单、详情页或 Session 配置。\n\n**Why this priority**: 045 已经故意把 Issue → Task 留给后续规格。本功能必须完成这条边界，而不是再发明一个“即将开始”的过渡页面。\n\n**Independent Test**: 在 GitHub 与 Linear 的 Project-scoped Issue 列表各选择一个 Issue，点击行级按钮；每次直接创建带 Project + Issue 引用的 Task 并留在当前列表，不出现 modal、drawer、wizard、自动跳转或 Session 请求。\n\n**Acceptance Scenarios**:\n\n1. **Given** 操作者可访问 Project 与其 GitHub Issue，**When** 点击 `Create Task`，**Then** 系统以当前 Issue 标题作为初始 Task 标题，保存 exact Project 上下文引用与 GitHub Issue 稳定引用，并留在当前 Issue 列表。\n2. **Given** 操作者可访问 Project 与其 Linear Issue，**When** 点击 `Create Task`，**Then** 系统执行相同的一步创建行为，并保留 exact Linear connection/source scope 所需的稳定引用。\n3. **Given** 同一 Issue 已有关联 Task，**When** 再次呈现该 Issue 行，**Then** 行级 Task 操作显示 `Open Task`；只有操作者随后点击它时才打开既有 Task，不创建重复 Task。\n4. **Given** 两个并发或重试请求尝试从同一 exact Issue 创建 Task，**When** 服务端处理完成，**Then** 最多创建一个关联 Task，所有成功响应解析为同一 Task ID。\n5. **Given** Issue 在点击后被上游重命名、关闭或改变优先级，**When** 查看 Task，**Then** Task 的自主标题不被静默改写，Issue 当前状态仍由 provider 实时读取；Task 不保存或同步需求管理快照。\n6. **Given** Issue source、connection、Project 或操作者权限已失效，**When** 点击按钮，**Then** 创建 fail closed，页面保留在 Issue 列表并显示可恢复错误，不产生无来源或跨 Team Task。\n7. **Given** 一键创建完成，**When** 检查所有请求，**Then** 不存在 Session 创建、Session 启动、Issue write-back 或外部 Issue 修改。\n\n---\n\n### User Story 3 - 维护 Task 自有内容并保持来源固定（Priority: P1）\n\n作为 Task 的协作者，我希望读取和更新 Task 自有的标题与工作说明，同时让创建时确定的 Project/Issue 引用保持固定，以便在多次 Agent 工作之间保留稳定意图和来源，而不把 Task 变成另一套 Issue 管理系统。\n\n**Why this priority**: 只会被创建、无法被维护的“上下文容器”只是一次性表单提交留下的化石。\n\n**Independent Test**: 分别创建手动 Task 和 Issue-derived Task，更新标题与工作说明；Task ID 和创建时的 Project/Issue 引用保持不变，不创建 Session，也不复制外部 Issue 状态。\n\n**Acceptance Scenarios**:\n\n1. **Given** 已存在 Task，**When** 授权操作者更新标题或工作说明，**Then** 同一 Task 身份保留并更新修改时间。\n2. **Given** 已存在手动 Task，**When** 调用方尝试附加、替换或移除其 Project 引用，**Then** 系统拒绝更新；需要不同 Project 上下文时必须创建新 Task。\n3. **Given** 已存在任意 Task，**When** 调用方尝试附加、替换或解除 Issue 引用，**Then** 系统拒绝更新；Issue 引用只能由 Issue 行创建路径在创建时写入。\n4. **Given** Issue-derived Task 的外部 Issue 已不可访问，**When** 读取 Task，**Then** Task 自身内容仍可用，Issue 引用显示不可用状态且不回退到其他 connection 或同名 Issue。\n5. **Given** Task 被 Session 通过 `taskId` 引用，**When** Session 没有或另行指定 `projectId`，**Then** Task 自身的 Project 引用不得推导、要求或覆盖 Session 的 Project 引用。\n\n---\n\n### User Story 4 - 发现有 Project 与无 Project 的 Task（Priority: P2）\n\n作为操作者，我希望 Task 列表同时显示按 Project 分组的 Task 与明确的 `No project` 分组，以便手动创建的独立 Task 不会在离开详情页后消失。\n\n**Why this priority**: 可创建但不可再次发现的数据通常被称为 bug。为了保持仪式感，也可以称为“极简信息架构”。\n\n**Independent Test**: 创建两个无 Project Task 和两个带不同 Project 引用的 Task；列表分别显示在 `No project` 与对应 Project 分组，每个 Task 始终只出现一次。\n\n**Acceptance Scenarios**:\n\n1. **Given** Team 同时存在有 Project 与无 Project Task，**When** 打开 Task 列表或主导航 Task 分组，**Then** 两类 Task 均可发现，无 Project Task 进入明确的 `No project` 分组。\n2. **Given** Task 在创建时带有 Project 引用，**When** 列表刷新，**Then** Task 只出现在该 Project 对应的一个分组中；分组不改变 Task 的 Team ownership。\n3. **Given** 当前 Team 没有 Task，**When** 打开列表，**Then** 页面提供进入 `/new` 的入口，不伪造示例数据或 Session 状态。\n\n### Edge Cases\n\n- 允许的创建结果只有：无 Project/无 Issue、一个 Project/无 Issue、一个 Project/一个 Issue；最后一种只可由 Issue 行创建。有 Issue/无 Project 为非法状态。\n- Issue 引用必须包含 provider-stable external identity，并通过 Task 的 exact Project source 解析；可变标题、编号展示文本或 URL 不能单独承担身份。\n- 同名 Task 合法；引用、更新和关联必须使用稳定 Task ID。\n- 从 Issue 创建时复制的标题只作为 Task 初始标题，此后 Task 标题与上游 Issue 标题独立变化。\n- Project 或 Issue 来自其他 Team、Project 已归档、Issue source 已切换、connection 已撤销或 provider 返回畸形数据时，所有关联写入 fail closed。\n- New 页不加载或选择 Issue；Project 选择只影响手动 Task 的不可变 Project 上下文引用。\n- Issue 一键创建正在进行时按钮必须禁用并有文本 loading 状态，不能只靠颜色表达。\n- Task 工作说明和外部 Issue 文本是不受信任的用户/第三方输入；显示时按普通文本处理，未来作为 Context assembly 来源时也不能被提升为 system-level 指令。\n\n## Requirements *(mandatory)*\n\n### Functional Requirements — Task 对象\n\n- **FR-001**: Task MUST 归属于一个 Mystra Team，并通过 authenticated active Team 推导；公共创建请求 MUST NOT 接受调用方自报的 Team identity。\n- **FR-002**: Task MUST 拥有稳定 ID、非空标题、可为空的 `description`、零或一个 Project 上下文引用、零或一个 Issue 稳定引用、创建时间与更新时间。\n- **FR-003**: Task MUST 可在没有 Project 且没有 Issue 时创建、读取、更新和列出；Project 不得成为 Task 身份或存在前提。\n- **FR-004**: Task 由 Issue 创建时 MUST 同时写入该 Issue 所属 Project 的上下文引用；Task 的 Project 引用与 Issue source scope MUST 完全一致。\n- **FR-005**: 一个 exact Issue 在本功能中 MUST 最多关联一个 Task；同一 Issue 的并发创建与安全重试 MUST 返回同一 Task，不得产生重复 Task。\n- **FR-006**: Task 标题 MUST 在去除首尾空白后仍有内容并受显式长度上限约束；`description` MAY 为空，但若提供也 MUST 受显式长度上限约束。具体上限由 plan/research 统一确定。\n- **FR-007**: 授权调用方 MUST 能通过 canonical programmable surface 创建、读取、列出和更新 Task 的标题与 `description`；MVP 不要求 Task 删除、归档或需求状态变更。\n- **FR-008**: Task 的 Project 与 Issue 引用 MUST 在创建后不可变；任何更新入口 MUST 拒绝新增、替换、清空或迁移这些引用。\n- **FR-009**: 手动创建 MAY 写入零或一个 Project 上下文引用但 MUST NOT 接受 Issue 引用；Issue-derived 创建 MUST 重新验证 Team、Project、provider、exact connection/source scope 与当前访问权，并原子写入 Project 与 Issue 引用。\n- **FR-010**: Task MUST NOT 保存 Issue status、priority、assignee、labels、cycle、milestone、comments、description snapshot 或其他需求管理状态；这些信息继续由外部 Issue 拥有并按需读取。\n- **FR-011**: Task MUST NOT 引入 backlog、triage、in progress、done、blocked、approval、priority、estimate、due date、assignee 或 workflow transition 等需求管理字段或状态机。\n- **FR-012**: Task 创建或更新 MUST NOT 创建、启动、排队、取消或配置 Session，也 MUST NOT 要求 Runtime、Provider、Agent、Context 四要素。\n\n### Functional Requirements — New 页面\n\n- **FR-013**: 主导航 `New` 与 `/new` MUST 直接呈现手动 Task 创建页面；页面标题和主要动作 MUST 使用 `Task` / `Create Task` 术语，不得称为 Session 启动或 dispatch。\n- **FR-014**: New 页面 MUST 只提供标题、`description` 与可选 Project 输入；MUST NOT 提供 Issue、Runtime、Provider、Agent、Context、模型、branch 或 Session 控件。\n- **FR-015**: New 页面 MUST NOT 加载、搜索、选择或提交 Issue；所有 Issue-derived Task 的 Web 创建入口 MUST 位于 045 定义的 Project-scoped provider-specific Issue 行。\n- **FR-016**: 手动创建提交时服务端 MUST 将可选 Project 验证为 active Team 内可访问对象，并把它保存为不可变上下文引用而非 Project ownership。\n- **FR-017**: 手动 Task 创建成功后 MUST 导航到 canonical Task 对象页，清除当前草稿，并且 MUST NOT 自动启动 Session。\n- **FR-018**: 未完成草稿 SHOULD 在当前操作者和 active Team 范围内跨 `/new` 页面往返恢复；成功提交、切换 Team 或明确清除 MUST 移除草稿，且成功后的 Project 不得成为下一次创建的隐式默认值。\n- **FR-019**: New 页面 MUST 提供 submitting、validation error、authorization error、Project unavailable 与 recoverable server error 状态；失败时保留仍合法的草稿内容。\n\n### Functional Requirements — Issue 一键创建\n\n- **FR-020**: 045 定义的 GitHub 与 Linear Issue 行 MUST 在保留 provider 原始 Issue 入口的同时增加一个 Task-specific `Create Task` 按钮；该按钮 MUST 直接调用 canonical Task 创建能力，不得打开 modal、drawer、wizard、Mystra Issue 详情页或 New 页面。\n- **FR-021**: 从 Issue 创建 Task MUST 原子写入当前 active Team、exact Project 与 provider-stable Issue 引用，并以当前 Issue 标题生成初始 Task 标题；不得保存 Issue 内容快照。\n- **FR-022**: Issue 已有关联 Task 时，行级操作 MUST 呈现为 `Open Task` 并打开既有 Task；服务端唯一性仍是最终防重边界。\n- **FR-023**: Issue 一键创建成功后 MUST 留在当前 Issue 列表，显示成功反馈，并把该行 Task 操作更新为 `Open Task`；只有显式点击 `Open Task` 才进入 canonical Task 对象页。失败时同样留在 Issue 列表并提供可恢复错误。\n- **FR-024**: Issue 一键创建 MUST 是 Mystra 内部只写 Task、外部只读的操作；MUST NOT 修改、评论、标记或 write back 外部 Issue。\n- **FR-025**: New 页面与 Issue 一键创建 MUST 使用同一 Task 创建业务规则、授权与验证边界；Web 不得拥有第二套 Task 关系逻辑。\n\n### Functional Requirements — 列表、授权与界面质量\n\n- **FR-026**: Task 列表与主导航 Task 分组 MUST 同时支持按 Project 分组和明确的 `No project` 分组；每个 Task 在任一时刻只能出现在一个分组。\n- **FR-027**: Task 的创建、读取、列出和更新 MUST 按 Team fail closed；Project、Issue 或 Task 来自其他 Team 时不得泄露存在性或建立关系。\n- **FR-028**: Task 与 Issue 标题、Task `description` 及外部展示字段 MUST 作为不受信任文本安全呈现，不得解释为 HTML、脚本或 system-level Agent 指令。\n- **FR-029**: 新增 UI 文案 MUST 提供简体中文与英文值，并在 320、768、1024 和 1440px 视口保持 New 表单与 Issue 行操作可用。\n- **FR-030**: New 表单与 Issue 行操作 MUST 支持键盘操作、可见 focus、语义化 label、文本状态和错误关联；不得只通过颜色表达可用性、loading 或失败。\n\n### Key Entities\n\n- **Task**: Team-owned 的持久 Agent 工作容器。包含稳定身份、标题、`description`、不可变的可选 Project 上下文引用、不可变的可选 Issue 引用和管理时间；不包含 Session 启动参数或需求状态机。\n- **Task Project Reference**: Task 创建时保存的零或一个 Project 上下文引用。它不是 Project ownership，也不得被 Session 的 `taskId` 隐式投影为 Session `projectId`。\n- **Task Issue Reference**: Issue-derived Task 创建时保存的零或一个外部 Issue 稳定引用。它依赖同次创建写入的 exact Project source，只用于解析实时 Issue 内容与防止重复创建，不是 Issue snapshot，创建后不可修改。\n- **New Task Draft**: 当前操作者在 active Team 下尚未提交的本地创建输入；不是 Task，不可被 Session 或其他操作者读取。\n- **Issue-to-Task Action**: Project-scoped Issue 行上的原子创建或打开既有 Task 操作；不是独立业务对象，也不修改外部 Issue。\n\n## Dependencies and Supersession\n\n- `045-project-issue-sources` 继续拥有 Project-scoped GitHub/Linear Issue 来源、列表、筛选、分页、provider 原始页面入口与外部只读数据。本功能明确覆盖其 User Story 3 Acceptance Scenario 6、FR-025 与 SC-009 中“不得提供 Task 创建/Task 控件”的部分，仅新增一个 Task-specific 按钮；045 对无 Mystra Issue 详情页、无 Issue write-back、无 Session mutation 和 provider 原始入口的要求继续有效。\n- `046-agent-definition` 继续拥有 Agent、Session 四要素、Team ownership 以及 Session `taskId?` / `projectId?` 独立性的定义。本功能遵守 Task 直属 Team、不归属于 Project 的合同；Task 自身可选 Project 引用只附加上下文，不得推导 Session Project，也不定义四要素默认值或路由策略。\n- 本功能取代当前 Task 必须属于 Project、Task 是 Session 父级意图或 `/new` 必须选择 Project 的临时合同；pre-0.1 不提供兼容别名或双写路径。\n- 现有 Team RBAC、Project exact-connection 和 Issue provider authorization 继续适用；本功能不扩大凭据范围。\n\n## Assumptions\n\n- 一个 exact Issue 在 MVP 中对应零或一个 durable Task，是 Owner 已确认的产品决定；多次 Agent 执行由未来 Session 关系表达，而不是为同一 Issue 复制 Task。\n- Task 标题与 `description` 是 Mystra-owned 内容；Issue 标题只在一键创建时作为初始值，不持续同步。\n- Task 的 Project/Issue 引用创建后不可修改，是 Owner 已确认的产品决定；需要不同来源范围时创建新 Task。\n- Task 详情页和 canonical Task object route 已是产品方向；其 Session 面板、运行按钮和状态聚合不在本规格中定义。\n- Project/Task 对未来 Session 四要素的默认值、优先级、覆盖和 auto routing 策略必须由独立 Session 规格定义。\n\n## Out of Scope\n\n- 任何 Session 创建、启动、dispatch、调度、claim、取消、重试、执行状态、结果、Review evidence 或 activity timeline。\n- Runtime、Provider、Agent、Context 的默认值、选择器、解析顺序、兼容性校验或 auto routing 策略。\n- Task 需求管理状态机、priority、assignee、estimate、due date、labels、milestone、cycle、approval 或 workflow automation。\n- 外部 Issue write-back、状态修改、评论、webhook、双向同步、缓存或内容 snapshot。\n- Mystra Issue 详情页、Issue 创建表单、Issue → Task wizard 或批量 Issue dispatch。\n- Task 模板、子 Task、依赖图、看板、搜索排序策略、自动拆解、standing orders 或多 Agent 编排。\n- Task 删除、归档、恢复、保留策略和历史版本 UI。\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: 操作者可在 `/new` 仅填写标题并用一次提交创建无 Project、无 Issue Task；创建过程中 Session mutation 请求数为 0。\n- **SC-002**: 无 Project、仅 Project、Project + GitHub Issue、Project + Linear Issue 四种 Task 创建结果验收成功率为 100%；有 Issue/无 Project、New 页面 Issue 写入、创建后 Project/Issue 引用修改与跨 Project Issue 写入成功数均为 0。\n- **SC-003**: 从 GitHub 或 Linear Issue 行创建 Task 均只需一次显式按钮点击；中间 modal、drawer、wizard、New 页面和 Mystra Issue 详情页出现数为 0，成功后的自动页面跳转数为 0。\n- **SC-004**: 同一 exact Issue 的 20 次并发或重试创建全部解析为一个 Task ID，持久 Task 数量为 1。\n- **SC-005**: Task 可见字段抽样中，需求管理状态字段数量为 0；外部 Issue 状态变化不会静默改写 Task 标题或 `description`。\n- **SC-006**: Task 创建和更新的验收请求中，Session 创建、启动、配置、取消和外部 Issue write-back 次数均为 0。\n- **SC-007**: 有 Project 与无 Project Task 在列表中发现率均为 100%，每个 Task 同时出现的分组数量恒为 1。\n- **SC-008**: Project 切换、Issue source 失效、跨 Team 引用、并发创建和上游错误测试均 100% fail closed，且不产生孤立 Issue 引用或重复 Task。\n- **SC-009**: 320、768、1024 和 1440px 视口及纯键盘操作下，New Task 创建和 Issue 行 `Create Task` / `Open Task` 均可完成，无不可恢复水平滚动。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：Task 上下文容器与创建入口\n\n## 摘要\n\nTask 是 Team 直属、可持久维护的 Agent 工作容器，不归属于 Project，不是需求管理状态机，也不是 Session 的必需父对象。Task 可以保存零或一个不可变 Project 上下文引用；由 Issue 创建时，同时保存 exact Project 与不可变 Issue 引用。\n\n本功能提供两条创建路径：`/new` 手动创建 Task，以及 Project-scoped Issue 行上的一个 `Create Task` 按钮。两条路径都只创建 Task，绝不顺带启动 Session。\n\n## 功能地图\n\n- Task 对象：稳定 ID、标题、`description`、不可变的可选 Project/Issue 引用。\n- New 页面：标题、`description`、可选 Project；不提供 Issue picker。\n- Issue 一键创建：从 GitHub/Linear Issue 行直接创建 Task 并留在列表，无中间页面或自动跳转。\n- Task 维护：只更新标题与 `description`；Project/Issue 引用创建后不可修改。\n- Task 发现：按 Project 分组，并提供明确的 `No project` 分组。\n- 防重：同一 exact Issue 最多一个 Task；重试或并发返回同一 Task。\n\n## 边界\n\n- Task 直属 Team，不要求 Project、Issue 或 Session；Project 只是可选上下文引用，不是所有权。\n- Issue 关联依赖 Project；有 Issue、无 Project 是非法状态。\n- Task 不保存 Issue 的 status、priority、assignee、labels、cycle、milestone、comments 或内容快照。\n- Task 不拥有需求状态机，也不提供 backlog、done、blocked、approval 等状态。\n- 本功能不设计 Session 启动、四要素默认值或 Project/Task auto routing。\n- Issue → Task 不打开 modal、drawer、wizard、New 页面或 Mystra Issue 详情页。\n- Session 的 `taskId?` 与 `projectId?` 保持独立；Task 的 Project 引用不得推导 Session Project。\n\n## 分阶段能力图\n\n1. 当前 spec：冻结 Task 对象、可选关系、New 页面和 Issue 一键创建边界。\n2. Plan：确定持久化、canonical API、并发防重、草稿与 UI 数据流。\n3. Implementation：先交付独立 Task CRUD，再接 New 页面与 Issue 行动作。\n4. 后续 Session spec：单独定义 Session 与 Task/Project 的可选关联、四要素默认值和 auto routing；不得反向改写当前 Task 状态模型。\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：Task 上下文容器与创建入口\n\n## Owner 评审\n\n- [x] Task 可以没有 Project，也可以没有 Issue。\n- [x] Task 只作为 Agent 上下文容器，不承担复杂需求管理状态机。\n- [x] Session 可以没有 Project 和 Task；本 spec 不设计任何 Session 启动逻辑。\n- [x] `/new` 直接创建 Task，不是 Session launcher。\n- [x] Issue → Task 是行级单按钮直接创建，不提供中间页面。\n- [x] Owner 已确认一个 exact Issue 最多关联一个 durable Task；已有 Task 时操作改为 `Open Task`。\n- [x] Owner 已确认 Issue 创建成功后留在列表，不自动跳转。\n- [x] Owner 已确认 Task 的 Project/Issue 引用创建后不可修改。\n- [x] Task 自有内容采用必填标题 + 可选 `description`，不引入 priority、assignee、due date 等字段。\n\n## Spec 就绪度\n\n- [x] `spec.md` 已完成且无 `[NEEDS CLARIFICATION]`。\n- [x] 045 的冲突条款已精确覆盖；046 的 Team ownership 与独立 Session 引用已对齐。\n- [x] Task、Project、Issue、Session 的关系状态可枚举并可测试。\n- [x] New 页面、Issue 一键创建、错误态、防重和可访问性均有验收覆盖。\n- [x] requirements checklist 已完成。\n- [x] Multica 调研结论已记录在 `research.md`。\n- [x] UI 原型入口已记录在 `prototype.md`，独立原型位于 `mockups/index.html`。\n- [x] Owner 决策已全部写入；Specify 阶段完成，可进入 `/speckit.plan`。\n\n## 后续插件检查\n\n- [x] `/speckit.plan` 使用 GitNexus 检查当前 Task schema、RdbProvider、`NewTaskComposer`、Issue list 行动作与 Task object route 的 blast radius。\n- [x] `plan-eng-review` 评审 Team 授权、Issue 唯一性、Project/Issue 不可变约束、事务边界、失败恢复与草稿存储。\n- [x] `/speckit.tasks` 仅在 engineering review 完成或被明确豁免后生成。\n- [x] 实现前运行 `/speckit.analyze`，检查 038、040、045、046 与 5xP 中旧的 Task→Session 父级表述。\n- [x] UI 实现使用 `frontend-ui-engineering`，并在真实浏览器验证 New 与 Issue 行操作。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype: Task 创建入口\n\n## 入口\n\n- [打开独立 HTML 原型](mockups/index.html)\n\n## 覆盖页面\n\n1. `New Task`：标题、`description`、可选 Project，以及纯 Task 创建动作；不提供 Issue picker。\n2. `Project Issues`：GitHub/Linear Issue 行上的 `Create Task`，成功后留在列表并变为 `Open Task`；没有中间 modal、drawer、wizard 或自动跳转。\n3. 小屏状态：表单控件纵向排列，Issue 行动作保持可见。\n\n## 使用方式\n\n- 使用页面顶部 `New Task` / `Issue action` 切换两个场景。\n- 在 New Task 场景可选择或不选择 Project；页面始终不加载 Issue。\n- 点击 `Create Task` 只演示成功反馈，不会发起真实请求或 Session。\n- 在 Issue action 场景点击 `Create Task`，按钮会变为 `Open Task`，演示防重后的行级状态。\n\n## 当前限制\n\n- 原型是需求验证产物，不连接 API、权限、provider pagination 或持久草稿。\n- New 手动创建后的 Task 对象页仅以成功提示表示，不在本原型中设计；Issue 创建明确留在列表。\n- 不展示任何 Session、Runtime、Provider、Agent、Context 或 auto-routing 控件；这不是遗漏，而是边界。\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1786183086072"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# Implementation Plan: Task 上下文容器与创建入口\n\n## UX Intent\n\n`/new` is the immersive manual Task intake surface. It reuses the existing Mystra composer,\nshared Project dropdown and shell action levels while replacing the obsolete Project-required\nIssue-selection behavior with title, description and optional Project only. The scoped browser\ndraft covers loading, retry, explicit clear, success clear and Team/user changes; it never acts\nas server persistence. The form must keep its single primary commit, bilingual copy, keyboard\nsubmission, visible text status, 44px touch targets and no page-wide overflow at\n320/768/1024/1440px. The primary risk is accidentally implying Session launch or making Project\nmandatory; network verification must prove neither occurs.\n\n**Branch**: `047-task-context` | **Date**: 2026-08-08 | **Spec**: [spec.md](./spec.md)\n**Input**: Feature specification from `/specs/047-task-context/spec.md`\n\n## Summary\n\n047 直接替换当前 pre-0.1 Task 合同：Task 是 Team 直属的持久 Agent 工作容器，拥有显式 `title` 与 `description`，可在创建时保存零或一个不可变 Project 上下文引用；Issue-derived Task 另保存一个不可变的 exact Issue source fingerprint。Project 是上下文引用而非所有权，Issue 关联是外部只读引用而非 snapshot。\n\n交付覆盖共享 Zod 合同、SQLite/PostgreSQL Prisma schema 与破坏性迁移、`RdbProvider`、canonical HTTP API、薄 MCP/CLI、`/new` 手动创建页、Task 详情编辑、Task 分组发现，以及 045 GitHub/Linear Issue 行上的 `Create Task` / `Open Task`。所有路径只写 Task；不创建、启动、配置或推导 Session。\n\n## Technical Context\n\n**Language/Version**: TypeScript 5.9，Node.js 24.14.0\n**Primary Dependencies**: Next.js 16 Route Handlers、React 19、Zod 4、Prisma ORM/Client 7.9.1、现有 GitHub/Linear Integration providers\n**Storage**: SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域合同\n**Testing**: Vitest 4、共享 schema tests、双数据库 provider contract、API/MCP/CLI tests、UI model/component tests、真实 Chrome 验收\n**Target Platform**: 自托管 Mystra control plane；API/MCP/CLI 为可编程面，Web 为次级客户端\n**Project Type**: TypeScript monorepo / web service + Web UI + CLI\n**Performance Goals**: Task 创建/更新在一个数据库事务内完成；Issue 列表装饰只增加一次 exact-source-scoped batch Task-link 查询；20 个并发同 Issue 请求只产生一行\n**Constraints**: Team fail-closed；title 最大 500 字符；description 最大 100,000 字符；关系创建后不可变；无 Issue snapshot；无 Session mutation；无 pre-0.1 compatibility path\n**Scale/Scope**: 单 Team 自用规模；一个 Task 表；4 个 Task HTTP 能力；1 个 Issue-to-Task HTTP 能力；New、详情、列表/侧栏和两种 provider Issue 行\n\n## Constitution Check\n\n### Pre-design gate\n\n| Gate | Result | Evidence |\n| --- | --- | --- |\n| Spec owns product boundary | PASS | 047 明确 supersede 045 的 no-Task-control 子句与旧 Task 临时合同；其余 045/046 边界保持不变 |\n| Team 是租户边界 | PASS | Team ID 仅从 authenticated active Team 派生；Task、Project、Issue source 均按同 Team 验证 |\n| Task 不属于 Project | PASS | `projectId` 可空且仅为 immutable context reference；Task 总是直接外键到 Team |\n| Session 与 Project/Task 独立 | PASS | 本计划不修改 Session schema、route 或启动逻辑；Task Project 不投影为 Session Project |\n| Typed service boundaries | PASS | shared Zod 定义手动创建、Issue 创建、更新、记录、详情与错误响应 |\n| Provider replaceability | PASS | exact Issue 验证复用 ProjectIssuesService 与 provider-specific lookup，不把 GitHub/Linear 凭据或 Prisma 类型泄漏到 Task API |\n| External Issue remains read-only | PASS | 只调用 read/get；不 comment、transition、write-back、cache 或 persist snapshot |\n| Prisma stays behind RdbProvider | PASS | 公共类型来自 `@mystra/shared`；Prisma row 只在 DB 模块映射 |\n| SQLite/PostgreSQL parity | PASS | 两套 schema 与 migration 同步；parity/provider contract 验证 |\n| pre-0.1 direct replacement | PASS | 丢弃旧 Task 数据形态；移除 `issueDispatchKey`、Task `metadata` 与 Project-required contract，不加 alias/dual read |\n| Evidence before delivery | PASS | tasks 要求 RED/GREEN、typecheck/build、真实 API/浏览器和 GitNexus changed-flow 审查 |\n\n### Post-design gate\n\n设计没有引入 Constitution 例外。Task `description` 是 Mystra-owned 工作说明，不是外部 Issue description snapshot；Issue source fingerprint 只包含重新解析 exact Issue 所需的稳定身份。047 是 Constitution 所称的 Task follow-up spec，且没有借机恢复旧 Session persistence。\n\n## What Already Exists\n\n- `packages/shared/src/management.ts` 与 `schemas.ts` 已有旧 Task schema，但仍要求 Project 并依赖 `metadata` / `issueDispatchKey`。\n- `PrismaRdbProvider` 已有 Task create/get/list 和 repeated issue-key concurrency pattern，可直接替换为 manual idempotency 与 exact Issue uniqueness。\n- `/api/tasks`、`/api/tasks/[id]`、MCP tools 和 operator CLI 已形成 canonical HTTP + thin adapter 形状。\n- `/` 的 `NewTaskComposer` 已能创建 Task，但错误地强制 Project，且没有 description、draft scope 或客户端幂等键。\n- `ProjectIssuesService` 已拥有 exact Project/source/credential 验证和 GitHub/Linear provider 列表能力；providers 已有单 Issue read seam。\n- 045 的 `ProjectIssuesBrowser` 与 provider-specific tables 已提供行级外部链接和独立分页状态。\n- AppShell、Search、Task table 已消费 Team-scoped Task list，但假设每个 Task 都有 Project。\n\n## Architecture and Data Flow\n\n```text\nManual create\n/new | MCP | CLI\n      |\n      v\nshared Task create schema + active Team auth\n      |\n      v\nRdbProvider.createTask (idempotencyKey)\n      |\n      v\nPrisma Task row (projectId nullable)\n\nIssue row create\nProject Issue row\n      |\n      v\nPOST /api/projects/{slug}/issues/{provider}/task\n      |\n      v\nProjectIssuesService exact-source verification\n  current Project + exact connection/scope + provider GET\n      |\n      v\nRdbProvider.createTaskFromIssue\n  unique(provider, connection, scope, externalId)\n      |\n      v\nTask row returned; UI remains on Issue list\n      |\n      +--> explicit Open Task click --> /tasks/{id}\n```\n\nTask detail Issue resolution is best-effort and read-only. The API first compares the persisted source fingerprint with the Project's current exact source; only if it still matches may it perform a provider GET. Any mismatch/upstream failure yields `unavailable` while the Task itself remains readable.\n\n## Public Contract Decisions\n\n- `POST /api/tasks`: strict manual create body `{ title, description?, projectId?, idempotencyKey }`; public callers cannot submit Team or Issue fields. Returns `{ task, created }`, status 201 for create and 200 for replay.\n- `GET /api/tasks`: Team-scoped list containing both Project and no-Project Tasks.\n- `GET /api/tasks/{id}`: returns Task plus optional live Issue resolution; Issue failure never hides Task content.\n- `PATCH /api/tasks/{id}`: updates only `title` and/or `description`; strict schema rejects Project/Issue relation fields.\n- `POST /api/projects/{slug}/issues/{provider}/task`: accepts `{ externalId, identifier }`, re-reads the exact provider Issue, then atomically create-or-return the single Task.\n- Provider Issue list items gain optional `taskId`; this is local link state, not a persisted Issue snapshot.\n- MCP `mystra_create_task` and new `mystra_update_task` use the same shared schemas. CLI `tasks create` and `tasks update` remain thin HTTP clients.\n- Manual creation key is caller-generated UUID, unique within Team and stored internally; it is not exposed as Task content.\n- Exact Issue uniqueness uses `{ provider, connectionId, scopeExternalId, externalId }`; mutable title, URL and display identifier are never the uniqueness key.\n- Stable Task errors: `INVALID_TASK`, `TASK_NOT_FOUND`, `TASK_PROJECT_UNAVAILABLE`, `TASK_ISSUE_UNAVAILABLE`, `TASK_CREATE_CONFLICT` plus existing auth/integration envelopes.\n\n## Data and Persistence Decisions\n\n- Replace the Task table directly. Existing pre-0.1 Task rows are not migrated because they lack valid Team-peer semantics and explicit title/description.\n- New Task columns: `id`, `teamId`, `title`, nullable `description`, nullable `projectId`, nullable internal `idempotencyKey`, nullable all-or-none Issue fingerprint columns, `createdAt`, `updatedAt`.\n- SQL CHECK constraints enforce Issue all-or-none and Issue-implies-Project. Shared Zod and RdbProvider enforce the same invariant before Prisma.\n- `@@unique([teamId, idempotencyKey])` makes manual retry durable; a nullable key does not collide across Issue-created rows.\n- `@@unique([issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId])` is the final repeated-Issue boundary.\n- Issue list decoration queries links by `{teamId, provider, connectionId, scopeExternalId, externalIds[]}` rather than `projectId`, so two Projects bound to the same exact source still resolve the one existing Task.\n- `Project.tasks` remains a nullable relation collection for context navigation only. Team owns every Task row.\n- No Task status, priority, assignment, external body, Session count, runtime selection or execution field is added.\n\n## Failure Modes\n\n| Failure | Detection | Stable behavior | Partial write? |\n| --- | --- | --- | --- |\n| blank/oversized title or description | shared Zod at boundary and RDB | `INVALID_TASK` | no |\n| cross-Team/missing/archived Project | Team-filtered active Project lookup | `TASK_PROJECT_UNAVAILABLE` / not found | no |\n| repeated manual request | Team + idempotency unique | same Task, `created=false` | no |\n| repeated/concurrent exact Issue request | source fingerprint unique + conflict reread | same Task, one row | no |\n| Issue source switched/revoked | persisted vs current fingerprint comparison | fail closed; no alternate source | no |\n| provider 404/malformed/upstream error | provider read validation | Issue create fails; detail shows unavailable | no |\n| PATCH contains Project/Issue fields | strict update schema | request rejected | no |\n| Task create/update | code and request audit | zero Session and Issue-write mutations | no |\n| draft storage unavailable | guarded localStorage access | current-tab form still usable | n/a |\n\n## Project Structure\n\n```text\nspecs/047-task-context/\n├── plan.md\n├── research.md\n├── data-model.md\n├── quickstart.md\n├── contracts/task-management.md\n├── checklists/engineering-review.md\n└── tasks.md\n\npackages/shared/src/\n├── task.ts\n├── project-issues.ts\n├── management.ts\n├── schemas.ts\n└── index.ts\n\napps/control-plane/\n├── prisma/{sqlite,postgresql}/schema.prisma\n├── prisma/{sqlite,postgresql}/migrations/<timestamp>_task_context/migration.sql\n├── src/lib/db/{rdb-provider,prisma-provider,prisma-client,prisma-mappers}.ts\n├── src/lib/tasks/task-service.ts\n├── src/lib/integrations/{project-issues,github,linear}.ts\n├── app/api/tasks/{route.ts,[id]/route.ts}\n├── app/api/projects/[slug]/issues/[provider]/task/route.ts\n├── app/new/page.tsx\n├── app/tasks/{page.tsx,[id]/page.tsx}\n└── app/_components/\n    ├── new-task-composer.tsx\n    ├── project-issues-browser.tsx\n    ├── project-issue-tables.tsx\n    ├── task-table.tsx\n    └── app-shell.tsx\n\nscripts/operator-cli.mjs\n```\n\n**Structure Decision**: 复用 shared → RdbProvider → Prisma → Route Handler 分层。仅新增一个 Task service 以集中 exact Issue 解析与详情 availability；不新增 package、repository abstraction、事件总线或 Session 占位层。\n\n## Verification Strategy\n\n1. Shared schema RED/GREEN：字段白名单、长度、可空 Project、Issue all-or-none、immutable update、response union。\n2. Provider contract RED/GREEN：无 Project Task、Project Task、手动幂等、20-way Issue 并发、跨 Team、归档 Project、更新只改内容。\n3. Migration/parity：两数据库 schema/索引/check 语义一致；旧 Task 数据明确丢弃。\n4. Issue resolution：GitHub/Linear exact source、external ID 校验、source switch/revoke、404/invalid response、无 write-back。\n5. HTTP/MCP/CLI：active Team 派生、create/list/get/update、strict relation immutability、稳定错误。\n6. UI models/components：No project 分组、每 Task 仅一次、draft scope、Issue button create/open 状态。\n7. 真实 runtime：迁移 SQLite，创建无 Project/带 Project Task，Issue create stay-on-list，Task update，刷新后 Open Task，console/network/a11y/320–1440px。\n8. 全量 `pnpm test`、`pnpm typecheck`、`pnpm build`，完成前 GitNexus `detect_changes(compare main)`。\n\n## Parallelization and Order\n\n```text\nshared contracts\n      |\n      +--> Prisma/RdbProvider ----> Task HTTP/MCP/CLI\n      |\n      +--> provider exact lookup -> Issue-to-Task route\n      |\n      +--> UI models ------------> New/Task/Issue UI\n```\n\n合同必须先完成。其后 provider lookup 与纯 UI model tests 可并行；Prisma/RdbProvider 完成后 HTTP 与 Issue service 才能集成。由于本次执行没有被授权使用子 Agent，实际按相同依赖顺序单线程推进。\n\n## GitNexus Evidence\n\n- 收口索引重建：7,523 nodes、13,080 edges、300 flows。\n- `PrismaRdbProvider.createTask`：LOW，5 个 impacted symbols，2 条 affected processes；interface dispatch 使结果是 lower bound。\n- `NewTaskComposer`：LOW，1 个直接上游。\n- `ProjectIssuesBrowser`：LOW，4 个 impacted symbols。\n- `groupTasksByProject`：LOW，2 个 impacted symbols。\n- 运行中的 MCP 存储引擎比 CLI 索引版本旧（40 vs 42），因此本阶段使用同一 GitNexus CLI 的 query/impact；没有把 MCP 失败伪装为成功。\n\n## NOT in scope\n\n- Session create/launch/default resolution/auto routing；047 只保证 Task 对它们不是前置条件。\n- Issue write-back、缓存、详情页、需求状态机或批量 dispatch。\n- Task archive/delete/history、模板、subtask、依赖图或 workflow automation。\n- 新 provider、新 artifact distribution pipeline 或 hosted multi-tenancy。\n- 为旧 Task 数据推测 title/source 的兼容迁移。\n\n## Complexity Tracking\n\n无 Constitution 例外。文件跨度来自一个现有业务对象必须在 RDB、API/MCP/CLI 和三个现有 Web 入口上同时替换。唯一新 service 只处理 Issue exact-source read 与 Task create/read composition；它不拥有 Session、workflow 或 provider credentials。\n\n## GSTACK REVIEW REPORT\n\n| Review | Trigger | Why | Runs | Status | Findings |\n| --- | --- | --- | --- | --- | --- |\n| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | Product decisions already fixed by owner |\n| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | Outside voice skipped; no delegation authorized |\n| Eng Review | `/plan-eng-review` | Architecture & tests | 1 | CLEAR | 5 issues resolved, 0 critical gaps, 0 unresolved |\n| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | Runtime browser verification remains in implementation |\n| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | No new developer artifact |\n\n- **UNRESOLVED:** 0\n- **VERDICT:** ENG CLEARED — ready for task generation.\n- **METADATA NOTE:** gstack review-log/read binaries are absent on this machine; the durable review is [checklists/engineering-review.md](./checklists/engineering-review.md).\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: Task 上下文容器与创建入口\n\n**Input**: Design documents from `/specs/047-task-context/`\n**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/task-management.md`, completed engineering review\n\n**Tests**: Required. Behavioral changes follow RED → GREEN and every phase has an independent checkpoint.\n\n## Format: `[ID] [P?] [Story] Description`\n\n- **[P]**: May run in parallel after its dependencies; this execution remains sequential because no sub-Agent was authorized.\n- **[US1..US4]**: Maps to the four user stories in `spec.md`.\n\n## Phase 1: Setup and Baseline\n\n**Purpose**: Confirm the merged 045/046 baseline, toolchain and scoped replacement surface.\n\n- [x] T001 Verify Node 24.14.0, pnpm 10.25.0, current `main` ancestry and clean 047-only scope with `git status`, `.nvmrc`, and `package.json`\n- [x] T002 Record fresh GitNexus impacts for every existing symbol that will be edited, including Task contracts, `RdbProvider`, route handlers, New UI, Issue browser and shell grouping\n- [x] T003 [P] Run the current focused Task/Issue/shell tests before changes to establish a green or explicitly documented failing baseline\n\n**Checkpoint**: Baseline evidence exists and no HIGH/CRITICAL symbol is modified without warning.\n\n---\n\n## Phase 2: Foundational Task Contract and Persistence\n\n**Purpose**: Directly replace the old Project-owned Task shape behind shared typed contracts and dual-database `RdbProvider`.\n\n- [x] T004 [P] Add RED shared Task schema tests for manual create, exact Issue reference, mutable update, limits, strict fields and response shapes in `packages/shared/src/task.test.ts`\n- [x] T005 [P] Add RED management integration tests for nullable Project and Task detail Issue resolution in `packages/shared/src/management.test.ts`\n- [x] T006 Implement explicit Task Zod contracts and exports in `packages/shared/src/task.ts`, `packages/shared/src/management.ts`, `packages/shared/src/schemas.ts`, and `packages/shared/src/index.ts`\n- [x] T007 Add RED Prisma parity assertions and migration-shape tests for nullable Project, explicit text, idempotency and exact Issue uniqueness in `apps/control-plane/src/lib/db/prisma-schema-parity.test.ts` and `apps/control-plane/src/lib/db/removed-persistence.test.ts`\n- [x] T008 Replace Task models and add destructive 047 migrations in `apps/control-plane/prisma/sqlite/schema.prisma`, `apps/control-plane/prisma/postgresql/schema.prisma`, and both provider migration directories\n- [x] T009 Regenerate both Prisma clients with `pnpm db:generate` and verify `pnpm db:validate`\n- [x] T010 Add RED dual-provider contract cases for no-Project/Project create, manual replay, 20-way Issue race, Team isolation, archived Project and immutable refs in `apps/control-plane/src/lib/db/rdb-provider.contract.ts`\n- [x] T011 Implement Task create/create-from-Issue/get/list/update plus exact-source batch link lookup contracts in `apps/control-plane/src/lib/db/rdb-provider.ts`, `prisma-provider.ts`, `prisma-client.ts`, `prisma-mappers.ts`, and `prisma-errors.ts`\n- [x] T012 Remove legacy Task-row adoption instead of backfilling incompatible pre-0.1 data in `apps/control-plane/src/lib/db/sqlite-adoption.ts` and its tests\n- [x] T013 Update the nearby persistence invariants in `apps/control-plane/src/lib/db/README.md` and verify focused SQLite provider/parity tests pass\n\n**Checkpoint**: Shared contracts and SQLite provider tests are green; Task can exist with no Project and exact Issue uniqueness is database-enforced.\n\n---\n\n## Phase 3: User Story 1 — Manual Task Create from New (Priority: P1)\n\n**Goal**: Create no-Project or Project-context Task from `/new`, API, MCP and CLI without Session effects.\n\n**Independent Test**: Submit title-only and Project-scoped manual Tasks, retry the same key, and verify one Task per operation plus zero Session requests.\n\n- [x] T014 [P] [US1] Add RED HTTP tests for active-Team manual create/list/get, nullable Project, replay, validation and cross-Team Project in `apps/control-plane/app/api/routes.test.ts` and `authorization-routes.test.ts`\n- [x] T015 [US1] Replace `GET/POST /api/tasks` and Task GET response with shared 047 contracts in `apps/control-plane/app/api/tasks/route.ts` and `apps/control-plane/app/api/tasks/[id]/route.ts`\n- [x] T016 [P] [US1] Add RED MCP tests for create/list/get/update Task schemas and no execution fields in `apps/control-plane/app/api/mcp/route.test.ts`\n- [x] T017 [US1] Replace MCP Task tool definitions/handlers with strict 047 contracts in `apps/control-plane/app/api/mcp/route.ts`\n- [x] T018 [P] [US1] Add RED CLI tests for optional Project, title/description, idempotency key and update request in `apps/control-plane/src/lib/operator-cli.test.ts`\n- [x] T019 [US1] Replace Task CLI parsing, request bodies and human output in `scripts/operator-cli.mjs`\n- [x] T020 [P] [US1] Add RED draft model tests for scoped restore, success clear, Team switch, unavailable Project and stable retry key in `apps/control-plane/app/_components/new-task-model.test.ts`\n- [x] T021 [US1] Implement pure New draft helpers in `apps/control-plane/app/_components/new-task-model.ts`\n- [x] T022 [US1] Rebuild the accessible manual Task form with title, description, optional Project and explicit draft clear in `apps/control-plane/app/_components/new-task-composer.tsx`\n- [x] T023 [US1] Add canonical `/new`, redirect `/`, update New navigation/title and bilingual copy in `apps/control-plane/app/new/page.tsx`, `apps/control-plane/app/page.tsx`, `shell-navigation.ts`, `app-shell.tsx`, and `shell-copy.ts`\n- [x] T024 [US1] Implement responsive New form/error/focus styles and remove obsolete Issue-picker styles in `apps/control-plane/app/globals.css`\n\n**Checkpoint**: US1 works through HTTP, MCP, CLI and `/new`; Project is optional; draft/retry behavior is deterministic; Session mutation count is zero.\n\n---\n\n## Phase 4: User Story 2 — One-click Issue to Task (Priority: P1)\n\n**Goal**: Create-or-open the one Task for an exact GitHub or Linear Issue from its existing row, with no intermediate page and no automatic navigation.\n\n**Independent Test**: For both providers click once, remain on the list, observe `Open Task`, refresh, then navigate only by explicit Open Task.\n\n- [x] T025 [P] [US2] Add RED GitHub/Linear exact single-Issue lookup tests for external ID, repository/Team scope, 404 and malformed response in `apps/control-plane/src/lib/integrations/github.test.ts` and `linear.test.ts`\n- [x] T026 [US2] Implement provider-specific exact Project Issue lookup in `apps/control-plane/src/lib/integrations/github.ts` and `linear.ts`\n- [x] T027 [P] [US2] Add RED ProjectIssuesService tests for expected connection/scope comparison before provider access in `apps/control-plane/src/lib/integrations/project-issues.test.ts`\n- [x] T028 [US2] Extend ProjectIssuesService with exact-source Issue resolution in `apps/control-plane/src/lib/integrations/project-issues.ts`\n- [x] T029 [P] [US2] Add RED Task service tests for manual composition, Issue create-or-return, source mismatch, upstream failure and detail availability in `apps/control-plane/src/lib/tasks/task-service.test.ts`\n- [x] T030 [US2] Implement the source-verify → provider-read → atomic Task pipeline in `apps/control-plane/src/lib/tasks/task-service.ts`\n- [x] T031 [P] [US2] Add RED API tests for GitHub/Linear Issue Task route, auth, repeated create, stay-on-list response and zero write-back in `apps/control-plane/app/api/project-issues.test.ts`\n- [x] T032 [US2] Implement `POST /api/projects/[slug]/issues/[provider]/task` in `apps/control-plane/app/api/projects/[slug]/issues/[provider]/task/route.ts`\n- [x] T033 [US2] Extend provider Issue list schemas and exact-source batch route decoration with optional local `taskId` in `packages/shared/src/project-issues.ts`, its tests, and `apps/control-plane/app/api/projects/[slug]/issues/[provider]/route.ts`\n- [x] T034 [P] [US2] Add RED UI model tests for Create/creating/error/Open transitions without automatic navigation in `apps/control-plane/app/_components/issue-task-action-model.test.ts`\n- [x] T035 [US2] Implement the bilingual accessible row action and wire GitHub/Linear tables/browser refresh in `apps/control-plane/app/_components/issue-task-action.tsx`, `project-issue-tables.tsx`, `project-issues-browser.tsx`, and `shell-copy.ts`\n- [x] T036 [US2] Add responsive Issue action, live-status and table overflow styles in `apps/control-plane/app/globals.css`\n\n**Checkpoint**: Both providers pass exact-source tests; repeated Issue creation resolves one Task; provider link remains; UI never opens a modal/New/Issue detail or Session route.\n\n---\n\n## Phase 5: User Story 3 — Maintain Task-owned Content (Priority: P1)\n\n**Goal**: Read and update title/description while Project and Issue references remain immutable and external Issue failure is non-fatal.\n\n**Independent Test**: Update manual and Issue-derived Tasks; compare IDs/refs before/after; then make source unavailable and read Task successfully.\n\n- [x] T037 [P] [US3] Add RED PATCH/detail route tests for title/description updates, relation injection rejection, cross-Team not-found and unavailable Issue projection in `apps/control-plane/app/api/routes.test.ts`\n- [x] T038 [US3] Implement strict PATCH and Task service-backed detail resolution in `apps/control-plane/app/api/tasks/[id]/route.ts`\n- [x] T039 [P] [US3] Add RED Task detail editor model tests for dirty state, validation, success/error and immutable relation presentation in `apps/control-plane/app/_components/task-detail-model.test.ts`\n- [x] T040 [US3] Implement bilingual accessible Task detail/editor UI in `apps/control-plane/app/tasks/[id]/page.tsx`, `apps/control-plane/app/_components/task-detail-model.ts`, `shell-copy.ts`, and `globals.css`\n\n**Checkpoint**: Only Task-owned text changes; Task remains readable when Issue is unavailable; no relation mutation or Session logic exists.\n\n---\n\n## Phase 6: User Story 4 — Discover Project and No-project Tasks (Priority: P2)\n\n**Goal**: Make every active-Team Task discoverable exactly once in list, sidebar and search.\n\n**Independent Test**: Create two no-Project Tasks and Tasks for two Projects; verify three groups and one occurrence per Task.\n\n- [x] T041 [P] [US4] Replace shell model tests with nullable Project grouping, No project ordering, title/Issue search and uniqueness cases in `apps/control-plane/app/_components/shell-model.test.ts` and `apps/control-plane/app/_lib/task-view.test.ts`\n- [x] T042 [US4] Replace metadata/dispatch-key Task projections in `apps/control-plane/app/_lib/task-view.ts`, `_lib/format.ts`, and `_components/shell-model.ts`\n- [x] T043 [US4] Render grouped Task list, No project empty/create entry and explicit Task fields in `apps/control-plane/app/tasks/page.tsx` and `apps/control-plane/app/_components/task-table.tsx`\n- [x] T044 [US4] Update AppShell Task groups and Search preview for nullable Project/exact Issue refs in `apps/control-plane/app/_components/app-shell.tsx` and `shell-search-dialog.tsx`\n\n**Checkpoint**: Every Task appears exactly once; no-Project Tasks remain discoverable after leaving detail; empty state links to `/new`.\n\n---\n\n## Phase 7: Reconciliation and Delivery Evidence\n\n**Purpose**: Prove the complete spec and reconcile durable documentation with implementation.\n\n- [x] T045 Update `PRODUCT.md`, `PLATFORM.md`, `.specify/memory/constitution.md`, nearby docs and `specs/spec-status.md` to replace obsolete Project-owned/dispatch-key Task language without editing 046 artifacts\n- [x] T046 Run targeted shared/control-plane tests, dual Prisma validate/generate, full `pnpm test`, `pnpm typecheck`, and `pnpm build`; document PostgreSQL skip honestly if no URL exists\n- [x] T047 Deploy the SQLite migration in an isolated runtime DB and verify manual/API concurrency plus Task update through real HTTP responses\n- [x] T048 Run real Chrome verification at 320/768/1024/1440 for `/new`, `/tasks`, Task detail and provider Issue rows; capture console/network/a11y and no-horizontal-overflow evidence\n- [x] T049 Run five-axis self-review, secret/Session/write-back audit, GitNexus `detect_changes --scope compare --base-ref main`, and fix all required findings\n- [x] T050 Mark tasks/checklists complete, render the 047 spec index, run Spec-Kit health/status checks and perform `aaa-spec-close` reconciliation\n\n---\n\n## Dependencies and Execution Order\n\n- Phase 1 → Phase 2 is mandatory.\n- US1, provider lookup work in US2 and pure UI model work can begin after shared contracts, but this run is sequential.\n- US2 Task service requires both persistence and provider exact lookup.\n- US3 depends on Task service/detail contracts.\n- US4 depends only on the final Task public record, but is performed after P1 stories to reduce shared UI conflicts.\n- Phase 7 depends on all desired user stories.\n\n## Implementation Strategy\n\n1. RED/GREEN the shared and RDB replacement first; no UI may code against an invented shape.\n2. Deliver manual create end-to-end and checkpoint.\n3. Deliver Issue exact-source create/open and checkpoint.\n4. Deliver update/detail, then grouped discovery.\n5. Reconcile docs, run full static/runtime/browser evidence, then close the feature.\n\n## Notes\n\n- Do not edit any file under `specs/046-agent-definition/`.\n- Do not add Session persistence, launch factors, defaults or auto routing.\n- Do not preserve old Task metadata/dispatch-key compatibility.\n- Before editing each existing function/class/method, run GitNexus upstream impact; warn on HIGH/CRITICAL.\n- Mark every task `[x]` only after its verification succeeds.\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

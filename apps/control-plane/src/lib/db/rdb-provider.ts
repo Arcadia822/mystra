@@ -17,7 +17,10 @@ import type {
   ProjectCreate,
   ProjectUpdate,
   ProjectIssueSource,
-  TaskCreateRequest,
+  TaskCreate,
+  TaskCreateFromIssue,
+  TaskIssueProvider,
+  TaskUpdateRequest,
   TaskListItem,
   TaskRecord,
   TeamListItem,
@@ -120,9 +123,17 @@ export type ResolvedActiveTeam = {
   role: TeamRole;
 };
 
-export type IssueDispatchResult = {
+export type TaskCreateResult = {
   task: TaskRecord;
   created: boolean;
+};
+
+export type TaskIssueLinkQuery = {
+  teamId: string;
+  provider: TaskIssueProvider;
+  connectionId: string;
+  scopeExternalId: string;
+  externalIds: string[];
 };
 
 export type RegisterHostRuntimeInput = HostRuntimeRegistration;
@@ -208,11 +219,12 @@ export interface RdbProvider {
   updateProject(slug: string, input: ProjectUpdate): Promise<Project | undefined>;
   archiveProject(slug: string): Promise<Project | undefined>;
 
-  createTask(input: TaskCreateRequest): Promise<TaskRecord>;
-  dispatchIssue(input: TaskCreateRequest & { issueDispatchKey: string }): Promise<IssueDispatchResult>;
+  createTask(input: TaskCreate): Promise<TaskCreateResult>;
+  createTaskFromIssue(input: TaskCreateFromIssue): Promise<TaskCreateResult>;
   getTask(id: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
-  getTaskByIssueDispatchKey(issueDispatchKey: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
   listTasks(options?: { projectId?: string; teamId?: string }): Promise<TaskListItem[]>;
+  updateTask(id: string, input: TaskUpdateRequest, options: { teamId: string }): Promise<TaskRecord | undefined>;
+  findTaskIdsByIssueExternalIds(input: TaskIssueLinkQuery): Promise<Record<string, string>>;
 
   createAgent(input: AgentCreate): Promise<Agent>;
   getAgent(id: string, options: { teamId: string }): Promise<Agent | undefined>;

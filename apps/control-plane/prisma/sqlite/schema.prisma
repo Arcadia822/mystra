@@ -25,6 +25,7 @@ model IntegrationConnection {
   updatedAt          String    @map("updated_at")
   projects           Project[]
   issueSources       ProjectIssueSource[]
+  issueTasks         Task[]
   team               Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([teamId, integration, provider, providerExternalId])
@@ -78,18 +79,28 @@ model ProjectIssueSource {
 }
 
 model Task {
-  id               String  @id
-  teamId           String  @map("team_id")
-  projectId        String  @map("project_id")
-  issueDispatchKey String? @unique @map("issue_dispatch_key")
-  metadata         String
-  createdAt        String  @map("created_at")
-  updatedAt        String  @map("updated_at")
-  project          Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  team             Team    @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id                   String                 @id
+  teamId               String                 @map("team_id")
+  title                String
+  description          String?
+  projectId            String?                @map("project_id")
+  idempotencyKey       String?                @map("idempotency_key")
+  issueProvider        String?                @map("issue_provider")
+  issueConnectionId    String?                @map("issue_connection_id")
+  issueScopeExternalId String?                @map("issue_scope_external_id")
+  issueExternalId      String?                @map("issue_external_id")
+  issueIdentifier      String?                @map("issue_identifier")
+  createdAt            String                 @map("created_at")
+  updatedAt            String                 @map("updated_at")
+  issueConnection      IntegrationConnection? @relation(fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  project              Project?               @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team                 Team                   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@unique([teamId, idempotencyKey])
+  @@unique([issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId])
   @@index([teamId])
   @@index([projectId])
+  @@index([issueConnectionId])
   @@index([createdAt, id])
   @@map("tasks")
 }

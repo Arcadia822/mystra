@@ -76,6 +76,7 @@ function routeTitle(pathname: string, locale: ShellLocale): string {
   if (pathname === "/inbox") return zh ? "收件箱" : "Inbox";
   if (pathname.startsWith("/projects/")) return zh ? "Project 详情" : "Project detail";
   if (pathname === "/projects") return "Projects";
+  if (pathname === "/new") return zh ? "新建" : "New";
   return zh ? "新建" : "New";
 }
 
@@ -209,7 +210,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   const taskGroups = useMemo(() => groupTasksByProject(tasksResource.data?.tasks ?? []).map((group) => ({
-      project: projectById.get(group.projectId),
+      project: group.projectId ? projectById.get(group.projectId) : undefined,
       ...group,
     })), [projectById, tasksResource.data?.tasks]);
 
@@ -309,7 +310,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 ) : (
                   <div className="taskProjectHeader">
                     <SidebarMark />
-                    <span>{group.projectId}</span>
+                    <span>{locale === "zh-CN" ? "无 Project" : "No project"}</span>
                   </div>
                 )}
                 <div className="projectTaskList">
@@ -410,8 +411,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         openTaskLabel={copy.openTask}
         placeholder={copy.searchPlaceholder}
         previewEmptyLabel={copy.previewSearch}
-        repositoryLabel={copy.repository}
-        sessionsLabel={copy.sessions}
+        repositoryLabel="Project"
+        issueLabel={copy.issues}
         showAllLabel={copy.showAll}
         tasks={tasksResource.data?.tasks ?? []}
         tasksLabel={copy.tasks}

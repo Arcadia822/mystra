@@ -35,9 +35,10 @@ Mystra platform
       -> sandbox -> Agent -> repository review
 ```
 
-The current Task RDB `projectId` relation is obsolete under the current pre-0.1
-model and must be replaced when Task/Session persistence is redesigned. Task is
-Team-scoped; source, objective and Issue/Repository snapshots are deferred.
+Task is Team-scoped and persists Mystra-owned title/description plus immutable
+optional Project context and exact Issue references. Project is not Task
+ownership, and current external Issue information remains provider-resolved
+rather than copied into Task snapshots.
 Session is independently Team-scoped, owns all execution choices and lifecycle,
 and may separately reference `0..1` Project and `0..1` Task. Runner is stable capacity.
 Workspace means the Session-scoped working directory and context-delivery
@@ -65,9 +66,15 @@ pnpm lsp:typescript
 - Every Project binds one IntegrationConnection plus a provider-stable remote Repository external ID.
   Mutable repository metadata is not Project persistence; Repo Info retrieval/cache is separately specified.
   Local paths and caller-supplied clone URLs are invalid inputs.
-- Task belongs to exactly one Team and not to Project. It does not persist source, objective or Issue/Repository snapshots. Current external information will use a
-  future Integration-owned cache contract; 040 does not define that cache.
-- A Task has no state, result, Agent, branch, runtime allocation, or Runner.
+- Task belongs to exactly one Team and not to Project. It persists title,
+  description, an immutable optional Project context reference, and an immutable
+  optional exact Issue reference. An Issue reference requires Project context;
+  manual creation cannot accept Issue identity.
+- One exact Project-scoped Issue maps to at most one Task. Current external Issue
+  state remains provider-resolved; Task stores no Issue snapshot or write-back
+  state.
+- A Task has no requirements state machine, result, Agent, branch, runtime
+  allocation, Runner, or Session-launch side effect.
 - Every Session belongs to exactly one Team and belongs to neither Task nor
   Project. It may independently reference at most one Task and at most one
   Project; either or both may be absent. Session owns its independent objective,
@@ -180,11 +187,12 @@ connection, repository, Project name, and slug.
 ## Client surfaces
 
 The Web API is canonical. MCP and CLI are thin adapters; Web is a secondary
-operator client. The demo shell exposes New, Search, Inbox, Issues, and
-Automations, followed by Team-scoped Tasks whose icons show latest Session
-state. Existing Task, Session, Runner, and Project object routes remain directly
-reachable. The Automations menu item is presentation-only and adds no workflow
-runtime or persistence contract.
+operator client. The demo shell exposes New, Search, Inbox, and Issues, followed
+by Projects and Team-scoped Tasks. `/new` creates a Task manually; Project is
+optional and Issue selection is deliberately absent. Existing Task, Session,
+Runner, and Project object routes remain directly reachable. `/automations` is
+directly addressable as a Coming soon placeholder and adds no workflow runtime
+or persistence contract.
 
 ## Deployment direction
 

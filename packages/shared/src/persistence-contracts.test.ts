@@ -92,26 +92,31 @@ describe("owner-approved persistence contracts", () => {
     }
   });
 
-  it("limits Task persistence to six fields and Issue dispatch identity", () => {
+  it("limits public Task persistence to owned text and exact context references", () => {
     const input = taskCreateRequestSchema.parse({
-      teamId: "00000000-0000-4000-8000-000000000040",
+      title: "Fix the issue",
+      description: null,
       projectId,
-      issueDispatchKey: "github:repo:issue:42",
-      metadata: {},
+      idempotencyKey: "00000000-0000-4000-8000-000000000043",
     });
     const task = taskRecordSchema.parse({
-      ...input,
       id: "00000000-0000-4000-8000-000000000042",
+      teamId: "00000000-0000-4000-8000-000000000040",
+      title: input.title,
+      description: input.description,
+      projectId: input.projectId,
+      issue: null,
       createdAt: "2026-08-06T10:00:00.000Z",
       updatedAt: "2026-08-06T10:00:00.000Z",
     });
 
-    expect(task.issueDispatchKey).toBe("github:repo:issue:42");
+    expect(task.issue).toBeNull();
     for (const removed of [
       { source: "issue" },
       { objective: "removed" },
       { dispatchKey: "legacy" },
-      { issue: { identifier: "42" } },
+      { issueDispatchKey: "github:repo:issue:42" },
+      { metadata: {} },
       { repository: { externalId: "repo" } },
     ]) {
       expect(() => taskRecordSchema.parse({ ...task, ...removed })).toThrow();

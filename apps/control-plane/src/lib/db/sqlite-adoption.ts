@@ -67,7 +67,11 @@ const prismaPersistedColumns: Record<string, string[]> = {
     "id", "team_id", "name", "slug", "repository_connection_id", "repository_external_id",
     "repository_base_branch", "metadata", "archived_at", "created_at", "updated_at",
   ],
-  tasks: ["id", "team_id", "project_id", "issue_dispatch_key", "metadata", "created_at", "updated_at"],
+  tasks: [
+    "id", "team_id", "title", "description", "project_id", "idempotency_key", "issue_provider",
+    "issue_connection_id", "issue_scope_external_id", "issue_external_id", "issue_identifier",
+    "created_at", "updated_at",
+  ],
   agents: [
     "id", "team_id", "name", "system_prompt", "revision", "status", "archived_at",
     "created_at", "updated_at",
@@ -232,15 +236,9 @@ function readTransformedRows(database: Database.Database) {
       };
     });
 
-  const tasks = (database.prepare("SELECT * FROM tasks ORDER BY created_at, id").all() as Row[]).map((row) => ({
-    id: stringField(row, "id"),
-    projectId: stringField(row, "project_id"),
-    issueDispatchKey: nullableStringField(row, "dispatch_key"),
-    metadata: jsonObjectField(row, "metadata"),
-    createdAt: stringField(row, "created_at"),
-    updatedAt: stringField(row, "updated_at"),
-  }));
-  return { integrationConnections, projects, tasks };
+  // Pre-0.1 Task rows are intentionally not transformed. They have no reliable
+  // 047 title or exact Issue identity and must not be converted by inference.
+  return { integrationConnections, projects };
 }
 
 function writeTransformedRows(
@@ -276,15 +274,6 @@ function writeTransformedRows(
         insertProject.run(
           row.id, row.name, row.slug, row.repositoryConnectionId, row.repositoryExternalId,
           row.repositoryBaseBranch, JSON.stringify(row.metadata), row.archivedAt, row.createdAt, row.updatedAt,
-        );
-      }
-      const insertTask = database.prepare(`
-        INSERT INTO tasks (id, project_id, issue_dispatch_key, metadata, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      for (const row of transformed.tasks) {
-        insertTask.run(
-          row.id, row.projectId, row.issueDispatchKey, JSON.stringify(row.metadata), row.createdAt, row.updatedAt,
         );
       }
     })();

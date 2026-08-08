@@ -8,6 +8,9 @@ import { GET as getTask } from "./tasks/[id]/route";
 import { PATCH as renameTeam } from "./teams/[teamId]/route";
 
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
+vi.mock("@/lib/tasks/task-service-factory", () => ({
+  createTaskService: vi.fn(async () => ({ resolveIssue: vi.fn(async () => ({ status: "unavailable" })) })),
+}));
 
 const userId = randomUUID();
 const teamId = randomUUID();
@@ -61,8 +64,10 @@ beforeEach(() => {
     listTasks: vi.fn(async () => [{
       id: taskId,
       teamId,
-      projectId: randomUUID(),
-      metadata: {},
+      title: "Team Task",
+      description: null,
+      projectId: null,
+      issue: null,
       createdAt: "2026-08-07T00:00:00.000Z",
       updatedAt: "2026-08-07T00:00:00.000Z",
     }]),
@@ -71,8 +76,10 @@ beforeEach(() => {
         ? {
           id: taskId,
           teamId,
-          projectId: randomUUID(),
-          metadata: {},
+          title: "Team Task",
+          description: null,
+          projectId: null,
+          issue: null,
           createdAt: "2026-08-07T00:00:00.000Z",
           updatedAt: "2026-08-07T00:00:00.000Z",
         }
@@ -182,5 +189,35 @@ describe("management route authorization", () => {
     });
     const db = await getDb();
     expect(db.listTasks).toHaveBeenCalledWith({ teamId });
+  });
+
+  it("keeps an Issue-derived Task readable when live Issue resolution is unavailable", async () => {
+    vi.mocked(getDb).mockResolvedValueOnce({
+      ...(await getDb()),
+      getTask: vi.fn(async () => ({
+        id: taskId,
+        teamId,
+        title: "Issue Task",
+        description: null,
+        projectId: randomUUID(),
+        issue: {
+          provider: "github",
+          connectionId: randomUUID(),
+          scopeExternalId: "repo-42",
+          externalId: "issue-42",
+          identifier: "42",
+        },
+        createdAt: "2026-08-07T00:00:00.000Z",
+        updatedAt: "2026-08-07T00:00:00.000Z",
+      })),
+    } as never);
+    const response = await getTask(authenticatedRequest(`https://control.example.test/api/tasks/${taskId}`), {
+      params: Promise.resolve({ id: taskId }),
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      task: { id: taskId, issue: { externalId: "issue-42" } },
+      issueResolution: { status: "unavailable" },
+    });
   });
 });

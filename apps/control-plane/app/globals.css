@@ -2567,14 +2567,25 @@ body:has(.searchDialog[open]) {
 /* newTask-specific composer width */
 .newTaskComposer {
   width: min(896px, calc(100% - 32px));
+  padding: 9px 7px 7px 9px;
 }
 
-.newTaskInputLabel {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+.newTaskComposer > .uiTextarea {
+  min-height: 36px;
+  max-height: 72px;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+  font-weight: 600;
+}
+
+.newTaskDescriptionField {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.newTaskDescriptionField .uiTextarea {
+  min-height: 72px;
+  max-height: 192px;
 }
 
 .composerSendButton[data-loading="true"] svg {
@@ -2590,77 +2601,9 @@ body:has(.searchDialog[open]) {
   min-width: 260px;
 }
 
-.newTaskIssueRegion {
-  min-width: 0;
-  border-top: 1px solid var(--color-border-soft);
-}
-
-.newTaskIssueList {
-  max-height: 192px;
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-half) var(--space-2) var(--space-0);
-  overflow-y: auto;
-}
-
-.newTaskIssueCard {
-  width: 100%;
-  min-height: var(--control-height-default);
-  height: auto;
-  display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
-  justify-content: stretch;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  color: var(--color-text-secondary);
-  text-align: left;
-}
-
-.newTaskIssueCard > svg {
-  color: var(--color-text-muted);
-}
-
-.newTaskIssueCard[aria-pressed="true"] > svg {
-  color: var(--color-primary);
-}
-
-.newTaskIssueCopy {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-2);
-  align-items: baseline;
-}
-
-.newTaskIssueCopy strong,
-.newTaskIssueCopy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.newTaskIssueCopy strong {
-  color: var(--color-text-primary);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.newTaskIssueCard small,
-.newTaskIssueState {
-  color: var(--color-text-muted);
-  font-size: 10px;
-}
-
-.newTaskIssueState {
-  padding: var(--space-2) var(--space-0);
-}
-
-.newTaskIssueState.error {
-  color: var(--color-error);
-}
-
 .newTaskNotice {
   width: min(896px, calc(100% - 32px));
+  min-height: 16px;
   margin-top: var(--space-2);
   color: var(--text3);
   font-size: 11px;
@@ -2668,6 +2611,42 @@ body:has(.searchDialog[open]) {
 
 .newTaskNotice.error {
   color: var(--danger);
+}
+
+.taskEditorPanel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.taskEditorPanel > label {
+  color: var(--text2);
+  font-size: 11px;
+}
+
+.taskDetailDescription {
+  min-height: 144px;
+  padding: var(--space-2);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--radius-control);
+  background: var(--surface1);
+}
+
+.taskEditorActions {
+  min-height: var(--control-height-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.taskGroupRow th {
+  height: 28px;
+  padding-inline: var(--content-inset);
+  background: var(--surface1);
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
 }
 
 .castrelTable {
@@ -3761,7 +3740,7 @@ body:has(.searchDialog[open]) {
 
 .issueNativeTable {
   width: 100%;
-  min-width: 980px;
+  min-width: 1120px;
   border-collapse: collapse;
   white-space: nowrap;
 }
@@ -3814,6 +3793,33 @@ body:has(.searchDialog[open]) {
 
 .issueExternalLink:hover,
 .issueExternalLink:focus-visible { background: var(--surface3); color: var(--text1); outline: none; }
+
+.issueRowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.issueTaskAction {
+  white-space: nowrap;
+}
+
+.issueTaskActionCell {
+  display: inline-grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.issueTaskActionError {
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.3;
+  max-width: 180px;
+}
+
+.issueTaskActionError:empty {
+  display: none;
+}
 
 .issueState {
   min-height: 240px;

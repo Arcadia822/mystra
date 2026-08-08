@@ -18,7 +18,12 @@ PAT plaintext and the KEK never enter Prisma or RDB; `SecretProvider` owns crypt
   and repository snapshots belong in provider caches, not these tables.
 - `ProjectIssueSource` stores the optional exact Linear connection + provider-stable Team ID.
   GitHub Issue scope remains derived from the Project repository binding; Issue rows are never persisted.
-- Task stores six fields only. `issue_dispatch_key` provides nullable unique dispatch identity.
+- Task is owned by Team and stores Mystra-owned title/description plus optional immutable
+  Project context and an all-or-none exact Issue fingerprint. Project is nullable and does not
+  own Task. Manual retries use an internal Team-scoped idempotency key; an exact Issue can have
+  at most one Task even when multiple Projects bind the same source.
+- The pre-0.1 Task table is replaced destructively. Legacy rows are not adopted or backfilled,
+  because inventing title or exact Issue identity would corrupt the new contract.
 - Session, Runner, ContextBundle, event, artifact, and derived summary persistence are absent.
 - The provider singleton caches the initialization promise, clears failed initialization, and
   awaits disconnect during reset or shutdown.

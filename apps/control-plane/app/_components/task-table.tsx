@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { relativeTime, taskLabel } from "../_lib/format";
-import { taskTitle } from "../_lib/task-view";
+import { taskIssueLabel, taskTitle } from "../_lib/task-view";
+import { groupTasksByProject } from "./shell-model";
 import type { TaskListItem } from "../_lib/types";
 import { ShellIcon } from "./shell-icons";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
@@ -18,6 +19,7 @@ interface TaskTableProps {
   onRefresh: () => void;
   query: string;
   rows: TaskListItem[];
+  projectNames: ReadonlyMap<string, string>;
 }
 
 function CellLink({ children, href }: { children: ReactNode; href: string }) {
@@ -32,6 +34,7 @@ export function TaskTable({
   onRefresh,
   query,
   rows,
+  projectNames,
 }: TaskTableProps) {
   return (
     <UiSurface aria-label="Tasks" as="section" className="castrelTable" variant="outline">
@@ -54,35 +57,38 @@ export function TaskTable({
             <tr>
               <th>Task</th>
               <th>Project</th>
-              <th>Issue dispatch</th>
+              <th>Issue</th>
               <th>Updated</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((task) => {
+            {groupTasksByProject(rows).map((group) => <Fragment key={group.projectId ?? "no-project"}>
+              <tr className="taskGroupRow"><th colSpan={4}>{group.projectId ? projectNames.get(group.projectId) ?? group.projectId : "No project"}</th></tr>
+            {group.tasks.map((task) => {
               const href = `/tasks/${task.id}`;
               return (
                 <tr key={task.id}>
                   <td>
                     <CellLink href={href}>
                       <span className="primaryCell">
-                        <strong>{taskLabel(task.id, task.issueDispatchKey)}</strong>
+                        <strong>{taskLabel(task.id, task.issue?.identifier)}</strong>
                         <small>{taskTitle(task)}</small>
                       </span>
                     </CellLink>
                   </td>
-                  <td><CellLink href={href}><span className="mono">{task.projectId}</span></CellLink></td>
-                  <td><CellLink href={href}><span className="mono">{task.issueDispatchKey ?? "none"}</span></CellLink></td>
+                  <td><CellLink href={href}><span className="mono">{task.projectId ? projectNames.get(task.projectId) ?? task.projectId : "No project"}</span></CellLink></td>
+                  <td><CellLink href={href}><span className="mono">{taskIssueLabel(task)}</span></CellLink></td>
                   <td><CellLink href={href}><time dateTime={task.updatedAt}>{relativeTime(task.updatedAt)}</time></CellLink></td>
                 </tr>
               );
-            })}
+            })}</Fragment>)}
           </tbody>
         </table>
         {!isLoading && rows.length === 0 ? (
           <div className="castrelTableEmpty" role="status">
             <strong>{emptyTitle}</strong>
             <p>{emptyDescription}</p>
+            <UiActionLink href="/new" size="compact" tone="soft">Create Task</UiActionLink>
           </div>
         ) : null}
       </div>

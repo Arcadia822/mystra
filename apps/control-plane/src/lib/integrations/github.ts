@@ -11,6 +11,7 @@ import {
   type IssueListResponse,
   type GitHubIssueListRequest,
   type GitHubIssueListResponse,
+  type GitHubIssueListItem,
   type RepositoryListRequest,
   type RepositoryListResponse,
   type RepositorySnapshot,
@@ -313,6 +314,41 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
       return undefined;
     }
     return normalizeIssue(raw, repository, new Date().toISOString());
+  }
+
+  async getProjectIssue(input: {
+    repositoryExternalId: string;
+    identifier: string;
+  }): Promise<GitHubIssueListItem | undefined> {
+    const repositoryResponse = await this.request(
+      `/repositories/${encodeURIComponent(input.repositoryExternalId)}`,
+      { allowNotFound: true },
+    );
+    if (repositoryResponse.status === 404) return undefined;
+    const repository = await this.parseJson(rawRepositorySchema, repositoryResponse);
+    if (String(repository.id) !== input.repositoryExternalId) {
+      throw new IntegrationFailure({ code: "ISSUE_SCOPE_UNAVAILABLE", message: "GitHub Repository identity changed" });
+    }
+    const issueResponse = await this.request(
+      `/repos/${repositoryPath(repository.full_name)}/issues/${encodeURIComponent(input.identifier)}`,
+      { allowNotFound: true },
+    );
+    if (issueResponse.status === 404) return undefined;
+    const issue = await this.parseJson(rawIssueSchema, issueResponse);
+    if (issue.pull_request !== undefined) return undefined;
+    return {
+      externalId: String(issue.id),
+      number: issue.number,
+      title: issue.title,
+      state: issue.state,
+      assignees: issue.assignees.map((assignee) => ({
+        id: String(assignee.id), login: assignee.login, avatarUrl: assignee.avatar_url ?? null,
+      })),
+      labels: issue.labels.map((label) => ({ id: String(label.id), name: label.name, color: label.color })),
+      milestone: issue.milestone ? { id: String(issue.milestone.id), title: issue.milestone.title } : null,
+      updatedAt: issue.updated_at,
+      url: issue.html_url,
+    };
   }
 
   private requireRepository(

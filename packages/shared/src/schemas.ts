@@ -646,20 +646,14 @@ export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 export const projectUpdateRequestSchema = projectUpdateSchema;
 export type ProjectUpdateRequest = z.input<typeof projectUpdateRequestSchema>;
 
-const taskCreateBaseSchema = z
-  .object({
-    teamId: z.string().uuid(),
-    projectId: z.string().uuid(),
-    issueDispatchKey: z.string().min(1).max(1_000).optional(),
-    metadata: jsonObjectSchema.default({}),
-  })
-  .strict();
-
-export const taskCreateRequestSchema = taskCreateBaseSchema;
-export type TaskCreateRequest = z.input<typeof taskCreateRequestSchema>;
-
-export const taskCreateSchema = taskCreateBaseSchema;
-export type TaskCreate = z.infer<typeof taskCreateSchema>;
+export {
+  manualTaskCreateRequestSchema as taskCreateRequestSchema,
+  taskCreateSchema,
+} from "./task.js";
+export type {
+  ManualTaskCreateRequest as TaskCreateRequest,
+  TaskCreate,
+} from "./task.js";
 
 export const sessionCreateRequestSchema = z
   .object({

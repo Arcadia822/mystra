@@ -1,5 +1,5 @@
-import { NewTaskComposer } from "./_components/new-task-composer";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <NewTaskComposer />;
+  redirect("/new");
 }

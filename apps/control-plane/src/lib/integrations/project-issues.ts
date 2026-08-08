@@ -16,11 +16,19 @@ import { decodeProjectIssueCursor, encodeProjectIssueCursor, type ProjectIssueCu
 
 type IssuesDb = Pick<
   RdbProvider,
-  "getIntegrationConnectionRecord" | "getProjectBySlug" | "getProjectIssueSource"
+  "getIntegrationConnectionRecord" | "getProjectBySlug" | "getProjectIssueSource" | "findTaskIdsByIssueExternalIds"
 >;
 
-type GitHubProvider = Pick<GitHubIntegrationProvider, "listProjectIssues">;
-type LinearProvider = Pick<LinearIssueProvider, "listProjectIssues">;
+type GitHubProvider = Pick<GitHubIntegrationProvider, "listProjectIssues" | "getProjectIssue">;
+type LinearProvider = Pick<LinearIssueProvider, "listProjectIssues" | "getProjectIssue">;
+
+export type ResolvedProjectIssue = {
+  project: Awaited<ReturnType<RdbProvider["getProjectBySlug"]>> & {};
+  provider: "github" | "linear";
+  connectionId: string;
+  scopeExternalId: string;
+  issue: { externalId: string; identifier: string; title: string; url: string };
+};
 
 export class ProjectIssuesService {
   readonly #db: IssuesDb;
@@ -57,7 +65,7 @@ export class ProjectIssuesService {
       ...(after ? { after } : {}),
       repositoryExternalId: project.repositoryExternalId,
     });
-    return githubIssueListResponseSchema.parse({
+    const response = githubIssueListResponseSchema.parse({
       ...result,
       pageInfo: {
         hasNextPage: result.pageInfo.hasNextPage,
@@ -66,6 +74,7 @@ export class ProjectIssuesService {
           : {}),
       },
     });
+    return this.#decorate(response, teamId, "github", connection.id, project.repositoryExternalId);
   }
 
   async listLinear(slug: string, teamId: string, input: LinearIssueListRequest): Promise<ProjectIssueListResponse> {
@@ -82,7 +91,7 @@ export class ProjectIssuesService {
       ...(after ? { after } : {}),
       linearTeamExternalId: source.scopeExternalId,
     });
-    return linearIssueListResponseSchema.parse({
+    const response = linearIssueListResponseSchema.parse({
       ...result,
       pageInfo: {
         hasNextPage: result.pageInfo.hasNextPage,
@@ -91,6 +100,51 @@ export class ProjectIssuesService {
           : {}),
       },
     });
+    return this.#decorate(response, teamId, "linear", connection.id, source.scopeExternalId);
+  }
+
+  async resolveExactIssue(
+    slug: string,
+    teamId: string,
+    provider: "github" | "linear",
+    identifier: string,
+  ): Promise<ResolvedProjectIssue | undefined> {
+    const project = await this.#requireProject(slug, teamId);
+    if (provider === "github") {
+      const connection = await this.#requireConnection(project.repositoryConnectionId, teamId, "github");
+      const resolved = await this.#githubCredentials.resolve(connection.id);
+      if (resolved.connection.id !== connection.id) {
+        throw new IntegrationFailure({ code: "INTEGRATION_CONNECTION_MISMATCH", message: "GitHub credential connection mismatch" });
+      }
+      const issue = await this.#githubProvider(resolved.credential.secret).getProjectIssue({
+        repositoryExternalId: project.repositoryExternalId,
+        identifier,
+      });
+      return issue ? {
+        project,
+        provider,
+        connectionId: connection.id,
+        scopeExternalId: project.repositoryExternalId,
+        issue: { externalId: issue.externalId, identifier: String(issue.number), title: issue.title, url: issue.url },
+      } : undefined;
+    }
+
+    const source = await this.#db.getProjectIssueSource(project.id, "linear", { teamId });
+    if (!source) {
+      throw new IntegrationFailure({ code: "ISSUE_SOURCE_NOT_CONFIGURED", message: "Linear Issue source is not configured for Project" });
+    }
+    const connection = await this.#requireConnection(source.connectionId, teamId, "linear");
+    const issue = await this.#linearProvider(await this.#apiKey(connection.credentialRef)).getProjectIssue({
+      identifier,
+      linearTeamExternalId: source.scopeExternalId,
+    });
+    return issue ? {
+      project,
+      provider,
+      connectionId: connection.id,
+      scopeExternalId: source.scopeExternalId,
+      issue: { externalId: issue.externalId, identifier: issue.identifier, title: issue.title, url: issue.url },
+    } : undefined;
   }
 
   async #requireProject(slug: string, teamId: string) {
@@ -134,5 +188,25 @@ export class ProjectIssuesService {
     scopeExternalId: string,
   ): ProjectIssueCursorScope {
     return { provider, projectId, connectionId, scopeExternalId };
+  }
+
+  async #decorate<T extends ProjectIssueListResponse>(
+    response: T,
+    teamId: string,
+    provider: "github" | "linear",
+    connectionId: string,
+    scopeExternalId: string,
+  ): Promise<T> {
+    const links = await this.#db.findTaskIdsByIssueExternalIds({
+      teamId,
+      provider,
+      connectionId,
+      scopeExternalId,
+      externalIds: response.items.map((item) => item.externalId),
+    });
+    return {
+      ...response,
+      items: response.items.map((item) => ({ ...item, ...(links[item.externalId] ? { taskId: links[item.externalId] } : {}) })),
+    } as T;
   }
 }

@@ -70,6 +70,12 @@ describe("SQLite schema v5 adoption", () => {
     expect(inspectSqliteAdoption(databasePath).state).toBe("schema-v5");
   });
 
+  it("contains no legacy Task-row transform or insert path", () => {
+    const source = readFileSync(path.join(process.cwd(), "src/lib/db/sqlite-adoption.ts"), "utf8");
+    expect(source).not.toContain('SELECT * FROM tasks ORDER BY created_at, id');
+    expect(source).not.toContain('INSERT INTO tasks');
+  });
+
   it("refuses unknown schemas", async () => {
     const directory = mkdtempSync(path.join(tmpdir(), "mystra-adoption-unknown-"));
     directories.push(directory);

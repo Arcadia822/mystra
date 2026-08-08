@@ -19,9 +19,10 @@ workflow graph above the Agent.
 
 ## Current domain boundary
 
-- **Task** is a durable Team-scoped identity and does not belong to Project. The
-  current Prisma `projectId` relation is an obsolete pre-0.1 implementation gap;
-  source, objective and Issue/Repository snapshots remain deferred.
+- **Task** is a durable Team-scoped Agent context container. It has Mystra-owned
+  title and description plus immutable `0..1` Project and `0..1` exact Issue
+  references. Project is context, not ownership; Issue-backed Tasks are created
+  from the Project-scoped Issue row and do not copy external requirement state.
 - **Session** is a Team-scoped execution concept and belongs to neither Task nor
   Project. It may independently reference `0..1` Task and `0..1` Project; its
   remaining persistence fields, lifecycle and CRUD are deferred.
@@ -81,8 +82,9 @@ The north-star is a hosted **Mystra platform** with an open-source core:
 - **Project** — durable product/repository binding through one exact connection
   and provider-stable repository external ID. Mutable repository information is
   not persisted on Project.
-- **Task** — durable Team-scoped identity with optional Issue dispatch key and
-  metadata. It has no Project ownership or execution state.
+- **Task** — durable Team-scoped Agent context container with title,
+  description, and immutable optional Project and exact Issue references. It has
+  no Project ownership, Session launch behavior, or requirements state machine.
 - **Agent** — Team-scoped behavior configuration with stable identity and one
   effect-related field, system prompt. It has no Project relation.
 - **Session** — Team-scoped execution object with independent optional Task and
@@ -123,7 +125,8 @@ In scope:
 - GitHub remote repositories and repository-scoped Issues; read-only Linear
   Issues; stable Project repository bindings. Issue/Repo Info retrieval and
   caching remain separately designed Integration capabilities.
-- Idempotent Issue dispatch to one Task through `issueDispatchKey`.
+- Atomic create-or-open from an exact Project-scoped GitHub or Linear Issue to
+  at most one Task; the Issue remains externally owned and read-only.
 - Session creation and persistence are deferred for separate redesign.
 - Multiple explicit GitHub connections with deployment-aware methods:
   self-hosted Mystra supports personal access tokens behind a protected

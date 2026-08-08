@@ -110,6 +110,18 @@ describe("LinearIssueProvider", () => {
     expect(request.query).toContain("issue(id: $identifier)");
   });
 
+  it("resolves one exact Team-scoped Issue and rejects another Team", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(graphQlResponse({ data: { issue: { ...linearIssue, team: { id: "team-id" } } } }))
+      .mockResolvedValueOnce(graphQlResponse({ data: { issue: { ...linearIssue, team: { id: "other-team" } } } }));
+    const provider = new LinearIssueProvider({ apiKey: "linear-test-key", fetchImpl });
+    await expect(provider.getProjectIssue({ identifier: "MYS-101", linearTeamExternalId: "team-id" }))
+      .resolves.toMatchObject({ externalId: "issue-id", identifier: "MYS-101" });
+    await expect(provider.getProjectIssue({ identifier: "MYS-101", linearTeamExternalId: "team-id" }))
+      .rejects.toMatchObject({ code: "ISSUE_SCOPE_UNAVAILABLE" });
+  });
+
   it("fails closed when LINEAR_API_KEY is missing without calling fetch", async () => {
     const fetchImpl = vi.fn();
     const provider = new LinearIssueProvider({ apiKey: undefined, fetchImpl });

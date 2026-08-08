@@ -1,19 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import type { TaskListItem } from "../_lib/types";
-import {
-  filterTasks,
-  groupTasksByProject,
-  inboxTasks,
-  selectedSearchTask,
-} from "./shell-model";
+import { filterTasks, groupTasksByProject, inboxTasks, selectedSearchTask } from "./shell-model";
 
 function task(overrides: Partial<TaskListItem> = {}): TaskListItem {
   return {
     id: "00000000-0000-4000-8000-000000000001",
     teamId: "00000000-0000-4000-8000-000000000002",
-    projectId: "00000000-0000-4000-8000-000000000010",
-    metadata: { title: "Sidebar collapse is missing" },
+    title: "Sidebar collapse is missing",
+    description: "Durable context",
+    projectId: null,
+    issue: null,
     createdAt: "2026-08-05T00:00:00.000Z",
     updatedAt: "2026-08-05T01:00:00.000Z",
     ...overrides,
@@ -21,10 +18,12 @@ function task(overrides: Partial<TaskListItem> = {}): TaskListItem {
 }
 
 describe("shell task models", () => {
-  it("searches title, dispatch key, project, and id fields", () => {
-    const item = task({ issueDispatchKey: "github:MYS-42" });
-
-    for (const query of ["MYS-42", "sidebar", item.projectId, item.id]) {
+  it("searches title, description, exact Issue, Project, and ID fields", () => {
+    const item = task({
+      projectId: "00000000-0000-4000-8000-000000000010",
+      issue: { provider: "github", connectionId: "00000000-0000-4000-8000-000000000011", scopeExternalId: "repo", externalId: "issue-42", identifier: "42" },
+    });
+    for (const query of ["issue-42", "sidebar", "durable", item.projectId!, item.id]) {
       expect(filterTasks([item], query)).toEqual([item]);
     }
     expect(filterTasks([item], "no match")).toEqual([]);
@@ -34,21 +33,16 @@ describe("shell task models", () => {
     expect(inboxTasks([task()])).toEqual([]);
   });
 
-  it("groups Tasks by Project and orders the newest Task first", () => {
-    const older = task({ updatedAt: "2026-08-05T01:00:00.000Z" });
-    const newer = task({
-      id: "00000000-0000-4000-8000-000000000004",
-      updatedAt: "2026-08-05T02:00:00.000Z",
-    });
-
-    expect(groupTasksByProject([older, newer])).toEqual([
-      { projectId: older.projectId, tasks: [newer, older] },
-    ]);
+  it("groups every Task exactly once and orders No project last", () => {
+    const projectTask = task({ projectId: "00000000-0000-4000-8000-000000000010" });
+    const standalone = task({ id: "00000000-0000-4000-8000-000000000004", updatedAt: "2026-08-05T02:00:00.000Z" });
+    const groups = groupTasksByProject([standalone, projectTask]);
+    expect(groups.map((group) => group.projectId)).toEqual([projectTask.projectId, null]);
+    expect(groups.flatMap((group) => group.tasks).map((item) => item.id).sort()).toEqual([projectTask.id, standalone.id].sort());
   });
 
   it("previews only the explicitly selected search result", () => {
     const item = task();
-
     expect(selectedSearchTask([item], undefined)).toBeUndefined();
     expect(selectedSearchTask([item], "missing")).toBeUndefined();
     expect(selectedSearchTask([item], item.id)).toBe(item);

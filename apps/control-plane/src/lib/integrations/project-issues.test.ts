@@ -31,11 +31,12 @@ describe("ProjectIssuesService", () => {
       getProjectBySlug: vi.fn(async () => project),
       getIntegrationConnectionRecord: vi.fn(async () => connection(githubConnectionId, "github")),
       getProjectIssueSource: vi.fn(async () => undefined),
+      findTaskIdsByIssueExternalIds: vi.fn(async () => ({})),
     };
     const service = new ProjectIssuesService({
       db: db as never,
       githubCredentials: { resolve: vi.fn(async () => ({ connection: connection(githubConnectionId, "github"), credential: { provider: "github", username: "x-access-token", secret: "token", expiresAt: "2026-08-08T01:00:00.000Z" } })) } as never,
-      githubProvider: () => ({ listProjectIssues }),
+      githubProvider: () => ({ listProjectIssues, getProjectIssue: vi.fn() }),
     });
 
     const first = await service.listGitHub("mystra", teamId, { first: 25, state: "open" });
@@ -51,6 +52,7 @@ describe("ProjectIssuesService", () => {
         getProjectBySlug: vi.fn(async () => project),
         getIntegrationConnectionRecord: vi.fn(),
         getProjectIssueSource: vi.fn(async () => undefined),
+        findTaskIdsByIssueExternalIds: vi.fn(async () => ({})),
       } as never,
       githubCredentials: { resolve: vi.fn() } as never,
     });
@@ -64,15 +66,59 @@ describe("ProjectIssuesService", () => {
         getProjectBySlug: vi.fn(async () => project),
         getIntegrationConnectionRecord: vi.fn(async () => connection(linearConnectionId, "linear")),
         getProjectIssueSource: vi.fn(async () => ({ connectionId: linearConnectionId, scopeExternalId: "linear-team-7" })),
+        findTaskIdsByIssueExternalIds: vi.fn(async () => ({})),
       } as never,
       githubCredentials: { resolve: vi.fn() } as never,
       secrets: { get: vi.fn(async () => "lin-secret") } as never,
       linearProvider: (apiKey) => {
         expect(apiKey).toBe("lin-secret");
-        return { listProjectIssues };
+        return { listProjectIssues, getProjectIssue: vi.fn() };
       },
     });
     await service.listLinear("mystra", teamId, { first: 25, priority: 2 });
     expect(listProjectIssues).toHaveBeenCalledWith(expect.objectContaining({ linearTeamExternalId: "linear-team-7", priority: 2 }));
+  });
+
+  it("resolves an exact GitHub Issue only after checking the current connection and scope", async () => {
+    const getProjectIssue = vi.fn(async () => ({
+      externalId: "101", number: 7, title: "Exact", state: "open" as const, assignees: [], labels: [],
+      milestone: null, updatedAt: "2026-08-08T00:00:00.000Z", url: "https://github.com/arcadia/mystra/issues/7",
+    }));
+    const getIntegrationConnectionRecord = vi.fn(async () => connection(githubConnectionId, "github"));
+    const service = new ProjectIssuesService({
+      db: {
+        getProjectBySlug: vi.fn(async () => project),
+        getIntegrationConnectionRecord,
+        getProjectIssueSource: vi.fn(),
+        findTaskIdsByIssueExternalIds: vi.fn(async () => ({})),
+      } as never,
+      githubCredentials: { resolve: vi.fn(async () => ({ connection: connection(githubConnectionId, "github"), credential: { secret: "token" } })) } as never,
+      githubProvider: () => ({ listProjectIssues: vi.fn(), getProjectIssue }),
+    });
+    await expect(service.resolveExactIssue("mystra", teamId, "github", "7")).resolves.toMatchObject({
+      connectionId: githubConnectionId,
+      scopeExternalId: "42",
+      issue: { externalId: "101" },
+    });
+    expect(getIntegrationConnectionRecord).toHaveBeenCalledWith(githubConnectionId);
+    expect(getProjectIssue).toHaveBeenCalledWith({ repositoryExternalId: "42", identifier: "7" });
+  });
+
+  it("fails before provider access when a stored Linear source no longer resolves", async () => {
+    const getProjectIssue = vi.fn();
+    const service = new ProjectIssuesService({
+      db: {
+        getProjectBySlug: vi.fn(async () => project),
+        getIntegrationConnectionRecord: vi.fn(async () => undefined),
+        getProjectIssueSource: vi.fn(async () => ({ connectionId: linearConnectionId, scopeExternalId: "linear-team-7" })),
+        findTaskIdsByIssueExternalIds: vi.fn(async () => ({})),
+      } as never,
+      githubCredentials: { resolve: vi.fn() } as never,
+      secrets: { get: vi.fn(async () => "secret") } as never,
+      linearProvider: () => ({ listProjectIssues: vi.fn(), getProjectIssue }),
+    });
+    await expect(service.resolveExactIssue("mystra", teamId, "linear", "ENG-7"))
+      .rejects.toMatchObject({ code: "ISSUE_SCOPE_UNAVAILABLE" });
+    expect(getProjectIssue).not.toHaveBeenCalled();
   });
 });

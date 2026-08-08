@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=5ce938524323fcc632414edac7586a29929abd87 updated=2026-08-08T10:45:00Z -->
+<!-- spec-status: project=mystra commit=e9883abce08bd823e41e33cb376d53162dea9d61 updated=2026-08-08T12:59:58Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -41,6 +41,7 @@
 | 044-host-runtime-daemon            | ✓     | ✓  | ✓   | ✓ Complete |
 | 045-project-issue-sources          | ✓     | ✓  | ✓   | ✓ Complete |
 | 046-agent-definition               | ✓     | ✓  | ✓   | ✓ Complete |
+| 047-task-context                   | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -80,3 +81,4 @@
 <!-- feature: 044-host-runtime-daemon has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=false tasks_total=39 tasks_completed=39 checklist_files= -->
 <!-- feature: 045-project-issue-sources has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=47 tasks_completed=47 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 046-agent-definition has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=41 tasks_completed=41 checklist_files=engineering-review.md,requirements.md,verification.md -->
+<!-- feature: 047-task-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=50 tasks_completed=50 checklist_files=engineering-review.md,requirements.md -->

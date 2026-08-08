@@ -22,7 +22,8 @@ stable Runner --outbound claim--> control plane
 ## Ownership boundaries
 
 - Project owns remote Repository identity and runtime defaults.
-- Task owns immutable work intent and the frozen Repository/Issue context.
+- Task owns editable title/description plus immutable optional Project and exact
+  Issue references. It does not own frozen external Issue state.
 - Session owns one independent execution contract and lifecycle.
 - Runner owns stable capacity identity and performs claimed Session work.
 - `RdbProvider` owns durable business state; SQLite is only its first adapter.
@@ -31,10 +32,15 @@ stable Runner --outbound claim--> control plane
 
 ## Data and control flow
 
-Issue dispatch resolves current Integration data and atomically persists a Task
-plus initial Session. Manual API/MCP creation may persist a Task with no Session.
-Each subsequent Session inherits immutable Task/Project context while selecting
-its own objective, Agent, branch, and permitted runtime override.
+Manual API/MCP/CLI/Web creation persists a Task with optional Project context and
+no Issue. A Project-scoped GitHub or Linear Issue row resolves current
+Integration data and atomically creates or returns the one Task for that exact
+Issue. Neither path creates, launches, queues, or configures a Session, and no
+external Issue write-back occurs.
+
+Session launch and its relation/default-routing behavior remain a separate
+specification. Task and Project context must not be treated as launch
+prerequisites by Task APIs.
 
 Runner registration is separate from Session claims. Re-registration rotates a
 credential without changing Runner identity. Claims are atomic, capacity-bound,

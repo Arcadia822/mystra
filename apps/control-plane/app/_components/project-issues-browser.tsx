@@ -113,6 +113,14 @@ export function ProjectIssuesBrowser({ projectSlug }: { projectSlug: string }) {
     else setLinear(update);
   }
 
+  function linkTask(externalId: string, taskId: string) {
+    if (provider === "github") {
+      setGitHubData((current) => current ? { ...current, items: current.items.map((item) => item.externalId === externalId ? { ...item, taskId } : item) } : current);
+    } else {
+      setLinearData((current) => current ? { ...current, items: current.items.map((item) => item.externalId === externalId ? { ...item, taskId } : item) } : current);
+    }
+  }
+
   if (sourceError) return <div className="issueState" role="alert"><strong>{copy.sourcesUnavailable}</strong><span>{sourceError}</span><UiButton tone="soft" onClick={() => setRevision((value) => value + 1)}>{copy.retry}</UiButton></div>;
   if (!sources) return <div className="issueState" role="status">{copy.loadingSources}</div>;
 
@@ -155,8 +163,8 @@ export function ProjectIssuesBrowser({ projectSlug }: { projectSlug: string }) {
           {loading ? <div className="issueState" role="status">{copy.loadingIssues}</div> : null}
           {error ? <div className="issueState" role="alert"><strong>{copy.loadFailed} · {provider}</strong><span>{error}</span></div> : null}
           {!loading && !error && data?.items.length === 0 ? <div className="issueState"><strong>{copy.noIssues}</strong><span>{copy.noIssuesHelp}</span></div> : null}
-          {!loading && !error && data?.provider === "github" && data.items.length ? <GitHubIssueTable items={data.items} locale={locale} /> : null}
-          {!loading && !error && data?.provider === "linear" && data.items.length ? <LinearIssueTable items={data.items} locale={locale} /> : null}
+          {!loading && !error && data?.provider === "github" && data.items.length ? <GitHubIssueTable items={data.items} locale={locale} onTaskLinked={linkTask} projectSlug={projectSlug} /> : null}
+          {!loading && !error && data?.provider === "linear" && data.items.length ? <LinearIssueTable items={data.items} locale={locale} onTaskLinked={linkTask} projectSlug={projectSlug} /> : null}
           {!loading && !error && data ? (
             <footer className="issuePager"><span>{copy.page} {state.cursors.length + 1} · {provider} {copy.cursorIndependent}</span><div><UiButton disabled={state.cursors.length === 0} tone="soft" onClick={() => move("previous")}>{copy.previous}</UiButton><UiButton disabled={!data.pageInfo.hasNextPage || !data.pageInfo.endCursor} tone="soft" onClick={() => move("next")}>{copy.next}</UiButton></div></footer>
           ) : null}

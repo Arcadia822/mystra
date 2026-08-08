@@ -193,9 +193,10 @@ host Runtime enrollment; task dispatch, Context/worktree management, Agent
 configuration, and execution/Session remain follow-up specs).
 Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
 Mutable repository names, URLs, default-branch observations, visibility, and archive/delete state are
-not Project persistence; their retrieval and caching require a separate specification. Task source, objective and
-Issue/Repository snapshots are also excluded from the first Prisma model; future Integration cache design owns
-current external information. Local paths and caller-supplied clone URLs are not Project repository inputs.
+not Project persistence; their retrieval and caching require a separate specification. Task persists its own
+title and description plus immutable optional Project context and exact Issue references; it does not copy current
+Issue/Repository snapshots. Future Integration cache design owns current external information. Local paths and
+caller-supplied clone URLs are not Project repository inputs.
 
 The near-term MVP goal is self-use: let an operator or another Agent select a
 GitHub or Linear Issue and dispatch it through canonical API, thin CLI, remote
@@ -214,9 +215,10 @@ Session-, Runner-, or ContextBundle-derived views as persistence requirements;
 resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
 and CLI.
 
-Task is a durable Team-scoped identity with optional Issue dispatch key and metadata; it does not belong to
-Project. The current Prisma `projectId` relation is an obsolete pre-0.1 implementation gap. Source, objective and
-external snapshots are deferred. Session is a Team-scoped execution concept that belongs to neither Task nor
+Task is a durable Team-scoped Agent context container with Mystra-owned title and description plus immutable
+`0..1` Project context and `0..1` exact Issue references; it does not belong to Project. One exact Issue maps to at
+most one Task, and current external requirement state remains provider-owned rather than copied or written back.
+Task creation and update never launch a Session. Session is a Team-scoped execution concept that belongs to neither Task nor
 Project; it may independently reference `0..1` Task and `0..1` Project. Its remaining persistence fields,
 state machine and CRUD require a separate specification.
 Runtime is a first-class execution backend that advertises its available
@@ -294,7 +296,7 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (7943 symbols, 13004 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (7523 symbols, 13080 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -359,6 +361,8 @@ This project is indexed by GitNexus as **mystra** (7943 symbols, 13004 relations
 - SQLite/PostgreSQL 双 schema via `RdbProvider`：新增 Runtime + 可用 Provider 能力持久化；host `mystra-runner` 注册/发现/心跳，online/offline 依服务端接收时间 (044-host-runtime-daemon)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Prisma ORM/Client 7.9.1、`@prisma/adapter-better-sqlite3`、`@prisma/adapter-pg` (046-agent-definition)
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域契约 (046-agent-definition)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Prisma ORM/Client 7.9.1、现有 GitHub/Linear Integration providers (047-task-context)
+- SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域合同 (047-task-context)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

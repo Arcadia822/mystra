@@ -59,4 +59,24 @@ describe("Prisma provider schema parity", () => {
     ]);
     expect(schema).not.toMatch(/Runner|ContextBundle|Artifact|Snapshot|objective/u);
   });
+
+  it("models Task as Team-owned text with optional immutable context references", () => {
+    const schema = modelSection(readSchema("sqlite"));
+    const task = schema.match(/model Task \{[\s\S]*?\n\}/u)?.[0] ?? "";
+
+    expect(task).toMatch(/teamId\s+String\s+@map\("team_id"\)/u);
+    expect(task).toMatch(/title\s+String/u);
+    expect(task).toMatch(/description\s+String\?/u);
+    expect(task).toMatch(/projectId\s+String\?/u);
+    expect(task).toMatch(/idempotencyKey\s+String\?/u);
+    expect(task).toMatch(/issueProvider\s+String\?/u);
+    expect(task).toMatch(/issueConnectionId\s+String\?/u);
+    expect(task).toMatch(/issueScopeExternalId\s+String\?/u);
+    expect(task).toMatch(/issueExternalId\s+String\?/u);
+    expect(task).toMatch(/issueIdentifier\s+String\?/u);
+    expect(task).toMatch(/project\s+Project\?/u);
+    expect(task).toMatch(/@@unique\(\[teamId, idempotencyKey\]\)/u);
+    expect(task).toMatch(/@@unique\(\[issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId\]\)/u);
+    expect(task).not.toMatch(/issueDispatchKey|metadata/u);
+  });
 });

@@ -11,5 +11,6 @@ export * from "./sandbox.js";
 export * from "./schemas.js";
 export * from "./state.js";
 export * from "./team.js";
+export * from "./task.js";
 export * from "./auth.js";
 export * from "./agent.js";

@@ -2,6 +2,7 @@ import {
   issueListResponseSchema,
   issueSchema,
   linearIssueListRequestSchema,
+  linearIssueListItemSchema,
   linearIssueListResponseSchema,
   type Issue,
   type IssueGetRequest,
@@ -9,6 +10,7 @@ import {
   type IssueListResponse,
   type LinearIssueListRequest,
   type LinearIssueListResponse,
+  type LinearIssueListItem,
 } from "@mystra/shared";
 import { z } from "zod";
 
@@ -32,6 +34,7 @@ const issueFields = `
   cycle { id name number }
   createdAt
   updatedAt
+  team { id }
 `;
 
 const listQuery = `
@@ -89,6 +92,7 @@ const rawIssueSchema = z
     }).strict().nullable().optional().default(null),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
+    team: z.object({ id: z.string().min(1) }).strict().optional(),
   })
   .strict();
 
@@ -224,6 +228,32 @@ export class LinearIssueProvider implements IssueProvider {
     const envelope = await this.query(getQuery, { identifier: input.identifier });
     const parsed = this.parseData(getDataSchema, envelope.data);
     return parsed.issue ? normalizeIssue(parsed.issue, new Date().toISOString()) : undefined;
+  }
+
+  async getProjectIssue(input: {
+    identifier: string;
+    linearTeamExternalId: string;
+  }): Promise<LinearIssueListItem | undefined> {
+    const envelope = await this.query(getQuery, { identifier: input.identifier });
+    const parsed = this.parseData(getDataSchema, envelope.data);
+    if (!parsed.issue) return undefined;
+    if (parsed.issue.team?.id !== input.linearTeamExternalId) {
+      throw new IntegrationFailure({ code: "ISSUE_SCOPE_UNAVAILABLE", message: "Linear Issue is outside the configured Team" });
+    }
+    const issue = parsed.issue;
+    return linearIssueListItemSchema.parse({
+      externalId: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      status: issue.state,
+      priority: issue.priority === null || issue.priorityLabel === null
+        ? null
+        : { value: issue.priority, label: issue.priorityLabel },
+      assignee: issue.assignee,
+      cycle: issue.cycle,
+      updatedAt: issue.updatedAt,
+      url: issue.url,
+    });
   }
 
   private parseData<T extends z.ZodType>(

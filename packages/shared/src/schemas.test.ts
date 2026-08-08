@@ -51,29 +51,31 @@ const remoteRepository = {
 } as const;
 
 describe("Task and Session schemas", () => {
-  it("accepts an Issue dispatch identity without persisting Issue snapshots", () => {
+  it("accepts an internal manual Task create after Team resolution", () => {
     const parsed = taskCreateSchema.parse({
       teamId: "00000000-0000-4000-8000-000000000003",
-      projectId: "00000000-0000-4000-8000-000000000001",
-      issueDispatchKey: "linear:issue-id:project-id",
-      metadata: {},
+      projectId: null,
+      title: "Investigate the failure",
+      description: null,
+      idempotencyKey: "00000000-0000-4000-8000-000000000004",
     });
 
-    expect(parsed.issueDispatchKey).toBe("linear:issue-id:project-id");
+    expect(parsed.projectId).toBeNull();
     expect(() => taskCreateSchema.parse({
       ...parsed,
-      issue: { identifier: "ENG-123" },
+      issueDispatchKey: "linear:issue-id:project-id",
     })).toThrow();
   });
 
   it("accepts a minimal manual Task without execution ownership", () => {
     const parsed = taskCreateRequestSchema.parse({
-      teamId: "00000000-0000-4000-8000-000000000003",
+      title: "Manual Task",
       projectId: "00000000-0000-4000-8000-000000000001",
+      idempotencyKey: "00000000-0000-4000-8000-000000000004",
     });
 
     expect(parsed.projectId).toBe("00000000-0000-4000-8000-000000000001");
-    expect(parsed.metadata).toEqual({});
+    expect(parsed.description).toBeNull();
     expect("agent" in parsed).toBe(false);
     expect("branch" in parsed).toBe(false);
     expect("repository" in parsed).toBe(false);
@@ -106,6 +108,8 @@ describe("Task and Session schemas", () => {
   it("rejects Task-owned execution fields and Session-owned project context", () => {
     expect(() =>
       taskCreateRequestSchema.parse({
+        title: "Forbidden execution field",
+        idempotencyKey: "00000000-0000-4000-8000-000000000004",
         projectId: "00000000-0000-4000-8000-000000000003",
         branch: "feature/forbidden",
       }),

@@ -13,6 +13,16 @@ const otherTeamId = randomUUID();
 const projectId = randomUUID();
 const taskId = randomUUID();
 const agentId = randomUUID();
+const task = {
+  id: taskId,
+  teamId,
+  title: "MCP Task",
+  description: null,
+  projectId: null,
+  issue: null,
+  createdAt: "2026-08-07T00:00:00.000Z",
+  updatedAt: "2026-08-07T00:00:00.000Z",
+};
 
 const agent = {
   id: agentId,
@@ -81,13 +91,18 @@ beforeEach(() => {
       role: "owner",
     })),
     createTask: vi.fn(async (input) => ({
-      id: taskId,
-      ...input,
-      createdAt: "2026-08-07T00:00:00.000Z",
-      updatedAt: "2026-08-07T00:00:00.000Z",
+      task: {
+        ...task,
+        teamId: input.teamId,
+        title: input.title,
+        description: input.description,
+        projectId: input.projectId,
+      },
+      created: true,
     })),
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => undefined),
+    updateTask: vi.fn(async (_id, input) => ({ ...task, ...input })),
     createAgent: vi.fn(async (input) => ({ ...agent, ...input })),
     listAgents: vi.fn(async () => ({ agents: [agent], nextCursor: null })),
     getAgent: vi.fn(async () => agent),
@@ -167,12 +182,8 @@ describe("MCP human session authorization", () => {
 
   it("allows a member to list only Tasks for the resolved active Team", async () => {
     const listTasks = vi.fn(async () => [{
-      id: taskId,
-      teamId,
+      ...task,
       projectId,
-      metadata: {},
-      createdAt: "2026-08-07T00:00:00.000Z",
-      updatedAt: "2026-08-07T00:00:00.000Z",
     }]);
     const memberDb: Record<string, unknown> = {
       ...(await getDb()),
@@ -203,12 +214,9 @@ describe("MCP human session authorization", () => {
     const getTask = vi.fn(async (_id: string, options?: { teamId?: string }) => (
       options?.teamId === otherTeamId
         ? {
-          id: taskId,
+          ...task,
           teamId: otherTeamId,
           projectId,
-          metadata: {},
-          createdAt: "2026-08-07T00:00:00.000Z",
-          updatedAt: "2026-08-07T00:00:00.000Z",
         }
         : undefined
     ));
@@ -229,20 +237,41 @@ describe("MCP human session authorization", () => {
 
   it("allows an owner to create a Task in the resolved active Team", async () => {
     const response = await POST(rpcRequest(toolCall("mystra_create_task", {
+      title: "MCP Task",
       projectId,
-      metadata: { title: "MCP task" },
+      idempotencyKey: "00000000-0000-4000-8000-000000000090",
     })));
 
     const payload = await response.json() as { result: { content: Array<{ text: string }> } };
     expect(JSON.parse(payload.result.content[0]!.text)).toEqual({
       task: expect.objectContaining({ id: taskId, teamId, projectId }),
+      created: true,
     });
     const db = await getDb();
     expect(db.createTask).toHaveBeenCalledWith({
       projectId,
-      metadata: { title: "MCP task" },
+      title: "MCP Task",
+      description: null,
+      idempotencyKey: "00000000-0000-4000-8000-000000000090",
       teamId,
     });
+  });
+
+  it("updates only Task-owned content and rejects execution fields", async () => {
+    const response = await POST(rpcRequest(toolCall("mystra_update_task", {
+      id: taskId,
+      title: "Updated MCP Task",
+    })));
+    const payload = await response.json() as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(payload.result.content[0]!.text)).toEqual({
+      task: expect.objectContaining({ id: taskId, title: "Updated MCP Task", projectId: null }),
+    });
+
+    const invalid = await POST(rpcRequest(toolCall("mystra_update_task", {
+      id: taskId,
+      provider: "codex",
+    })));
+    await expect(invalid.json()).resolves.toMatchObject({ error: { code: -32602 } });
   });
 
   it("manages Agents through the resolved active Team", async () => {

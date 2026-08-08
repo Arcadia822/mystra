@@ -36,6 +36,17 @@ type UserUpdate = Partial<Pick<User, "displayName" | "status" | "requirePassword
 type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSalt" | "passwordParams" | "updatedAt">>;
 type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
 type AgentUpdate = Partial<Pick<Agent, "name" | "systemPrompt" | "revision" | "status" | "archivedAt" | "updatedAt">>;
+type TaskUpdate = Partial<Pick<Task, "title" | "description" | "updatedAt">>;
+type TaskWhere = {
+  id?: string;
+  teamId?: string;
+  projectId?: string;
+  idempotencyKey?: string;
+  issueProvider?: string;
+  issueConnectionId?: string;
+  issueScopeExternalId?: string;
+  issueExternalId?: string | { in: string[] };
+};
 
 export interface MystraPrismaDelegates {
   integrationConnection: {
@@ -74,8 +85,9 @@ export interface MystraPrismaDelegates {
   };
   task: {
     create(args: { data: Task }): Promise<Task>;
-    findUnique(args: { where: { id: string } | { issueDispatchKey: string } }): Promise<Task | null>;
-    findMany(args: { where?: { projectId?: string; teamId?: string }; orderBy: OrderBy }): Promise<Task[]>;
+    updateMany(args: { where: { id: string; teamId?: string }; data: TaskUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } }): Promise<Task | null>;
+    findMany(args: { where?: TaskWhere; orderBy: OrderBy }): Promise<Task[]>;
   };
   agent: {
     create(args: { data: Agent }): Promise<Agent>;
@@ -213,7 +225,7 @@ const modelMethods = {
   integrationConnection: ["upsert", "updateMany", "findUnique", "findMany", "deleteMany"],
   project: ["create", "updateMany", "findUnique", "findMany"],
   projectIssueSource: ["upsert", "findUnique", "findMany", "deleteMany"],
-  task: ["create", "findUnique", "findMany"],
+  task: ["create", "updateMany", "findUnique", "findMany"],
   agent: ["create", "updateMany", "findUnique", "findMany"],
   runtime: ["create", "updateMany", "findUnique", "findMany"],
   runtimeProvider: ["create", "deleteMany", "findMany"],

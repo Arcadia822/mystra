@@ -24,7 +24,7 @@ interface ShellSearchDialogProps {
   placeholder: string;
   previewEmptyLabel: string;
   repositoryLabel: string;
-  sessionsLabel: string;
+  issueLabel: string;
   showAllLabel: string;
   tasks: TaskListItem[];
   tasksLabel: string;
@@ -57,7 +57,7 @@ export function ShellSearchDialog({
   placeholder,
   previewEmptyLabel,
   repositoryLabel,
-  sessionsLabel,
+  issueLabel,
   showAllLabel,
   tasks,
   tasksLabel,
@@ -121,7 +121,7 @@ export function ShellSearchDialog({
                 <h3 id="search-actions-title">{actionsLabel}</h3>
                 <UiActionLink href="/tasks" size="compact" onClick={onClose}>{showAllLabel}</UiActionLink>
               </header>
-              <UiActionLink block className="searchAction" href="/" onClick={onClose}>
+              <UiActionLink block className="searchAction" href="/new" onClick={onClose}>
                 <span className="searchResultIcon"><ShellIcon name="new" /></span>
                 <span>{newTaskLabel}</span>
               </UiActionLink>
@@ -146,7 +146,7 @@ export function ShellSearchDialog({
                         >
                           <span className="searchResultCopy">
                             <strong>{taskTitle(task)}</strong>
-                            <small>{taskLabel(task.id, task.issueDispatchKey)} · {task.projectId}</small>
+                            <small>{taskLabel(task.id, task.issue?.identifier)} · {task.projectId ?? "No project"}</small>
                           </span>
                           <time dateTime={task.updatedAt}>{formatSearchDate(task.updatedAt, locale)}</time>
                         </UiButton>
@@ -173,12 +173,12 @@ export function ShellSearchDialog({
                   </div>
                 </UiSurfaceHeader>
                 <UiSurfaceBody className="searchPreviewBody">
-                  <p>Execution details are temporarily unavailable.</p>
+                  <p>{selectedTask.description ?? selectedTask.title}</p>
                   <dl className="searchPreviewFacts">
-                    <div><dt>{repositoryLabel}</dt><dd>{selectedTask.projectId}</dd></div>
-                    <div><dt>{sessionsLabel}</dt><dd>Temporarily unavailable</dd></div>
+                    <div><dt>{repositoryLabel}</dt><dd>{selectedTask.projectId ?? "No project"}</dd></div>
+                    <div><dt>{issueLabel}</dt><dd>{selectedTask.issue?.identifier ?? "No Issue"}</dd></div>
                     <div><dt>{updatedLabel}</dt><dd><time dateTime={selectedTask.updatedAt}>{formatSearchDate(selectedTask.updatedAt, locale)}</time></dd></div>
-                    <div><dt>Task ID</dt><dd>{taskLabel(selectedTask.id, selectedTask.issueDispatchKey)}</dd></div>
+                    <div><dt>Task ID</dt><dd>{taskLabel(selectedTask.id, selectedTask.issue?.identifier)}</dd></div>
                   </dl>
                 </UiSurfaceBody>
               </UiSurface>

@@ -1,5 +1,49 @@
 export type ShellLocale = "en" | "zh-CN";
 
+export const NEW_TASK_COPY = {
+  en: {
+    heading: "Create a new Task",
+    titleLabel: "Task title",
+    titlePlaceholder: "What should the Agent work on?",
+    descriptionLabel: "Description",
+    descriptionPlaceholder: "Add context, constraints, or the desired outcome (optional)",
+    project: "Project context",
+    noProject: "No Project",
+    clear: "Clear draft",
+    create: "Create Task",
+    creating: "Creating Task…",
+    invalidTitle: "Enter a Task title.",
+    projectLoadFailed: "Projects could not be loaded. You can still create a Task without Project context.",
+  },
+  "zh-CN": {
+    heading: "新建 Task",
+    titleLabel: "Task 标题",
+    titlePlaceholder: "希望 Agent 处理什么？",
+    descriptionLabel: "描述",
+    descriptionPlaceholder: "补充上下文、约束或期望结果（可选）",
+    project: "Project 上下文",
+    noProject: "无 Project",
+    clear: "清空草稿",
+    create: "创建 Task",
+    creating: "正在创建 Task…",
+    invalidTitle: "请输入 Task 标题。",
+    projectLoadFailed: "无法加载 Project。仍可创建不附带 Project 上下文的 Task。",
+  },
+} as const;
+
+export const TASK_DETAIL_COPY = {
+  en: {
+    back: "Tasks", title: "Title", description: "Description", save: "Save", saving: "Saving…",
+    project: "Project context", noProject: "No Project", issue: "Issue context", noIssue: "No Issue",
+    issueUnavailable: "Issue is currently unavailable", updated: "Updated", invalidTitle: "Enter a Task title.",
+  },
+  "zh-CN": {
+    back: "任务", title: "标题", description: "描述", save: "保存", saving: "保存中…",
+    project: "Project 上下文", noProject: "无 Project", issue: "Issue 上下文", noIssue: "无 Issue",
+    issueUnavailable: "Issue 当前不可用", updated: "更新时间", invalidTitle: "请输入 Task 标题。",
+  },
+} as const;
+
 export const ISSUE_COPY = {
   en: {
     issues: "Issues", selectProjectHelp: "Select a Project first, then browse one provider at a time.", selectProject: "Select Project…",
@@ -15,6 +59,7 @@ export const ISSUE_COPY = {
     allPriorities: "All priorities", noPriority: "No priority", urgent: "Urgent", high: "High", medium: "Medium", low: "Low", statusId: "Status ID", assigneeId: "Assignee ID", cycleId: "Cycle ID",
     githubHeaders: ["Number", "Title", "State", "Assignees", "Labels", "Milestone", "Updated"],
     linearHeaders: ["Identifier", "Title", "Status", "Priority", "Assignee", "Cycle", "Updated"],
+    createTask: "Create Task", creatingTask: "Creating…", openTask: "Open Task", retryTask: "Retry", taskCreateFailed: "Task creation failed",
   },
   "zh-CN": {
     issues: "议题", selectProjectHelp: "先选择一个 Project，再一次浏览一个 provider。", selectProject: "选择 Project…",
@@ -30,6 +75,7 @@ export const ISSUE_COPY = {
     allPriorities: "全部优先级", noPriority: "无优先级", urgent: "紧急", high: "高", medium: "中", low: "低", statusId: "状态 ID", assigneeId: "负责人 ID", cycleId: "周期 ID",
     githubHeaders: ["编号", "标题", "状态", "负责人", "标签", "里程碑", "更新时间"],
     linearHeaders: ["标识", "标题", "状态", "优先级", "负责人", "周期", "更新时间"],
+    createTask: "创建 Task", creatingTask: "创建中…", openTask: "打开 Task", retryTask: "重试", taskCreateFailed: "Task 创建失败",
   },
 } as const;
 

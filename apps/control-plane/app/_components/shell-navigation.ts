@@ -5,7 +5,7 @@ export const PRIMARY_ITEMS: Array<{
   icon: ShellIconName;
   href?: string;
 }> = [
-  { key: "new", icon: "new", href: "/" },
+  { key: "new", icon: "new", href: "/new" },
   { key: "search", icon: "search" },
   { key: "inbox", icon: "inbox", href: "/inbox" },
   { key: "issues", icon: "issue", href: "/issues" },

@@ -1,6 +1,7 @@
 import type { GitHubIssueListItem, LinearIssueListItem } from "@mystra/shared";
 
 import { ISSUE_COPY, type ShellLocale } from "./shell-copy";
+import { IssueTaskAction } from "./issue-task-action";
 
 function updated(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -10,12 +11,12 @@ function ProviderLink({ href, label }: { href: string; label: string }) {
   return <a aria-label={label} className="issueExternalLink" href={href} rel="noreferrer" target="_blank">↗</a>;
 }
 
-export function GitHubIssueTable({ items, locale }: { items: GitHubIssueListItem[]; locale: ShellLocale }) {
+export function GitHubIssueTable({ items, locale, projectSlug, onTaskLinked }: { items: GitHubIssueListItem[]; locale: ShellLocale; projectSlug: string; onTaskLinked: (externalId: string, taskId: string) => void }) {
   const headers = ISSUE_COPY[locale].githubHeaders;
   return (
     <div className="issueTableViewport">
       <table className="issueNativeTable">
-        <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}<th><span className="srOnly">Open</span></th></tr></thead>
+        <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}<th aria-label="Actions" /></tr></thead>
         <tbody>{items.map((issue) => (
           <tr key={issue.externalId}>
             <td className="issueIdentifier">#{issue.number}</td>
@@ -25,7 +26,7 @@ export function GitHubIssueTable({ items, locale }: { items: GitHubIssueListItem
             <td>{issue.labels.length ? issue.labels.map((label) => label.name).join(", ") : "—"}</td>
             <td>{issue.milestone?.title ?? "—"}</td>
             <td><time dateTime={issue.updatedAt}>{updated(issue.updatedAt)}</time></td>
-            <td><ProviderLink href={issue.url} label={`Open GitHub Issue #${issue.number}`} /></td>
+            <td><span className="issueRowActions"><ProviderLink href={issue.url} label={`Open GitHub Issue #${issue.number}`} /><IssueTaskAction externalId={issue.externalId} identifier={String(issue.number)} locale={locale} onLinked={onTaskLinked} projectSlug={projectSlug} provider="github" {...(issue.taskId ? { taskId: issue.taskId } : {})} /></span></td>
           </tr>
         ))}</tbody>
       </table>
@@ -33,12 +34,12 @@ export function GitHubIssueTable({ items, locale }: { items: GitHubIssueListItem
   );
 }
 
-export function LinearIssueTable({ items, locale }: { items: LinearIssueListItem[]; locale: ShellLocale }) {
+export function LinearIssueTable({ items, locale, projectSlug, onTaskLinked }: { items: LinearIssueListItem[]; locale: ShellLocale; projectSlug: string; onTaskLinked: (externalId: string, taskId: string) => void }) {
   const headers = ISSUE_COPY[locale].linearHeaders;
   return (
     <div className="issueTableViewport">
       <table className="issueNativeTable">
-        <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}<th><span className="srOnly">Open</span></th></tr></thead>
+        <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}<th aria-label="Actions" /></tr></thead>
         <tbody>{items.map((issue) => (
           <tr key={issue.externalId}>
             <td className="issueIdentifier">{issue.identifier}</td>
@@ -48,7 +49,7 @@ export function LinearIssueTable({ items, locale }: { items: LinearIssueListItem
             <td>{issue.assignee?.name ?? "—"}</td>
             <td>{issue.cycle?.name ?? "—"}</td>
             <td><time dateTime={issue.updatedAt}>{updated(issue.updatedAt)}</time></td>
-            <td><ProviderLink href={issue.url} label={`Open Linear Issue ${issue.identifier}`} /></td>
+            <td><span className="issueRowActions"><ProviderLink href={issue.url} label={`Open Linear Issue ${issue.identifier}`} /><IssueTaskAction externalId={issue.externalId} identifier={issue.identifier} locale={locale} onLinked={onTaskLinked} projectSlug={projectSlug} provider="linear" {...(issue.taskId ? { taskId: issue.taskId } : {})} /></span></td>
           </tr>
         ))}</tbody>
       </table>

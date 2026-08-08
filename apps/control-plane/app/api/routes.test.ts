@@ -13,7 +13,7 @@ import { POST as archiveAgent } from "./agents/[id]/archive/route";
 import { GET as listAgents, POST as postAgent } from "./agents/route";
 import { POST as callMcp } from "./mcp/route";
 import { POST as postProject } from "./projects/route";
-import { GET as getTask } from "./tasks/[id]/route";
+import { GET as getTask, PATCH as patchTask } from "./tasks/[id]/route";
 import { GET as listTasks, POST as postTask } from "./tasks/route";
 
 let tempDir: string;
@@ -24,6 +24,7 @@ const migrations = [
   "20260806210000_secret_envelopes",
   "20260807150000_identity_team_rbac",
   "20260808180000_agent_definition",
+  "20260808200000_task_context",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
@@ -119,19 +120,30 @@ describe("Project route tenancy", () => {
 });
 
 describe("active Task routes", () => {
-  it("creates, lists, and reads a durable Task without Session projections", async () => {
+  it("creates, replays, lists, reads and updates a durable Task without Session projections", async () => {
+    const idempotencyKey = "00000000-0000-4000-8000-000000000099";
     const created = await postTask(jsonRequest("http://localhost/api/tasks", {
-      teamId,
-      projectId,
-      metadata: { title: "Verify the Prisma control plane" },
+      title: "Verify the Prisma control plane",
+      description: "Manual context",
+      idempotencyKey,
     }));
     expect(created.status).toBe(201);
-    const task = (await created.json() as { task: { id: string } }).task;
+    const createdPayload = await created.json() as { task: { id: string }; created: boolean };
+    const task = createdPayload.task;
+    expect(createdPayload.created).toBe(true);
+
+    const replay = await postTask(jsonRequest("http://localhost/api/tasks", {
+      title: "Ignored retry title",
+      projectId,
+      idempotencyKey,
+    }));
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toEqual({ task: expect.objectContaining({ id: task.id }), created: false });
 
     const listed = await listTasks(new Request("http://localhost/api/tasks", {
       headers: { authorization: `Bearer ${sessionToken}` },
     }));
-    expect(await listed.json()).toEqual({ tasks: [expect.objectContaining({ id: task.id, projectId })] });
+    expect(await listed.json()).toEqual({ tasks: [expect.objectContaining({ id: task.id, projectId: null })] });
 
     const detail = await getTask(new Request(`http://localhost/api/tasks/${task.id}`, {
       headers: { authorization: `Bearer ${sessionToken}` },
@@ -139,8 +151,31 @@ describe("active Task routes", () => {
       params: Promise.resolve({ id: task.id }),
     });
     const payload = await detail.json();
-    expect(payload).toEqual({ task: expect.objectContaining({ id: task.id, projectId }) });
+    expect(payload).toEqual({ task: expect.objectContaining({ id: task.id, projectId: null }) });
     expect(payload).not.toHaveProperty("sessionSummary");
+
+    const updated = await patchTask(jsonRequest(`http://localhost/api/tasks/${task.id}`, {
+      title: "Updated Task title",
+      description: null,
+    }, "PATCH"), { params: Promise.resolve({ id: task.id }) });
+    expect(updated.status).toBe(200);
+    expect(await updated.json()).toEqual({
+      task: expect.objectContaining({ id: task.id, title: "Updated Task title", projectId: null }),
+    });
+  });
+
+  it("rejects caller Team, Issue and relation updates", async () => {
+    const invalidCreate = await postTask(jsonRequest("http://localhost/api/tasks", {
+      teamId,
+      title: "Invalid",
+      idempotencyKey: "00000000-0000-4000-8000-000000000098",
+    }));
+    expect(invalidCreate.status).toBe(400);
+
+    const invalidUpdate = await patchTask(jsonRequest("http://localhost/api/tasks/00000000-0000-4000-8000-000000000097", {
+      projectId,
+    }, "PATCH"), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000097" }) });
+    expect(invalidUpdate.status).toBe(400);
   });
 });
 
@@ -260,6 +295,7 @@ describe("active MCP surface", () => {
       "mystra_create_task",
       "mystra_list_tasks",
       "mystra_get_task",
+      "mystra_update_task",
       "mystra_health",
     ]);
     expect(names.some((name) => /session|runner|context/i.test(name))).toBe(false);

@@ -115,9 +115,16 @@ export function mapTask(row: PrismaTask): TaskRecord {
   return taskRecordSchema.parse({
     id: row.id,
     teamId: row.teamId,
+    title: row.title,
+    description: row.description,
     projectId: row.projectId,
-    ...(row.issueDispatchKey ? { issueDispatchKey: row.issueDispatchKey } : {}),
-    metadata: parseJsonObject(row.metadata),
+    issue: row.issueProvider === null ? null : {
+      provider: row.issueProvider,
+      connectionId: row.issueConnectionId,
+      scopeExternalId: row.issueScopeExternalId,
+      externalId: row.issueExternalId,
+      identifier: row.issueIdentifier,
+    },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });

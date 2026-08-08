@@ -265,57 +265,104 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.listProjects({ includeArchived: true })).toHaveLength(2);
   });
 
-  it("persists tasks and dispatches one task for a repeated issue key", async () => {
+  it("persists no-Project and Project Tasks with durable manual replay", async () => {
+    const standaloneTeam = (await tenant()).initialTeam;
+    const idempotencyKey = randomUUID();
+    const first = await db.createTask({
+      teamId: standaloneTeam.id,
+      title: "  Standalone context  ",
+      description: null,
+      projectId: null,
+      idempotencyKey,
+    });
+    const replay = await db.createTask({
+      teamId: standaloneTeam.id,
+      title: "Different retry payload",
+      description: "Ignored after the operation commits",
+      projectId: null,
+      idempotencyKey,
+    });
+    expect(first.created).toBe(true);
+    expect(replay).toEqual({ task: first.task, created: false });
+    expect(first.task).toMatchObject({
+      teamId: standaloneTeam.id,
+      title: "Standalone context",
+      projectId: null,
+      issue: null,
+    });
+    expect(await db.getTask(first.task.id, { teamId: standaloneTeam.id })).toEqual(first.task);
+
     const parent = await project();
     const ordinary = await db.createTask({
       teamId: parent.teamId,
       projectId: parent.id,
-      metadata: { kind: "manual" },
+      title: "Project context",
+      description: "Owned by Mystra",
+      idempotencyKey: randomUUID(),
     });
-    expect(await db.getTask(ordinary.id)).toEqual(ordinary);
+    expect(ordinary.task.projectId).toBe(parent.id);
+    expect((await db.listTasks({ projectId: parent.id })).map(({ id }) => id)).toEqual([ordinary.task.id]);
+  });
 
-    const key = `linear:ENG-1:${parent.id}`;
-    const [left, right] = await Promise.all([
-      db.dispatchIssue({ teamId: parent.teamId, projectId: parent.id, issueDispatchKey: key, metadata: { source: "linear" } }),
-      db.dispatchIssue({ teamId: parent.teamId, projectId: parent.id, issueDispatchKey: key, metadata: { source: "linear" } }),
-    ]);
-    expect([left.created, right.created].sort()).toEqual([false, true]);
-    expect(left.task.id).toBe(right.task.id);
-    expect(await db.getTaskByIssueDispatchKey(key)).toEqual(left.task);
-
-    const distinctKeys = [`linear:ENG-2:${parent.id}`, `linear:ENG-3:${parent.id}`];
-    const distinct = await Promise.all(distinctKeys.map((issueDispatchKey) => db.dispatchIssue({
-      projectId: parent.id,
-      issueDispatchKey,
+  it("atomically creates one Task for an exact Issue under a 20-way race", async () => {
+    const parent = await project();
+    const sibling = await db.createProject({
       teamId: parent.teamId,
-      metadata: { source: "linear" },
+      name: "Same source sibling",
+      slug: `sibling-${randomUUID()}`,
+      repositoryConnectionId: parent.repositoryConnectionId,
+      repositoryExternalId: parent.repositoryExternalId,
+      repositoryBaseBranch: "main",
+      metadata: {},
+    });
+    const issue = {
+      provider: "github" as const,
+      connectionId: parent.repositoryConnectionId,
+      scopeExternalId: parent.repositoryExternalId,
+      externalId: "I_kwDOExact42",
+      identifier: "GH-42",
+    };
+    const results = await Promise.all(Array.from({ length: 20 }, (_, index) => db.createTaskFromIssue({
+      teamId: parent.teamId,
+      projectId: index % 2 === 0 ? parent.id : sibling.id,
+      title: "Fix exact issue",
+      description: null,
+      issue,
     })));
-    expect(distinct.map(({ created }) => created)).toEqual([true, true]);
-    expect(new Set(distinct.map(({ task }) => task.id)).size).toBe(2);
+    expect(results.filter(({ created }) => created)).toHaveLength(1);
+    expect(new Set(results.map(({ task }) => task.id)).size).toBe(1);
+    const task = results[0]!.task;
+    expect(task.issue).toEqual(issue);
 
-    const listedTaskIds = (await db.listTasks({ projectId: parent.id })).map(({ id }) => id);
-    expect(listedTaskIds).toHaveLength(4);
-    expect(new Set(listedTaskIds)).toEqual(new Set([
-      distinct[0]!.task.id,
-      distinct[1]!.task.id,
-      left.task.id,
-      ordinary.id,
-    ]));
+    const links = await db.findTaskIdsByIssueExternalIds({
+      teamId: parent.teamId,
+      provider: "github",
+      connectionId: parent.repositoryConnectionId,
+      scopeExternalId: parent.repositoryExternalId,
+      externalIds: [issue.externalId, "I_missing", issue.externalId],
+    });
+    expect(links).toEqual({ [issue.externalId]: task.id });
+
+    const updated = await db.updateTask(task.id, {
+      title: "Updated owned title",
+      description: "Updated owned description",
+    }, { teamId: parent.teamId });
+    expect(updated).toMatchObject({ title: "Updated owned title", description: "Updated owned description" });
+    expect(updated?.projectId).toBe(task.projectId);
+    expect(updated?.issue).toEqual(task.issue);
+
+    const otherTeam = (await tenant()).initialTeam;
+    expect(await db.getTask(task.id, { teamId: otherTeam.id })).toBeUndefined();
+    expect(await db.updateTask(task.id, { title: "Forbidden" }, { teamId: otherTeam.id })).toBeUndefined();
 
     await db.archiveProject(parent.slug);
-    await expect(db.dispatchIssue({
+    await expect(db.createTaskFromIssue({
       teamId: parent.teamId,
       projectId: parent.id,
-      issueDispatchKey: key,
-      metadata: { ignoredOnReplay: true },
-    })).resolves.toEqual({ task: left.task, created: false });
-    await expect(db.dispatchIssue({
-      teamId: parent.teamId,
-      projectId: parent.id,
-      issueDispatchKey: `linear:ENG-4:${parent.id}`,
-      metadata: {},
+      title: "Another issue",
+      description: null,
+      issue: { ...issue, externalId: "I_kwDONew", identifier: "GH-43" },
     })).rejects.toMatchObject({ code: "RDB_RELATION_CONFLICT" });
-    expect(await db.getTaskByIssueDispatchKey(`linear:ENG-4:${parent.id}`)).toBeUndefined();
   });
 
   it("persists host Runtimes and atomically replaces their Provider capabilities", async () => {
@@ -508,19 +555,12 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     await expect(db.createTask({
       teamId: parent.teamId,
       projectId: randomUUID(),
-      metadata: {},
+      title: "Missing project",
+      description: null,
+      idempotencyKey: randomUUID(),
     })).rejects.toMatchObject({
       code: "RDB_RELATION_CONFLICT",
     });
-
-    const key = `github:1:${parent.id}`;
-    await db.createTask({ teamId: parent.teamId, projectId: parent.id, issueDispatchKey: key, metadata: {} });
-    await expect(db.createTask({
-      teamId: parent.teamId,
-      projectId: parent.id,
-      issueDispatchKey: key,
-      metadata: {},
-    })).rejects.toMatchObject({ code: "DISPATCH_CONFLICT" });
   });
 
   it("registers a User, owner Team, and active session atomically", async () => {

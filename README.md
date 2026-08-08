@@ -19,10 +19,12 @@ Open-source. Self-hostable or hosted.
 ## How it works
 
 ```text
-Idea → Task → Agent Session → Tests & Review → Pull Request
+Idea or Issue → Task context
+Four execution inputs → Agent Session → Tests & Review → Pull Request
 ```
 
-1. **Describe your intent.** Submit through API, CLI, MCP, or the web interface.
+1. **Capture context.** Create a Task manually or from one exact external Issue;
+   Project is optional for manual Tasks.
 2. **Agents execute.** A sandboxed agent handles planning, implementation, testing, and branch delivery.
 3. **Review and ship.** You get a pull request with tested, reviewable code — ready to merge.
 

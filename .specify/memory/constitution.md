@@ -12,7 +12,7 @@ Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integr
 
 ### III. Providers Are Replaceable Boundaries
 
-Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. Runtime is a first-class, replaceable execution backend that advertises which Provider capabilities (agent CLI / protocol families) it can run, expressed source-agnostically so a host-discovered Runtime and a future image-declared Runtime share one contract. A host-bound Runtime enrolled by the TypeScript `mystra-runner` — covering registration, Provider discovery plus availability confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is one such sandbox provider rather than the sole execution model, and host worktree direct execution is the intended default execution direction. Task dispatch, Context/worktree management, Agent configuration, and execution/Session persistence are owned by follow-up specifications, not this boundary. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
+Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. Runtime is a first-class, replaceable execution backend that advertises which Provider capabilities (agent CLI / protocol families) it can run, expressed source-agnostically so a host-discovered Runtime and a future image-declared Runtime share one contract. A host-bound Runtime enrolled by the TypeScript `mystra-runner` — covering registration, Provider discovery plus availability confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is one such sandbox provider rather than the sole execution model, and host worktree direct execution is the intended default execution direction. Task context and exact Issue intake are owned by feature 047; Context/worktree management, execution and Session persistence remain follow-up boundaries. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
 
 ### IV. Runner Isolation and Secret Hygiene
 
@@ -47,8 +47,9 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   delivery implementation.
 - Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
   Mutable repository metadata is not Project persistence; its retrieval/cache requires a separate specification.
-  Task source, objective and Issue/Repository snapshots are excluded from the first Prisma schema; future
-  Integration cache design owns current external information. Local paths and caller-supplied clone URLs are invalid Project inputs.
+  Task persists Mystra-owned title/description and immutable optional Project/exact Issue references, but no
+  external Issue/Repository snapshot. Future Integration cache design owns current external information. Local
+  paths and caller-supplied clone URLs are invalid Project inputs.
 - Mystra remote MCP is the primary submission path for other agents and skills.
 - Web API is the canonical management implementation; CLI and MCP are thin adapters over the same contracts.
 - Web UI is a secondary client. Its demo shell exposes New, Search, Inbox, and
@@ -64,6 +65,14 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
 
 ## Amendment Notes
+
+- 2026-08-08: Feature 047 replaced the obsolete Project-required Task row with a
+  Team-owned Agent context container. Task stores title/description and immutable
+  `0..1` Project context plus `0..1` exact Issue references; an Issue reference
+  requires its exact Project source, and one exact Issue maps to at most one
+  Task. `/new` creates manual Tasks without an Issue picker. Project Issue rows
+  create or open their Task without navigation or external write-back. Task
+  mutation has no Session-launch behavior or requirements state machine.
 
 - 2026-08-08: Confirmed Team as the tenant boundary. Agent, Task, Project, and
   Session are Team-scoped siblings; Agent and Task do not belong to Project,

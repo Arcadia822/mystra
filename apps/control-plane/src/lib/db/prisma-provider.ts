@@ -15,7 +15,9 @@ import {
   projectUpdateSchema,
   runtimeRenameSchema,
   resolvedAgentSnapshotSchema,
-  taskCreateRequestSchema,
+  taskCreateFromIssueSchema,
+  taskCreateSchema,
+  taskUpdateRequestSchema,
   type IntegrationCapabilities,
   type Agent,
   type AgentArchiveRequest,
@@ -35,7 +37,8 @@ import {
   type RuntimeRename,
   type RuntimeView,
   type ResolvedAgentSnapshot,
-  type TaskCreateRequest,
+  type TaskCreate,
+  type TaskCreateFromIssue,
   type TaskListItem,
   type TaskRecord,
   type TeamListItem,
@@ -72,7 +75,8 @@ import type {
   IntegrationConnectionRecord,
   IntegrationConnectionUpsert,
   ProjectIssueSourceUpsert,
-  IssueDispatchResult,
+  TaskCreateResult,
+  TaskIssueLinkQuery,
   RegisterHostRuntimeInput,
   RdbProvider,
   SecretEnvelopeRecord,
@@ -536,29 +540,31 @@ export class PrismaRdbProvider implements RdbProvider {
     return this.updateProject(slug, { archivedAt: this.#now() });
   }
 
-  async createTask(input: TaskCreateRequest): Promise<TaskRecord> {
-    const parsed = taskCreateRequestSchema.parse(input);
+  async createTask(input: TaskCreate): Promise<TaskCreateResult> {
+    const parsed = taskCreateSchema.parse(input);
+    const existing = await this.#findTaskByManualKey(parsed.teamId, parsed.idempotencyKey);
+    if (existing) return { task: existing, created: false };
     try {
-      return await this.#client.transaction(async (transaction) => {
-        await this.#requireActiveProject(parsed.projectId, parsed.teamId, transaction);
-        return this.#insertTask(parsed, transaction);
+      const task = await this.#client.transaction(async (transaction) => {
+        if (parsed.projectId) {
+          await this.#requireActiveProject(parsed.projectId, parsed.teamId, transaction);
+        }
+        return this.#insertTask({ ...parsed, issue: null }, transaction);
       });
+      return { task, created: true };
     } catch (error) {
-      throw normalizeDatabaseError(error);
+      const normalized = normalizeDatabaseError(error);
+      if (normalized.code !== "RDB_CONFLICT") throw normalized;
+      const raced = await this.#findTaskByManualKey(parsed.teamId, parsed.idempotencyKey);
+      if (!raced) throw normalized;
+      return { task: raced, created: false };
     }
   }
 
-  async dispatchIssue(
-    input: TaskCreateRequest & { issueDispatchKey: string },
-  ): Promise<IssueDispatchResult> {
-    const parsed = taskCreateRequestSchema.parse(input);
-    const existing = await this.getTaskByIssueDispatchKey(input.issueDispatchKey);
-    if (existing) {
-      if (existing.projectId !== parsed.projectId) {
-        throw new RdbError("DISPATCH_CONFLICT", "Issue dispatch key belongs to another Project");
-      }
-      return { task: existing, created: false };
-    }
+  async createTaskFromIssue(input: TaskCreateFromIssue): Promise<TaskCreateResult> {
+    const parsed = taskCreateFromIssueSchema.parse(input);
+    const existing = await this.#findTaskByIssue(parsed.issue);
+    if (existing) return { task: existing, created: false };
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const task = await this.#client.transaction(async (transaction) => {
@@ -572,13 +578,13 @@ export class PrismaRdbProvider implements RdbProvider {
         }
         const normalized = normalizeDatabaseError(error, {
           conflictCode: "DISPATCH_CONFLICT",
-          conflictMessage: "Issue dispatch key already exists",
+          conflictMessage: "Issue already has a Task",
         });
         if (normalized.code !== "DISPATCH_CONFLICT") {
           throw normalized;
         }
-        const raced = await this.getTaskByIssueDispatchKey(input.issueDispatchKey);
-        if (!raced || raced.projectId !== parsed.projectId) {
+        const raced = await this.#findTaskByIssue(parsed.issue);
+        if (!raced) {
           throw normalized;
         }
         return { task: raced, created: false };
@@ -592,14 +598,6 @@ export class PrismaRdbProvider implements RdbProvider {
     return row && (!options.teamId || row.teamId === options.teamId) ? mapTask(row) : undefined;
   }
 
-  async getTaskByIssueDispatchKey(
-    issueDispatchKey: string,
-    options: { teamId?: string } = {},
-  ): Promise<TaskRecord | undefined> {
-    const row = await this.#client.task.findUnique({ where: { issueDispatchKey } });
-    return row && (!options.teamId || row.teamId === options.teamId) ? mapTask(row) : undefined;
-  }
-
   async listTasks(options: { projectId?: string; teamId?: string } = {}): Promise<TaskListItem[]> {
     const rows = await this.#client.task.findMany({
       ...(options.projectId || options.teamId
@@ -608,6 +606,38 @@ export class PrismaRdbProvider implements RdbProvider {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
     return rows.map(mapTask);
+  }
+
+  async updateTask(
+    id: string,
+    input: import("@mystra/shared").TaskUpdateRequest,
+    options: { teamId: string },
+  ): Promise<TaskRecord | undefined> {
+    const parsed = taskUpdateRequestSchema.parse(input);
+    const result = await this.#client.task.updateMany({
+      where: { id, teamId: options.teamId },
+      data: {
+        ...(parsed.title !== undefined ? { title: parsed.title } : {}),
+        ...(parsed.description !== undefined ? { description: parsed.description } : {}),
+        updatedAt: this.#now(),
+      },
+    });
+    return result.count === 0 ? undefined : this.getTask(id, { teamId: options.teamId });
+  }
+
+  async findTaskIdsByIssueExternalIds(input: TaskIssueLinkQuery): Promise<Record<string, string>> {
+    if (input.externalIds.length === 0) return {};
+    const rows = await this.#client.task.findMany({
+      where: {
+        teamId: input.teamId,
+        issueProvider: input.provider,
+        issueConnectionId: input.connectionId,
+        issueScopeExternalId: input.scopeExternalId,
+        issueExternalId: { in: [...new Set(input.externalIds)] },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return Object.fromEntries(rows.flatMap((row) => row.issueExternalId ? [[row.issueExternalId, row.id]] : []));
   }
 
   async createAgent(input: AgentCreate): Promise<Agent> {
@@ -1457,7 +1487,7 @@ export class PrismaRdbProvider implements RdbProvider {
   }
 
   async #insertTask(
-    input: TaskCreateRequest,
+    input: TaskCreateFromIssue | (TaskCreate & { issue: null }),
     client: MystraPrismaDelegates = this.#client,
   ): Promise<TaskRecord> {
     const timestamp = this.#now();
@@ -1467,8 +1497,14 @@ export class PrismaRdbProvider implements RdbProvider {
           id: this.#newId(),
           teamId: requireTeamId(input.teamId),
           projectId: input.projectId,
-          issueDispatchKey: input.issueDispatchKey ?? null,
-          metadata: serializeJson(input.metadata ?? {}),
+          title: input.title,
+          description: input.description,
+          idempotencyKey: "idempotencyKey" in input ? input.idempotencyKey : null,
+          issueProvider: input.issue?.provider ?? null,
+          issueConnectionId: input.issue?.connectionId ?? null,
+          issueScopeExternalId: input.issue?.scopeExternalId ?? null,
+          issueExternalId: input.issue?.externalId ?? null,
+          issueIdentifier: input.issue?.identifier ?? null,
           createdAt: timestamp,
           updatedAt: timestamp,
         },
@@ -1479,10 +1515,31 @@ export class PrismaRdbProvider implements RdbProvider {
         throw error;
       }
       throw normalizeDatabaseError(error, {
-        conflictCode: "DISPATCH_CONFLICT",
-        conflictMessage: "Issue dispatch key already exists",
+        conflictCode: input.issue ? "DISPATCH_CONFLICT" : "RDB_CONFLICT",
+        conflictMessage: input.issue ? "Issue already has a Task" : "Task operation already exists",
       });
     }
+  }
+
+  async #findTaskByManualKey(teamId: string, idempotencyKey: string): Promise<TaskRecord | undefined> {
+    const rows = await this.#client.task.findMany({
+      where: { teamId, idempotencyKey },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return rows[0] ? mapTask(rows[0]) : undefined;
+  }
+
+  async #findTaskByIssue(issue: TaskCreateFromIssue["issue"]): Promise<TaskRecord | undefined> {
+    const rows = await this.#client.task.findMany({
+      where: {
+        issueProvider: issue.provider,
+        issueConnectionId: issue.connectionId,
+        issueScopeExternalId: issue.scopeExternalId,
+        issueExternalId: issue.externalId,
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return rows[0] ? mapTask(rows[0]) : undefined;
   }
 
   async #requireUsableRepositoryConnection(

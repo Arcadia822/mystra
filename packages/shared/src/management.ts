@@ -14,6 +14,7 @@ import {
 } from "./schemas.js";
 import { integrationConnectionSchema, integrationProviderStatusSchema } from "./integrations.js";
 import { sessionStateSchema } from "./state.js";
+import { taskIssueResolutionSchema, taskSchema } from "./task.js";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 
@@ -136,17 +137,7 @@ export const submittedLaneSnapshotSchema = z
   .strict();
 export type SubmittedLaneSnapshot = z.infer<typeof submittedLaneSnapshotSchema>;
 
-export const taskRecordSchema = z
-  .object({
-    id: z.string().uuid(),
-    teamId: z.string().uuid(),
-    projectId: z.string().uuid(),
-    issueDispatchKey: z.string().min(1).max(1_000).optional(),
-    metadata: jsonObjectSchema.default({}),
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
-  })
-  .strict();
+export const taskRecordSchema = taskSchema;
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
 export const sessionRecordSchema = z
@@ -229,11 +220,13 @@ export const taskListResponseSchema = z.object({ tasks: z.array(taskListItemSche
 export type TaskListResponse = z.infer<typeof taskListResponseSchema>;
 
 export const taskDetailResponseSchema = z
-  .object({ task: taskRecordSchema })
+  .object({ task: taskRecordSchema, issueResolution: taskIssueResolutionSchema.optional() })
   .strict();
 export type TaskDetailResponse = z.infer<typeof taskDetailResponseSchema>;
 
-export const taskCreateResponseSchema = z.object({ task: taskRecordSchema }).strict();
+export const taskCreateResponseSchema = z
+  .object({ task: taskRecordSchema, created: z.boolean() })
+  .strict();
 export type TaskCreateResponse = z.infer<typeof taskCreateResponseSchema>;
 
 export const sessionListResponseSchema = z

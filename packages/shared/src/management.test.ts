@@ -59,8 +59,10 @@ const projectRuntime = {
 const task = {
   id: "00000000-0000-4000-8000-000000000010",
   teamId: "00000000-0000-4000-8000-000000000012",
-  projectId: "00000000-0000-4000-8000-000000000001",
-  metadata: {},
+  title: "Implement API slice",
+  description: null,
+  projectId: null,
+  issue: null,
   createdAt: "2026-05-15T00:00:00.000Z",
   updatedAt: "2026-05-15T00:00:00.000Z",
 } as const;
@@ -175,7 +177,7 @@ describe("management errors", () => {
 
 describe("Project management views", () => {
   const projectSelection = {
-    id: task.projectId,
+    id: "00000000-0000-4000-8000-000000000001",
     teamId: task.teamId,
     name: "Mystra",
     slug: "mystra",
@@ -252,7 +254,7 @@ describe("Project management views", () => {
 
   it("accepts submitted lane snapshots without exposing execution facts", () => {
     const parsed = submittedLaneSnapshotSchema.parse({
-      projectId: task.projectId,
+      projectId: "00000000-0000-4000-8000-000000000001",
       projectSlug: "mystra",
       repositoryConnectionId,
       repositoryExternalId: remoteRepository.externalId,
@@ -281,11 +283,38 @@ describe("Project management views", () => {
 
 describe("Task and Session management views", () => {
   it("allows a Task to exist with zero Sessions and no lifecycle state", () => {
-    expect(taskRecordSchema.parse(task).metadata).toEqual({});
+    expect(taskRecordSchema.parse(task).projectId).toBeNull();
     const detail = taskDetailResponseSchema.parse({ task });
     expect("state" in detail.task).toBe(false);
     expect("result" in detail.task).toBe(false);
-    expect(taskCreateResponseSchema.parse({ task }).task.id).toBe(task.id);
+    expect(taskCreateResponseSchema.parse({ task, created: true }).task.id).toBe(task.id);
+  });
+
+  it("returns transient Issue availability without making Project mandatory", () => {
+    const issueTask = {
+      ...task,
+      projectId: "00000000-0000-4000-8000-000000000001",
+      issue: {
+        provider: "linear",
+        connectionId: repositoryConnectionId,
+        scopeExternalId: "linear-team-id",
+        externalId: "linear-issue-id",
+        identifier: "ENG-42",
+      },
+    } as const;
+    expect(taskDetailResponseSchema.parse({
+      task: issueTask,
+      issueResolution: {
+        status: "available",
+        title: "Fix the flaky test",
+        identifier: "ENG-42",
+        url: "https://linear.app/example/issue/ENG-42",
+      },
+    }).issueResolution?.status).toBe("available");
+    expect(taskDetailResponseSchema.parse({
+      task: issueTask,
+      issueResolution: { status: "unavailable" },
+    }).task.issue?.externalId).toBe("linear-issue-id");
   });
 
   it("does not project Session summaries into Task list items", () => {
@@ -325,7 +354,7 @@ describe("Runner management views", () => {
     activeSessionCount: 1,
     health: "healthy",
     staleAfterSeconds: 60,
-    eligibleProjectIds: [task.projectId],
+    eligibleProjectIds: ["00000000-0000-4000-8000-000000000001"],
     eligibleRuntimeProviders: ["docker"],
     currentAssignments: [{ taskId: task.id, sessionId: session.id }],
     lastHeartbeatAt: "2026-05-15T00:00:00.000Z",

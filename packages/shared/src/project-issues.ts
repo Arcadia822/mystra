@@ -54,6 +54,7 @@ export const githubIssueListItemSchema = z.object({
   milestone: z.object({ id: z.string().min(1), title: z.string().min(1) }).strict().nullable(),
   updatedAt: z.string().datetime(),
   url: httpsUrlSchema,
+  taskId: z.string().uuid().optional(),
 }).strict();
 export type GitHubIssueListItem = z.infer<typeof githubIssueListItemSchema>;
 
@@ -75,6 +76,7 @@ export const linearIssueListItemSchema = z.object({
   }).strict().nullable(),
   updatedAt: z.string().datetime(),
   url: httpsUrlSchema,
+  taskId: z.string().uuid().optional(),
 }).strict();
 export type LinearIssueListItem = z.infer<typeof linearIssueListItemSchema>;
 

@@ -6,15 +6,18 @@ import {
   agentPageSchema,
   agentResponseSchema,
   agentUpdateRequestSchema,
-  taskCreateRequestSchema,
+  manualTaskCreateRequestSchema,
   taskCreateResponseSchema,
   taskDetailResponseSchema,
   taskListResponseSchema,
+  taskDescriptionSchema,
+  taskTitleSchema,
 } from "@mystra/shared";
 import { z } from "zod";
 
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/lib/rbac";
+import { createTaskService } from "@/lib/tasks/task-service-factory";
 import { requireHumanSession, requireTeamPermission } from "../_auth";
 
 const jsonRpcRequestSchema = z.object({
@@ -75,6 +78,13 @@ function parseArguments<T extends z.ZodType>(
 const idArgumentSchema = z.object({ id: z.string().uuid() }).strict();
 const agentUpdateToolSchema = agentUpdateRequestSchema.extend({ id: z.string().uuid() }).strict();
 const agentArchiveToolSchema = agentArchiveRequestSchema.extend({ id: z.string().uuid() }).strict();
+const taskUpdateToolSchema = z.object({
+  id: z.string().uuid(),
+  title: taskTitleSchema.optional(),
+  description: taskDescriptionSchema.optional(),
+}).strict().refine((value) => value.title !== undefined || value.description !== undefined, {
+  message: "At least one of title or description is required",
+});
 
 const tools = [
   {
@@ -134,20 +144,22 @@ const tools = [
   },
   {
     name: "mystra_create_task",
-    description: "Create an empty Mystra Task.",
+    description: "Create a durable Task context in the active Team.",
     inputSchema: {
       type: "object",
-      required: ["projectId"],
+      required: ["title", "idempotencyKey"],
       properties: {
+        title: { type: "string", minLength: 1, maxLength: 500 },
+        description: { type: ["string", "null"], maxLength: 100000 },
         projectId: { type: "string", format: "uuid" },
-        issueDispatchKey: { type: "string" },
-        metadata: { type: "object" },
+        idempotencyKey: { type: "string", format: "uuid" },
       },
       additionalProperties: false,
     },
   },
   { name: "mystra_list_tasks", description: "List durable Task records.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "mystra_get_task", description: "Inspect one durable Task record.", inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string", format: "uuid" } }, additionalProperties: false } },
+  { name: "mystra_update_task", description: "Update Task-owned title or description.", inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string", format: "uuid" }, title: { type: "string", minLength: 1, maxLength: 500 }, description: { type: ["string", "null"], maxLength: 100000 } }, additionalProperties: false } },
   { name: "mystra_health", description: "Report local control-plane database health.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
 ] as const;
 
@@ -256,13 +268,13 @@ export async function POST(request: Request) {
       const parsed = parseArguments(
         rpc.id,
         call.name,
-        taskCreateRequestSchema,
-        { ...call.arguments, teamId: active.team.id },
+        manualTaskCreateRequestSchema,
+        call.arguments,
       );
       if (!parsed.ok) return parsed.response;
-      return jsonRpc(rpc.id, textToolResult(taskCreateResponseSchema.parse({
-        task: await db.createTask({ ...parsed.data, teamId: active.team.id }),
-      })));
+      return jsonRpc(rpc.id, textToolResult(taskCreateResponseSchema.parse(
+        await db.createTask({ ...parsed.data, teamId: active.team.id }),
+      )));
     }
     if (call.name === "mystra_list_tasks") {
       return jsonRpc(rpc.id, textToolResult(taskListResponseSchema.parse({
@@ -274,8 +286,20 @@ export async function POST(request: Request) {
       if (!parsed.ok) return parsed.response;
       const task = await db.getTask(parsed.data.id, { teamId: active.team.id });
       return jsonRpc(rpc.id, textToolResult(task
-        ? taskDetailResponseSchema.parse({ task })
+        ? taskDetailResponseSchema.parse({
+          task,
+          ...(task.issue ? { issueResolution: await (await createTaskService(db)).resolveIssue(task) } : {}),
+        })
         : { error: { code: "TASK_NOT_FOUND", message: `Task not found: ${parsed.data.id}` } }));
+    }
+    if (call.name === "mystra_update_task") {
+      const parsed = parseArguments(rpc.id, call.name, taskUpdateToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const { id, ...input } = parsed.data;
+      const task = await db.updateTask(id, input, { teamId: active.team.id });
+      return jsonRpc(rpc.id, textToolResult(task
+        ? { task }
+        : { error: { code: "TASK_NOT_FOUND", message: `Task not found: ${id}` } }));
     }
     if (call.name === "mystra_health") {
       const tasks = await db.listTasks({ teamId: active.team.id });
