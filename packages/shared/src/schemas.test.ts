@@ -591,7 +591,6 @@ describe("projectSchema", () => {
 
   it("accepts only stable repository identity on public project create requests", () => {
     const parsed = projectCreateRequestSchema.parse({
-      teamId: "00000000-0000-4000-8000-000000000003",
       name: "Remote fixture",
       slug: "remote-fixture",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
@@ -600,9 +599,21 @@ describe("projectSchema", () => {
     });
 
     expect(parsed.repositoryExternalId).toBe(remoteRepository.externalId);
+    expect(parsed).not.toHaveProperty("teamId");
     expect(() => projectCreateRequestSchema.parse({
       ...parsed,
       repo: "legacy-value",
+    })).toThrow();
+  });
+
+  it("rejects client-supplied Team identity on public project create requests", () => {
+    expect(() => projectCreateRequestSchema.parse({
+      teamId: "00000000-0000-4000-8000-000000000003",
+      name: "Remote fixture",
+      slug: "remote-fixture",
+      repositoryConnectionId: "00000000-0000-4000-8000-000000000039",
+      repositoryExternalId: remoteRepository.externalId,
+      repositoryBaseBranch: "main",
     })).toThrow();
   });
 
