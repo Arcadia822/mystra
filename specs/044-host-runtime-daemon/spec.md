@@ -29,9 +29,10 @@ Runtime 管理是操作者日常可达的控制面路由。它在侧栏中与现
 
 ## 概念方向（前瞻，非本 spec 交付范围）
 
-后续任务启动将采用四轴模型 `Task × Runtime(provides Provider) × Agent(provider+prompt+skills) ×
-Context(repo/worktree)`。**本 spec 只落地其中的 Runtime 与 Provider 两块**，其余轴（Agent 配置、
-Context 管理、派发/执行）留给后续 feature。此处记录方向，仅为保证本 spec 的抽象向前兼容：
+后续 Session 发起采用四要素模型 `Runtime × Provider × Agent × Context`；Project 与 Task 是 Session
+上彼此独立的 `0..1` 可选引用，都不是父级，也不属于这四个执行选择。**本 spec 只落地其中的 Runtime 与 Provider 两块**，Agent 由
+`046-agent-definition` 定义为 Team-scoped、仅以 system prompt 影响执行效果的配置，Context 与派发/执行由后续
+feature 拥有。此处记录方向，仅为保证本 spec 的抽象向前兼容：
 
 - **Runtime**：一个执行后端，对外声明它能提供哪些 **Provider（agent CLI）**；该能力表达**与来源
   无关**——当前 host-bound Runtime 由 PATH 发现，未来 image-bound Runtime 可由镜像声明，上层契约不变。
@@ -216,10 +217,10 @@ Provider，这样我能判断哪台机器此刻可堪使用。
   provider)`）。属性：provider 键、discovered、available、source、resolvedPath、version、unavailableReason。
   host 由 Runner 提交形式写入，未来 e2b 由镜像声明（`source=sandbox-image`）——核心表不变。
 - **Provider**: agent CLI / 协议族（copilot/codex/claude…）。能力维度，由 Runtime 发现并确认可用；
-  实现可为注册表/枚举（复用 `agentNameSchema`），不是重业务表。区分"发现（存在）"与"可用（能用）"两态。
+  实现可为注册表/枚举（复用 `providerNameSchema`），不是重业务表。区分"发现（存在）"与"可用（能用）"两态。
 
-> Agent（provider+prompt+skills）、Context（repo/worktree）、执行/Session **不在本 spec 的实体范围**，
-> 由后续 feature 拥有。**Runner** 不是实体/表，是 host 的**提交形式**（register/heartbeat/provider-report），
+> Agent（Team-scoped、system-prompt-only 效果配置，由 046 拥有）、Context（repo/worktree）、执行/Session **不在本 spec
+> 的实体范围**，由后续 feature 拥有。**Runner** 不是实体/表，是 host 的**提交形式**（register/heartbeat/provider-report），
 > 其协议 bookkeeping 仅以 Runtime 的 `metadata` 与内存 last-seen 留痕。
 
 ## 边界与依赖门禁 *(重要)*
@@ -262,7 +263,8 @@ Provider，这样我能判断哪台机器此刻可堪使用。
 
 - 发起任务 / 派发 / 执行（含 headless `-p` 驱动 agent）——后续 feature。
 - Context / repo / worktree 管理——后续 feature。
-- Agent 配置（provider + system prompt + skills）持久化与 UI——后续 feature。
+- Agent 配置（Team-scoped，唯一效果配置为 system prompt）由 `046-agent-definition` 拥有；Provider 与 Context/skills
+  保持独立，Agent UI 仍非 044 范围。
 - 执行 / Session 持久化、并发调度、断连时执行恢复——后续 feature。
 - 接入校验 / pairing / 凭证交换 / 授权——整体后置；摄取路由 MVP 无认证为**已知风险**（FR-023）。
 - **服务端移除 Runtime**——本 feature 不做。理由：仍在运行的 runner 会在下次注册时重新纳管自己，

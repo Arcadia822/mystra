@@ -99,17 +99,21 @@ function usage() {
   pnpm operator:cli -- repositories get <owner/repository> --integration NAME [--json]
   pnpm operator:cli -- projects list [--json] [--control-plane-url URL]
   pnpm operator:cli -- projects inspect <slug> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- projects create --name NAME --slug SLUG --repository-integration NAME --repository IDENTIFIER --agent NAME --runtime-image IMAGE [--json]
+  pnpm operator:cli -- agents list [--limit N] [--cursor ID] [--include-archived] [--json]
+  pnpm operator:cli -- agents inspect <agent-id> [--json]
+  pnpm operator:cli -- agents create --name NAME --system-prompt TEXT [--json]
+  pnpm operator:cli -- agents update <agent-id> --expected-revision N [--name NAME] [--system-prompt TEXT] [--json]
+  pnpm operator:cli -- agents archive <agent-id> --expected-revision N [--json]
   pnpm operator:cli -- runners list [--json] [--control-plane-url URL]
   pnpm operator:cli -- runners inspect <runner-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- issues list --integration NAME [--repository IDENTIFIER] [--limit N] [--cursor TOKEN] [--json]
   pnpm operator:cli -- issues get <identifier> --integration NAME [--repository IDENTIFIER] [--json]
-  pnpm operator:cli -- issues dispatch <identifier> --integration NAME --project SLUG --agent copilot --branch NAME [--json]
+  pnpm operator:cli -- issues dispatch <identifier> --integration NAME --project SLUG --provider copilot --branch NAME [--json]
   pnpm operator:cli -- tasks list [--json] [--control-plane-url URL]
   pnpm operator:cli -- tasks create --project PROJECT_ID --objective TEXT [--json]
   pnpm operator:cli -- tasks inspect <task-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- sessions list <task-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- sessions create <task-id> --title TITLE --objective TEXT [--agent NAME] [--branch NAME] [--json]
+  pnpm operator:cli -- sessions create <task-id> --title TITLE --objective TEXT [--provider NAME] [--branch NAME] [--json]
   pnpm operator:cli -- sessions inspect <session-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- sessions wait <session-id> [--interval-seconds N] [--timeout-seconds N] [--json]
   pnpm operator:cli -- sessions cancel <session-id> [--json] [--control-plane-url URL]
@@ -146,6 +150,7 @@ function previewSummary(result) {
 
 function managementExitCode(code) {
   if ([
+    "AGENT_NOT_FOUND",
     "PROJECT_NOT_FOUND",
     "TASK_NOT_FOUND",
     "SESSION_NOT_FOUND",
@@ -157,6 +162,8 @@ function managementExitCode(code) {
     return EXIT_CODES.MISSING;
   }
   if ([
+    "AGENT_ARCHIVED",
+    "AGENT_REVISION_CONFLICT",
     "PROJECT_ARCHIVED",
     "RESULT_UNAVAILABLE",
     "SESSION_CANCEL_CONFLICT",
@@ -168,6 +175,7 @@ function managementExitCode(code) {
     return EXIT_CODES.UNAVAILABLE;
   }
   if ([
+    "INVALID_AGENT",
     "INVALID_SUBMISSION",
     "INVALID_PROJECT",
     "INVALID_REQUEST",
@@ -203,15 +211,17 @@ function parseArgs(argv) {
     limit: undefined,
     cursor: undefined,
     project: undefined,
-    agent: undefined,
+    provider: undefined,
     branch: undefined,
     name: undefined,
     slug: undefined,
     repository: undefined,
     repositoryIntegration: undefined,
-    runtimeImage: undefined,
     title: undefined,
     objective: undefined,
+    systemPrompt: undefined,
+    expectedRevision: undefined,
+    includeArchived: false,
     intervalSeconds: 2,
     timeoutSeconds: 3600,
   };
@@ -228,6 +238,10 @@ function parseArgs(argv) {
     }
     if (arg === "--password-stdin") {
       flags.passwordStdin = true;
+      continue;
+    }
+    if (arg === "--include-archived") {
+      flags.includeArchived = true;
       continue;
     }
     if (arg === "--control-plane-url") {
@@ -248,15 +262,16 @@ function parseArgs(argv) {
       ["--limit", "limit"],
       ["--cursor", "cursor"],
       ["--project", "project"],
-      ["--agent", "agent"],
+      ["--provider", "provider"],
       ["--branch", "branch"],
       ["--name", "name"],
       ["--slug", "slug"],
       ["--repository", "repository"],
       ["--repository-integration", "repositoryIntegration"],
-      ["--runtime-image", "runtimeImage"],
       ["--title", "title"],
       ["--objective", "objective"],
+      ["--system-prompt", "systemPrompt"],
+      ["--expected-revision", "expectedRevision"],
       ["--username", "username"],
       ["--interval-seconds", "intervalSeconds"],
       ["--timeout-seconds", "timeoutSeconds"],
@@ -287,6 +302,7 @@ function parseArgs(argv) {
     (group === "runners" && command === "inspect") ||
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
     (group === "tasks" && command === "inspect") ||
+    (group === "agents" && ["inspect", "update", "archive"].includes(command)) ||
     (group === "teams" && command === "use") ||
     (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command))
   );
@@ -309,11 +325,14 @@ function parseArgs(argv) {
   if (group === "repositories" && !["list", "get"].includes(command)) {
     return { ok: false, message: `Unknown repositories command: ${command}` };
   }
-  if (group === "projects" && !["list", "inspect", "create"].includes(command)) {
+  if (group === "projects" && !["list", "inspect"].includes(command)) {
     return { ok: false, message: `Unknown projects command: ${command}` };
   }
   if (group === "runners" && !["list", "inspect"].includes(command)) {
     return { ok: false, message: `Unknown runners command: ${command}` };
+  }
+  if (group === "agents" && !["list", "inspect", "create", "update", "archive"].includes(command)) {
+    return { ok: false, message: `Unknown agents command: ${command}` };
   }
   if (group === "tasks" && !["list", "create", "inspect"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
@@ -332,6 +351,7 @@ function parseArgs(argv) {
     "repositories",
     "projects",
     "runners",
+    "agents",
     "issues",
     "tasks",
     "sessions",
@@ -344,7 +364,7 @@ function parseArgs(argv) {
   if (["issues", "repositories"].includes(group) && !flags.integration) {
     return { ok: false, message: `Missing --integration for ${group} command` };
   }
-  if (["issues", "repositories"].includes(group) && flags.limit !== undefined) {
+  if (["issues", "repositories", "agents"].includes(group) && flags.limit !== undefined) {
     const limit = Number(flags.limit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       return { ok: false, message: "--limit must be an integer between 1 and 100" };
@@ -352,30 +372,13 @@ function parseArgs(argv) {
     flags.limit = limit;
   }
   if (
-    group === "projects"
-    && command === "create"
-    && (
-      !flags.name
-      || !flags.slug
-      || !flags.repositoryIntegration
-      || !flags.repository
-      || !flags.agent
-      || !flags.runtimeImage
-    )
-  ) {
-    return {
-      ok: false,
-      message: "projects create requires --name, --slug, --repository-integration, --repository, --agent, and --runtime-image",
-    };
-  }
-  if (
     group === "issues"
     && command === "dispatch"
-    && (!flags.project || !flags.agent || !flags.branch)
+    && (!flags.project || !flags.provider || !flags.branch)
   ) {
     return {
       ok: false,
-      message: "issues dispatch requires --project, --agent, and --branch",
+      message: "issues dispatch requires --project, --provider, and --branch",
     };
   }
   if (group === "tasks" && command === "create" && (!flags.project || !flags.objective)) {
@@ -383,6 +386,19 @@ function parseArgs(argv) {
   }
   if (group === "sessions" && command === "create" && (!flags.title || !flags.objective)) {
     return { ok: false, message: "sessions create requires --title and --objective" };
+  }
+  if (group === "agents" && command === "create" && (!flags.name || !flags.systemPrompt)) {
+    return { ok: false, message: "agents create requires --name and --system-prompt" };
+  }
+  if (group === "agents" && ["update", "archive"].includes(command)) {
+    const revision = Number(flags.expectedRevision);
+    if (!Number.isInteger(revision) || revision < 1) {
+      return { ok: false, message: `${group} ${command} requires a positive --expected-revision` };
+    }
+    flags.expectedRevision = revision;
+  }
+  if (group === "agents" && command === "update" && !flags.name && !flags.systemPrompt) {
+    return { ok: false, message: "agents update requires --name or --system-prompt" };
   }
   if (group === "sessions" && command === "wait") {
     for (const [flag, value] of [
@@ -411,7 +427,7 @@ function parseArgs(argv) {
       ...(flags.limit !== undefined ? { limit: flags.limit } : {}),
       ...(flags.cursor ? { cursor: flags.cursor } : {}),
       ...(flags.project ? { project: flags.project } : {}),
-      ...(flags.agent ? { agent: flags.agent } : {}),
+      ...(flags.provider ? { provider: flags.provider } : {}),
       ...(flags.branch ? { branch: flags.branch } : {}),
       ...(flags.name ? { name: flags.name } : {}),
       ...(flags.slug ? { slug: flags.slug } : {}),
@@ -419,9 +435,11 @@ function parseArgs(argv) {
       ...(flags.repositoryIntegration
         ? { repositoryIntegration: flags.repositoryIntegration }
         : {}),
-      ...(flags.runtimeImage ? { runtimeImage: flags.runtimeImage } : {}),
       ...(flags.title ? { title: flags.title } : {}),
       ...(flags.objective ? { objective: flags.objective } : {}),
+      ...(flags.systemPrompt ? { systemPrompt: flags.systemPrompt } : {}),
+      ...(flags.expectedRevision !== undefined ? { expectedRevision: flags.expectedRevision } : {}),
+      ...(flags.includeArchived ? { includeArchived: true } : {}),
       ...(group === "sessions" && command === "wait"
         ? {
             intervalSeconds: flags.intervalSeconds,
@@ -549,7 +567,7 @@ function formatProjectsList(payload) {
   for (const project of payload.projects) {
     pushLine(
       lines,
-      `  - ${project.slug} | repository=${project.repository?.fullName ?? "n/a"} | provider=${project.repository?.provider ?? "n/a"} | base=${project.baseBranch} | agent=${project.defaultAgent}${project.archivedAt ? " | archived" : ""}`,
+      `  - ${project.slug} | repository=${project.repository?.fullName ?? "n/a"} | provider=${project.repository?.provider ?? "n/a"} | base=${project.baseBranch}${project.archivedAt ? " | archived" : ""}`,
     );
   }
   return lines.join("\n");
@@ -591,7 +609,7 @@ function formatRunnerInspect(payload) {
   pushLine(lines, `  heartbeat: ${runner.lastHeartbeatAt}`);
   pushLine(lines, `  concurrency: ${runner.activeSessionCount}/${runner.maxConcurrency}`);
   pushLine(lines, `  executor: ${runner.capabilities.executor}`);
-  pushLine(lines, `  agents: ${runner.capabilities.agents.join(", ")}`);
+  pushLine(lines, `  executionProviders: ${runner.capabilities.executionProviders.join(", ")}`);
   pushLine(lines, `  image: ${runner.capabilities.image ?? "n/a"}`);
   pushLine(lines, `  assignments: ${runner.currentAssignments.map((assignment) => `${assignment.taskId}/${assignment.sessionId}`).join(", ") || "none"}`);
   return lines.join("\n");
@@ -605,7 +623,6 @@ function formatProjectInspect(payload) {
   pushLine(lines, `  repositoryProvider: ${project.repository?.provider ?? "n/a"}`);
   pushLine(lines, `  cloneUrl: ${project.repository?.cloneUrl ?? "n/a"}`);
   pushLine(lines, `  baseBranch: ${project.baseBranch}`);
-  pushLine(lines, `  defaultAgent: ${project.defaultAgent}`);
   pushLine(lines, `  runtime: ${project.runtime.provider} | image=${project.runtime.image}`);
   pushLine(lines, `  contextBundles: ${contextRefsSummary(project.lane?.contextBundleRefs)}`);
   pushLine(lines, `  prewarmKeys: ${Object.keys(project.prewarmConfig ?? {}).join(", ") || "none"}`);
@@ -628,6 +645,30 @@ function formatTasksList(payload) {
   return lines.join("\n");
 }
 
+function formatAgentsList(payload) {
+  const lines = ["Agents"];
+  if (!Array.isArray(payload.agents) || payload.agents.length === 0) {
+    pushLine(lines, "  none");
+  } else {
+    for (const agent of payload.agents) {
+      pushLine(lines, `  - ${agent.id} | ${agent.name} | revision=${agent.revision} | ${agent.status}`);
+    }
+  }
+  if (payload.nextCursor) pushLine(lines, `nextCursor: ${payload.nextCursor}`);
+  return lines.join("\n");
+}
+
+function formatAgent(payload) {
+  const agent = payload.agent;
+  const lines = [`Agent ${agent.name}`];
+  pushLine(lines, `  id: ${agent.id}`);
+  pushLine(lines, `  teamId: ${agent.teamId}`);
+  pushLine(lines, `  revision: ${agent.revision}`);
+  pushLine(lines, `  status: ${agent.status}`);
+  pushLine(lines, `  systemPrompt: ${agent.systemPrompt}`);
+  return lines.join("\n");
+}
+
 function formatSessionsList(payload) {
   const lines = [`Sessions for ${payload.taskId}`];
   if (!Array.isArray(payload.sessions) || payload.sessions.length === 0) {
@@ -635,7 +676,7 @@ function formatSessionsList(payload) {
     return lines.join("\n");
   }
   for (const session of payload.sessions) {
-    pushLine(lines, `  - ${session.id} | state=${session.state} | agent=${session.agent} | branch=${session.branch} | updated=${session.updatedAt}`);
+    pushLine(lines, `  - ${session.id} | state=${session.state} | provider=${session.provider} | branch=${session.branch} | updated=${session.updatedAt}`);
   }
   return lines.join("\n");
 }
@@ -746,7 +787,7 @@ function formatSessionWait(snapshot) {
   );
   pushLine(
     lines,
-    `  agent: ${agent?.agent ?? "n/a"} ${agent?.cliVersion ?? "n/a"} | ${agent?.mode ?? "n/a"} | cap=${agent?.maxAutopilotContinues ?? "n/a"}`,
+    `  provider: ${agent?.provider ?? "n/a"} ${agent?.cliVersion ?? "n/a"} | ${agent?.mode ?? "n/a"} | cap=${agent?.maxAutopilotContinues ?? "n/a"}`,
   );
   return lines.join("\n");
 }
@@ -852,6 +893,12 @@ function formatSuccess(command, payload, jsonMode) {
   }
   if (command.group === "runners" && command.command === "inspect") {
     return `${formatRunnerInspect(payload)}\n`;
+  }
+  if (command.group === "agents" && command.command === "list") {
+    return `${formatAgentsList(payload)}\n`;
+  }
+  if (command.group === "agents") {
+    return `${formatAgent(payload)}\n`;
   }
   if (command.group === "issues" && command.command === "list") {
     return `${formatIssuesList(payload)}\n`;
@@ -1049,22 +1096,36 @@ async function executeCommand(command, fetchImpl, deps = {}) {
   if (command.group === "projects" && command.command === "inspect") {
     return await readJson(new URL(`/api/projects/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
   }
-  if (command.group === "projects" && command.command === "create") {
-    return await readJson(new URL("/api/projects", baseUrl), fetchImpl, {
+  if (command.group === "agents" && command.command === "list") {
+    const url = new URL("/api/agents", baseUrl);
+    if (command.limit !== undefined) url.searchParams.set("limit", String(command.limit));
+    if (command.cursor) url.searchParams.set("cursor", command.cursor);
+    if (command.includeArchived) url.searchParams.set("includeArchived", "true");
+    return await readJson(url, fetchImpl);
+  }
+  if (command.group === "agents" && command.command === "inspect") {
+    return await readJson(new URL(`/api/agents/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
+  }
+  if (command.group === "agents" && command.command === "create") {
+    return await readJson(new URL("/api/agents", baseUrl), fetchImpl, {
       method: "POST",
+      body: JSON.stringify({ name: command.name, systemPrompt: command.systemPrompt }),
+    });
+  }
+  if (command.group === "agents" && command.command === "update") {
+    return await readJson(new URL(`/api/agents/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl, {
+      method: "PATCH",
       body: JSON.stringify({
-        name: command.name,
-        slug: command.slug,
-        repository: {
-          integration: command.repositoryIntegration,
-          identifier: command.repository,
-        },
-        defaultAgent: command.agent,
-        runtime: {
-          provider: "docker",
-          image: command.runtimeImage,
-        },
+        expectedRevision: command.expectedRevision,
+        ...(command.name ? { name: command.name } : {}),
+        ...(command.systemPrompt ? { systemPrompt: command.systemPrompt } : {}),
       }),
+    });
+  }
+  if (command.group === "agents" && command.command === "archive") {
+    return await readJson(new URL(`/api/agents/${encodeURIComponent(command.target)}/archive`, baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({ expectedRevision: command.expectedRevision }),
     });
   }
   if (command.group === "runners" && command.command === "list") {
@@ -1128,7 +1189,7 @@ async function executeCommand(command, fetchImpl, deps = {}) {
         method: "POST",
         body: JSON.stringify({
           projectId: project.data.project.id,
-          agent: command.agent,
+          provider: command.provider,
           branch: command.branch,
         }),
       },
@@ -1159,7 +1220,7 @@ async function executeCommand(command, fetchImpl, deps = {}) {
       body: JSON.stringify({
         title: command.title,
         objective: command.objective,
-        ...(command.agent ? { agent: command.agent } : {}),
+        ...(command.provider ? { provider: command.provider } : {}),
         ...(command.branch ? { branch: command.branch } : {}),
       }),
     });

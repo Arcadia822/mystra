@@ -54,7 +54,7 @@ describe("Operator object CLI", () => {
     const runner = {
       id: "00000000-0000-4000-8000-000000000030",
       name: "local",
-      capabilities: { agents: ["copilot"], executor: "docker" },
+      capabilities: { executionProviders: ["copilot"], executor: "docker" },
       activeSessionCount: 0,
       maxConcurrency: 2,
       health: "healthy",

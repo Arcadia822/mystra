@@ -25,16 +25,21 @@ persistence is deferred.
 ```text
 Mystra platform
   -> Team
+    -> Agent
     -> Project
-      -> Task
-        -> Session (0..N)
-          -> stable Runner assignment
-          -> sandbox -> Agent -> repository review
+    -> Task
+    -> Session
+      -> project? (0..1 reference)
+      -> task? (0..1 reference)
+      -> stable Runner assignment
+      -> sandbox -> Agent -> repository review
 ```
 
-The current Task RDB model owns only identity, Project relation, optional Issue
-dispatch key and metadata. Source, objective and Issue/Repository snapshots are deferred.
-Session owns all execution choices and lifecycle. Runner is stable capacity.
+The current Task RDB `projectId` relation is obsolete under the current pre-0.1
+model and must be replaced when Task/Session persistence is redesigned. Task is
+Team-scoped; source, objective and Issue/Repository snapshots are deferred.
+Session is independently Team-scoped, owns all execution choices and lifecycle,
+and may separately reference `0..1` Project and `0..1` Task. Runner is stable capacity.
 Workspace means the Session-scoped working directory and context-delivery
 surface; it is never a tenancy term.
 
@@ -60,15 +65,18 @@ pnpm lsp:typescript
 - Every Project binds one IntegrationConnection plus a provider-stable remote Repository external ID.
   Mutable repository metadata is not Project persistence; Repo Info retrieval/cache is separately specified.
   Local paths and caller-supplied clone URLs are invalid inputs.
-- Task does not persist source, objective or Issue/Repository snapshots. Current external information will use a
+- Task belongs to exactly one Team and not to Project. It does not persist source, objective or Issue/Repository snapshots. Current external information will use a
   future Integration-owned cache contract; 040 does not define that cache.
 - A Task has no state, result, Agent, branch, runtime allocation, or Runner.
-- Every Session belongs to exactly one Task and owns its independent objective,
-  Agent, branch, resolved runtime, lifecycle, cancellation, and result.
+- Every Session belongs to exactly one Team and belongs to neither Task nor
+  Project. It may independently reference at most one Task and at most one
+  Project; either or both may be absent. Session owns its independent objective,
+  selected Runtime, Provider, Agent and Context, plus branch, lifecycle,
+  cancellation and result. Agent belongs to the same Team and has no Project relation.
 - Runner has stable identity. Enrollment by name rotates credentials without
   creating a new business object.
-- Runner claim responses contain parent Task context plus the selected Session
-  and resolved runtime.
+- Runner claim responses contain the selected Session and resolved runtime;
+  optional Task and Project context is included only when explicitly referenced.
 - Internal execution facts support diagnostics and transactional persistence but
   have no independent management API, MCP tool, CLI group, or Web object page.
 - Headless operation is mandatory; Web remains a secondary client.
@@ -161,17 +169,19 @@ source is open, an operator can fork and replace the composition root; the stock
 self-hosted distribution nevertheless never advertises or activates the hosted
 GitHub App path.
 
-Project creation keeps execution defaults out of repository onboarding. The
-control plane resolves `MYSTRA_DEFAULT_AGENT` (default `copilot`) and
-`MYSTRA_DEFAULT_DEV_IMAGE` (default `mystra-runner:local`) server-side and
-persists the resolved values. Add Project therefore asks only for the exact
+Project creation keeps execution choices out of repository onboarding. Project
+does not own, default or persist Agent selection; `MYSTRA_DEFAULT_AGENT` is an
+obsolete pre-0.1 direction and MUST NOT return as a Project field or fallback.
+Session launch independently resolves Runtime, Provider, Team-scoped Agent and
+Context. Its optional Project and Task references do not provide defaults for
+those execution choices. Add Project therefore asks only for the exact
 connection, repository, Project name, and slug.
 
 ## Client surfaces
 
 The Web API is canonical. MCP and CLI are thin adapters; Web is a secondary
 operator client. The demo shell exposes New, Search, Inbox, Issues, and
-Automations, followed by Project-grouped Tasks whose icons show latest Session
+Automations, followed by Team-scoped Tasks whose icons show latest Session
 state. Existing Task, Session, Runner, and Project object routes remain directly
 reachable. The Automations menu item is presentation-only and adds no workflow
 runtime or persistence contract.

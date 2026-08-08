@@ -204,7 +204,7 @@ the sandbox, performs bounded test/build/preview/review delivery, and returns a
 GitHub PR plus durable `waiting_for_review` evidence.
 
 The active MVP demo UI uses a Castrel-inspired primary menu: New, Search,
-Inbox, and Issues, followed by Projects and a Tasks section grouped by Project.
+Inbox, and Issues, followed by Projects and a Team-scoped Tasks section.
 Task icons reflect the latest Session state. Existing Task, Session, Runner, and
 Project object routes remain directly reachable even when they are not primary
 menu items. `/automations` remains directly reachable as a Coming soon
@@ -214,10 +214,11 @@ Session-, Runner-, or ContextBundle-derived views as persistence requirements;
 resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
 and CLI.
 
-Task is currently a durable Project-scoped identity with optional Issue dispatch key and metadata; source,
-objective and external snapshots are deferred. Session remains the intended
-name for a future execution concept, but its persistence, Task relation, fields,
-state machine and CRUD are currently undefined and require a new specification.
+Task is a durable Team-scoped identity with optional Issue dispatch key and metadata; it does not belong to
+Project. The current Prisma `projectId` relation is an obsolete pre-0.1 implementation gap. Source, objective and
+external snapshots are deferred. Session is a Team-scoped execution concept that belongs to neither Task nor
+Project; it may independently reference `0..1` Task and `0..1` Project. Its remaining persistence fields,
+state machine and CRUD require a separate specification.
 Runtime is a first-class execution backend that advertises its available
 Provider capabilities; feature 044 owns host Runtime enrollment plus that
 capability's persistence (registration, Provider discovery/availability,
@@ -226,9 +227,12 @@ and internal execution facts are not business objects, and a public activity
 timeline is explicitly deferred.
 
 The north-star model is a hosted **Mystra platform** serving many independent
-**Teams**. Each Team may contain multiple projects with their own
-Issue integrations, Agent profiles, runtime images, product routes, user stories, and acceptance
-criteria, while sharing platform-owned provider pools such as sandbox capacity.
+**Teams**. Each Team may contain multiple Projects, Tasks, Sessions, and Agents
+while sharing platform-owned provider pools such as sandbox capacity. Agent,
+Task, Project, and Session are Team-scoped siblings: Agent and Task do not belong
+to Project, and Session belongs to neither Task nor Project. Session may
+independently reference `0..1` of each and selects Runtime, Provider, Agent, and
+Context as four independent execution inputs.
 Use this as the architectural direction when designing extensible interfaces,
 even though the current MVP proves one private, single-node deployment path.
 
@@ -290,7 +294,7 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (6206 symbols, 9845 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (7943 symbols, 13004 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -353,6 +357,8 @@ This project is indexed by GitNexus as **mystra** (6206 symbols, 9845 relationsh
 - SQLite schema v5 via `RdbProvider`；PAT ciphertext 通过 `SecretProvider` 存于受保护文件目录，RDB 只保存 opaque reference (041-github-integration-connections)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Node `child_process`（PATH 发现 + 登录 shell 兜底 + 版本 probe）、现有 `apps/runner-daemon`（TS）、Prisma via `RdbProvider` (044-host-runtime-daemon)
 - SQLite/PostgreSQL 双 schema via `RdbProvider`：新增 Runtime + 可用 Provider 能力持久化；host `mystra-runner` 注册/发现/心跳，online/offline 依服务端接收时间 (044-host-runtime-daemon)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Prisma ORM/Client 7.9.1、`@prisma/adapter-better-sqlite3`、`@prisma/adapter-pg` (046-agent-definition)
+- SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域契约 (046-agent-definition)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

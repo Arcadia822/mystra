@@ -19,6 +19,22 @@ The control plane and Runner must use the same registration secret.
 
 ## Operator CLI
 
+Manage Team-scoped Agents independently of Project and Provider:
+
+```sh
+pnpm operator:cli -- agents create --name Reviewer \
+  --system-prompt "Review evidence and reject unsupported claims."
+pnpm operator:cli -- agents list
+pnpm operator:cli -- agents inspect AGENT_ID
+```
+
+### Legacy Task/Session commands
+
+The commands below expose the pre-0.1 Task/Session routes that remain in the
+client. Their required Task→Project and Session→Task arguments are obsolete
+domain assumptions, not the target model. A separate Task/Session specification
+must replace them with Team-scoped objects and optional Session references.
+
 Create a Task without starting execution:
 
 ```sh
@@ -28,19 +44,20 @@ pnpm operator:cli -- tasks create \
   --json
 ```
 
-Create two independent child Sessions:
+The legacy CLI still accepts a Task-targeted Session route. Under the current
+domain model this is an optional Task reference, not Task ownership:
 
 ```sh
 pnpm operator:cli -- sessions create TASK_ID \
   --title "Reproduce" \
   --objective "Produce a deterministic reproduction" \
-  --agent codex \
+  --provider codex \
   --branch codex/reproduce
 
 pnpm operator:cli -- sessions create TASK_ID \
   --title "Fix" \
   --objective "Implement and verify the correction" \
-  --agent copilot \
+  --provider copilot \
   --branch codex/fix
 ```
 
@@ -57,7 +74,7 @@ pnpm operator:cli -- sessions wait SESSION_ID --interval-seconds 2 --timeout-sec
 pnpm operator:cli -- issues dispatch MYS-101 \
   --integration linear \
   --project mystra \
-  --agent copilot \
+  --provider copilot \
   --branch codex/mys-101 \
   --json
 ```

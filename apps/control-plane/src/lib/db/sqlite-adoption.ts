@@ -59,19 +59,43 @@ const schemaV5Columns: Record<string, string[]> = {
 
 const prismaPersistedColumns: Record<string, string[]> = {
   integration_connections: [
-    "id", "integration", "provider", "auth_method", "provider_external_id", "display_name",
+    "id", "team_id", "integration", "provider", "auth_method", "provider_external_id", "display_name",
     "provider_subject", "connection_config", "capabilities", "credential_ref", "credential_state",
     "status", "created_at", "updated_at",
   ],
   projects: [
-    "id", "name", "slug", "repository_connection_id", "repository_external_id",
+    "id", "team_id", "name", "slug", "repository_connection_id", "repository_external_id",
     "repository_base_branch", "metadata", "archived_at", "created_at", "updated_at",
   ],
-  tasks: ["id", "project_id", "issue_dispatch_key", "metadata", "created_at", "updated_at"],
+  tasks: ["id", "team_id", "project_id", "issue_dispatch_key", "metadata", "created_at", "updated_at"],
+  agents: [
+    "id", "team_id", "name", "system_prompt", "revision", "status", "archived_at",
+    "created_at", "updated_at",
+  ],
+  runtimes: ["id", "name", "type", "metadata", "created_at", "updated_at"],
+  runtime_providers: [
+    "id", "runtime_id", "provider", "discovered", "available", "source", "resolved_path",
+    "version", "unavailable_reason",
+  ],
   secret_envelopes: [
     "reference", "version", "algorithm", "key_id", "ciphertext", "ciphertext_iv",
     "ciphertext_auth_tag", "wrapped_data_key", "wrapped_data_key_iv",
     "wrapped_data_key_auth_tag", "created_at",
+  ],
+  users: [
+    "id", "username", "display_username", "display_name", "status", "require_password_change",
+    "created_at", "updated_at",
+  ],
+  auth_accounts: [
+    "id", "user_id", "password_hash", "password_salt", "password_params", "created_at", "updated_at",
+  ],
+  auth_sessions: [
+    "id", "user_id", "token_hash", "active_team_id", "expires_at", "ip_address", "user_agent",
+    "created_at", "updated_at",
+  ],
+  teams: ["id", "display_name", "status", "archived_at", "created_at", "updated_at"],
+  team_memberships: [
+    "id", "team_id", "user_id", "role", "status", "created_at", "updated_at",
   ],
 };
 

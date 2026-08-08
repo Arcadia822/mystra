@@ -1,4 +1,9 @@
 import type {
+  Agent,
+  AgentArchiveRequest,
+  AgentCreate,
+  AgentPage,
+  AgentUpdateRequest,
   AccountStatus,
   AccountView,
   IntegrationCapabilities,
@@ -20,6 +25,7 @@ import type {
   ProviderCapability,
   RuntimeRename,
   RuntimeView,
+  ResolvedAgentSnapshot,
   MembershipStatus,
 } from "@mystra/shared";
 
@@ -200,6 +206,27 @@ export interface RdbProvider {
   getTask(id: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
   getTaskByIssueDispatchKey(issueDispatchKey: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
   listTasks(options?: { projectId?: string; teamId?: string }): Promise<TaskListItem[]>;
+
+  createAgent(input: AgentCreate): Promise<Agent>;
+  getAgent(id: string, options: { teamId: string }): Promise<Agent | undefined>;
+  listAgents(options: {
+    teamId: string;
+    limit?: number;
+    cursor?: string;
+    includeArchived?: boolean;
+  }): Promise<AgentPage>;
+  updateAgent(
+    id: string,
+    input: AgentUpdateRequest & { teamId: string },
+  ): Promise<Agent | undefined>;
+  archiveAgent(
+    id: string,
+    input: AgentArchiveRequest & { teamId: string },
+  ): Promise<Agent | undefined>;
+  resolveActiveAgent(
+    id: string,
+    options: { teamId: string },
+  ): Promise<ResolvedAgentSnapshot | undefined>;
 
   registerHostRuntime(input: RegisterHostRuntimeInput): Promise<RuntimeView>;
   getRuntime(id: string): Promise<RuntimeView | undefined>;

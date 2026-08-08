@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  agentArchiveRequestSchema,
+  agentCreateSchema,
+  agentListQuerySchema,
+  agentUpdateRequestSchema,
   integrationConnectionActivationSchema,
   integrationCapabilitiesSchema,
   hostProviderReportSchema,
@@ -9,8 +13,14 @@ import {
   projectCreateSchema,
   projectUpdateSchema,
   runtimeRenameSchema,
+  resolvedAgentSnapshotSchema,
   taskCreateRequestSchema,
   type IntegrationCapabilities,
+  type Agent,
+  type AgentArchiveRequest,
+  type AgentCreate,
+  type AgentPage,
+  type AgentUpdateRequest,
   type IntegrationConnection,
   type IntegrationConnectionActivation,
   type IntegrationConnectionStatus,
@@ -22,6 +32,7 @@ import {
   type ProjectUpdate,
   type RuntimeRename,
   type RuntimeView,
+  type ResolvedAgentSnapshot,
   type TaskCreateRequest,
   type TaskListItem,
   type TaskRecord,
@@ -37,6 +48,7 @@ import type {
 import type { MystraPrismaClient, MystraPrismaDelegates } from "./prisma-client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 import {
+  mapAgent,
   mapAuthAccount,
   mapAuthSession,
   mapHostRuntimeMetadata,
@@ -518,6 +530,169 @@ export class PrismaRdbProvider implements RdbProvider {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
     return rows.map(mapTask);
+  }
+
+  async createAgent(input: AgentCreate): Promise<Agent> {
+    const parsed = agentCreateSchema.parse(input);
+    const timestamp = this.#now();
+    try {
+      return mapAgent(await this.#client.agent.create({
+        data: {
+          id: this.#newId(),
+          teamId: parsed.teamId,
+          name: parsed.name,
+          systemPrompt: parsed.systemPrompt,
+          revision: 1,
+          status: "active",
+          archivedAt: null,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      }));
+    } catch (error) {
+      throw normalizeDatabaseError(error);
+    }
+  }
+
+  async getAgent(id: string, options: { teamId: string }): Promise<Agent | undefined> {
+    const row = await this.#client.agent.findUnique({ where: { id } });
+    return row?.teamId === options.teamId ? mapAgent(row) : undefined;
+  }
+
+  async listAgents(options: {
+    teamId: string;
+    limit?: number;
+    cursor?: string;
+    includeArchived?: boolean;
+  }): Promise<AgentPage> {
+    const parsed = agentListQuerySchema.parse({
+      limit: options.limit,
+      cursor: options.cursor,
+      includeArchived: options.includeArchived,
+    });
+    if (parsed.cursor) {
+      const cursor = await this.#client.agent.findUnique({ where: { id: parsed.cursor } });
+      if (
+        !cursor
+        || cursor.teamId !== options.teamId
+        || (!parsed.includeArchived && cursor.status !== "active")
+      ) {
+        throw new RdbError("RDB_NOT_FOUND", "Agent cursor does not exist");
+      }
+    }
+    const rows = await this.#client.agent.findMany({
+      where: {
+        teamId: options.teamId,
+        ...(parsed.includeArchived ? {} : { status: "active" }),
+      },
+      orderBy: [{ id: "asc" }],
+      take: parsed.limit + 1,
+      ...(parsed.cursor ? { cursor: { id: parsed.cursor }, skip: 1 } : {}),
+    });
+    const pageRows = rows.slice(0, parsed.limit);
+    return {
+      agents: pageRows.map(mapAgent),
+      nextCursor: rows.length > parsed.limit ? pageRows.at(-1)?.id ?? null : null,
+    };
+  }
+
+  async updateAgent(
+    id: string,
+    input: AgentUpdateRequest & { teamId: string },
+  ): Promise<Agent | undefined> {
+    const parsed = agentUpdateRequestSchema.parse({
+      expectedRevision: input.expectedRevision,
+      name: input.name,
+      systemPrompt: input.systemPrompt,
+    });
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        const existing = await transaction.agent.findUnique({ where: { id } });
+        if (!existing || existing.teamId !== input.teamId) return undefined;
+        requireMutableAgent(existing.status, existing.revision, parsed.expectedRevision);
+
+        const name = parsed.name ?? existing.name;
+        const systemPrompt = parsed.systemPrompt ?? existing.systemPrompt;
+        const revision = systemPrompt === existing.systemPrompt
+          ? existing.revision
+          : existing.revision + 1;
+        if (name === existing.name && systemPrompt === existing.systemPrompt) {
+          return mapAgent(existing);
+        }
+
+        const result = await transaction.agent.updateMany({
+          where: {
+            id,
+            teamId: input.teamId,
+            revision: parsed.expectedRevision,
+            status: "active",
+          },
+          data: { name, systemPrompt, revision, updatedAt: this.#now() },
+        });
+        if (result.count === 0) {
+          throw new RdbError("AGENT_REVISION_CONFLICT", "Agent revision changed during update");
+        }
+        const updated = await transaction.agent.findUnique({ where: { id } });
+        return updated ? mapAgent(updated) : undefined;
+      });
+    } catch (error) {
+      if (isDatabaseErrorCode(error, "P2034")) {
+        throw new RdbError("AGENT_REVISION_CONFLICT", "Agent revision changed during update");
+      }
+      throw error;
+    }
+  }
+
+  async archiveAgent(
+    id: string,
+    input: AgentArchiveRequest & { teamId: string },
+  ): Promise<Agent | undefined> {
+    const parsed = agentArchiveRequestSchema.parse({ expectedRevision: input.expectedRevision });
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        const existing = await transaction.agent.findUnique({ where: { id } });
+        if (!existing || existing.teamId !== input.teamId) return undefined;
+        if (existing.status === "archived") return mapAgent(existing);
+        requireMutableAgent(existing.status, existing.revision, parsed.expectedRevision);
+
+        const timestamp = this.#now();
+        const result = await transaction.agent.updateMany({
+          where: {
+            id,
+            teamId: input.teamId,
+            revision: parsed.expectedRevision,
+            status: "active",
+          },
+          data: { status: "archived", archivedAt: timestamp, updatedAt: timestamp },
+        });
+        if (result.count === 0) {
+          throw new RdbError("AGENT_REVISION_CONFLICT", "Agent revision changed during archive");
+        }
+        const archived = await transaction.agent.findUnique({ where: { id } });
+        return archived ? mapAgent(archived) : undefined;
+      });
+    } catch (error) {
+      if (isDatabaseErrorCode(error, "P2034")) {
+        throw new RdbError("AGENT_REVISION_CONFLICT", "Agent revision changed during archive");
+      }
+      throw error;
+    }
+  }
+
+  async resolveActiveAgent(
+    id: string,
+    options: { teamId: string },
+  ): Promise<ResolvedAgentSnapshot | undefined> {
+    const agent = await this.getAgent(id, options);
+    if (!agent) return undefined;
+    if (agent.status === "archived") {
+      throw new RdbError("AGENT_ARCHIVED", "Agent is archived");
+    }
+    return resolvedAgentSnapshotSchema.parse({
+      agentId: agent.id,
+      revision: agent.revision,
+      systemPrompt: agent.systemPrompt,
+    });
   }
 
   async registerHostRuntime(input: RegisterHostRuntimeInput): Promise<RuntimeView> {
@@ -1305,6 +1480,19 @@ function sortProviderCapabilities(
   providers: ProviderCapability[],
 ): ProviderCapability[] {
   return [...providers].sort((left, right) => left.provider.localeCompare(right.provider));
+}
+
+function requireMutableAgent(
+  status: string,
+  revision: number,
+  expectedRevision: number,
+): void {
+  if (status === "archived") {
+    throw new RdbError("AGENT_ARCHIVED", "Agent is archived");
+  }
+  if (revision !== expectedRevision) {
+    throw new RdbError("AGENT_REVISION_CONFLICT", "Agent revision does not match expectedRevision");
+  }
 }
 
 function requireTeamId(teamId: string | undefined): string {

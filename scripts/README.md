@@ -15,13 +15,14 @@ The Issue-to-review path is:
 pnpm operator:cli -- issues list --integration linear --limit 10
 pnpm operator:cli -- issues get MYS-101 --integration linear
 pnpm operator:cli -- issues dispatch MYS-101 --integration linear \
-  --project mystra-agent-demo --agent copilot --branch codex/mys-101-demo --json
+  --project mystra-agent-demo --provider copilot --branch codex/mys-101-demo --json
 pnpm operator:cli -- sessions inspect SESSION_ID
 pnpm operator:cli -- sessions wait SESSION_ID --interval-seconds 2 --timeout-seconds 3600
 ```
 
-Tasks can also be created without execution, then receive independent child
-Sessions:
+Tasks can also be created without execution. The current legacy CLI starts a
+Session from a Task route; the target model treats that Task reference as an
+optional Session input, not ownership:
 
 ```sh
 pnpm operator:cli -- tasks create --project PROJECT_ID --objective "Investigate the failure"

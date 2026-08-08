@@ -6,6 +6,7 @@ import {
 } from "../../generated/prisma/postgresql/client";
 import {
   PrismaClient as SqlitePrismaClient,
+  type Agent,
   type AuthAccount,
   type AuthSession,
   type IntegrationConnection,
@@ -32,6 +33,7 @@ type SessionUpdate = Partial<Pick<AuthSession, "activeTeamId" | "updatedAt">>;
 type UserUpdate = Partial<Pick<User, "displayName" | "status" | "requirePasswordChange" | "updatedAt">>;
 type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSalt" | "passwordParams" | "updatedAt">>;
 type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
+type AgentUpdate = Partial<Pick<Agent, "name" | "systemPrompt" | "revision" | "status" | "archivedAt" | "updatedAt">>;
 
 export interface MystraPrismaDelegates {
   integrationConnection: {
@@ -62,6 +64,21 @@ export interface MystraPrismaDelegates {
     create(args: { data: Task }): Promise<Task>;
     findUnique(args: { where: { id: string } | { issueDispatchKey: string } }): Promise<Task | null>;
     findMany(args: { where?: { projectId?: string; teamId?: string }; orderBy: OrderBy }): Promise<Task[]>;
+  };
+  agent: {
+    create(args: { data: Agent }): Promise<Agent>;
+    updateMany(args: {
+      where: { id: string; teamId?: string; revision?: number; status?: string };
+      data: AgentUpdate;
+    }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } }): Promise<Agent | null>;
+    findMany(args: {
+      where: { teamId: string; status?: string };
+      orderBy: Array<{ id: SortOrder }>;
+      take: number;
+      cursor?: { id: string };
+      skip?: number;
+    }): Promise<Agent[]>;
   };
   runtime: {
     create(args: { data: Runtime }): Promise<Runtime>;
@@ -184,6 +201,7 @@ const modelMethods = {
   integrationConnection: ["upsert", "updateMany", "findUnique", "findMany", "deleteMany"],
   project: ["create", "updateMany", "findUnique", "findMany"],
   task: ["create", "findUnique", "findMany"],
+  agent: ["create", "updateMany", "findUnique", "findMany"],
   runtime: ["create", "updateMany", "findUnique", "findMany"],
   runtimeProvider: ["create", "deleteMany", "findMany"],
   secretEnvelope: ["create", "findUnique", "deleteMany"],

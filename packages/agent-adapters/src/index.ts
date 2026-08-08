@@ -2,42 +2,42 @@ import { z } from "zod";
 
 export const agentAdaptersPackageName = "@mystra/agent-adapters";
 
-export const agentExecutionRequestSchema = z.object({
+export const providerExecutionRequestSchema = z.object({
   prompt: z.string().min(1),
   promptFilePath: z.string().min(1).optional(),
   workingDirectory: z.string().min(1),
 }).strict();
-export type AgentExecutionRequest = z.infer<typeof agentExecutionRequestSchema>;
+export type ProviderExecutionRequest = z.infer<typeof providerExecutionRequestSchema>;
 
-export interface AgentExecutionOptions {
+export interface ProviderExecutionOptions {
   stdinFilePath?: string;
 }
 
-export const agentProcessResultSchema = z.object({
+export const providerProcessResultSchema = z.object({
   exitCode: z.number().int(),
   stdout: z.string(),
   stderr: z.string(),
 }).strict();
-export type AgentProcessResult = z.infer<typeof agentProcessResultSchema>;
+export type ProviderProcessResult = z.infer<typeof providerProcessResultSchema>;
 
-export const agentParsedResultSchema = z.object({
+export const providerParsedResultSchema = z.object({
   success: z.boolean(),
   errorMessage: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
 }).strict();
-export type AgentParsedResult = z.infer<typeof agentParsedResultSchema>;
+export type ProviderParsedResult = z.infer<typeof providerParsedResultSchema>;
 
-export interface AgentAdapter {
-  readonly agentName: string;
-  buildCommand(input: AgentExecutionRequest): string[];
-  buildEnvironment(input: AgentExecutionRequest): Record<string, string>;
-  buildExecutionOptions?(input: AgentExecutionRequest): AgentExecutionOptions;
-  parseOutput(result: AgentProcessResult): AgentParsedResult;
-  isSuccess(result: AgentProcessResult): boolean;
+export interface ProviderAdapter {
+  readonly providerName: string;
+  buildCommand(input: ProviderExecutionRequest): string[];
+  buildEnvironment(input: ProviderExecutionRequest): Record<string, string>;
+  buildExecutionOptions?(input: ProviderExecutionRequest): ProviderExecutionOptions;
+  parseOutput(result: ProviderProcessResult): ProviderParsedResult;
+  isSuccess(result: ProviderProcessResult): boolean;
 }
 
-function parseExecutionRequest(input: AgentExecutionRequest): AgentExecutionRequest {
-  return agentExecutionRequestSchema.parse(input);
+function parseExecutionRequest(input: ProviderExecutionRequest): ProviderExecutionRequest {
+  return providerExecutionRequestSchema.parse(input);
 }
 
 function sanitizeExitCode(value: unknown): number {
@@ -63,29 +63,29 @@ function asProcessRecord(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function parseProcessResult(result: AgentProcessResult): AgentProcessResult {
-  const parsed = agentProcessResultSchema.safeParse(result);
+function parseProcessResult(result: ProviderProcessResult): ProviderProcessResult {
+  const parsed = providerProcessResultSchema.safeParse(result);
   if (parsed.success) {
     return parsed.data;
   }
 
   const raw = asProcessRecord(result);
-  return agentProcessResultSchema.parse({
+  return providerProcessResultSchema.parse({
     exitCode: sanitizeExitCode(raw?.exitCode),
     stdout: sanitizeProcessText(raw?.stdout),
     stderr: sanitizeProcessText(raw?.stderr),
   });
 }
 
-export class CodexAdapter implements AgentAdapter {
-  readonly agentName = "codex";
+export class CodexProviderAdapter implements ProviderAdapter {
+  readonly providerName = "codex";
 
   constructor(private readonly options: {
     authDir?: string;
     timeoutSeconds?: number;
   } = {}) {}
 
-  buildCommand(input: AgentExecutionRequest): string[] {
+  buildCommand(input: ProviderExecutionRequest): string[] {
     const request = parseExecutionRequest(input);
     return [
       "codex",
@@ -97,21 +97,21 @@ export class CodexAdapter implements AgentAdapter {
     ];
   }
 
-  buildEnvironment(_input: AgentExecutionRequest): Record<string, string> {
+  buildEnvironment(_input: ProviderExecutionRequest): Record<string, string> {
     return {
       ...(this.options.authDir ? { CODEX_HOME: this.options.authDir } : {}),
       ...(this.options.timeoutSeconds ? { CODEX_TIMEOUT_SECONDS: String(this.options.timeoutSeconds) } : {}),
     };
   }
 
-  buildExecutionOptions(input: AgentExecutionRequest): AgentExecutionOptions {
+  buildExecutionOptions(input: ProviderExecutionRequest): ProviderExecutionOptions {
     const request = parseExecutionRequest(input);
     return request.promptFilePath
       ? { stdinFilePath: request.promptFilePath }
       : {};
   }
 
-  parseOutput(result: AgentProcessResult): AgentParsedResult {
+  parseOutput(result: ProviderProcessResult): ProviderParsedResult {
     const parsed = parseProcessResult(result);
     return {
       success: this.isSuccess(parsed),
@@ -120,13 +120,13 @@ export class CodexAdapter implements AgentAdapter {
     };
   }
 
-  isSuccess(result: AgentProcessResult): boolean {
+  isSuccess(result: ProviderProcessResult): boolean {
     return parseProcessResult(result).exitCode === 0;
   }
 }
 
-export class CopilotAdapter implements AgentAdapter {
-  readonly agentName = "copilot";
+export class CopilotProviderAdapter implements ProviderAdapter {
+  readonly providerName = "copilot";
 
   constructor(private readonly options: {
     cliConfigDir: string;
@@ -139,7 +139,7 @@ export class CopilotAdapter implements AgentAdapter {
     deniedUrls?: string[];
   }) {}
 
-  buildCommand(input: AgentExecutionRequest): string[] {
+  buildCommand(input: ProviderExecutionRequest): string[] {
     const request = parseExecutionRequest(input);
     const command = ["copilot"];
     if (request.promptFilePath) {
@@ -167,7 +167,7 @@ export class CopilotAdapter implements AgentAdapter {
     return command;
   }
 
-  buildEnvironment(_input: AgentExecutionRequest): Record<string, string> {
+  buildEnvironment(_input: ProviderExecutionRequest): Record<string, string> {
     return {
       HOME: this.options.homeDir,
       XDG_CONFIG_HOME: this.options.configDir,
@@ -176,13 +176,13 @@ export class CopilotAdapter implements AgentAdapter {
     };
   }
 
-  parseOutput(result: AgentProcessResult): AgentParsedResult {
+  parseOutput(result: ProviderProcessResult): ProviderParsedResult {
     const parsed = parseProcessResult(result);
     return {
       success: this.isSuccess(parsed),
       ...(parsed.exitCode === 0 ? {} : { errorMessage: parsed.stderr.trim() || parsed.stdout.trim() || `copilot exited with ${parsed.exitCode}` }),
       metadata: {
-        agent: "copilot",
+        provider: "copilot",
         cliVersion: this.options.cliVersion ?? "unknown",
         mode: "autopilot",
         maxAutopilotContinues: this.options.maxAutopilotContinues ?? 10,
@@ -191,21 +191,21 @@ export class CopilotAdapter implements AgentAdapter {
     };
   }
 
-  isSuccess(result: AgentProcessResult): boolean {
+  isSuccess(result: ProviderProcessResult): boolean {
     return parseProcessResult(result).exitCode === 0;
   }
 }
 
-export function createAgentAdapterRegistry(
-  adapters: Record<string, AgentAdapter>,
+export function createProviderAdapterRegistry(
+  adapters: Record<string, ProviderAdapter>,
 ): {
-  get(name: string): AgentAdapter;
+  get(name: string): ProviderAdapter;
 } {
   return {
-    get(name: string): AgentAdapter {
+    get(name: string): ProviderAdapter {
       const adapter = adapters[name];
       if (!adapter) {
-        throw new Error(`Unknown agent adapter "${name}"`);
+        throw new Error(`Unknown Provider adapter "${name}"`);
       }
       return adapter;
     },

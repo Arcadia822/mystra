@@ -69,7 +69,7 @@ function sessionDetail(state = "succeeded", result: Record<string, unknown> | un
       taskId,
       title: "Implementation",
       objective: "Implement the slice",
-      agent: "copilot",
+      provider: "copilot",
       branch: "codex/task-1",
       state,
       result,
@@ -80,6 +80,17 @@ function sessionDetail(state = "succeeded", result: Record<string, unknown> | un
 }
 
 describe("operator CLI Task and Session commands", () => {
+  it("does not expose the obsolete Project execution-default create command", () => {
+    expect(parseArgs([
+      "projects", "create",
+      "--name", "Mystra",
+      "--slug", "mystra",
+      "--repository-integration", "github",
+      "--repository", "Arcadia822/mystra",
+      "--runtime-image", "mystra:latest",
+    ])).toMatchObject({ ok: false });
+  });
+
   it("stores the local human session in a mode-0600 file", async () => {
     const statePath = join(process.cwd(), ".operator-cli-session.test.json");
     const store = createSessionStore(statePath);
@@ -218,7 +229,7 @@ describe("operator CLI Task and Session commands", () => {
       "sessions", "create", taskId,
       "--title", "Investigate",
       "--objective", "Find the cause",
-      "--agent", "codex",
+      "--provider", "codex",
       "--branch", "codex/investigate",
       "--json",
     ], async (url, init) => {
@@ -227,7 +238,7 @@ describe("operator CLI Task and Session commands", () => {
       expect(JSON.parse(String(init?.body))).toEqual({
         title: "Investigate",
         objective: "Find the cause",
-        agent: "codex",
+        provider: "codex",
         branch: "codex/investigate",
       });
       return response({ session: { id: sessionId } }, 201);
@@ -258,6 +269,67 @@ describe("operator CLI Task and Session commands", () => {
     expect(polls).toBe(2);
     expect(result.stdout).toContain("Waiting for review");
     expect(result.stdout).toContain("https://example.com/review/1");
+  });
+
+  it("manages Team-owned Agents through canonical APIs", async () => {
+    const agentId = "00000000-0000-4000-8000-000000000012";
+    const created = await execute([
+      "agents", "create",
+      "--name", "Reviewer",
+      "--system-prompt", "Review evidence.",
+      "--json",
+    ], async (url, init) => {
+      expect(url).toBe("http://localhost:3000/api/agents");
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        name: "Reviewer",
+        systemPrompt: "Review evidence.",
+      });
+      return response({ agent: { id: agentId, name: "Reviewer", revision: 1 } }, 201);
+    });
+    const listed = await execute([
+      "agents", "list", "--limit", "10", "--include-archived", "--json",
+    ], async (url) => {
+      expect(url).toBe("http://localhost:3000/api/agents?limit=10&includeArchived=true");
+      return response({ agents: [{ id: agentId, name: "Reviewer" }], nextCursor: null });
+    });
+    const inspected = await execute(["agents", "inspect", agentId, "--json"], async (url) => {
+      expect(url).toBe(`http://localhost:3000/api/agents/${agentId}`);
+      return response({ agent: { id: agentId, name: "Reviewer", revision: 1 } });
+    });
+    const updated = await execute([
+      "agents", "update", agentId,
+      "--expected-revision", "1",
+      "--system-prompt", "Reject unsupported claims.",
+      "--json",
+    ], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/agents/${agentId}`);
+      expect(init?.method).toBe("PATCH");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        expectedRevision: 1,
+        systemPrompt: "Reject unsupported claims.",
+      });
+      return response({ agent: { id: agentId, revision: 2 } });
+    });
+    const archived = await execute([
+      "agents", "archive", agentId, "--expected-revision", "2", "--json",
+    ], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/agents/${agentId}/archive`);
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({ expectedRevision: 2 });
+      return response({ agent: { id: agentId, status: "archived", revision: 2 } });
+    });
+
+    for (const result of [created, listed, inspected, updated, archived]) {
+      expect(result.exitCode).toBe(EXIT_CODES.OK);
+    }
+  });
+
+  it("requires revision protection for Agent mutations", () => {
+    expect(parseArgs(["agents", "update", sessionId, "--name", "Renamed"]))
+      .toMatchObject({ ok: false });
+    expect(parseArgs(["agents", "archive", sessionId]))
+      .toMatchObject({ ok: false });
   });
 
   it("cancels exactly one Session", async () => {

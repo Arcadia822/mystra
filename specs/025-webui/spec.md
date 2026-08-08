@@ -3,6 +3,7 @@
 **Feature Branch**: 已合并到本地 `main`，保留逻辑 feature id `025-webui`
 **Created**: 2026-05-19  
 **Status**: Draft  
+**Supersession Notice (2026-08-08)**: Project-grouped Task navigation below is no longer authoritative. Task is Team-scoped and does not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each. A later UI slice must present Team-scoped Tasks or an explicitly labeled Session-derived projection without implying Project ownership.
 **Input**: 用户描述：“简单补充 025 的 spec，作为 mvp 版本的操作 ui”；后续范围决策：`025-webui` 只聚焦前端框架层，并纳入主题/design-system、国际化、主侧边栏、共享 layout、基础组件、响应式和未来 Electron 兼容边界。2026-08-05 owner 明确要求 demo/PR 平移 Castrel UX 的结构、密度与交互模式：主菜单为 `New`、`Search`、`Inbox`、`Issues`、`Automations`，其下是 Projects 与按 Project 分组的 Tasks；具体配色采用 dark-tech design system，默认 UI 字号为 12px。随后 owner 要求将当前页面实际使用的 Castrel v2 组件迁移并替换现有页面原语，尤其保证 padding 与配色通过主题 token system 实现。2026-08-06 owner 进一步要求 New 页面使用放大的独立 Logo、统一 `Project` 术语和共享 dropdown，并用 Project 选定后出现的 Issue 卡片列表替代 Issue select；随后要求从主菜单移除 `Automations`，并把 `/automations` 清空为只显示 `Coming soon` 的直接访问占位页。Appearance 后续必须迁入本机当前 Codex 发布包的全部内置主题，并把原 Graphite 正式命名为 Mystra，提供同一 `codeThemeId` 下的明暗双变体。随后 owner 明确共享布局必须由 `Sidebar`、`Main`、可选 `Right Panel` 三列组成，三列分别拥有自己的 Header 与 Content，页面可按需注册 Right Panel，未注册时不得占用主区域宽度。
 
 2026-08-06 后续字体决策：内部统一为 UI / Content / Code 三个角色；Codex v1 导入保持原 schema，并把 `fonts.ui` 同步到 Content。Mystra 自有主题分别使用常见单一 primary family，平台 fallback 由浏览器/system generic 负责。

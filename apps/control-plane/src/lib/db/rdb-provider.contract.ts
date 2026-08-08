@@ -328,6 +328,125 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.reportHostProviders("unknown-runner", registration.providers)).toBeUndefined();
   });
 
+  it("manages Team-owned Agents with revisions, pagination, and detached snapshots", async () => {
+    const left = await tenant();
+    const right = await tenant();
+    const created = await db.createAgent({
+      teamId: left.initialTeam.id,
+      name: "Reviewer",
+      systemPrompt: " Review the submitted evidence. ",
+    });
+    const duplicateName = await db.createAgent({
+      teamId: left.initialTeam.id,
+      name: "Reviewer",
+      systemPrompt: "A different behavior role.",
+    });
+
+    expect(created).toMatchObject({
+      teamId: left.initialTeam.id,
+      name: "Reviewer",
+      systemPrompt: " Review the submitted evidence. ",
+      revision: 1,
+      status: "active",
+      archivedAt: null,
+    });
+    expect(duplicateName.id).not.toBe(created.id);
+    expect(await db.getAgent(created.id, { teamId: right.initialTeam.id })).toBeUndefined();
+    expect(await db.resolveActiveAgent(created.id, { teamId: right.initialTeam.id })).toBeUndefined();
+
+    const firstPage = await db.listAgents({ teamId: left.initialTeam.id, limit: 1 });
+    expect(firstPage.agents).toHaveLength(1);
+    expect(firstPage.nextCursor).not.toBeNull();
+    const secondPage = await db.listAgents({
+      teamId: left.initialTeam.id,
+      limit: 1,
+      ...(firstPage.nextCursor ? { cursor: firstPage.nextCursor } : {}),
+    });
+    expect(secondPage.agents).toHaveLength(1);
+    expect(new Set([firstPage.agents[0]!.id, secondPage.agents[0]!.id])).toEqual(
+      new Set([created.id, duplicateName.id]),
+    );
+
+    const snapshot = await db.resolveActiveAgent(created.id, { teamId: left.initialTeam.id });
+    expect(snapshot).toEqual({
+      agentId: created.id,
+      revision: 1,
+      systemPrompt: " Review the submitted evidence. ",
+    });
+
+    const renamed = await db.updateAgent(created.id, {
+      teamId: left.initialTeam.id,
+      expectedRevision: 1,
+      name: "Clinical Reviewer",
+    });
+    expect(renamed).toMatchObject({ name: "Clinical Reviewer", revision: 1 });
+
+    const updated = await db.updateAgent(created.id, {
+      teamId: left.initialTeam.id,
+      expectedRevision: 1,
+      systemPrompt: "Reject unsupported claims.",
+    });
+    expect(updated).toMatchObject({ revision: 2, systemPrompt: "Reject unsupported claims." });
+    expect(snapshot).toEqual({
+      agentId: created.id,
+      revision: 1,
+      systemPrompt: " Review the submitted evidence. ",
+    });
+    expect(await db.resolveActiveAgent(created.id, { teamId: left.initialTeam.id })).toEqual({
+      agentId: created.id,
+      revision: 2,
+      systemPrompt: "Reject unsupported claims.",
+    });
+
+    const unchanged = await db.updateAgent(created.id, {
+      teamId: left.initialTeam.id,
+      expectedRevision: 2,
+      systemPrompt: "Reject unsupported claims.",
+    });
+    expect(unchanged?.revision).toBe(2);
+
+    const concurrent = await Promise.allSettled([
+      db.updateAgent(created.id, {
+        teamId: left.initialTeam.id,
+        expectedRevision: 2,
+        systemPrompt: "Concurrent left.",
+      }),
+      db.updateAgent(created.id, {
+        teamId: left.initialTeam.id,
+        expectedRevision: 2,
+        systemPrompt: "Concurrent right.",
+      }),
+    ]);
+    expect(concurrent.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(concurrent.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(concurrent.find((result) => result.status === "rejected")).toMatchObject({
+      reason: { code: "AGENT_REVISION_CONFLICT" },
+    });
+
+    const current = await db.getAgent(created.id, { teamId: left.initialTeam.id });
+    const archived = await db.archiveAgent(created.id, {
+      teamId: left.initialTeam.id,
+      expectedRevision: current!.revision,
+    });
+    expect(archived).toMatchObject({ status: "archived" });
+    expect(await db.getAgent(created.id, { teamId: left.initialTeam.id })).toEqual(archived);
+    expect((await db.listAgents({ teamId: left.initialTeam.id })).agents.map(({ id }) => id))
+      .toEqual([duplicateName.id]);
+    expect((await db.listAgents({ teamId: left.initialTeam.id, includeArchived: true })).agents)
+      .toContainEqual(archived);
+    await expect(db.resolveActiveAgent(created.id, { teamId: left.initialTeam.id }))
+      .rejects.toMatchObject({ code: "AGENT_ARCHIVED" });
+    await expect(db.updateAgent(created.id, {
+      teamId: left.initialTeam.id,
+      expectedRevision: archived!.revision,
+      name: "Forbidden",
+    })).rejects.toMatchObject({ code: "AGENT_ARCHIVED" });
+    await expect(db.archiveAgent(created.id, {
+      teamId: left.initialTeam.id,
+      expectedRevision: archived!.revision,
+    })).resolves.toEqual(archived);
+  });
+
   it("normalizes slug, foreign-key, and dispatch conflicts", async () => {
     const parent = await project();
     await expect(db.createProject({

@@ -12,6 +12,19 @@ const teamId = randomUUID();
 const otherTeamId = randomUUID();
 const projectId = randomUUID();
 const taskId = randomUUID();
+const agentId = randomUUID();
+
+const agent = {
+  id: agentId,
+  teamId,
+  name: "Reviewer",
+  systemPrompt: "Review evidence.",
+  revision: 1,
+  status: "active" as const,
+  archivedAt: null,
+  createdAt: "2026-08-07T00:00:00.000Z",
+  updatedAt: "2026-08-07T00:00:00.000Z",
+};
 
 function rpcRequest(
   body: unknown,
@@ -75,6 +88,20 @@ beforeEach(() => {
     })),
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => undefined),
+    createAgent: vi.fn(async (input) => ({ ...agent, ...input })),
+    listAgents: vi.fn(async () => ({ agents: [agent], nextCursor: null })),
+    getAgent: vi.fn(async () => agent),
+    updateAgent: vi.fn(async (_id, input) => ({
+      ...agent,
+      ...(input.name ? { name: input.name } : {}),
+      ...(input.systemPrompt ? { systemPrompt: input.systemPrompt } : {}),
+      revision: input.systemPrompt ? 2 : agent.revision,
+    })),
+    archiveAgent: vi.fn(async () => ({
+      ...agent,
+      status: "archived",
+      archivedAt: "2026-08-07T01:00:00.000Z",
+    })),
   } as never);
 });
 
@@ -215,6 +242,61 @@ describe("MCP human session authorization", () => {
       projectId,
       metadata: { title: "MCP task" },
       teamId,
+    });
+  });
+
+  it("manages Agents through the resolved active Team", async () => {
+    const createdResponse = await POST(rpcRequest(toolCall("mystra_create_agent", {
+      name: "Reviewer",
+      systemPrompt: "Review evidence.",
+    })));
+    const createdPayload = await createdResponse.json() as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(createdPayload.result.content[0]!.text)).toEqual({ agent });
+
+    const listedResponse = await POST(rpcRequest(toolCall("mystra_list_agents", { limit: 10 })));
+    const listedPayload = await listedResponse.json() as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(listedPayload.result.content[0]!.text)).toEqual({ agents: [agent], nextCursor: null });
+
+    const updatedResponse = await POST(rpcRequest(toolCall("mystra_update_agent", {
+      id: agentId,
+      expectedRevision: 1,
+      systemPrompt: "Reject unsupported claims.",
+    })));
+    const updatedPayload = await updatedResponse.json() as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(updatedPayload.result.content[0]!.text)).toEqual({
+      agent: expect.objectContaining({ id: agentId, revision: 2, systemPrompt: "Reject unsupported claims." }),
+    });
+
+    const db = await getDb();
+    expect(db.createAgent).toHaveBeenCalledWith({
+      teamId,
+      name: "Reviewer",
+      systemPrompt: "Review evidence.",
+    });
+    expect(db.listAgents).toHaveBeenCalledWith({ teamId, limit: 10, includeArchived: false });
+  });
+
+  it("denies Agent mutation to a Team member while preserving read access", async () => {
+    vi.mocked(getDb).mockResolvedValueOnce({
+      ...(await getDb()),
+      resolveActiveTeam: vi.fn(async () => ({
+        team: {
+          id: teamId,
+          displayName: "Operations",
+          status: "active",
+          createdAt: "2026-08-07T00:00:00.000Z",
+          updatedAt: "2026-08-07T00:00:00.000Z",
+        },
+        role: "member",
+      })),
+    } as never);
+
+    const response = await POST(rpcRequest(toolCall("mystra_create_agent", {
+      name: "Forbidden",
+      systemPrompt: "No.",
+    })));
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: -32003, message: "Forbidden" },
     });
   });
 

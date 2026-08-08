@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=72f7bbbdb9250d254c4f4f0d9cf660e74744dbb4 updated=2026-08-07T10:30:37Z -->
+<!-- spec-status: project=mystra commit=d49df1262428c0ca2b50c37226ce630e698a3026 updated=2026-08-08T10:31:40Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -39,6 +39,7 @@
 | 042-runtime-sandbox-capacity       | ✓     | -    | -     | -         |
 | 043-identity-team-rbac             | ✓     | ✓  | ✓   | ✓ Complete |
 | 044-host-runtime-daemon            | ✓     | ✓  | ✓   | ✓ Complete |
+| 046-agent-definition               | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -76,3 +77,4 @@
 <!-- feature: 042-runtime-sandbox-capacity has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
 <!-- feature: 043-identity-team-rbac has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=10 tasks_completed=10 checklist_files=requirements.md -->
 <!-- feature: 044-host-runtime-daemon has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=false tasks_total=39 tasks_completed=39 checklist_files= -->
+<!-- feature: 046-agent-definition has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=41 tasks_completed=41 checklist_files=engineering-review.md,requirements.md,verification.md -->

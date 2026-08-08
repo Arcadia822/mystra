@@ -18,6 +18,10 @@ import { sessionStateSchema } from "./state.js";
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 
 export const managementErrorCodeSchema = z.enum([
+  "AGENT_NOT_FOUND",
+  "AGENT_ARCHIVED",
+  "AGENT_REVISION_CONFLICT",
+  "INVALID_AGENT",
   "PROJECT_NOT_FOUND",
   "PROJECT_ARCHIVED",
   "INVALID_PROJECT",
@@ -152,7 +156,7 @@ export const sessionRecordSchema = z
     initialDispatchKey: z.string().min(1).max(1_000).optional(),
     title: z.string().min(1),
     objective: z.string().min(1),
-    agent: z.enum(["codex", "copilot"]),
+    provider: z.enum(["codex", "copilot"]),
     branch: z.string().min(1),
     mergeRequest: mergeRequestSpecSchema.optional(),
     runtimeOverride: sessionRuntimeOverrideSchema.optional(),
@@ -179,7 +183,7 @@ export const sessionSummaryItemSchema = sessionRecordSchema
     taskId: true,
     title: true,
     state: true,
-    agent: true,
+    provider: true,
     branch: true,
     assignedRunnerId: true,
     createdAt: true,
