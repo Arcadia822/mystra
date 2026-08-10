@@ -18,6 +18,12 @@ import {
   taskCreateFromIssueSchema,
   taskCreateSchema,
   taskUpdateRequestSchema,
+  sessionEventInputSchema,
+  sessionEventSchema,
+  sessionLaunchRequestSchema,
+  sessionSchema,
+  sessionWorkspaceAttachmentSchema,
+  applySessionEventProjection,
   type IntegrationCapabilities,
   type Agent,
   type AgentArchiveRequest,
@@ -41,6 +47,8 @@ import {
   type TaskCreateFromIssue,
   type TaskListItem,
   type TaskRecord,
+  type Session,
+  type SessionEvent,
   type TeamListItem,
   type TeamRole,
   normalizeUsername,
@@ -63,6 +71,8 @@ import {
   mapProjectIssueSource,
   mapPublicIntegrationConnection,
   mapRuntime,
+  mapSession,
+  mapSessionEvent,
   mapTask,
   mapTaskWorkspace,
   mapTeam,
@@ -92,6 +102,8 @@ import type {
   TeamMembershipRecord,
   TeamRecord,
   UserRecord,
+  SessionEventAppendInput,
+  SessionLaunchPersistenceInput,
 } from "./rdb-provider";
 
 type PrismaRdbProviderOptions = {
@@ -112,6 +124,421 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async close(): Promise<void> {
     await this.#client.disconnect();
+  }
+
+  async createSessionWithEvents(
+    input: SessionLaunchPersistenceInput,
+  ): Promise<{ session: Session; created: boolean }> {
+    const requestedSession = sessionSchema.parse(input.session);
+    const initialEvents = input.events.map((event) => sessionEventSchema.parse(event));
+    const launchRequest = sessionLaunchRequestSchema.parse(input.launchRequest);
+    const launchPayload = serializeJson(launchRequest);
+    const existing = await this.#client.session.findUnique({ where: { id: requestedSession.id } });
+    if (existing) {
+      const head = await this.#client.sessionEventHead.findUnique({ where: { sessionId: requestedSession.id } });
+      if (head?.launchPayload !== launchPayload) {
+        throw new RdbError("RDB_CONFLICT", "Session launch id was reused with different inputs");
+      }
+      return { session: mapSession(existing), created: false };
+    }
+
+    try {
+      const session = await this.#client.transaction(async (transaction) => {
+        const expectedKinds = [
+          "session.created",
+          "session.system_prompt_configured",
+          "session.workspace_attached",
+          "session.user_message_submitted",
+        ];
+        if (
+          requestedSession.id !== launchRequest.sessionId
+          || requestedSession.runtimeId !== launchRequest.runtimeId
+          || requestedSession.providerKey !== launchRequest.providerKey
+          || requestedSession.agentId !== launchRequest.agentId
+          || requestedSession.taskId !== launchRequest.context.taskId
+          || requestedSession.projectId !== (launchRequest.context.projectId ?? null)
+          || requestedSession.activeMessageId !== launchRequest.firstUserMessage.messageId
+          || initialEvents.length !== expectedKinds.length
+          || initialEvents.some((event, index) => event.kind !== expectedKinds[index])
+        ) {
+          throw new RdbError("RDB_CONFLICT", "Session launch facts are inconsistent");
+        }
+        const workspaceEvent = initialEvents[2];
+        const attachment = sessionWorkspaceAttachmentSchema.parse(workspaceEvent?.payload);
+        const [task, project, agent, runtime, providers, workspace] = await Promise.all([
+          transaction.task.findUnique({ where: { id: requestedSession.taskId } }),
+          requestedSession.projectId
+            ? transaction.project.findUnique({ where: { id: requestedSession.projectId } })
+            : Promise.resolve(null),
+          transaction.agent.findUnique({ where: { id: requestedSession.agentId } }),
+          transaction.runtime.findUnique({ where: { id: requestedSession.runtimeId } }),
+          transaction.runtimeProvider.findMany({
+            where: { runtimeId: requestedSession.runtimeId },
+            orderBy: [{ provider: "asc" }],
+          }),
+          transaction.taskWorkspace.findUnique({ where: { id: attachment.taskWorkspaceId } }),
+        ]);
+        if (
+          !task
+          || task.teamId !== requestedSession.teamId
+          || task.projectId !== requestedSession.projectId
+          || (requestedSession.projectId !== null && (!project || project.teamId !== requestedSession.teamId))
+          || !agent
+          || agent.teamId !== requestedSession.teamId
+          || agent.status !== "active"
+          || agent.revision !== requestedSession.agentRevision
+          || !runtime
+          || !providers.some((provider) => provider.provider === requestedSession.providerKey && provider.available)
+          || !workspace
+          || workspace.teamId !== requestedSession.teamId
+          || workspace.taskId !== requestedSession.taskId
+          || workspace.projectId !== requestedSession.projectId
+          || workspace.runtimeId !== requestedSession.runtimeId
+          || workspace.state !== "ready"
+          || workspace.workspaceRef === null
+          || workspace.workspaceRef !== attachment.workspaceRef
+          || attachment.runtimeId !== requestedSession.runtimeId
+          || attachment.sharingMode !== "shared-mutable"
+        ) {
+          throw new RdbError("RDB_CONFLICT", "Session launch dependencies changed before commit");
+        }
+        const created = await transaction.session.create({ data: sessionWriteData(requestedSession) });
+        let lastGlobalSequence = 0;
+        const sourceSequences = new Map<string, number>();
+        for (const event of initialEvents) {
+          if (event.sessionId !== created.id || event.globalSequence !== lastGlobalSequence + 1) {
+            throw new RdbError("RDB_CONFLICT", "Initial Session events are not contiguous");
+          }
+          const expectedSource = (sourceSequences.get(event.sourceId) ?? 0) + 1;
+          if (event.sourceSequence !== expectedSource) {
+            throw new RdbError("RDB_CONFLICT", "Initial Session event source sequence is not contiguous");
+          }
+          await transaction.sessionEvent.create({ data: sessionEventWriteData(event) });
+          sourceSequences.set(event.sourceId, event.sourceSequence);
+          lastGlobalSequence = event.globalSequence;
+        }
+        await transaction.sessionEventHead.create({
+          data: { sessionId: created.id, lastGlobalSequence, launchPayload },
+        });
+        for (const [sourceId, lastSourceSequence] of sourceSequences) {
+          await transaction.sessionEventStream.create({
+            data: { id: this.#newId(), sessionId: created.id, sourceId, lastSourceSequence },
+          });
+        }
+        return created;
+      });
+      return { session: mapSession(session), created: true };
+    } catch (error) {
+      if (isDatabaseErrorCode(error, "P2002")) {
+        const replay = await this.#client.session.findUnique({ where: { id: requestedSession.id } });
+        const replayHead = replay
+          ? await this.#client.sessionEventHead.findUnique({ where: { sessionId: requestedSession.id } })
+          : undefined;
+        if (replay && replayHead?.launchPayload === launchPayload) {
+          return { session: mapSession(replay), created: false };
+        }
+      }
+      throw normalizeDatabaseError(error, {
+        conflictCode: "RDB_CONFLICT",
+        conflictMessage: "Session launch conflicts with persisted data",
+      });
+    }
+  }
+
+  async getSession(id: string, options: { teamId: string }): Promise<Session | undefined> {
+    const row = await this.#client.session.findUnique({ where: { id } });
+    return row && row.teamId === options.teamId ? mapSession(row) : undefined;
+  }
+
+  async listSessions(options: { teamId: string; taskId?: string; limit?: number; cursor?: string }): Promise<Session[]> {
+    const rows = await this.#client.session.findMany({
+      where: { teamId: options.teamId, ...(options.taskId ? { taskId: options.taskId } : {}) },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: Math.min(Math.max(options.limit ?? 50, 1), 200),
+      ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
+    });
+    return rows.map(mapSession);
+  }
+
+  async appendSessionEvents(
+    input: SessionEventAppendInput,
+  ): Promise<{ session: Session; events: SessionEvent[] }> {
+    return this.#client.transaction(async (transaction) => {
+      const row = await transaction.session.findUnique({ where: { id: input.sessionId } });
+      if (!row || row.teamId !== input.teamId) {
+        throw new RdbError("RDB_NOT_FOUND", "Session was not found");
+      }
+      if (input.leaseTokenHash) {
+        const lease = await transaction.sessionDispatchLease.findUnique({ where: { sessionId: input.sessionId } });
+        if (!lease || lease.tokenHash !== input.leaseTokenHash) {
+          throw new RdbError("RDB_CONFLICT", "Session lease is invalid");
+        }
+        if (lease.leaseExpiresAt <= this.#now()) {
+          throw new RdbError("RDB_CONFLICT", "Session lease has expired");
+        }
+      }
+
+      let projected = mapSession(row);
+      const head = await transaction.sessionEventHead.findUnique({ where: { sessionId: input.sessionId } });
+      if (!head) throw new RdbError("RDB_UNAVAILABLE", "Session event head is missing");
+      let globalSequence = head.lastGlobalSequence;
+      const accepted: SessionEvent[] = [];
+
+      for (const rawEvent of input.events) {
+        const event = sessionEventInputSchema.parse(rawEvent);
+        if (event.sessionId !== input.sessionId) {
+          throw new RdbError("RDB_CONFLICT", "Session event targets another Session");
+        }
+        const existing = await transaction.sessionEvent.findUnique({ where: { eventId: event.eventId } });
+        if (existing) {
+          const mapped = mapSessionEvent(existing);
+          if (sameEventInput(mapped, event)) {
+            accepted.push(mapped);
+            continue;
+          }
+          throw new RdbError("RDB_CONFLICT", "Session event id was reused with different data");
+        }
+        if (event.kind === "session.user_message_submitted" && event.messageId) {
+          const messages = await transaction.sessionEvent.findMany({
+            where: { sessionId: input.sessionId, messageId: event.messageId },
+            orderBy: [{ globalSequence: "asc" }],
+            take: 1,
+          });
+          const existingMessage = messages[0];
+          if (existingMessage) {
+            const mapped = mapSessionEvent(existingMessage);
+            if (sameEventInputIgnoringIdentity(mapped, event)) {
+              accepted.push(mapped);
+              continue;
+            }
+            throw new RdbError("RDB_CONFLICT", "messageId was reused with different content");
+          }
+        }
+
+        const stream = await transaction.sessionEventStream.findUnique({
+          where: { sessionId_sourceId: { sessionId: input.sessionId, sourceId: event.sourceId } },
+        });
+        const expectedSourceSequence = (stream?.lastSourceSequence ?? 0) + 1;
+        if (event.sourceSequence !== expectedSourceSequence) {
+          throw new RdbError("RDB_CONFLICT", "Session event source sequence has a gap");
+        }
+        globalSequence += 1;
+        const persisted: SessionEvent = {
+          ...event,
+          globalSequence,
+          acceptedAt: this.#now(),
+        };
+        await transaction.sessionEvent.create({ data: sessionEventWriteData(persisted) });
+        if (stream) {
+          const advanced = await transaction.sessionEventStream.updateMany({
+            where: { sessionId: input.sessionId, sourceId: event.sourceId, lastSourceSequence: stream.lastSourceSequence },
+            data: { lastSourceSequence: event.sourceSequence },
+          });
+          if (advanced.count !== 1) throw new RdbError("RDB_CONFLICT", "Session event stream changed concurrently");
+        } else {
+          await transaction.sessionEventStream.create({
+            data: { id: this.#newId(), sessionId: input.sessionId, sourceId: event.sourceId, lastSourceSequence: event.sourceSequence },
+          });
+        }
+        projected = applySessionEventProjection(projected, event);
+        if (event.kind === "session.provider_started" && input.leaseTokenHash) {
+          const providerSessionId = (event.payload as { providerSessionId: string }).providerSessionId;
+          await transaction.sessionDispatchLease.updateMany({
+            where: { sessionId: input.sessionId, tokenHash: input.leaseTokenHash },
+            data: { providerSessionId, updatedAt: this.#now() },
+          });
+        }
+        accepted.push(persisted);
+      }
+
+      if (globalSequence !== head.lastGlobalSequence) {
+        const advanced = await transaction.sessionEventHead.updateMany({
+          where: { sessionId: input.sessionId, lastGlobalSequence: head.lastGlobalSequence },
+          data: { lastGlobalSequence: globalSequence },
+        });
+        if (advanced.count !== 1) throw new RdbError("RDB_CONFLICT", "Session event head changed concurrently");
+        const updated = await transaction.session.updateMany({
+          where: { id: input.sessionId, teamId: input.teamId, state: row.state },
+          data: sessionProjectionUpdate(projected, this.#now()),
+        });
+        if (updated.count !== 1) throw new RdbError("RDB_CONFLICT", "Session state changed concurrently");
+        if (projected.state === "closed" || projected.state === "failed") {
+          await transaction.sessionDispatchLease.deleteMany({ where: { sessionId: input.sessionId } });
+        }
+      }
+      const persistedSession = await transaction.session.findUnique({ where: { id: input.sessionId } });
+      if (!persistedSession) throw new RdbError("RDB_UNAVAILABLE", "Session disappeared during event append");
+      return { session: mapSession(persistedSession), events: accepted };
+    });
+  }
+
+  async listSessionEvents(options: {
+    sessionId: string; teamId: string; afterSequence?: number; messageId?: string; limit?: number;
+  }) {
+    const session = await this.getSession(options.sessionId, { teamId: options.teamId });
+    if (!session) throw new RdbError("RDB_NOT_FOUND", "Session was not found");
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const rows = await this.#client.sessionEvent.findMany({
+      where: {
+        sessionId: options.sessionId,
+        ...(options.afterSequence ? { globalSequence: { gt: options.afterSequence } } : {}),
+        ...(options.messageId ? { messageId: options.messageId } : {}),
+      },
+      orderBy: [{ globalSequence: "asc" }],
+      take: limit + 1,
+    });
+    const hasMore = rows.length > limit;
+    const events = rows.slice(0, limit).map(mapSessionEvent);
+    return {
+      events,
+      ...(hasMore && events.length > 0 ? { nextAfterSequence: events.at(-1)!.globalSequence } : {}),
+    };
+  }
+
+  async claimSession(input: {
+    runtimeId: string;
+    runnerId: string;
+    lease: import("./rdb-provider").SessionLeaseWrite;
+  }) {
+    return this.#client.transaction(async (transaction) => {
+      const rows = await transaction.session.findMany({
+        where: { runtimeId: input.runtimeId, state: { in: ["queued", "message_pending"] } },
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+        take: 1,
+      });
+      const row = rows[0];
+      if (!row) return undefined;
+      const runtime = await transaction.runtime.findUnique({ where: { id: input.runtimeId } });
+      if (!runtime || mapHostRuntimeMetadata(runtime.metadata).runnerId !== input.runnerId) {
+        throw new RdbError("RDB_CONFLICT", "Runner does not own the selected Runtime");
+      }
+      const providers = await transaction.runtimeProvider.findMany({
+        where: { runtimeId: input.runtimeId },
+        orderBy: [{ provider: "asc" }],
+      });
+      if (!providers.some((provider) => provider.provider === row.providerKey && provider.available)) {
+        throw new RdbError("RDB_CONFLICT", "Selected Provider is unavailable on Runtime");
+      }
+      const head = await transaction.sessionEventHead.findUnique({ where: { sessionId: row.id } });
+      if (!head) throw new RdbError("RDB_UNAVAILABLE", "Session event ledger is incomplete");
+      const updatedAt = this.#now();
+      let persistedLease: import("@mystra/shared").SessionDispatchLease;
+      if (row.state === "message_pending") {
+        const existingLease = await transaction.sessionDispatchLease.findUnique({ where: { sessionId: row.id } });
+        if (!existingLease || existingLease.runnerId !== input.runnerId) return undefined;
+        const claimed = await transaction.session.updateMany({
+          where: { id: row.id, state: "message_pending" },
+          data: { state: "dispatched", updatedAt },
+        });
+        if (claimed.count !== 1) return undefined;
+        const renewed = await transaction.sessionDispatchLease.updateMany({
+          where: { sessionId: row.id, tokenHash: existingLease.tokenHash },
+          data: {
+            tokenHash: input.lease.leaseTokenHash,
+            leaseExpiresAt: input.lease.leaseExpiresAt,
+            updatedAt,
+          },
+        });
+        if (renewed.count !== 1) return undefined;
+        persistedLease = {
+          id: existingLease.id,
+          sessionId: row.id,
+          runtimeId: input.runtimeId,
+          runnerId: input.runnerId,
+          leaseToken: input.lease.leaseToken,
+          providerSessionId: existingLease.providerSessionId,
+          leaseExpiresAt: input.lease.leaseExpiresAt,
+          claimedAt: existingLease.claimedAt,
+          updatedAt,
+        };
+      } else {
+        const claimed = await transaction.session.updateMany({
+          where: { id: row.id, state: "queued" },
+          data: { state: "dispatched", updatedAt },
+        });
+        if (claimed.count !== 1) return undefined;
+        await transaction.sessionDispatchLease.create({ data: {
+          id: input.lease.id,
+          sessionId: row.id,
+          runtimeId: input.runtimeId,
+          runnerId: input.runnerId,
+          tokenHash: input.lease.leaseTokenHash,
+          providerSessionId: input.lease.providerSessionId,
+          leaseExpiresAt: input.lease.leaseExpiresAt,
+          claimedAt: input.lease.claimedAt,
+          updatedAt: input.lease.updatedAt,
+        } });
+        persistedLease = {
+          id: input.lease.id,
+          sessionId: row.id,
+          runtimeId: input.runtimeId,
+          runnerId: input.runnerId,
+          leaseToken: input.lease.leaseToken,
+          providerSessionId: input.lease.providerSessionId,
+          leaseExpiresAt: input.lease.leaseExpiresAt,
+          claimedAt: input.lease.claimedAt,
+          updatedAt: input.lease.updatedAt,
+        };
+      }
+      const dispatchSourceId = `control-plane:claim:${input.lease.id}`;
+      const dispatchEvent: SessionEvent = {
+        eventId: this.#newId(),
+        sessionId: row.id,
+        sourceId: dispatchSourceId,
+        sourceSequence: 1,
+        globalSequence: head.lastGlobalSequence + 1,
+        kind: "session.runtime_dispatched",
+        version: 1,
+        payload: { leaseId: persistedLease.id, runtimeId: input.runtimeId },
+        metadata: {},
+        occurredAt: updatedAt,
+        acceptedAt: updatedAt,
+      };
+      await transaction.sessionEvent.create({ data: sessionEventWriteData(dispatchEvent) });
+      await transaction.sessionEventHead.updateMany({
+        where: { sessionId: row.id, lastGlobalSequence: head.lastGlobalSequence },
+        data: { lastGlobalSequence: dispatchEvent.globalSequence },
+      });
+      await transaction.sessionEventStream.create({
+        data: {
+          id: this.#newId(),
+          sessionId: row.id,
+          sourceId: dispatchSourceId,
+          lastSourceSequence: dispatchEvent.sourceSequence,
+        },
+      });
+      return {
+        session: mapSession({ ...row, state: "dispatched", updatedAt }),
+        launchRequest: sessionLaunchRequestSchema.parse(JSON.parse(head.launchPayload)),
+        lease: persistedLease,
+      };
+    });
+  }
+
+  async updateSessionLeaseProviderId(input: {
+    sessionId: string; leaseTokenHash: string; providerSessionId: string;
+  }): Promise<boolean> {
+    const result = await this.#client.sessionDispatchLease.updateMany({
+      where: { sessionId: input.sessionId, tokenHash: input.leaseTokenHash },
+      data: { providerSessionId: input.providerSessionId, updatedAt: this.#now() },
+    });
+    return result.count === 1;
+  }
+
+  async listExpiredSessionLeases(before: string) {
+    const rows = await this.#client.sessionDispatchLease.findMany({
+      where: { leaseExpiresAt: { lt: before } },
+      orderBy: [{ leaseExpiresAt: "asc" }],
+      include: { session: true },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      sessionId: row.sessionId,
+      runtimeId: row.runtimeId,
+      runnerId: row.runnerId,
+      teamId: row.session.teamId,
+      leaseExpiresAt: row.leaseExpiresAt,
+    }));
   }
 
   async activateIntegrationConnection(
@@ -2036,6 +2463,80 @@ function connectionWriteData(input: IntegrationConnectionUpsert, updatedAt: stri
     status: input.status ?? "active",
     updatedAt,
   };
+}
+
+function sessionWriteData(session: Session) {
+  return {
+    id: session.id,
+    teamId: session.teamId,
+    taskId: session.taskId,
+    projectId: session.projectId,
+    runtimeId: session.runtimeId,
+    providerKey: session.providerKey,
+    agentId: session.agentId,
+    agentRevision: session.agentRevision,
+    state: session.state,
+    activeMessageId: session.activeMessageId,
+    lastMessageId: session.lastMessageId,
+    interruptKind: session.interruptKind,
+    continuationMode: session.continuationMode,
+    failureCode: session.failureCode,
+    metadata: serializeJson(session.metadata),
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+  };
+}
+
+function sessionEventWriteData(event: SessionEvent) {
+  return {
+    eventId: event.eventId,
+    sessionId: event.sessionId,
+    sourceId: event.sourceId,
+    sourceSequence: event.sourceSequence,
+    globalSequence: event.globalSequence,
+    kind: event.kind,
+    version: event.version,
+    messageId: event.messageId ?? null,
+    payload: serializeJson(event.payload),
+    metadata: serializeJson(event.metadata),
+    occurredAt: event.occurredAt,
+    acceptedAt: event.acceptedAt,
+  };
+}
+
+function sessionProjectionUpdate(session: Session, updatedAt: string) {
+  return {
+    state: session.state,
+    activeMessageId: session.activeMessageId,
+    lastMessageId: session.lastMessageId,
+    interruptKind: session.interruptKind,
+    continuationMode: session.continuationMode,
+    failureCode: session.failureCode,
+    updatedAt,
+  };
+}
+
+function sameEventInput(persisted: SessionEvent, input: import("@mystra/shared").SessionEventInput): boolean {
+  return persisted.sessionId === input.sessionId
+    && persisted.sourceId === input.sourceId
+    && persisted.sourceSequence === input.sourceSequence
+    && persisted.kind === input.kind
+    && persisted.version === input.version
+    && persisted.messageId === input.messageId
+    && JSON.stringify(persisted.payload) === JSON.stringify(input.payload)
+    && JSON.stringify(persisted.metadata) === JSON.stringify(input.metadata)
+    && persisted.occurredAt === input.occurredAt;
+}
+
+function sameEventInputIgnoringIdentity(
+  persisted: SessionEvent,
+  input: import("@mystra/shared").SessionEventInput,
+): boolean {
+  return persisted.sessionId === input.sessionId
+    && persisted.kind === input.kind
+    && persisted.messageId === input.messageId
+    && JSON.stringify(persisted.payload) === JSON.stringify(input.payload)
+    && JSON.stringify(persisted.metadata) === JSON.stringify(input.metadata);
 }
 
 function sameProviderCapabilities(

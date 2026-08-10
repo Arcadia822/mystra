@@ -53,17 +53,18 @@ interface SessionService {
 - insert Session；
 - append `session.created`；
 - append `session.system_prompt_configured`；
+- append `session.workspace_attached`；
 - append `session.user_message_submitted`；
 - commit and return queued Session。
 
 Runtime claim 和 Provider 调用只允许在 commit 之后开始。
 
-相同 sessionId + 同 launch payload 返回 `created:false`；不同 payload 返回 `session_launch_conflict`。
+相同 sessionId + 同 launch payload 返回 `created:false`；不同 payload 返回 `session_conflict`。
 
 ## sendMessage 语义
 
 - 允许状态：`ready` 或 `interrupted + new_message`。
-- 相同 `(sessionId,messageId)` 与相同 payload 返回 `created:false`；不同 payload 返回 `session_message_conflict`。
+- 相同 `(sessionId,messageId)` 与相同 payload 返回 `created:false`；不同 payload 返回 `session_conflict`。
 - 成功后 state=`message_pending`，activeMessageId=messageId。
 - 同时只允许一个 active message/response。
 
@@ -77,15 +78,19 @@ Runtime claim 和 Provider 调用只允许在 commit 之后开始。
 ## 稳定错误码
 
 - `session_not_found`
-- `session_launch_conflict`
-- `session_message_conflict`
-- `session_invalid_state`
+- `task_not_found`
+- `project_not_found`
+- `task_project_mismatch`
+- `session_conflict`
+- `session_busy`
+- `session_terminal`
 - `runtime_unavailable`
 - `provider_unavailable`
 - `agent_unavailable`
+- `workspace_unavailable`
 - `workspace_not_ready`
 - `workspace_missing`
 - `workspace_runtime_mismatch`
-- `session_task_required`
-- `team_boundary_violation`
-- `event_payload_invalid`
+- `lease_invalid`
+
+Team boundary、event payload 与 source sequence 拒绝由共享 schema/RDB boundary fail closed；它们不会被伪装成 Session application failure code。

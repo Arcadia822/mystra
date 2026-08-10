@@ -7,6 +7,6 @@
 - [x] Runtime capacity/slot 明确排除并留给未来 Runtime capability。
 - [x] 049 只支持 Task-bound Session；未来非 Task 仍复用统一 Workspace 合同。
 - [x] Session-scoped typed event history 与日志/全局活动流边界明确。
-- [ ] requirements checklist 按新版 spec 重新核验。
-- [ ] plan-eng-review 按新版 plan 重新执行并通过。
-- [ ] `/speckit.tasks` 仅在工程评审通过后生成。
+- [x] requirements checklist 按新版 spec 重新核验。
+- [x] plan-eng-review 按新版 plan 重新执行并通过。
+- [x] `/speckit.tasks` 仅在工程评审通过后生成。

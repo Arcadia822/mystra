@@ -1,24 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  cancelSessionResponseSchema,
   contextBundleCreateResponseSchema,
   contextBundleListResponseSchema,
   executionContextViewSchema,
   laneInspectionViewSchema,
   managementErrorResponseSchema,
   managementErrorSchema,
-  publicRunnerSchema,
   projectCreateResponseSchema,
   projectListResponseSchema,
   projectSelectionViewSchema,
-  runnerDetailResponseSchema,
-  runnerListResponseSchema,
   runnerRepositoryCredentialRequestSchema,
   runnerRepositoryCredentialResponseSchema,
-  sessionDetailResponseSchema,
-  sessionListResponseSchema,
-  sessionRecordSchema,
   submittedLaneSnapshotSchema,
   taskCreateResponseSchema,
   taskDetailResponseSchema,
@@ -65,26 +58,6 @@ const task = {
   issue: null,
   createdAt: "2026-05-15T00:00:00.000Z",
   updatedAt: "2026-05-15T00:00:00.000Z",
-} as const;
-
-const session = {
-  id: "00000000-0000-4000-8000-000000000011",
-  taskId: task.id,
-  title: "Implement API slice",
-  objective: "Add the management resources",
-  provider: "copilot",
-  branch: "mystra/task-session-api",
-  state: "succeeded",
-  result: {
-    status: "succeeded",
-    summary: "Created the requested resources",
-    branch: "mystra/task-session-api",
-  },
-  metadata: {},
-  createdAt: "2026-05-15T00:00:00.000Z",
-  updatedAt: "2026-05-15T00:02:00.000Z",
-  startedAt: "2026-05-15T00:00:10.000Z",
-  finishedAt: "2026-05-15T00:02:00.000Z",
 } as const;
 
 const repositoryConnectionId = "00000000-0000-4000-8000-000000000039";
@@ -281,7 +254,7 @@ describe("Project management views", () => {
   });
 });
 
-describe("Task and Session management views", () => {
+describe("Task management views", () => {
   it("allows a Task to exist with zero Sessions and no lifecycle state", () => {
     expect(taskRecordSchema.parse(task).projectId).toBeNull();
     const detail = taskDetailResponseSchema.parse({ task });
@@ -323,53 +296,4 @@ describe("Task and Session management views", () => {
     expect("state" in (listed.tasks[0] ?? {})).toBe(false);
   });
 
-  it("keeps result and lifecycle evidence on Session only", () => {
-    expect(sessionRecordSchema.parse(session).result?.status).toBe("succeeded");
-    expect(sessionListResponseSchema.parse({ taskId: task.id, sessions: [session] }).sessions).toHaveLength(1);
-    const detail = sessionDetailResponseSchema.parse({ session, task });
-    expect(detail.session.taskId).toBe(task.id);
-    expect("events" in detail).toBe(false);
-  });
-
-  it("returns cancellation outcome with the Session", () => {
-    const parsed = cancelSessionResponseSchema.parse({ outcome: "canceled", session });
-    expect(parsed.session.id).toBe(session.id);
-  });
-
-  it("rejects embedded execution facts as a public collection", () => {
-    expect(() => sessionDetailResponseSchema.parse({
-      session,
-      task,
-      events: [{ type: "session.succeeded" }],
-    })).toThrow();
-  });
-});
-
-describe("Runner management views", () => {
-  const runner = {
-    id: "00000000-0000-4000-8000-000000000003",
-    name: "runner-a",
-    capabilities: { executionProviders: ["codex"], executor: "docker" },
-    maxConcurrency: 2,
-    activeSessionCount: 1,
-    health: "healthy",
-    staleAfterSeconds: 60,
-    eligibleProjectIds: ["00000000-0000-4000-8000-000000000001"],
-    eligibleRuntimeProviders: ["docker"],
-    currentAssignments: [{ taskId: task.id, sessionId: session.id }],
-    lastHeartbeatAt: "2026-05-15T00:00:00.000Z",
-    createdAt: "2026-05-15T00:00:00.000Z",
-    updatedAt: "2026-05-15T00:00:00.000Z",
-  } as const;
-
-  it("uses one stable Runner resource with capacity and assignments", () => {
-    expect(publicRunnerSchema.parse(runner).name).toBe("runner-a");
-    expect(runnerListResponseSchema.parse({ runners: [runner] }).runners).toHaveLength(1);
-    expect(runnerDetailResponseSchema.parse({ runner }).runner.currentAssignments[0]?.sessionId).toBe(session.id);
-  });
-
-  it("rejects credentials and internal connection wrappers", () => {
-    expect(() => publicRunnerSchema.parse({ ...runner, credentialHash: "secret" })).toThrow();
-    expect(() => publicRunnerSchema.parse({ ...runner, activeSessionCount: 2 })).toThrow();
-  });
 });

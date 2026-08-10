@@ -1,19 +1,13 @@
 import { z } from "zod";
 
-import { sessionResultSchema } from "./result.js";
 import {
-  cancellationRequestMetadataSchema,
   contextBundleRefSchema,
   contextBundleSchema,
-  mergeRequestSpecSchema,
-  platformCapabilitiesSchema,
   projectRuntimeConfigSchema,
   projectSchema,
   resolvedRuntimeContractSchema,
-  sessionRuntimeOverrideSchema,
 } from "./schemas.js";
 import { integrationConnectionSchema, integrationProviderStatusSchema } from "./integrations.js";
-import { sessionStateSchema } from "./state.js";
 import { taskIssueResolutionSchema, taskSchema } from "./task.js";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
@@ -140,51 +134,6 @@ export type SubmittedLaneSnapshot = z.infer<typeof submittedLaneSnapshotSchema>;
 export const taskRecordSchema = taskSchema;
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
-export const sessionRecordSchema = z
-  .object({
-    id: z.string().uuid(),
-    taskId: z.string().uuid(),
-    initialDispatchKey: z.string().min(1).max(1_000).optional(),
-    title: z.string().min(1),
-    objective: z.string().min(1),
-    provider: z.enum(["codex", "copilot"]),
-    branch: z.string().min(1),
-    mergeRequest: mergeRequestSpecSchema.optional(),
-    runtimeOverride: sessionRuntimeOverrideSchema.optional(),
-    state: sessionStateSchema,
-    assignedRunnerId: z.string().uuid().optional(),
-    resolvedRuntime: resolvedRuntimeContractSchema.optional(),
-    result: sessionResultSchema.optional(),
-    failureReason: z.string().min(1).optional(),
-    cancellationRequest: cancellationRequestMetadataSchema.optional(),
-    staleReason: z.string().min(1).optional(),
-    staleMarkedAt: z.string().datetime().optional(),
-    metadata: jsonObjectSchema.default({}),
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
-    startedAt: z.string().datetime().optional(),
-    finishedAt: z.string().datetime().optional(),
-  })
-  .strict();
-export type SessionRecord = z.infer<typeof sessionRecordSchema>;
-
-export const sessionSummaryItemSchema = sessionRecordSchema
-  .pick({
-    id: true,
-    taskId: true,
-    title: true,
-    state: true,
-    provider: true,
-    branch: true,
-    assignedRunnerId: true,
-    createdAt: true,
-    updatedAt: true,
-    startedAt: true,
-    finishedAt: true,
-  })
-  .strict();
-export type SessionSummaryItem = z.infer<typeof sessionSummaryItemSchema>;
-
 export const taskListItemSchema = taskRecordSchema;
 export type TaskListItem = z.infer<typeof taskListItemSchema>;
 
@@ -229,29 +178,6 @@ export const taskCreateResponseSchema = z
   .strict();
 export type TaskCreateResponse = z.infer<typeof taskCreateResponseSchema>;
 
-export const sessionListResponseSchema = z
-  .object({ taskId: z.string().uuid(), sessions: z.array(sessionRecordSchema) })
-  .strict();
-export type SessionListResponse = z.infer<typeof sessionListResponseSchema>;
-
-export const sessionDetailResponseSchema = z
-  .object({ session: sessionRecordSchema, task: taskRecordSchema, project: sessionProjectViewSchema.optional() })
-  .strict();
-export type SessionDetailResponse = z.infer<typeof sessionDetailResponseSchema>;
-
-export const sessionCreateResponseSchema = z.object({ session: sessionRecordSchema }).strict();
-export type SessionCreateResponse = z.infer<typeof sessionCreateResponseSchema>;
-
-export const runnerClaimResponseSchema = z
-  .object({
-    task: taskRecordSchema,
-    session: sessionRecordSchema,
-    project: projectSchema.pick({ id: true, slug: true }).strict(),
-    runtime: resolvedRuntimeContractSchema,
-  })
-  .strict();
-export type RunnerClaimResponse = z.infer<typeof runnerClaimResponseSchema>;
-
 export const runnerRepositoryCredentialRequestSchema = z
   .object({ purpose: z.enum(["clone", "push", "review"]) })
   .strict();
@@ -271,54 +197,3 @@ export const runnerRepositoryCredentialResponseSchema = z
   .object({ credential: ephemeralRepositoryCredentialSchema })
   .strict();
 export type RunnerRepositoryCredentialResponse = z.infer<typeof runnerRepositoryCredentialResponseSchema>;
-
-export const cancelSessionResponseSchema = z
-  .object({ outcome: z.enum(["canceled", "cancellation_requested"]), session: sessionRecordSchema })
-  .strict();
-export type CancelSessionResponse = z.infer<typeof cancelSessionResponseSchema>;
-
-export const runnerAssignmentSchema = z
-  .object({ taskId: z.string().uuid(), sessionId: z.string().uuid() })
-  .strict();
-export type RunnerAssignment = z.infer<typeof runnerAssignmentSchema>;
-
-export const publicRunnerSchema = z
-  .object({
-    id: z.string().uuid(),
-    name: z.string().min(1),
-    capabilities: platformCapabilitiesSchema,
-    maxConcurrency: z.number().int().positive(),
-    activeSessionCount: z.number().int().nonnegative(),
-    health: z.enum(["healthy", "stale"]),
-    staleAfterSeconds: z.number().int().positive(),
-    eligibleProjectIds: z.array(z.string().uuid()).optional(),
-    eligibleRuntimeProviders: z.array(z.string().min(1)).optional(),
-    currentAssignments: z.array(runnerAssignmentSchema).default([]),
-    lastHeartbeatAt: z.string().datetime(),
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
-  })
-  .strict()
-  .superRefine((runner, ctx) => {
-    if (runner.activeSessionCount > runner.maxConcurrency) {
-      ctx.addIssue({
-        code: "custom",
-        message: "activeSessionCount cannot exceed maxConcurrency",
-        path: ["activeSessionCount"],
-      });
-    }
-    if (runner.currentAssignments.length !== runner.activeSessionCount) {
-      ctx.addIssue({
-        code: "custom",
-        message: "currentAssignments must match activeSessionCount",
-        path: ["currentAssignments"],
-      });
-    }
-  });
-export type PublicRunner = z.infer<typeof publicRunnerSchema>;
-
-export const runnerListResponseSchema = z.object({ runners: z.array(publicRunnerSchema) }).strict();
-export type RunnerListResponse = z.infer<typeof runnerListResponseSchema>;
-
-export const runnerDetailResponseSchema = z.object({ runner: publicRunnerSchema }).strict();
-export type RunnerDetailResponse = z.infer<typeof runnerDetailResponseSchema>;

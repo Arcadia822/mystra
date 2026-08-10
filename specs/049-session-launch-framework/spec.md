@@ -3,7 +3,7 @@
 **功能分支**: `049-session-launch-framework`
 **创建日期**: 2026-08-09
 **修订日期**: 2026-08-10
-**状态**: 草案
+**状态**: 已实现
 **输入**: Control Plane 在一个数据库事务中创建 Session、冻结 system prompt 与第一条 user message；事务提交后由指定 Runtime 通过 Provider 执行；Session 支持后续串行 user message；全部经过校验、限长和脱敏的 Session 领域事件持久化。
 
 ## 合同摘要
@@ -19,7 +19,7 @@ Mystra 不定义 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。每条 user m
 | Agent | Team | Agent ID、revision、system prompt 快照 | Agent 定义的行为指令 |
 | Context | Session | 可选 Project、Task 与手工上下文快照 | 作为转义后的不可信业务上下文数据 |
 
-这里的 `launch` 是 Control Plane 的 canonical application command `SessionService.launch`：它校验参数，组装 system prompt，并在一个数据库事务中写入 Session、system prompt 事件和第一条 user message 事件，然后返回 `queued`。Runtime claim 与 Provider 网络调用只能在该事务提交后发生，数据库事务不得跨 Runtime/provider I/O。
+这里的 `launch` 是 Control Plane 的 canonical application command `SessionService.launch`：它校验参数，解析 feature 048 attachment，组装 system prompt，并在一个数据库事务中写入 Session、`session.created`、`session.system_prompt_configured`、`session.workspace_attached` 和第一条 `session.user_message_submitted`，然后返回 `queued`。Runtime claim 与 Provider 网络调用只能在该事务提交后发生，数据库事务不得跨 Runtime/provider I/O。
 
 049 当前只支持 Task-bound Session。launch 必须绑定 feature 048 已准备的共享 Task Workspace，并持久化统一的 Workspace attachment 证据。Project-only Session 与既不引用 Task 也不引用 Project 的 Session 延后；未来它们仍使用同一 Workspace/attachment 合同，只是 Workspace 准备逻辑不同，049 不提前定义该逻辑。
 
@@ -29,7 +29,7 @@ Mystra 不定义 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。每条 user m
 
 ### 场景 1：原子创建 Session、system prompt 与第一条 user message（P1）
 
-1. Runtime online、Provider available、Agent active 且 Team 边界有效时，`launch` 必须在一个事务内写入 Session、`session.created`、`session.system_prompt_configured` 与 `session.user_message_submitted`，并把 Session 置为 `queued`、`activeMessageId` 指向首条消息。
+1. Runtime online、Provider available、Agent active、Task Workspace ready 且 Team 边界有效时，`launch` 必须在一个事务内写入 Session、`session.created`、`session.system_prompt_configured`、`session.workspace_attached` 与 `session.user_message_submitted`，并把 Session 置为 `queued`、`activeMessageId` 指向首条消息。
 2. 相同 `sessionId` 与完全相同的 launch payload 重试时返回原 Session 与 `created:false`；不同 payload 返回稳定冲突。
 3. 任一校验或事务写入失败时不得留下部分 Session 或事件。
 4. 数据库事务提交后，指定 Runtime 才能 claim；其他 Runtime 不得领取。
@@ -55,7 +55,7 @@ Mystra 不定义 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。每条 user m
 1. Session 只能使用 ready TaskWorkspace 的 `runtimeId/taskWorkspaceId/workspaceRef/shared-mutable`，不得创建 Session 专属目录。
 2. Runtime 解析 attachment 后启动 Provider，并执行 launch 已持久化的首条 user message。
 3. launch 不引用 Task 时必须失败关闭；不得临时发明第二套 Workspace 类型或准备路径。
-4. Provider adapter 对 ACP 可以调用 `session/new` 与 `session/prompt`，但 ACP 的 prompt turn 不进入 Mystra 领域合同。
+4. 当前 concrete adapter 必须覆盖已启用的 Codex/Copilot CLI Provider，并保留 provider-neutral session boundary；未来外部协议即使使用 prompt turn，也不得把它引入 Mystra 领域合同。
 
 ### 场景 5：状态与 Runtime 资源释放（P1）
 
@@ -108,7 +108,7 @@ ready + sendMessage -> message_pending
 - **FR-003**：Session 是 Team-scoped 同级对象，不归属于 Project、Task、Agent 或 Runtime。
 - **FR-004**：Runtime 必须 online，Provider 必须 available，Agent 必须 active 且同 Team；Task-bound Runtime 还必须匹配 feature 048 Workspace affinity。
 - **FR-005**：Project/Task 分别按 Team 校验；不得从 Task 推导 Session Project。
-- **FR-006**：launch 必须先规范化全部输入，再在一个 RDB 事务中写入 Session 与三个初始事件；事务不得包含 Runtime/provider 网络 I/O。
+- **FR-006**：launch 必须先规范化全部输入，再在一个 RDB 事务中写入 Session 与四个初始事件；事务不得包含 Runtime/provider 网络 I/O。
 - **FR-007**：相同 `sessionId` 与相同 launch payload是重放；不同 payload 冲突；不增加 fingerprint/hash 固定字段。
 - **FR-008**：launch 成功立即返回 `queued`，不等待 Runtime。
 - **FR-009**：Mystra 领域合同不得出现 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。
@@ -120,8 +120,8 @@ ready + sendMessage -> message_pending
 - **FR-015**：`SessionDispatchLease` 只保存 ownership/auth 所需数据；不得包含 capacity slot。Workspace identity 来自统一 attachment 合同，不由 lease 重新定义。
 - **FR-016**：049 不定义 Runtime capacity 数字、默认并发值、平台限制或调度配额。
 - **FR-017**：Runtime 必须重新确认 Provider available/capability；不兼容时失败，不静默回退。
-- **FR-018**：Provider execution 必须通过 ProviderSessionAdapter；同一有效 lease 内保持一个 Provider session 并串行处理消息。
-- **FR-019**：ACP system-prompt 投递策略必须由 adapter 明确声明；不得假定 ACP v1 有可移植 system prompt 字段。
+- **FR-018**：Provider execution 必须通过 ProviderSessionAdapter；当前 concrete adapter 覆盖已启用的 Codex/Copilot CLI，同一有效 lease 内保持一个 Provider session 并串行处理消息。
+- **FR-019**：每个 adapter 必须显式生成 start 与 continuation command；system prompt 只在 start command 与首条 user message 一起交付，continuation 不得重复注入 system prompt。
 - **FR-020**：system prompt 四部分按固定顺序生成；完整内容只保存在类型化事件中。
 - **FR-021**：launch 必须持久化 `session.workspace_attached`，引用 feature 048 的 `taskWorkspaceId/runtimeId/workspaceRef/shared-mutable`。
 - **FR-022**：049 必须拒绝缺少 Task 的 launch。Project-only Session 与 standalone Session 延后；未来必须复用同一 Workspace/attachment 合同，只允许准备逻辑不同，不得新增 parallel temporary-workspace model。
@@ -132,7 +132,7 @@ ready + sendMessage -> message_pending
 - **FR-027**：Session 行只物化 state、activeMessageId、lastMessageId、interruptKind、continuationMode、failureCode、metadata 与 updatedAt；不保存 providerSessionId、workspaceRef、stopReason、完整 prompt/result/error 或事件游标。
 - **FR-028**：response 完成/取消后必须释放 Runtime 当前执行占用并回到 `ready`；idle Session 不构成 049 的 capacity reservation。
 - **FR-029**：`interrupted` 使用 `resume_message | new_message` 指示下一动作；`waiting_for_handoff` 专门表示人类接管。
-- **FR-030**：ACP stopReason 原样保留在 result/interruption 事件，不投影成 Session 固定字段。
+- **FR-030**：Runtime 把 Provider 结束原因规范化到 result/interruption 事件，不投影成 Session 固定字段。
 - **FR-031**：租约过期且 Runtime offline 时追加失败事件，不自动迁移、回退或重试。
 - **FR-032**：跨 Team、错误 Runtime/lease/Session 的回报失败关闭，不泄漏其他 Team 对象。
 - **FR-033**：pre-0.1 旧 Session/Turn/单轮结果合同直接替换，不保留兼容路径。
@@ -144,7 +144,7 @@ ready + sendMessage -> message_pending
 - **SessionDispatchLease**：Runtime 的执行 ownership/auth 操作记录；不是 capacity reservation。
 - **SessionWorkspaceAttachment**：launch 的持久化 Workspace 选择证据；049 的唯一来源是 feature 048 TaskWorkspace。
 - **SessionEventStream / SessionEventHead**：来源幂等游标与 Session 全局事件序号头。
-- **ProviderSessionAdapter / ProviderSessionHandle**：把 ACP/native 协议转换为统一 SessionEvent。
+- **ProviderSessionAdapter**：生成 Provider start/continue command 并解析 process result；Runtime worker 把结果转换为统一 SessionEvent。
 - **RuntimeSessionDispatcher**：向不同 Runtime 类型投递 Session 的边界。
 
 ## 事件目录 v1
@@ -192,7 +192,7 @@ ready + sendMessage -> message_pending
 
 ## 成功标准
 
-- **SC-001**：有效 launch 100% 产生唯一 Session 与三个初始事件；无效组合产生 0 条部分记录。
+- **SC-001**：有效 launch 100% 产生唯一 Session 与四个初始事件；无效组合产生 0 条部分记录。
 - **SC-002**：20 个相同 sessionId 并发 launch 只产生 1 条 Session；不同 payload 全部冲突。
 - **SC-003**：首条 user message 无需二次 API 即被指定 Runtime/Provider 执行。
 - **SC-004**：同一 Session 连续执行至少 3 个 messageId，Provider session 在有效 lease 内不变；数据库和 API 没有 Turn。

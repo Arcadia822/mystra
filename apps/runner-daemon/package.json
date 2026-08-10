@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "pnpm --filter @mystra/agent-adapters build",
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
     "lint": "tsc --noEmit",
+    "pretest": "pnpm --filter @mystra/agent-adapters build",
     "test": "vitest run --passWithNoTests",
+    "pretypecheck": "pnpm --filter @mystra/agent-adapters build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

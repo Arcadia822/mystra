@@ -1,5 +1,4 @@
 export * from "./cache.js";
-export * from "./coordination-session-summary.js";
 export * from "./events.js";
 export * from "./issue.js";
 export * from "./integrations.js";
@@ -10,6 +9,7 @@ export * from "./result.js";
 export * from "./sandbox.js";
 export * from "./schemas.js";
 export * from "./state.js";
+export * from "./session.js";
 export * from "./team.js";
 export * from "./task.js";
 export * from "./task-workspace.js";

@@ -8,27 +8,27 @@ datasource db {
 }
 
 model IntegrationConnection {
-  id                 String    @id
-  teamId             String    @map("team_id")
-  integration        String
-  provider           String
-  authMethod         String    @map("auth_method")
-  providerExternalId String    @map("provider_external_id")
-  displayName        String?   @map("display_name")
-  providerSubject    String    @map("provider_subject")
-  connectionConfig   String    @map("connection_config")
-  capabilities       String
-  credentialRef      String?   @map("credential_ref")
-  credentialState    String    @map("credential_state")
-  status             String
-  createdAt          String    @map("created_at")
-  updatedAt          String    @map("updated_at")
-  projects           Project[]
-  issueSources       ProjectIssueSource[]
-  issueTasks         Task[]
-  repositoryTaskWorkspaces TaskWorkspace[] @relation("TaskWorkspaceRepositoryConnection")
-  issueTaskWorkspaces      TaskWorkspace[] @relation("TaskWorkspaceIssueConnection")
-  team               Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id                       String               @id
+  teamId                   String               @map("team_id")
+  integration              String
+  provider                 String
+  authMethod               String               @map("auth_method")
+  providerExternalId       String               @map("provider_external_id")
+  displayName              String?              @map("display_name")
+  providerSubject          String               @map("provider_subject")
+  connectionConfig         String               @map("connection_config")
+  capabilities             String
+  credentialRef            String?              @map("credential_ref")
+  credentialState          String               @map("credential_state")
+  status                   String
+  createdAt                String               @map("created_at")
+  updatedAt                String               @map("updated_at")
+  projects                 Project[]
+  issueSources             ProjectIssueSource[]
+  issueTasks               Task[]
+  repositoryTaskWorkspaces TaskWorkspace[]      @relation("TaskWorkspaceRepositoryConnection")
+  issueTaskWorkspaces      TaskWorkspace[]      @relation("TaskWorkspaceIssueConnection")
+  team                     Team                 @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([teamId, integration, provider, providerExternalId])
   @@index([teamId])
@@ -53,6 +53,7 @@ model Project {
   tasks                  Task[]
   issueSources           ProjectIssueSource[]
   taskWorkspaces         TaskWorkspace[]
+  sessions               Session[]
   team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([teamId])
@@ -99,6 +100,7 @@ model Task {
   project              Project?               @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   team                 Team                   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   workspace            TaskWorkspace?
+  sessions             Session[]
 
   @@unique([teamId, idempotencyKey])
   @@unique([issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId])
@@ -110,37 +112,37 @@ model Task {
 }
 
 model TaskWorkspace {
-  id                    String   @id
-  teamId                String   @map("team_id")
-  taskId                String   @unique @map("task_id")
-  projectId             String   @map("project_id")
-  runtimeId             String   @map("runtime_id")
+  id                    String                        @id
+  teamId                String                        @map("team_id")
+  taskId                String                        @unique @map("task_id")
+  projectId             String                        @map("project_id")
+  runtimeId             String                        @map("runtime_id")
   state                 String
-  sharingMode           String   @map("sharing_mode")
-  connectionId          String   @map("connection_id")
-  repositoryExternalId  String   @map("repository_external_id")
-  configuredBaseBranch  String   @map("configured_base_branch")
-  issueProvider         String?  @map("issue_provider")
-  issueConnectionId     String?  @map("issue_connection_id")
-  issueScopeExternalId  String?  @map("issue_scope_external_id")
-  issueExternalId       String?  @map("issue_external_id")
-  baseRef               String   @map("base_ref")
-  baseCommit            String   @map("base_commit")
-  branchName            String   @map("branch_name")
-  branchStrategy        String   @map("branch_strategy")
-  workspaceRef          String?  @map("workspace_ref")
-  activeAttemptSequence Int      @map("active_attempt_sequence")
-  failureCode           String?  @map("failure_code")
-  failureMessage        String?  @map("failure_message")
-  createdAt             String   @map("created_at")
-  updatedAt             String   @map("updated_at")
-  readyAt               String?  @map("ready_at")
-  task                  Task     @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  project               Project  @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  runtime               Runtime  @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  repositoryConnection  IntegrationConnection @relation("TaskWorkspaceRepositoryConnection", fields: [connectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  issueConnection       IntegrationConnection? @relation("TaskWorkspaceIssueConnection", fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  team                  Team     @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sharingMode           String                        @map("sharing_mode")
+  connectionId          String                        @map("connection_id")
+  repositoryExternalId  String                        @map("repository_external_id")
+  configuredBaseBranch  String                        @map("configured_base_branch")
+  issueProvider         String?                       @map("issue_provider")
+  issueConnectionId     String?                       @map("issue_connection_id")
+  issueScopeExternalId  String?                       @map("issue_scope_external_id")
+  issueExternalId       String?                       @map("issue_external_id")
+  baseRef               String                        @map("base_ref")
+  baseCommit            String                        @map("base_commit")
+  branchName            String                        @map("branch_name")
+  branchStrategy        String                        @map("branch_strategy")
+  workspaceRef          String?                       @map("workspace_ref")
+  activeAttemptSequence Int                           @map("active_attempt_sequence")
+  failureCode           String?                       @map("failure_code")
+  failureMessage        String?                       @map("failure_message")
+  createdAt             String                        @map("created_at")
+  updatedAt             String                        @map("updated_at")
+  readyAt               String?                       @map("ready_at")
+  task                  Task                          @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  project               Project                       @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  runtime               Runtime                       @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  repositoryConnection  IntegrationConnection         @relation("TaskWorkspaceRepositoryConnection", fields: [connectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  issueConnection       IntegrationConnection?        @relation("TaskWorkspaceIssueConnection", fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team                  Team                          @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   attempts              WorkspacePreparationAttempt[]
 
   @@index([teamId, state, createdAt])
@@ -151,16 +153,16 @@ model TaskWorkspace {
 }
 
 model WorkspacePreparationAttempt {
-  id             String  @id
-  workspaceId    String  @map("workspace_id")
+  id             String        @id
+  workspaceId    String        @map("workspace_id")
   sequence       Int
   state          String
-  runnerId       String? @map("runner_id")
-  leaseExpiresAt String? @map("lease_expires_at")
-  claimedAt      String? @map("claimed_at")
-  completedAt    String? @map("completed_at")
-  failureCode    String? @map("failure_code")
-  createdAt      String  @map("created_at")
+  runnerId       String?       @map("runner_id")
+  leaseExpiresAt String?       @map("lease_expires_at")
+  claimedAt      String?       @map("claimed_at")
+  completedAt    String?       @map("completed_at")
+  failureCode    String?       @map("failure_code")
+  createdAt      String        @map("created_at")
   workspace      TaskWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([workspaceId, sequence])
@@ -170,16 +172,17 @@ model WorkspacePreparationAttempt {
 }
 
 model Agent {
-  id           String  @id
-  teamId       String  @map("team_id")
+  id           String    @id
+  teamId       String    @map("team_id")
   name         String
-  systemPrompt String  @map("system_prompt")
+  systemPrompt String    @map("system_prompt")
   revision     Int
   status       String
-  archivedAt   String? @map("archived_at")
-  createdAt    String  @map("created_at")
-  updatedAt    String  @map("updated_at")
-  team         Team    @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  archivedAt   String?   @map("archived_at")
+  createdAt    String    @map("created_at")
+  updatedAt    String    @map("updated_at")
+  team         Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sessions     Session[]
 
   @@index([teamId, status, id])
   @@index([createdAt, id])
@@ -187,14 +190,16 @@ model Agent {
 }
 
 model Runtime {
-  id        String            @id
-  name      String
-  type      String
-  metadata  String?           @map("metadata")
-  createdAt String            @map("created_at")
-  updatedAt String            @map("updated_at")
-  providers RuntimeProvider[]
+  id             String                 @id
+  name           String
+  type           String
+  metadata       String?                @map("metadata")
+  createdAt      String                 @map("created_at")
+  updatedAt      String                 @map("updated_at")
+  providers      RuntimeProvider[]
   taskWorkspaces TaskWorkspace[]
+  sessions       Session[]
+  sessionLeases  SessionDispatchLease[]
 
   @@index([updatedAt, id])
   @@index([createdAt, id])
@@ -265,17 +270,17 @@ model AuthAccount {
 }
 
 model AuthSession {
-  id           String @id
-  userId       String @map("user_id")
-  tokenHash    String @unique @map("token_hash")
+  id           String  @id
+  userId       String  @map("user_id")
+  tokenHash    String  @unique @map("token_hash")
   activeTeamId String? @map("active_team_id")
-  expiresAt    String @map("expires_at")
+  expiresAt    String  @map("expires_at")
   ipAddress    String? @map("ip_address")
   userAgent    String? @map("user_agent")
-  createdAt    String @map("created_at")
-  updatedAt    String @map("updated_at")
-  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  activeTeam   Team?  @relation(fields: [activeTeamId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt    String  @map("created_at")
+  updatedAt    String  @map("updated_at")
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  activeTeam   Team?   @relation(fields: [activeTeamId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([userId])
   @@index([expiresAt, id])
@@ -297,10 +302,103 @@ model Team {
   issueSources           ProjectIssueSource[]
   agents                 Agent[]
   taskWorkspaces         TaskWorkspace[]
+  sessions               Session[]
 
   @@index([status])
   @@index([createdAt, id])
   @@map("teams")
+}
+
+model Session {
+  id               String                @id
+  teamId           String                @map("team_id")
+  taskId           String                @map("task_id")
+  projectId        String?               @map("project_id")
+  runtimeId        String                @map("runtime_id")
+  providerKey      String                @map("provider_key")
+  agentId          String                @map("agent_id")
+  agentRevision    Int                   @map("agent_revision")
+  state            String
+  activeMessageId  String?               @map("active_message_id")
+  lastMessageId    String?               @map("last_message_id")
+  interruptKind    String?               @map("interrupt_kind")
+  continuationMode String?               @map("continuation_mode")
+  failureCode      String?               @map("failure_code")
+  metadata         String
+  createdAt        String                @map("created_at")
+  updatedAt        String                @map("updated_at")
+  team             Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  task             Task                  @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  project          Project?              @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  runtime          Runtime               @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  agent            Agent                 @relation(fields: [agentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  events           SessionEvent[]
+  eventHead        SessionEventHead?
+  eventStreams     SessionEventStream[]
+  dispatchLease    SessionDispatchLease?
+
+  @@index([teamId, updatedAt, id])
+  @@index([taskId, updatedAt, id])
+  @@index([runtimeId, state, createdAt, id])
+  @@map("sessions")
+}
+
+model SessionEvent {
+  eventId        String  @id @map("event_id")
+  sessionId      String  @map("session_id")
+  sourceId       String  @map("source_id")
+  sourceSequence Int     @map("source_sequence")
+  globalSequence Int     @map("global_sequence")
+  kind           String
+  version        Int
+  messageId      String? @map("message_id")
+  payload        String
+  metadata       String
+  occurredAt     String  @map("occurred_at")
+  acceptedAt     String  @map("accepted_at")
+  session        Session @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([sessionId, sourceId, sourceSequence])
+  @@unique([sessionId, globalSequence])
+  @@index([sessionId, messageId, globalSequence])
+  @@map("session_events")
+}
+
+model SessionEventHead {
+  sessionId          String  @id @map("session_id")
+  lastGlobalSequence Int     @map("last_global_sequence")
+  launchPayload      String  @map("launch_payload")
+  session            Session @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("session_event_heads")
+}
+
+model SessionEventStream {
+  id                 String  @id
+  sessionId          String  @map("session_id")
+  sourceId           String  @map("source_id")
+  lastSourceSequence Int     @map("last_source_sequence")
+  session            Session @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([sessionId, sourceId])
+  @@map("session_event_streams")
+}
+
+model SessionDispatchLease {
+  id                String  @id
+  sessionId         String  @unique @map("session_id")
+  runtimeId         String  @map("runtime_id")
+  runnerId          String  @map("runner_id")
+  tokenHash         String  @map("token_hash")
+  providerSessionId String? @map("provider_session_id")
+  leaseExpiresAt    String  @map("lease_expires_at")
+  claimedAt         String  @map("claimed_at")
+  updatedAt         String  @map("updated_at")
+  session           Session @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  runtime           Runtime @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([runtimeId, leaseExpiresAt])
+  @@map("session_dispatch_leases")
 }
 
 model TeamMembership {

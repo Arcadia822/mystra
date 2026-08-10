@@ -1,7 +1,7 @@
 # Control Plane DB Provider
 
 This module owns Mystra's async `RdbProvider` boundary and the complete first-phase business
-model: `IntegrationConnection`, `Project`, `ProjectIssueSource`, and `Task`. Feature 041 additionally uses one internal
+model: `IntegrationConnection`, `Project`, `ProjectIssueSource`, `Task`, and the canonical Session event ledger. Feature 041 additionally uses one internal
 `SecretEnvelope` persistence model for authenticated ciphertext and wrapped per-secret DEKs.
 PAT plaintext and the KEK never enter Prisma or RDB; `SecretProvider` owns cryptography.
 
@@ -24,7 +24,13 @@ PAT plaintext and the KEK never enter Prisma or RDB; `SecretProvider` owns crypt
   at most one Task even when multiple Projects bind the same source.
 - The pre-0.1 Task table is replaced destructively. Legacy rows are not adopted or backfilled,
   because inventing title or exact Issue identity would corrupt the new contract.
-- Session, Runner, ContextBundle, event, artifact, and derived summary persistence are absent.
+- `Session`, `SessionEvent`, event head/source cursors, and one dispatch lease are persisted as
+  feature 049's canonical ledger. Launch inserts the Session plus four initial events in one
+  serializable transaction; Runtime/provider I/O starts only after commit.
+- `providerSessionId`, Workspace refs, prompt/result/error bodies, and event cursors are not
+  materialized on the Session row. They remain in typed events or the internal lease.
+- There is no Turn table, Runner capacity, Runtime slot, derived coordination summary, global
+  event feed, or arbitrary stdout/stderr log persistence.
 - The provider singleton caches the initialization promise, clears failed initialization, and
   awaits disconnect during reset or shutdown.
 - Prisma Migrate owns schema history. Runtime startup never creates or mutates schema.

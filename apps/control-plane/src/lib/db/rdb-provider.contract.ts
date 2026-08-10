@@ -943,4 +943,307 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.countActiveTeamsForUser(registered.user.id)).toBe(2);
     expect(await db.countActiveOwners(additional.team.id)).toBe(2);
   });
+
+  it("atomically persists, claims, continues, and pages a Session event ledger", async () => {
+    const projectRecord = await project();
+    const task = (await db.createTask({
+      teamId: projectRecord.teamId,
+      projectId: projectRecord.id,
+      title: "Implement Session launch",
+      description: null,
+      idempotencyKey: randomUUID(),
+    })).task;
+    const agent = await db.createAgent({
+      teamId: projectRecord.teamId,
+      name: "Contract Agent",
+      systemPrompt: "Execute the requested change.",
+    });
+    const runtime = await db.registerHostRuntime(workspaceRuntimeRegistration("Session runtime"));
+    await db.reportHostProviders(runtime.metadata.runnerId, [{
+      provider: "codex", discovered: true, available: true, source: "path",
+      resolvedPath: "/usr/bin/codex", version: "1.0.0", unavailableReason: null,
+    }]);
+    const workspaceCreated = await db.createTaskWorkspace({
+      teamId: projectRecord.teamId,
+      taskId: task.id,
+      projectId: projectRecord.id,
+      runtimeId: runtime.id,
+      connectionId: projectRecord.repositoryConnectionId,
+      repositoryExternalId: projectRecord.repositoryExternalId,
+      configuredBaseBranch: projectRecord.repositoryBaseBranch,
+      issueProvider: null,
+      issueConnectionId: null,
+      issueScopeExternalId: null,
+      issueExternalId: null,
+      baseRef: "refs/heads/main",
+      baseCommit: "d".repeat(40),
+      branchName: `mystra/task-${task.id.slice(0, 12).toLowerCase()}`,
+      branchStrategy: "mystra-task-fallback-v1",
+    });
+    const workspaceClaim = await db.claimTaskWorkspacePreparation({
+      runnerId: runtime.metadata.runnerId,
+      leaseExpiresAt: "2026-08-10T00:01:00.000Z",
+    });
+    const readyWorkspace = await db.completeTaskWorkspacePreparation({
+      workspaceId: workspaceCreated.workspace.id,
+      attemptId: workspaceClaim!.attempt.id,
+      runnerId: runtime.metadata.runnerId,
+      attemptSequence: workspaceClaim!.attempt.sequence,
+      status: "succeeded",
+      workspaceRef: `host-task-workspace:${workspaceCreated.workspace.id}`,
+      observed: {
+        baseCommit: workspaceCreated.workspace.baseCommit,
+        branchName: workspaceCreated.workspace.branchName,
+      },
+    });
+    const sessionId = randomUUID();
+    const messageId = randomUUID();
+    const timestamp = "2026-08-10T00:00:00.000Z";
+    const launchRequest = {
+      sessionId,
+      runtimeId: runtime.id,
+      providerKey: "codex",
+      agentId: agent.id,
+      context: { taskId: task.id, projectId: projectRecord.id },
+      firstUserMessage: { messageId, content: [{ type: "text" as const, text: "Implement it" }] },
+      metadata: {},
+    };
+    const session = {
+      id: sessionId,
+      teamId: projectRecord.teamId,
+      taskId: task.id,
+      projectId: projectRecord.id,
+      runtimeId: runtime.id,
+      providerKey: "codex",
+      agentId: agent.id,
+      agentRevision: agent.revision,
+      state: "queued" as const,
+      activeMessageId: messageId,
+      lastMessageId: null,
+      interruptKind: null,
+      continuationMode: null,
+      failureCode: null,
+      metadata: {},
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const initialPayloads = [
+      { kind: "session.created" as const, payload: { runtimeId: runtime.id, providerKey: "codex", agentId: agent.id, agentRevision: agent.revision, taskId: task.id, projectId: projectRecord.id, context: launchRequest.context } },
+      { kind: "session.system_prompt_configured" as const, payload: { components: ["runtime", "provider", "agent", "context"].map((name) => ({ name, content: name })), finalPrompt: "assembled prompt" } },
+      { kind: "session.workspace_attached" as const, payload: { kind: "task", taskWorkspaceId: readyWorkspace.id, runtimeId: runtime.id, workspaceRef: readyWorkspace.workspaceRef!, sharingMode: "shared-mutable" } },
+      { kind: "session.user_message_submitted" as const, payload: { content: launchRequest.firstUserMessage.content }, messageId },
+    ];
+    const events = initialPayloads.map((event, index) => ({
+      eventId: randomUUID(), sessionId, sourceId: "control-plane", sourceSequence: index + 1,
+      globalSequence: index + 1, kind: event.kind, version: 1 as const,
+      ...(event.messageId ? { messageId: event.messageId } : {}), payload: event.payload,
+      metadata: {}, occurredAt: timestamp, acceptedAt: timestamp,
+    }));
+
+    await expect(db.createSessionWithEvents({ session, launchRequest, events }))
+      .resolves.toMatchObject({ created: true, session: { id: sessionId, state: "queued" } });
+    await expect(db.createSessionWithEvents({ session, launchRequest, events }))
+      .resolves.toMatchObject({ created: false });
+    const launchReplays = await Promise.all(Array.from({ length: 20 }, () => (
+      db.createSessionWithEvents({ session, launchRequest, events })
+    )));
+    expect(launchReplays.every((result) => result.created === false)).toBe(true);
+
+    const leaseTokenHash = "a".repeat(64);
+    await db.reportHostProviders(runtime.metadata.runnerId, [{
+      provider: "codex", discovered: true, available: false, source: "path",
+      resolvedPath: "/usr/bin/codex", version: "1.0.0", unavailableReason: "exec-failed",
+    }]);
+    await expect(db.claimSession({
+      runtimeId: runtime.id,
+      runnerId: runtime.metadata.runnerId,
+      lease: {
+        id: randomUUID(), runtimeId: runtime.id, runnerId: runtime.metadata.runnerId,
+        leaseToken: "b".repeat(32), leaseTokenHash, providerSessionId: null,
+        leaseExpiresAt: "2026-08-10T00:01:00.000Z", claimedAt: timestamp, updatedAt: timestamp,
+      },
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    await db.reportHostProviders(runtime.metadata.runnerId, [{
+      provider: "codex", discovered: true, available: true, source: "path",
+      resolvedPath: "/usr/bin/codex", version: "1.0.0", unavailableReason: null,
+    }]);
+    await expect(db.claimSession({
+      runtimeId: runtime.id,
+      runnerId: "foreign-runner",
+      lease: {
+        id: randomUUID(), runtimeId: runtime.id, runnerId: "foreign-runner",
+        leaseToken: "b".repeat(32), leaseTokenHash, providerSessionId: null,
+        leaseExpiresAt: "2026-08-10T00:01:00.000Z", claimedAt: timestamp, updatedAt: timestamp,
+      },
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    const claimed = await db.claimSession({
+      runtimeId: runtime.id,
+      runnerId: runtime.metadata.runnerId,
+      lease: {
+        id: randomUUID(), runtimeId: runtime.id, runnerId: runtime.metadata.runnerId,
+        leaseToken: "b".repeat(32), leaseTokenHash, providerSessionId: null,
+        leaseExpiresAt: "2026-08-10T00:01:00.000Z", claimedAt: timestamp, updatedAt: timestamp,
+      },
+    });
+    expect(claimed?.session.state).toBe("dispatched");
+
+    const runnerEvents = [
+      { kind: "session.provider_started" as const, payload: { providerSessionId: "provider-1" } },
+      { kind: "session.response_started" as const, payload: {}, messageId },
+      { kind: "session.response_completed" as const, payload: { stopReason: "end_turn", summary: "done" }, messageId },
+    ].map((event, index) => ({
+      eventId: randomUUID(), sessionId, sourceId: runtime.metadata.runnerId, sourceSequence: index + 1,
+      kind: event.kind, version: 1 as const, ...(event.messageId ? { messageId: event.messageId } : {}),
+      payload: event.payload, metadata: {}, occurredAt: timestamp,
+    }));
+    await expect(db.appendSessionEvents({
+      sessionId, teamId: projectRecord.teamId, leaseTokenHash: "f".repeat(64), events: runnerEvents,
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    await expect(db.appendSessionEvents({
+      sessionId, teamId: randomUUID(), leaseTokenHash, events: runnerEvents,
+    })).rejects.toMatchObject({ code: "RDB_NOT_FOUND" });
+    await expect(db.appendSessionEvents({
+      sessionId,
+      teamId: projectRecord.teamId,
+      leaseTokenHash,
+      events: [{ ...runnerEvents[0]!, eventId: randomUUID(), sourceSequence: 2 }],
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    await expect(db.appendSessionEvents({
+      sessionId,
+      teamId: projectRecord.teamId,
+      leaseTokenHash,
+      events: [{
+        ...runnerEvents[0]!,
+        eventId: randomUUID(),
+        metadata: { authorization: "must-not-persist" },
+      }],
+    })).rejects.toBeDefined();
+    const appended = await db.appendSessionEvents({
+      sessionId, teamId: projectRecord.teamId, leaseTokenHash, events: runnerEvents,
+    });
+    expect(appended.session).toMatchObject({ state: "ready", activeMessageId: null, lastMessageId: messageId });
+    const page = await db.listSessionEvents({ sessionId, teamId: projectRecord.teamId, afterSequence: 4, limit: 10 });
+    expect(page.events.map((event) => event.kind)).toEqual([
+      "session.runtime_dispatched", "session.provider_started", "session.response_started", "session.response_completed",
+    ]);
+
+    let controlPlaneSequence = 5;
+    for (let continuation = 0; continuation < 2; continuation += 1) {
+      const nextMessageId = randomUUID();
+      const messageSourceSequence = controlPlaneSequence++;
+      const appendMessage = () => db.appendSessionEvents({
+        sessionId,
+        teamId: projectRecord.teamId,
+        events: [{
+          eventId: randomUUID(), sessionId, sourceId: "control-plane", sourceSequence: messageSourceSequence,
+          kind: "session.user_message_submitted" as const, version: 1 as const, messageId: nextMessageId,
+          payload: { content: [{ type: "text" as const, text: `Continue ${continuation}` }] }, metadata: {}, occurredAt: timestamp,
+        }],
+      });
+      if (continuation === 0) {
+        await Promise.all(Array.from({ length: 20 }, appendMessage));
+        expect((await db.listSessionEvents({
+          sessionId, teamId: projectRecord.teamId, messageId: nextMessageId, limit: 10,
+        })).events).toHaveLength(1);
+      } else {
+        await appendMessage();
+      }
+      const continuationHash = String(continuation + 2).repeat(64);
+      const continuationClaim = await db.claimSession({
+        runtimeId: runtime.id,
+        runnerId: runtime.metadata.runnerId,
+        lease: {
+          id: randomUUID(), runtimeId: runtime.id, runnerId: runtime.metadata.runnerId,
+          leaseToken: String(continuation + 2).repeat(32), leaseTokenHash: continuationHash,
+          providerSessionId: null, leaseExpiresAt: "2026-08-10T00:02:00.000Z",
+          claimedAt: timestamp, updatedAt: timestamp,
+        },
+      });
+      expect(continuationClaim).toMatchObject({
+        session: { state: "dispatched", activeMessageId: nextMessageId },
+        lease: { providerSessionId: "provider-1" },
+      });
+      const continuationEvents = [
+        { kind: "session.response_started" as const, payload: {} },
+        { kind: "session.response_completed" as const, payload: { stopReason: "end_turn" } },
+      ].map((event, index) => ({
+        eventId: randomUUID(), sessionId,
+        sourceId: `${runtime.metadata.runnerId}:${nextMessageId}`, sourceSequence: index + 1,
+        kind: event.kind, version: 1 as const, messageId: nextMessageId,
+        payload: event.payload, metadata: {}, occurredAt: timestamp,
+      }));
+      const continued = await db.appendSessionEvents({
+        sessionId, teamId: projectRecord.teamId, leaseTokenHash: continuationHash, events: continuationEvents,
+      });
+      expect(continued.session).toMatchObject({ state: "ready", lastMessageId: nextMessageId });
+    }
+
+    const stressMessageId = randomUUID();
+    await db.appendSessionEvents({
+      sessionId, teamId: projectRecord.teamId, events: [{
+        eventId: randomUUID(), sessionId, sourceId: "control-plane", sourceSequence: controlPlaneSequence,
+        kind: "session.user_message_submitted", version: 1, messageId: stressMessageId,
+        payload: { content: [{ type: "text", text: "Stress event ledger" }] }, metadata: {}, occurredAt: timestamp,
+      }],
+    });
+    const stressLeaseHash = "9".repeat(64);
+    await db.claimSession({
+      runtimeId: runtime.id, runnerId: runtime.metadata.runnerId,
+      lease: {
+        id: randomUUID(), runtimeId: runtime.id, runnerId: runtime.metadata.runnerId,
+        leaseToken: "9".repeat(32), leaseTokenHash: stressLeaseHash, providerSessionId: null,
+        leaseExpiresAt: "2026-08-10T00:03:00.000Z", claimedAt: timestamp, updatedAt: timestamp,
+      },
+    });
+    await db.appendSessionEvents({
+      sessionId, teamId: projectRecord.teamId, leaseTokenHash: stressLeaseHash,
+      events: [{
+        eventId: randomUUID(), sessionId, sourceId: `runner:stress:${stressMessageId}`, sourceSequence: 1,
+        kind: "session.response_started", version: 1, messageId: stressMessageId,
+        payload: {}, metadata: {}, occurredAt: timestamp,
+      }],
+    });
+    const stressBatches = Array.from({ length: 100 }, (_, batchIndex) => (
+      Array.from({ length: 100 }, (_, eventIndex) => {
+        const sequence = batchIndex * 100 + eventIndex + 1;
+        return {
+          eventId: randomUUID(), sessionId, sourceId: "runner:stress-events", sourceSequence: sequence,
+          kind: "session.usage_updated" as const, version: 1 as const,
+          messageId: stressMessageId, payload: { totalTokens: sequence }, metadata: {}, occurredAt: timestamp,
+        };
+      })
+    ));
+    for (const batch of stressBatches) {
+      await db.appendSessionEvents({
+        sessionId, teamId: projectRecord.teamId, leaseTokenHash: stressLeaseHash, events: batch,
+      });
+    }
+    let eventCount = 0;
+    let afterSequence: number | undefined;
+    do {
+      const eventPage = await db.listSessionEvents({
+        sessionId, teamId: projectRecord.teamId, limit: 500,
+        ...(afterSequence ? { afterSequence } : {}),
+      });
+      eventCount += eventPage.events.length;
+      afterSequence = eventPage.nextAfterSequence;
+    } while (afterSequence);
+    expect(eventCount).toBeGreaterThan(10_000);
+    for (const batch of stressBatches) {
+      await db.appendSessionEvents({
+        sessionId, teamId: projectRecord.teamId, leaseTokenHash: stressLeaseHash, events: batch,
+      });
+    }
+    let replayedEventCount = 0;
+    afterSequence = undefined;
+    do {
+      const eventPage = await db.listSessionEvents({
+        sessionId, teamId: projectRecord.teamId, limit: 500,
+        ...(afterSequence ? { afterSequence } : {}),
+      });
+      replayedEventCount += eventPage.events.length;
+      afterSequence = eventPage.nextAfterSequence;
+    } while (afterSequence);
+    expect(replayedEventCount).toBe(eventCount);
+  });
 }

@@ -34,6 +34,12 @@ import type {
   TaskWorkspaceTrusted,
   WorkspacePreparationAttempt,
   WorkspacePreparationReport,
+  Session,
+  SessionEvent,
+  SessionEventInput,
+  SessionEventPage,
+  SessionLaunchRequest,
+  SessionDispatchLease,
 } from "@mystra/shared";
 
 export type IntegrationConnectionRecord = IntegrationConnection & {
@@ -188,6 +194,32 @@ export type SecretEnvelopeRecord = SecretEnvelopeWrite & {
   createdAt: string;
 };
 
+export type SessionLaunchPersistenceInput = {
+  session: Session;
+  launchRequest: SessionLaunchRequest;
+  events: SessionEvent[];
+};
+
+export type SessionEventAppendInput = {
+  sessionId: string;
+  teamId: string;
+  leaseTokenHash?: string;
+  events: SessionEventInput[];
+};
+
+export type SessionLeaseWrite = Omit<SessionDispatchLease, "sessionId"> & {
+  leaseTokenHash: string;
+};
+
+export type ExpiredSessionLease = {
+  id: string;
+  sessionId: string;
+  runtimeId: string;
+  runnerId: string;
+  teamId: string;
+  leaseExpiresAt: string;
+};
+
 /**
  * Domain-owned relational persistence boundary.
  *
@@ -312,6 +344,29 @@ export interface RdbProvider {
   listRuntimes(): Promise<RuntimeView[]>;
   renameRuntime(id: string, input: RuntimeRename): Promise<RuntimeView | undefined>;
   reportHostProviders(runnerId: string, providers: ProviderCapability[]): Promise<RuntimeView | undefined>;
+
+  createSessionWithEvents(input: SessionLaunchPersistenceInput): Promise<{ session: Session; created: boolean }>;
+  getSession(id: string, options: { teamId: string }): Promise<Session | undefined>;
+  listSessions(options: { teamId: string; taskId?: string; limit?: number; cursor?: string }): Promise<Session[]>;
+  appendSessionEvents(input: SessionEventAppendInput): Promise<{ session: Session; events: SessionEvent[] }>;
+  listSessionEvents(options: {
+    sessionId: string;
+    teamId: string;
+    afterSequence?: number;
+    messageId?: string;
+    limit?: number;
+  }): Promise<SessionEventPage>;
+  claimSession(input: {
+    runtimeId: string;
+    runnerId: string;
+    lease: SessionLeaseWrite;
+  }): Promise<{ session: Session; launchRequest: SessionLaunchRequest; lease: SessionDispatchLease } | undefined>;
+  updateSessionLeaseProviderId(input: {
+    sessionId: string;
+    leaseTokenHash: string;
+    providerSessionId: string;
+  }): Promise<boolean>;
+  listExpiredSessionLeases(before: string): Promise<ExpiredSessionLease[]>;
 
   registerLocalUser(input: RegisterLocalUserInput): Promise<{
     user: UserRecord;

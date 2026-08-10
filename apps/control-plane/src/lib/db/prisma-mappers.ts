@@ -13,6 +13,8 @@ import {
   teamRoleSchema,
   teamStatusSchema,
   membershipStatusSchema,
+  sessionSchema,
+  sessionEventSchema,
   type IntegrationConnection,
   type Agent,
   type Project,
@@ -22,6 +24,8 @@ import {
   type TaskRecord,
   type TaskWorkspaceTrusted,
   type WorkspacePreparationAttempt,
+  type Session,
+  type SessionEvent,
   workspacePreparationAttemptSchema,
 } from "@mystra/shared";
 
@@ -40,6 +44,8 @@ import type {
   TeamMembership as PrismaTeamMembership,
   User as PrismaUser,
   WorkspacePreparationAttempt as PrismaWorkspacePreparationAttempt,
+  Session as PrismaSession,
+  SessionEvent as PrismaSessionEvent,
 } from "../../generated/prisma/sqlite/client";
 import { RdbError } from "./prisma-errors";
 import type {
@@ -133,6 +139,45 @@ export function mapTask(row: PrismaTask): TaskRecord {
     },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  });
+}
+
+export function mapSession(row: PrismaSession): Session {
+  return sessionSchema.parse({
+    id: row.id,
+    teamId: row.teamId,
+    taskId: row.taskId,
+    projectId: row.projectId,
+    runtimeId: row.runtimeId,
+    providerKey: row.providerKey,
+    agentId: row.agentId,
+    agentRevision: row.agentRevision,
+    state: row.state,
+    activeMessageId: row.activeMessageId,
+    lastMessageId: row.lastMessageId,
+    interruptKind: row.interruptKind,
+    continuationMode: row.continuationMode,
+    failureCode: row.failureCode,
+    metadata: parseJsonObject(row.metadata),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
+}
+
+export function mapSessionEvent(row: PrismaSessionEvent): SessionEvent {
+  return sessionEventSchema.parse({
+    eventId: row.eventId,
+    sessionId: row.sessionId,
+    sourceId: row.sourceId,
+    sourceSequence: row.sourceSequence,
+    globalSequence: row.globalSequence,
+    kind: row.kind,
+    version: row.version,
+    messageId: row.messageId ?? undefined,
+    payload: parseJsonObject(row.payload),
+    metadata: parseJsonObject(row.metadata),
+    occurredAt: row.occurredAt,
+    acceptedAt: row.acceptedAt,
   });
 }
 

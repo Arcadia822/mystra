@@ -3,8 +3,8 @@
 `mystra-runner` enrolls its host as a Runtime through an outbound control-plane
 connection. It persists a UUID at `~/.mystra/runner-id`, discovers supported
 provider CLIs, sends pure liveness heartbeats, reports provider changes, and
-materializes claimed Task repository Workspaces. It still does not create or
-execute Sessions; feature 049 consumes the ready Workspace attachment.
+materializes claimed Task repository Workspaces, claims Session work assigned
+to its Runtime, executes Codex or Copilot, and reports typed Session events.
 
 ## Local configuration
 
@@ -53,6 +53,21 @@ Session creation and consumes the same `taskWorkspaceId`, `runtimeId`, and
 opaque `workspaceRef`. Project-only and standalone Sessions are deferred; any
 future preparation path must reuse the same Workspace/attachment contract
 instead of introducing a parallel Workspace type.
+
+## Session execution
+
+The daemon claims only Sessions whose `runtimeId` matches its enrolled Runtime.
+The claim returns an opaque lease token, the frozen system prompt, the feature
+048 Workspace attachment, and the pending user message. The runner resolves
+the opaque Workspace ref beneath its configured safe root, starts or continues
+the selected Provider session, and sends typed, source-sequenced events. A
+completed response releases local execution ownership; the durable Session
+remains `ready` and may receive another user message. No Runtime capacity or
+slot value is sent or persisted.
+
+Event batches reuse stable IDs on retry and carry the lease token in both the
+request body and header. The control plane validates the lease, source sequence,
+payload limits, idempotency, and state projection in one transaction.
 
 ## Commands
 

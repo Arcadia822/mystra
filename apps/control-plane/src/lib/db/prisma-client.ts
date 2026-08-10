@@ -15,6 +15,11 @@ import {
   type Runtime,
   type RuntimeProvider,
   type SecretEnvelope,
+  type Session as PrismaSession,
+  type SessionDispatchLease,
+  type SessionEvent,
+  type SessionEventHead,
+  type SessionEventStream,
   type Task,
   type Team,
   type TeamMembership,
@@ -33,7 +38,10 @@ type ProjectUpdate = Partial<Pick<Project, "name" | "slug" | "repositoryBaseBran
 type ProjectIssueSourceUpdate = Pick<ProjectIssueSource, "teamId" | "connectionId" | "scopeType" | "scopeExternalId" | "updatedAt">;
 type TeamUpdate = Partial<Pick<Team, "displayName" | "status" | "archivedAt" | "updatedAt">>;
 type MembershipUpdate = Partial<Pick<TeamMembership, "role" | "status" | "updatedAt">>;
-type SessionUpdate = Partial<Pick<AuthSession, "activeTeamId" | "updatedAt">>;
+type AuthSessionUpdate = Partial<Pick<AuthSession, "activeTeamId" | "updatedAt">>;
+type DomainSessionUpdate = Partial<Pick<PrismaSession,
+  "state" | "activeMessageId" | "lastMessageId" | "interruptKind" | "continuationMode" | "failureCode" | "updatedAt"
+>>;
 type UserUpdate = Partial<Pick<User, "displayName" | "status" | "requirePasswordChange" | "updatedAt">>;
 type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSalt" | "passwordParams" | "updatedAt">>;
 type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
@@ -104,6 +112,44 @@ export interface MystraPrismaDelegates {
     updateMany(args: { where: { id: string; teamId?: string }; data: TaskUpdate }): Promise<CountResult>;
     findUnique(args: { where: { id: string } }): Promise<Task | null>;
     findMany(args: { where?: TaskWhere; orderBy: OrderBy }): Promise<Task[]>;
+  };
+  session: {
+    create(args: { data: PrismaSession }): Promise<PrismaSession>;
+    updateMany(args: { where: { id: string; teamId?: string; state?: string }; data: DomainSessionUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } }): Promise<PrismaSession | null>;
+    findMany(args: {
+      where?: { teamId?: string; taskId?: string; runtimeId?: string; state?: string | { in: string[] } };
+      orderBy: Array<{ updatedAt: SortOrder } | { id: SortOrder }>;
+      take?: number;
+      cursor?: { id: string };
+      skip?: number;
+    }): Promise<PrismaSession[]>;
+  };
+  sessionEvent: {
+    create(args: { data: SessionEvent }): Promise<SessionEvent>;
+    findUnique(args: { where: { eventId: string } }): Promise<SessionEvent | null>;
+    findMany(args: {
+      where: { sessionId: string; globalSequence?: { gt: number }; messageId?: string };
+      orderBy: Array<{ globalSequence: SortOrder }>;
+      take?: number;
+    }): Promise<SessionEvent[]>;
+  };
+  sessionEventHead: {
+    create(args: { data: SessionEventHead }): Promise<SessionEventHead>;
+    updateMany(args: { where: { sessionId: string; lastGlobalSequence: number }; data: { lastGlobalSequence: number } }): Promise<CountResult>;
+    findUnique(args: { where: { sessionId: string } }): Promise<SessionEventHead | null>;
+  };
+  sessionEventStream: {
+    create(args: { data: SessionEventStream }): Promise<SessionEventStream>;
+    updateMany(args: { where: { sessionId: string; sourceId: string; lastSourceSequence: number }; data: { lastSourceSequence: number } }): Promise<CountResult>;
+    findUnique(args: { where: { sessionId_sourceId: { sessionId: string; sourceId: string } } }): Promise<SessionEventStream | null>;
+  };
+  sessionDispatchLease: {
+    create(args: { data: SessionDispatchLease }): Promise<SessionDispatchLease>;
+    updateMany(args: { where: { sessionId: string; tokenHash?: string }; data: Partial<Pick<SessionDispatchLease, "providerSessionId" | "leaseExpiresAt" | "updatedAt" | "tokenHash" | "runnerId">> }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { sessionId: string } }): Promise<SessionDispatchLease | null>;
+    findMany(args: { where: { leaseExpiresAt: { lt: string } }; orderBy: Array<{ leaseExpiresAt: SortOrder }>; include: { session: true } }): Promise<Array<SessionDispatchLease & { session: PrismaSession }>>;
+    deleteMany(args: { where: { sessionId: string } }): Promise<CountResult>;
   };
   taskWorkspace: {
     create(args: { data: TaskWorkspace }): Promise<TaskWorkspace>;
@@ -183,7 +229,7 @@ export interface MystraPrismaDelegates {
   };
   authSession: {
     create(args: { data: AuthSession }): Promise<AuthSession>;
-    updateMany(args: { where: { id: string }; data: SessionUpdate }): Promise<CountResult>;
+    updateMany(args: { where: { id: string }; data: AuthSessionUpdate }): Promise<CountResult>;
     findUnique(args: { where: { id: string } | { tokenHash: string } }): Promise<AuthSession | null>;
     findMany(args: { where?: { userId?: string }; orderBy: OrderBy }): Promise<AuthSession[]>;
     deleteMany(args: { where: { id: string } }): Promise<CountResult>;
@@ -270,6 +316,11 @@ const modelMethods = {
   project: ["create", "updateMany", "findUnique", "findMany"],
   projectIssueSource: ["upsert", "findUnique", "findMany", "deleteMany"],
   task: ["create", "updateMany", "findUnique", "findMany"],
+  session: ["create", "updateMany", "findUnique", "findMany"],
+  sessionEvent: ["create", "findUnique", "findMany"],
+  sessionEventHead: ["create", "updateMany", "findUnique"],
+  sessionEventStream: ["create", "updateMany", "findUnique"],
+  sessionDispatchLease: ["create", "updateMany", "findUnique", "findMany", "deleteMany"],
   taskWorkspace: ["create", "updateMany", "findUnique", "findMany"],
   workspacePreparationAttempt: ["create", "updateMany", "findUnique", "findMany"],
   agent: ["create", "updateMany", "findUnique", "findMany"],

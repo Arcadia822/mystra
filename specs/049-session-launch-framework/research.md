@@ -4,7 +4,7 @@
 
 ## D1. Session 创建包含第一条 user message
 
-**决定**：canonical `SessionService.launch` 同时接收 Runtime、Provider、Agent、Context 与 `firstUserMessage`。服务先完成读取、授权、规范化与 system prompt 组装，再在一个短 RDB 事务中写入 Session 和三个初始事件。
+**决定**：canonical `SessionService.launch` 同时接收 Runtime、Provider、Agent、Context 与 `firstUserMessage`。服务先完成读取、授权、feature 048 attachment 解析、规范化与 system prompt 组装，再在一个短 RDB 事务中写入 Session 和四个初始事件：created、system prompt、workspace attachment、first user message。
 
 **边界**：事务提交后才允许 Runtime claim/Provider 调用。把远程 I/O 放进数据库事务会造成长事务、锁竞争和不可判定回滚，因此不采用。
 
@@ -34,9 +34,9 @@
 
 Session 仅保存当前 state、activeMessageId/lastMessageId 与少量 reason projection。完整 system prompt、消息、结果、stopReason 和错误在事件中。事件追加与 projection 更新同事务。
 
-## D8. Provider adapter 串行执行消息
+## D8. Provider adapter 构造串行 CLI continuation
 
-adapter 分为一次 `start()` 与可重复 `executeMessage()/resumeMessage()`。同一有效 lease 使用同一 providerSessionId；不并行 response。ACP stopReason 原样保存，refusal 不推断 handoff。
+adapter 为首条消息构造 start command，为后续消息构造 continuation command。Runtime 每次运行一个有界 child process，同一 Session 复用 lease 中的 providerSessionId，不并行 response。结束原因由 Runtime 规范化为 typed event，refusal 不推断 handoff。
 
 ## D9. 至少一次上报，恰好一次持久化
 
@@ -45,6 +45,12 @@ Runtime 为事件提供稳定 eventId/sourceSequence；Control Plane 在事务�
 ## D10. System prompt 四组件固定顺序
 
 Runtime、Provider、Agent、Context 分别贡献组件；Project/Task/Manual 是明确标记的不可信 Context 数据。完整渲染结果事件化，后续消息复用。
+
+## D11. 当前 concrete session adapter 覆盖 Codex/Copilot CLI
+
+继续使用并扩展 `@mystra/agent-adapters`。GitHub 官方 Copilot CLI reference 提供 `--session-id`、`--resume`/`--continue` 与 JSONL output，可作为 durable providerSessionId continuation。Codex adapter 从 CLI JSON event 取得 provider session identity，并用显式 continuation command 继续；安装版本不支持时 fail closed 为 `provider_unavailable`，不得把多个独立进程伪装成同一 Provider session。
+
+本地 `codex` wrapper 当前因安装路径缺失返回 ENOENT，因此真实 Codex execution 不能标记为已验证。fake process contract 与 Copilot command contract仍需确定性验证。当前 enabled Provider 不要求引入 ACP SDK/transport。
 
 ## 被否决方向
 
@@ -57,3 +63,5 @@ Runtime、Provider、Agent、Context 分别贡献组件；Project/Task/Manual �
 | 为非 Task 预建 temporary Workspace 类型 | 当前无需求且会制造平行合同；后续应复用统一 Workspace，只改变准备逻辑 |
 | 只保存最终摘要 | 无法审计状态与 provider 过程 |
 | 任意 stdout/stderr 日志持久化 | 会扩张成日志产品 |
+| 在 runner 内复制 Codex/Copilot command policy | 破坏现有 adapter ownership 并导致 continuation 漂移 |
+| 为当前未启用 Provider 引入 ACP transport | 扩大依赖与验证面，不服务当前 Codex/Copilot MVP |

@@ -42,6 +42,11 @@ describe("Prisma provider schema parity", () => {
       "AuthAccount",
       "AuthSession",
       "Team",
+      "Session",
+      "SessionEvent",
+      "SessionEventHead",
+      "SessionEventStream",
+      "SessionDispatchLease",
       "TeamMembership",
     ]);
     expect(schema.match(/@@map\("[^"]+"\)/gu)).toEqual([
@@ -59,9 +64,29 @@ describe("Prisma provider schema parity", () => {
       '@@map("auth_accounts")',
       '@@map("auth_sessions")',
       '@@map("teams")',
+      '@@map("sessions")',
+      '@@map("session_events")',
+      '@@map("session_event_heads")',
+      '@@map("session_event_streams")',
+      '@@map("session_dispatch_leases")',
       '@@map("team_memberships")',
     ]);
-    expect(schema).not.toMatch(/Runner|ContextBundle|Artifact|Snapshot|objective/u);
+    expect(schema).not.toMatch(/Runner|ContextBundle|Artifact|Snapshot|objective|turnId|maxConcurrency/u);
+  });
+
+  it("models one durable Session event ledger without Turn or capacity tables", () => {
+    const schema = modelSection(readSchema("sqlite"));
+    const session = schema.match(/model Session \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const event = schema.match(/model SessionEvent \{[\s\S]*?\n\}/u)?.[0] ?? "";
+
+    expect(session).toMatch(/taskId\s+String/u);
+    expect(session).toMatch(/runtimeId\s+String/u);
+    expect(session).toMatch(/agentRevision\s+Int/u);
+    expect(session).not.toMatch(/launchPayload/u);
+    expect(schema.match(/model SessionEventHead \{[\s\S]*?\n\}/u)?.[0]).toMatch(/launchPayload\s+String/u);
+    expect(event).toMatch(/@@unique\(\[sessionId, sourceId, sourceSequence\]\)/u);
+    expect(event).toMatch(/@@unique\(\[sessionId, globalSequence\]\)/u);
+    expect(schema).not.toMatch(/model\s+Turn|capacity|slot/u);
   });
 
   it("models Task as Team-owned text with optional immutable context references", () => {

@@ -6,20 +6,20 @@ import { describe, expect, it } from "vitest";
 const taskMigration = "20260808200000_task_context/migration.sql";
 
 describe("removed persistence surfaces", () => {
-  it("excludes deferred execution persistence while allowing local auth and Team RBAC", () => {
+  it("reintroduces only the 049 Session persistence boundary", () => {
     const source = readFileSync(path.join(process.cwd(), "src/lib/db/rdb-provider.ts"), "utf8");
     for (const removed of [
-      "Runner", "ContextBundle", "Artifact", "SessionEvent", "Summary",
-      "createSession", "registerRunner", "appendSessionEvent", "getTaskSessionSummary",
+      "Runner", "ContextBundle", "Artifact", "Summary", "Turn", "maxConcurrency",
+      "registerRunner", "getTaskSessionSummary",
     ]) {
       expect(source).not.toContain(removed);
     }
   });
 
-  it("keeps deferred execution models out of both Prisma schemas", () => {
+  it("persists the canonical Session ledger without obsolete execution models", () => {
     for (const provider of ["sqlite", "postgresql"]) {
       const source = readFileSync(path.join(process.cwd(), `prisma/${provider}/schema.prisma`), "utf8");
-      expect(source.match(/^model\s+/gmu)).toHaveLength(15);
+      expect(source.match(/^model\s+/gmu)).toHaveLength(20);
       expect(source).toMatch(/model\s+ProjectIssueSource\b/u);
       expect(source).toMatch(/model\s+Agent\b/u);
       expect(source).toMatch(/model\s+SecretEnvelope\b/u);
@@ -28,7 +28,10 @@ describe("removed persistence surfaces", () => {
       expect(source).toMatch(/model\s+RuntimeProvider\b/u);
       expect(source).toMatch(/model\s+TaskWorkspace\b/u);
       expect(source).toMatch(/model\s+WorkspacePreparationAttempt\b/u);
-      expect(source).not.toMatch(/model\s+(?:Runner|ContextBundle|Artifact|SessionEvent|MystraSchema)\b/u);
+      expect(source).toMatch(/model\s+Session\b/u);
+      expect(source).toMatch(/model\s+SessionEvent\b/u);
+      expect(source).toMatch(/model\s+SessionDispatchLease\b/u);
+      expect(source).not.toMatch(/model\s+(?:Runner|ContextBundle|Artifact|Turn|MystraSchema)\b/u);
     }
   });
 

@@ -22,7 +22,7 @@ Team 1 ── * Session 1 ── * SessionEvent
 | `providerKey` | string | 必填；选定 Runtime 的 available capability |
 | `agentId` | UUID | 必填；同 Team active Agent |
 | `projectId` | UUID? | 独立可选引用 |
-| `taskId` | UUID? | 北极星模型允许可选；049 launch 必填，保留可空只为后续独立规格 |
+| `taskId` | UUID | 049 必填；Project-only 与 standalone Session 延后，不为未实现范围预留 nullable persistence |
 | `state` | enum | 当前状态投影 |
 | `activeMessageId` | UUID? | 当前待执行/运行/恢复的 user message ID |
 | `lastMessageId` | UUID? | 最近已结束的 user message ID |
@@ -54,10 +54,10 @@ Session 不保存 system prompt、消息正文、result、providerSessionId、wo
 
 | 字段 | 类型 | 约束 |
 | --- | --- | --- |
-| `id` | UUID | Runtime/Control Plane 生成的稳定事件 ID |
+| `eventId` | UUID | Runtime/Control Plane 生成的稳定事件 ID |
 | `sessionId` | UUID | 必填 |
 | `messageId` | UUID? | user message 及其派生事件的关联 ID |
-| `sequence` | bigint | Session 全局连续序号；`(sessionId,sequence)` 唯一 |
+| `globalSequence` | bigint | Session 全局连续序号；`(sessionId,globalSequence)` 唯一 |
 | `sourceId` | string | `control-plane` 或稳定 Runtime stream ID |
 | `sourceSequence` | bigint | 来源连续序号；`(sessionId,sourceId,sourceSequence)` 唯一 |
 | `kind` | enum/string | v1 类型目录 |
@@ -65,15 +65,15 @@ Session 不保存 system prompt、消息正文、result、providerSessionId、wo
 | `payload` | JSON object | schema 校验、限长、脱敏后的内容 |
 | `metadata` | JSON object | 有界扩展信息 |
 | `occurredAt` | timestamp | 来源发生时间 |
-| `receivedAt` | timestamp | Control Plane 接收时间 |
+| `acceptedAt` | timestamp | Control Plane 接收并接受的时间 |
 
 约束：
 
-- `session.user_message_submitted` 对 `(sessionId,messageId)` 唯一；相同 payload 是重放，不同 payload 是 `session_message_conflict`。
+- `session.user_message_submitted` 对 `(sessionId,messageId)` 唯一；相同 payload 是重放，不同 payload 是 `session_conflict`。
 - message/response/tool/usage 事件的 messageId 必须等于当前 activeMessageId；Session 生命周期事件可为空。
 - 事件与对应 Session 投影在一个 RDB 事务中更新。
 - 每事件、每批次和每字段都有 schema 大小上限；二进制仅保存 Artifact 引用。
-- Team 授权读取按 `(sessionId,sequence)` 游标分页；不提供全局事件搜索或日志 API。
+- Team 授权读取按 `(sessionId,globalSequence)` 游标分页；不提供全局事件搜索或日志 API。
 
 ## 初始事务
 
@@ -82,8 +82,9 @@ Session 不保存 system prompt、消息正文、result、providerSessionId、wo
 1. 插入 Session，state=`queued`，activeMessageId=`firstUserMessage.messageId`。
 2. 插入 `session.created`。
 3. 插入 `session.system_prompt_configured`。
-4. 插入 `session.user_message_submitted`。
-5. 提交。
+4. 插入 `session.workspace_attached`。
+5. 插入 `session.user_message_submitted`。
+6. 提交。
 
 Runtime claim、Workspace ref resolution、Provider process 启动和网络调用都发生在事务提交之后。数据库事务绝不等待 Runtime/provider I/O。
 
@@ -96,8 +97,7 @@ Runtime claim、Workspace ref resolution、Provider process 启动和网络调�
 | `runtimeId` | UUID | ownership 主体 |
 | `tokenHash` | bytes/string | 原始 token 只返回一次 |
 | `claimedAt` | timestamp | 领取时间 |
-| `expiresAt` | timestamp | 租约期限 |
-| `releasedAt` | timestamp? | 释放时间 |
+| `leaseExpiresAt` | timestamp | 租约期限 |
 | `providerSessionId` | string? | 该 lease 的 Provider 执行引用 |
 
 Lease 只证明 Runtime 对执行与事件上报的 ownership/auth。它不是 capacity reservation，不保存 slot，也不重新定义 Workspace identity。Runtime capacity 当前不限制、不持久化；未来能力不得反向改变 049 的 Session 语义。
@@ -117,7 +117,7 @@ Lease 只证明 Runtime 对执行与事件上报的 ownership/auth。它不是 c
 
 ## EventStream / EventHead
 
-- `SessionEventStream(sessionId,sourceId,nextExpectedSourceSequence)`：至少一次上报的来源幂等头。
+- `SessionEventStream(sessionId,sourceId,lastSourceSequence)`：至少一次上报的来源幂等头。
 - `SessionEventHead(sessionId,nextSequence)`：在事务中分配 Session 全局 sequence。
 - event batch 必须验证 lease、Team、source 连续性、状态转换与 activeMessageId；任一失败整批回滚。
 

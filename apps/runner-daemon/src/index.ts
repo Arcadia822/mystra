@@ -17,6 +17,8 @@ import {
 import { captureException, flushSentry, initSentry } from "./sentry.js";
 import { WorkspaceMaterializer } from "./workspace-materializer.js";
 import { HttpWorkspaceControlPlaneClient, runWorkspaceLoop } from "./workspace-loop.js";
+import { HttpSessionControlPlaneClient } from "./session/session-client.js";
+import { runSessionLoop } from "./session/session-loop.js";
 
 export const DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15;
 export const DEFAULT_DISCOVERY_INTERVAL_SECONDS = 60;
@@ -223,10 +225,20 @@ export async function runDaemon(
     return;
   }
 
+  const materializer = new WorkspaceMaterializer({ root: config.workspaceRoot });
   const workspaceLoop = runWorkspaceLoop({
     runnerId,
     client: new HttpWorkspaceControlPlaneClient(config.endpoint),
-    materializer: new WorkspaceMaterializer({ root: config.workspaceRoot }),
+    materializer,
+    waitSeconds: config.workspacePollWaitSeconds,
+    retryIntervalSeconds: config.retryIntervalSeconds,
+    signal,
+  });
+  const sessionLoop = runSessionLoop({
+    runtimeId,
+    runnerId,
+    client: new HttpSessionControlPlaneClient(config.endpoint),
+    workspace: materializer,
     waitSeconds: config.workspacePollWaitSeconds,
     retryIntervalSeconds: config.retryIntervalSeconds,
     signal,
@@ -280,6 +292,7 @@ export async function runDaemon(
     );
   }
   await workspaceLoop;
+  await sessionLoop;
 }
 
 async function main(): Promise<void> {
