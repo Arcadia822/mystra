@@ -67,4 +67,4 @@
 - [x] T039 [P] 浏览器检查 320/768/1280 宽度、键盘路径、隐藏页停止轮询与手动刷新。
 - [x] T040 运行 `gitnexus detect-changes`、targeted diff review、Spec-Kit status/doctor/repoindex。
 - [x] T041 使用 `code-review-and-quality` 处理发现，并执行 `aaa-spec-close`。
-- [ ] T042 提交 050、fast-forward 合并到本地 `main`，复核保留用户已有 dirty changes。
+- [x] T042 提交 050、fast-forward 合并到本地 `main`，复核保留用户已有 dirty changes。

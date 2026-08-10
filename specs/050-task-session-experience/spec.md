@@ -2,7 +2,7 @@
 
 **功能分支**: `050-task-session-experience`
 **修订日期**: 2026-08-10
-**状态**: 已实现，待合并
+**状态**: 已实现
 **依赖**: 048 Task Workspace；049 Session launch、Session、SessionEvent
 
 ## 合同摘要
