@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=68de610e22f690ba5903937cbfae240f284e98c4 updated=2026-08-10T09:21:21Z -->
+<!-- spec-status: project=mystra commit=1521c67c2ed541c872daddea7bf210608a3bb88d updated=2026-08-10T09:37:59Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -44,6 +44,7 @@
 | 047-task-context                   | ✓     | ✓  | ✓   | ✓ Complete |
 | 048-task-workspace-setup           | ✓     | ✓  | ✓   | ✓ Complete |
 | 049-session-launch-framework       | ✓     | ✓  | ✓   | ✓ Complete |
+| 050-task-session-experience        | ✓     | ✓  | ✓   | ● 4/42 (9%) |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -86,3 +87,4 @@
 <!-- feature: 047-task-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=50 tasks_completed=50 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 048-task-workspace-setup has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=58 tasks_completed=58 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 049-session-launch-framework has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=55 tasks_completed=55 checklist_files=engineering-review.md,requirements.md -->
+<!-- feature: 050-task-session-experience has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=42 tasks_completed=4 checklist_files=requirements.md -->

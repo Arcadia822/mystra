@@ -374,8 +374,10 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域契约 (046-agent-definition)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Prisma ORM/Client 7.9.1、现有 GitHub/Linear Integration providers (047-task-context)
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域合同 (047-task-context)
-- TypeScript 5.9，Node.js 24.14.0 + Zod 4、Prisma ORM/Client 7.9.1、Next.js 16 Route Handlers、Vitest 4、Node `child_process`、ACP SDK（仅在 concrete adapter 需要时加入） (049-session-launch-framework)
+- TypeScript 5.9，Node.js 24.14.0 + Zod 4、Prisma ORM/Client 7.9.1、Next.js 16 Route Handlers、Vitest 4、Node `child_process`、Codex/Copilot CLI (049-session-launch-framework)
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，经 `RdbProvider`；新增 Session、append-only SessionEvent 与独立 dispatch lease/event stream/head 操作表；领域合同没有 Turn，messageId 仅为消息幂等/事件关联；049 只支持 Task-bound Session 并复用 048 Workspace，非 Task 准备策略延后；Runtime capacity 不入库 (049-session-launch-framework)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16、React 19、Zod 4、Vitest 4；直接复用 049 Session/SessionEvent shared contracts (050-task-session-experience)
+- 050 不新增 Session summary/detail view 或持久化表；只增加 Task-filtered Session query、Task launch adapter 与 SessionEvent presentation (050-task-session-experience)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider
