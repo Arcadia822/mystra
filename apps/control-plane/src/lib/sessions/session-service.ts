@@ -4,6 +4,7 @@ import {
   sessionLaunchRequestSchema,
   sessionSendMessageRequestSchema,
   sessionSchema,
+  taskSessionLaunchInputSchema,
   type RuntimeView,
   type Session,
   type SessionEvent,
@@ -11,7 +12,9 @@ import {
   type SessionLaunchRequest,
   type SessionSubject,
   type SessionWorkspaceAttachment,
+  type TaskSessionLaunchInput,
   type TaskRecord,
+  type TaskWorkspaceView,
 } from "@mystra/shared";
 
 import type { RdbProvider } from "../db/rdb-provider";
@@ -26,6 +29,7 @@ type SessionDb = Pick<RdbProvider,
 >;
 
 type WorkspaceResolver = {
+  get(input: { actor: { teamId: string }; taskId: string }): Promise<TaskWorkspaceView | undefined>;
   resolveSessionAttachment(input: { teamId: string; taskId: string; requestedRuntimeId: string }): Promise<SessionWorkspaceAttachment>;
 };
 
@@ -124,6 +128,43 @@ export class SessionService {
     }
   }
 
+  async launchForTask(input: {
+    actor: SessionSubject;
+    taskId: string;
+    request: TaskSessionLaunchInput;
+  }): Promise<{ session: Session; created: boolean }> {
+    const request = taskSessionLaunchInputSchema.parse(input.request);
+    const task = await this.#db.getTask(input.taskId, { teamId: input.actor.teamId });
+    if (!task) throw new SessionFailure("task_not_found", "Task was not found");
+    const workspace = await this.#workspace.get({ actor: { teamId: input.actor.teamId }, taskId: task.id });
+    if (!workspace || workspace.state === "unavailable") {
+      throw new SessionFailure("workspace_missing", "Task Workspace has not been set up");
+    }
+    if (workspace.state !== "ready") throw new SessionFailure("workspace_not_ready", "Task Workspace is not ready");
+    return this.launch({
+      actor: input.actor,
+      request: {
+        sessionId: request.sessionId,
+        runtimeId: workspace.runtimeId,
+        providerKey: request.providerKey,
+        agentId: request.agentId,
+        context: {
+          taskId: task.id,
+          ...(task.projectId ? { projectId: task.projectId } : {}),
+          ...(request.manualContext ? { manual: { text: request.manualContext.text } } : {}),
+        },
+        firstUserMessage: {
+          messageId: this.#newId(),
+          content: [{
+            type: "text",
+            text: "Execute this Task using its frozen context and Workspace. Complete the requested work and report the result.",
+          }],
+        },
+        metadata: {},
+      },
+    });
+  }
+
   async get(input: { actor: SessionSubject; sessionId: string }): Promise<Session> {
     const session = await this.#db.getSession(input.sessionId, { teamId: input.actor.teamId });
     if (!session) throw new SessionFailure("session_not_found", "Session was not found");
@@ -131,14 +172,27 @@ export class SessionService {
   }
 
   async list(input: { actor: SessionSubject; taskId?: string; limit?: number; cursor?: string }): Promise<Session[]> {
+    if (input.taskId && !await this.#db.getTask(input.taskId, { teamId: input.actor.teamId })) {
+      throw new SessionFailure("task_not_found", "Task was not found");
+    }
     return this.#db.listSessions({ teamId: input.actor.teamId, ...input.taskId ? { taskId: input.taskId } : {}, ...input.limit ? { limit: input.limit } : {}, ...input.cursor ? { cursor: input.cursor } : {} });
   }
 
-  async listEvents(input: { actor: SessionSubject; sessionId: string; afterSequence?: number; messageId?: string; limit?: number }) {
+  async listEvents(input: {
+    actor: SessionSubject;
+    sessionId: string;
+    afterSequence?: number;
+    beforeSequence?: number;
+    order?: "asc" | "desc";
+    messageId?: string;
+    limit?: number;
+  }) {
     return this.#db.listSessionEvents({
       sessionId: input.sessionId,
       teamId: input.actor.teamId,
-      ...(input.afterSequence ? { afterSequence: input.afterSequence } : {}),
+      ...(input.afterSequence !== undefined ? { afterSequence: input.afterSequence } : {}),
+      ...(input.beforeSequence !== undefined ? { beforeSequence: input.beforeSequence } : {}),
+      ...(input.order ? { order: input.order } : {}),
       ...(input.messageId ? { messageId: input.messageId } : {}),
       ...(input.limit ? { limit: input.limit } : {}),
     });

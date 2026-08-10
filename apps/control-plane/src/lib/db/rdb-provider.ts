@@ -353,6 +353,8 @@ export interface RdbProvider {
     sessionId: string;
     teamId: string;
     afterSequence?: number;
+    beforeSequence?: number;
+    order?: "asc" | "desc";
     messageId?: string;
     limit?: number;
   }): Promise<SessionEventPage>;

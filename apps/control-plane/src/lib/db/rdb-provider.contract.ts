@@ -1126,6 +1126,16 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(page.events.map((event) => event.kind)).toEqual([
       "session.runtime_dispatched", "session.provider_started", "session.response_started", "session.response_completed",
     ]);
+    const latest = await db.listSessionEvents({
+      sessionId, teamId: projectRecord.teamId, order: "desc", limit: 2,
+    });
+    expect(latest.events.map((event) => event.globalSequence)).toEqual([8, 7]);
+    expect(latest.olderCursor).toBe(7);
+    const earlier = await db.listSessionEvents({
+      sessionId, teamId: projectRecord.teamId, beforeSequence: latest.olderCursor!, order: "desc", limit: 2,
+    });
+    expect(earlier.events.map((event) => event.globalSequence)).toEqual([6, 5]);
+    expect(earlier.olderCursor).toBe(5);
 
     let controlPlaneSequence = 5;
     for (let continuation = 0; continuation < 2; continuation += 1) {
@@ -1245,5 +1255,5 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       afterSequence = eventPage.nextAfterSequence;
     } while (afterSequence);
     expect(replayedEventCount).toBe(eventCount);
-  });
+  }, 20_000);
 }

@@ -63,12 +63,25 @@ try {
     name: "Workspace fixture host",
     type: "host",
     platform: "darwin-arm64",
-    providers: [],
+    providers: [{
+      provider: "codex",
+      discovered: true,
+      available: true,
+      source: "path",
+      resolvedPath: "/usr/local/bin/codex",
+      version: "ui-fixture",
+      unavailableReason: null,
+    }],
     workspaceMaterialization: {
       version: 1,
       kinds: ["task-repository"],
       sharingModes: ["shared-mutable"],
     },
+  });
+  const agent = await db.createAgent({
+    teamId: tenant.initialTeam.id,
+    name: "Workspace verifier",
+    systemPrompt: "Execute the selected Task carefully and report verified results.",
   });
   const created = await db.createTaskWorkspace({
     taskId: task.id,
@@ -110,6 +123,9 @@ try {
   process.stdout.write(`${JSON.stringify({
     username,
     password,
+    runnerId,
+    runtimeId: runtime.id,
+    agentId: agent.id,
     projectPath: `/projects/${project.slug}/settings`,
     taskPath: `/tasks/${task.id}`,
   }, null, 2)}\n`);

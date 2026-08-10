@@ -31,6 +31,9 @@ plugins/mystra        MCP-facing Agent skills
    Codex/Copilot in the Workspace, and appends validated typed Session events.
 5. A completed response returns the Session to `ready` and releases current
    execution occupancy; later user messages continue the same Provider session.
+6. The Task Web page lists and launches those Sessions, while the Session object
+   page reads bounded `SessionEvent` windows directly; no summary/detail view is
+   persisted or transported.
 
 ## Boundaries
 
@@ -59,4 +62,5 @@ pnpm dlx gitnexus analyze --force
 ```
 
 Use `specs/spec-status.md` for Spec-Kit completion and
-`specs/049-session-launch-framework/` for the canonical Session execution contract.
+`specs/049-session-launch-framework/` for the canonical execution contract, then
+`specs/050-task-session-experience/` for the Task launch and event-history Web surface.

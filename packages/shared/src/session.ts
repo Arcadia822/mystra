@@ -329,8 +329,63 @@ export type SessionEventPageQuery = z.infer<typeof sessionEventPageQuerySchema>;
 export const sessionEventPageSchema = z.object({
   events: z.array(sessionEventSchema),
   nextAfterSequence: z.number().int().positive().optional(),
+  olderCursor: z.number().int().positive().optional(),
 }).strict();
 export type SessionEventPage = z.infer<typeof sessionEventPageSchema>;
+
+export const taskSessionListQuerySchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().positive().max(50).default(50),
+}).strict();
+export type TaskSessionListQuery = z.infer<typeof taskSessionListQuerySchema>;
+
+export const taskSessionPageSchema = z.object({
+  sessions: z.array(sessionSchema),
+  nextCursor: z.string().uuid().optional(),
+}).strict();
+export type TaskSessionPage = z.infer<typeof taskSessionPageSchema>;
+
+export const taskSessionLaunchInputSchema = z.object({
+  sessionId: z.string().uuid(),
+  providerKey: z.string().min(1).max(128),
+  agentId: z.string().uuid(),
+  manualContext: z.object({
+    text: z.string().trim().min(1).max(SESSION_TEXT_MAX_LENGTH),
+  }).strict().optional(),
+}).strict();
+export type TaskSessionLaunchInput = z.infer<typeof taskSessionLaunchInputSchema>;
+
+export const taskSessionLaunchResponseSchema = z.object({
+  session: sessionSchema,
+  created: z.boolean(),
+}).strict();
+export type TaskSessionLaunchResponse = z.infer<typeof taskSessionLaunchResponseSchema>;
+
+export const sessionResponseSchema = z.object({ session: sessionSchema }).strict();
+export type SessionResponse = z.infer<typeof sessionResponseSchema>;
+
+export const sessionEventWindowQuerySchema = z.object({
+  latest: z.coerce.number().int().positive().max(200).optional(),
+  beforeSequence: z.coerce.number().int().positive().optional(),
+  afterSequence: z.coerce.number().int().nonnegative().optional(),
+  limit: z.coerce.number().int().positive().max(200).default(100),
+}).strict().superRefine((query, ctx) => {
+  const modes = [query.latest !== undefined, query.beforeSequence !== undefined, query.afterSequence !== undefined]
+    .filter(Boolean).length;
+  if (modes > 1) ctx.addIssue({ code: "custom", message: "Event window modes are mutually exclusive" });
+}).transform((query) => (
+  query.latest === undefined && query.beforeSequence === undefined && query.afterSequence === undefined
+    ? { ...query, latest: query.limit }
+    : query
+));
+export type SessionEventWindowQuery = z.infer<typeof sessionEventWindowQuerySchema>;
+
+export const sessionEventWindowSchema = z.object({
+  events: z.array(sessionEventSchema),
+  olderCursor: z.number().int().positive().optional(),
+  nextAfterSequence: z.number().int().positive().optional(),
+}).strict();
+export type SessionEventWindow = z.infer<typeof sessionEventWindowSchema>;
 
 export const sessionClaimRequestSchema = z.object({
   runnerId: z.string().min(1),

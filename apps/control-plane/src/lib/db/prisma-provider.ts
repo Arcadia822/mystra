@@ -373,7 +373,8 @@ export class PrismaRdbProvider implements RdbProvider {
   }
 
   async listSessionEvents(options: {
-    sessionId: string; teamId: string; afterSequence?: number; messageId?: string; limit?: number;
+    sessionId: string; teamId: string; afterSequence?: number; beforeSequence?: number;
+    order?: "asc" | "desc"; messageId?: string; limit?: number;
   }) {
     const session = await this.getSession(options.sessionId, { teamId: options.teamId });
     if (!session) throw new RdbError("RDB_NOT_FOUND", "Session was not found");
@@ -381,17 +382,23 @@ export class PrismaRdbProvider implements RdbProvider {
     const rows = await this.#client.sessionEvent.findMany({
       where: {
         sessionId: options.sessionId,
-        ...(options.afterSequence ? { globalSequence: { gt: options.afterSequence } } : {}),
+        ...(options.afterSequence !== undefined ? { globalSequence: { gt: options.afterSequence } } : {}),
+        ...(options.beforeSequence !== undefined ? { globalSequence: { lt: options.beforeSequence } } : {}),
         ...(options.messageId ? { messageId: options.messageId } : {}),
       },
-      orderBy: [{ globalSequence: "asc" }],
+      orderBy: [{ globalSequence: options.order ?? "asc" }],
       take: limit + 1,
     });
     const hasMore = rows.length > limit;
     const events = rows.slice(0, limit).map(mapSessionEvent);
     return {
       events,
-      ...(hasMore && events.length > 0 ? { nextAfterSequence: events.at(-1)!.globalSequence } : {}),
+      ...(hasMore && events.length > 0 && options.order !== "desc"
+        ? { nextAfterSequence: events.at(-1)!.globalSequence }
+        : {}),
+      ...(hasMore && events.length > 0 && options.order === "desc"
+        ? { olderCursor: events.at(-1)!.globalSequence }
+        : {}),
     };
   }
 

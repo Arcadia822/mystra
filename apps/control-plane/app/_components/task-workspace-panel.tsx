@@ -15,7 +15,13 @@ type WorkspaceLoad = {
   error?: string;
 };
 
-export function TaskWorkspacePanel({ task }: { task: Task }) {
+export function TaskWorkspacePanel({
+  task,
+  onWorkspaceChange,
+}: {
+  task: Task;
+  onWorkspaceChange?: (workspace: TaskWorkspaceView | null) => void;
+}) {
   const runtimes = useResource<{ runtimes: RuntimeView[] }>("/api/runtimes", 5_000);
   const [load, setLoad] = useState<WorkspaceLoad>({ state: "loading" });
   const [selectedRuntimeId, setSelectedRuntimeId] = useState("");
@@ -51,6 +57,9 @@ export function TaskWorkspacePanel({ task }: { task: Task }) {
     const timer = window.setInterval(() => void refresh(), 3_000);
     return () => window.clearInterval(timer);
   }, [load.workspace, refresh]);
+  useEffect(() => {
+    onWorkspaceChange?.(load.workspace ?? null);
+  }, [load.workspace, onWorkspaceChange]);
 
   const workspace = load.workspace;
   const presentation = taskWorkspacePresentation(workspace, task.projectId !== null);
@@ -106,7 +115,7 @@ export function TaskWorkspacePanel({ task }: { task: Task }) {
           </dl>
         )}
         {presentation.reason ? <p className="formNotice formError">{workspace?.failure?.message ?? presentation.reason}</p> : null}
-        {presentation.canStartSession ? <p className="formNotice">Ready for Task Session attachment. Session creation is implemented by feature 049.</p> : null}
+        {presentation.canStartSession ? <p className="formNotice">Ready for Task Session attachment.</p> : null}
         <div className="taskWorkspaceActions">
           <UiButton disabled={busy} onClick={() => void refresh()}>Refresh</UiButton>
           <UiButton

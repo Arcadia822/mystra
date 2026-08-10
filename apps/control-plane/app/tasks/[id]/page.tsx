@@ -1,6 +1,6 @@
 "use client";
 
-import type { TaskDetailResponse } from "@mystra/shared";
+import type { TaskDetailResponse, TaskWorkspaceView } from "@mystra/shared";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,6 +16,7 @@ import {
 import { TASK_DETAIL_COPY } from "../../_components/shell-copy";
 import { useShellLocale } from "../../_components/shell-locale";
 import { TaskWorkspacePanel } from "../../_components/task-workspace-panel";
+import { TaskSessionsPanel } from "../../_components/task-sessions-panel";
 import { UiActionAnchor, UiButton } from "../../_components/ui-actions";
 import { UiInput, UiTextarea } from "../../_components/ui-fields";
 import { relativeTime } from "../../_lib/format";
@@ -27,6 +28,7 @@ export default function TaskDetailPage() {
   const copy = TASK_DETAIL_COPY[locale];
   const detail = useResource<TaskDetailResponse>(`/api/tasks/${encodeURIComponent(id)}`, 0);
   const [editor, setEditor] = useState<TaskDetailEditorState | null>(null);
+  const [workspace, setWorkspace] = useState<TaskWorkspaceView | null>(null);
 
   useEffect(() => {
     if (detail.data?.task) setEditor(createTaskDetailEditor(detail.data.task));
@@ -99,7 +101,8 @@ export default function TaskDetailPage() {
             <div><dt>{copy.updated}</dt><dd>{relativeTime(task.updatedAt)} · {task.updatedAt}</dd></div>
           </dl>
         </section>
-        <TaskWorkspacePanel task={task} />
+        <TaskWorkspacePanel task={task} onWorkspaceChange={setWorkspace} />
+        <TaskSessionsPanel task={task} workspace={workspace} />
       </div>
     </div>
   );

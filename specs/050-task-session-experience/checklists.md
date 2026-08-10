@@ -22,6 +22,6 @@
 ## 后续插件检查
 
 - [x] UI 实现前使用 `frontend-ui-engineering` 与 `mystra-ux`。
-- [ ] 真实页面验收使用 `browser-testing-with-devtools`。
+- [x] 真实页面验收使用 `browser-testing-with-devtools`；当前环境以应用内浏览器的 DOM、截图、console 与真实 HTTP 证据完成同等验收。
 - [x] 修改 API/共享合同前执行 GitNexus impact analysis；SessionService MEDIUM，其余现有方法/页面 LOW。
-- [ ] 实现完成后使用 `code-review-and-quality` 与 `aaa-spec-close`。
+- [x] 实现完成后使用 `code-review-and-quality` 与 `aaa-spec-close`。

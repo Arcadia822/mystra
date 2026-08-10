@@ -10,7 +10,7 @@ import path from "node:path";
 
 import Database from "better-sqlite3";
 
-import { sessionWorkspaceAttachmentSchema } from "@mystra/shared";
+import { sessionWorkspaceAttachmentSchema, taskWorkspaceViewSchema } from "@mystra/shared";
 
 import { createSqlitePrismaClient } from "../src/lib/db/prisma-client";
 import { PrismaRdbProvider } from "../src/lib/db/prisma-provider";
@@ -167,6 +167,26 @@ export async function createSessionE2eFixture() {
     db,
     runtimeResolver: async (id) => id === runtime.id ? runtime : undefined,
     workspace: {
+      get: async (input) => {
+        const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.actor.teamId });
+        return ready ? taskWorkspaceViewSchema.parse({
+          id: ready.id,
+          taskId: ready.taskId,
+          projectId: ready.projectId,
+          runtimeId: ready.runtimeId,
+          state: ready.state,
+          sharingMode: ready.sharingMode,
+          configuredBaseBranch: ready.configuredBaseBranch,
+          baseRef: ready.baseRef,
+          baseCommit: ready.baseCommit,
+          branchName: ready.branchName,
+          branchStrategy: ready.branchStrategy,
+          failure: null,
+          createdAt: ready.createdAt,
+          updatedAt: ready.updatedAt,
+          readyAt: ready.readyAt,
+        }) : undefined;
+      },
       resolveSessionAttachment: async (input) => {
         const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.teamId });
         return sessionWorkspaceAttachmentSchema.parse({

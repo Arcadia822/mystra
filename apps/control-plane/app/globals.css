@@ -3860,6 +3860,29 @@ body:has(.searchDialog[open]) {
 .taskWorkspaceBody { display: grid; gap: var(--space-3); padding: var(--panel-inset); }
 .taskWorkspaceRuntime { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(220px, 2fr); align-items: center; gap: var(--space-3); }
 .taskWorkspaceActions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.sessionLaunchForm { display: grid; gap: var(--space-3); padding: var(--panel-inset); border-bottom: 1px solid var(--border); background: var(--surface-inset); }
+.sessionLaunchForm > label { display: grid; grid-template-columns: minmax(150px, .45fr) minmax(0, 1fr); align-items: center; gap: var(--space-3); color: var(--text2); }
+.sessionLaunchForm .lockedValue { min-height: var(--control-height-default); display: flex; align-items: center; padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface2); color: var(--text1); overflow-wrap: anywhere; }
+.sessionLaunchActions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.sessionPanelNotice { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: 0; padding: var(--space-3) var(--panel-inset); border-bottom: 1px solid var(--border); color: var(--text2); }
+.sessionRow { grid-template-columns: minmax(220px, 1.2fr) minmax(180px, .8fr) minmax(120px, .45fr); }
+.sessionRow > span { min-width: 0; color: var(--text2); font-size: 12px; overflow-wrap: anywhere; }
+.sessionPager { display: flex; justify-content: center; padding: var(--space-3); border-top: 1px solid var(--border); }
+.sessionReadingColumn { width: min(100%, 920px); margin-inline: auto; }
+.eventActions { display: flex !important; grid-auto-flow: column; gap: var(--space-2) !important; }
+.sessionLiveState { display: grid; gap: var(--space-1); padding: var(--space-2) var(--panel-inset); border-bottom: 1px solid var(--border); color: var(--text2); font-size: 12px; }
+.sessionEventList { display: grid; margin: 0; padding: 0; list-style: none; }
+.sessionEventItem { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; padding: var(--space-3) var(--panel-inset); border-top: 1px solid var(--border); }
+.sessionEventItem:first-child { border-top: 0; }
+.sessionEventItem > div { display: grid; gap: var(--space-1); min-width: 0; }
+.sessionEventItem strong { font-size: 13px; }
+.sessionEventItem p { margin: 0; color: var(--text2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.sessionEventItem time { white-space: nowrap; }
+.eventSequence { color: var(--text3); font-size: 11px; }
+.sessionEventItem.active { box-shadow: inset 2px 0 0 var(--accent); }
+.sessionEventItem.good { box-shadow: inset 2px 0 0 var(--success); }
+.sessionEventItem.warning { box-shadow: inset 2px 0 0 var(--warning); }
+.sessionEventItem.bad { box-shadow: inset 2px 0 0 var(--danger); }
 
 @media (max-width: 760px) {
   .projectContext,
@@ -3875,6 +3898,16 @@ body:has(.searchDialog[open]) {
   .taskWorkspaceRuntime { grid-template-columns: 1fr; }
   .taskWorkspaceActions { display: grid; }
   .taskWorkspaceActions .uiAction { width: 100%; }
+  .sessionLaunchForm > label,
+  .sessionRow,
+  .sessionEventItem { grid-template-columns: 1fr; }
+  .sessionLaunchActions,
+  .sessionPanelNotice,
+  .eventActions { display: grid !important; }
+  .sessionLaunchActions .uiAction,
+  .sessionPanelNotice .uiAction,
+  .eventActions .uiAction { width: 100%; }
+  .sessionEventItem time { white-space: normal; }
 }
 
 .settingsCard {

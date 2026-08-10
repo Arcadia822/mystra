@@ -44,6 +44,46 @@ export const TASK_DETAIL_COPY = {
   },
 } as const;
 
+export const TASK_SESSIONS_COPY = {
+  en: {
+    heading: "Sessions", description: "Execution history for this Task and its shared Workspace.",
+    newSession: "New Session", hideForm: "Hide form", empty: "No Sessions yet",
+    emptyDescription: "Prepare the Workspace, then launch the first Session.", runtime: "Runtime · locked",
+    provider: "Provider", agent: "Agent", manual: "Manual Context · optional",
+    manualPlaceholder: "Session-only context, constraints, or a specific focus",
+    launch: "Launch Session", launching: "Launching…", loadMore: "Load more", loading: "Loading Sessions…",
+    workspaceRequired: "A ready Task Workspace is required before launch.", shared: "Every Session uses this Task's shared mutable Workspace.",
+    noProvider: "No available Provider on this Runtime", noAgent: "No active Agent", updated: "Updated",
+  },
+  "zh-CN": {
+    heading: "Sessions", description: "此 Task 及其共享 Workspace 的执行历史。",
+    newSession: "新建 Session", hideForm: "收起表单", empty: "尚无 Session",
+    emptyDescription: "先准备 Workspace，再发起第一个 Session。", runtime: "Runtime · 已锁定",
+    provider: "Provider", agent: "Agent", manual: "Manual Context · 可选",
+    manualPlaceholder: "仅属于本次 Session 的上下文、约束或关注点",
+    launch: "发起 Session", launching: "发起中…", loadMore: "加载更多", loading: "正在加载 Sessions…",
+    workspaceRequired: "发起前必须有 ready 的 Task Workspace。", shared: "所有 Session 使用此 Task 的共享可变 Workspace。",
+    noProvider: "此 Runtime 没有可用 Provider", noAgent: "没有 active Agent", updated: "更新时间",
+  },
+} as const;
+
+export const SESSION_DETAIL_COPY = {
+  en: {
+    back: "Task", events: "Event history", eventsDescription: "Ordered durable Session facts.",
+    loadEarlier: "Load earlier", refresh: "Refresh now", loading: "Loading Session…", empty: "No events yet",
+    live: "Following live events", paused: "Automatic refresh stopped", requestFailed: "Refresh failed; existing events are retained.",
+    runtime: "Runtime", provider: "Provider", agent: "Agent", project: "Project context", noProject: "No Project",
+    created: "Created", updated: "Updated",
+  },
+  "zh-CN": {
+    back: "Task", events: "事件历史", eventsDescription: "按序展示持久化的 Session 事实。",
+    loadEarlier: "加载更早事件", refresh: "立即刷新", loading: "正在加载 Session…", empty: "尚无事件",
+    live: "正在跟随实时事件", paused: "已停止自动刷新", requestFailed: "刷新失败；已有事件已保留。",
+    runtime: "Runtime", provider: "Provider", agent: "Agent", project: "Project 上下文", noProject: "无 Project",
+    created: "创建时间", updated: "更新时间",
+  },
+} as const;
+
 export const ISSUE_COPY = {
   en: {
     issues: "Issues", selectProjectHelp: "Select a Project first, then browse one provider at a time.", selectProject: "Select Project…",

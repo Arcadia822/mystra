@@ -129,7 +129,7 @@ export interface MystraPrismaDelegates {
     create(args: { data: SessionEvent }): Promise<SessionEvent>;
     findUnique(args: { where: { eventId: string } }): Promise<SessionEvent | null>;
     findMany(args: {
-      where: { sessionId: string; globalSequence?: { gt: number }; messageId?: string };
+      where: { sessionId: string; globalSequence?: { gt?: number; lt?: number }; messageId?: string };
       orderBy: Array<{ globalSequence: SortOrder }>;
       take?: number;
     }): Promise<SessionEvent[]>;

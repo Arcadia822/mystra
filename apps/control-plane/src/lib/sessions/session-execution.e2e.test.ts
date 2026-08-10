@@ -19,22 +19,15 @@ describe("Session execution SQLite/HTTP E2E", () => {
   it("executes the launch message and two continuations through one Provider session", async () => {
     fixture = await createSessionE2eFixture();
     const sessionId = crypto.randomUUID();
-    const firstMessageId = crypto.randomUUID();
-    const launched = await fixture.sessions.launch({
+    const launched = await fixture.sessions.launchForTask({
       actor: fixture.actor,
+      taskId: fixture.task.id,
       request: {
-        sessionId,
-        runtimeId: fixture.runtime.id,
-        providerKey: "codex",
-        agentId: fixture.agent.id,
-        context: { taskId: fixture.task.id, projectId: fixture.project.id },
-        firstUserMessage: {
-          messageId: firstMessageId,
-          content: [{ type: "text", text: "Execute the first message" }],
-        },
-        metadata: {},
+        sessionId, providerKey: "codex", agentId: fixture.agent.id,
+        manualContext: { text: "Exercise the Task-bound Web launch path" },
       },
     });
+    const firstMessageId = launched.session.activeMessageId!;
     expect(launched).toMatchObject({ created: true, session: { state: "queued", activeMessageId: firstMessageId } });
     expect((await fixture.sessions.listEvents({
       actor: fixture.actor,

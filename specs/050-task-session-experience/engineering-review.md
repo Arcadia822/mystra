@@ -39,7 +39,7 @@
 ## 安全与边界
 
 - 所有新 human route 使用现有 human authentication 与 Team permission gate。
-- UI/API 不展示 system prompt、workspaceRef、providerSessionId、凭证或原始 runner stdout。
+- 授权 API 为遵守“直接复用 SessionEvent”合同返回原始事件；UI presentation reducer 不展示 system prompt、workspaceRef、providerSessionId、凭证或原始 runner stdout。
 - 所有事件文本按普通文本渲染，不执行 HTML。
 - 050 不引入 cancel/retry、全局 feed、Runtime capacity 或非 Task Session 准备逻辑。
 
@@ -87,3 +87,12 @@ Components/browser -> workspace states + launch + history + responsive + keyboar
 ## 结论与门禁
 
 旧静态 prototype 的结论被豁免，改由真实页面浏览器验收。当前架构、数据、失败模型、测试和性能方案一致；无未解决的高风险项，可进入任务拆解与实现。
+
+## 实现后复核
+
+- 全量受影响测试通过：shared 141、agent-adapters 9、control-plane 336；PostgreSQL 环境相关 18 项按既有条件跳过。
+- 四个 workspace package typecheck、lint 与 control-plane production build 通过。
+- migrated SQLite 真实链路完成 ready Workspace → Web launch → Runner claim → #1–#9 events → ready；Session/first message/Runtime/Provider/Agent 均有实值证据。
+- 1,001 个 Task Sessions 经 21 个有界页面读取，100% 唯一，150ms；既有 10,000+ event stress 与新增 latest/before/after contract 通过。
+- 应用内浏览器验证 320/768/1280、锁定 Runtime、Provider/Agent、Manual Context、redirect、ready 非终态文案、手动刷新、console 零 error/warn；页面无横向溢出。
+- 最终 GitNexus detect-changes 报 HIGH，来自 6 条预期跨层流程；逐条 context 复核后未发现未知调用者或范围外流程。

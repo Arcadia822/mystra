@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { RuntimeView } from "@mystra/shared";
+import type { RuntimeView, TaskRecord, TaskWorkspaceView } from "@mystra/shared";
 import type { SessionLaunchPersistenceInput } from "../db/rdb-provider";
 import { RdbError } from "../db/prisma-errors";
 
@@ -17,7 +17,7 @@ const messageId = "00000000-0000-4000-8000-000000000007";
 function fixture() {
   const createSessionWithEvents = vi.fn(async (input: SessionLaunchPersistenceInput) => ({ session: input.session, created: true }));
   const db = {
-    getTask: vi.fn(async () => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
+    getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
     getProjectById: vi.fn(async () => ({
       id: projectId, teamId, name: "Mystra", slug: "mystra",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000011",
@@ -36,9 +36,26 @@ function fixture() {
     createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
   } satisfies RuntimeView;
   const workspace = {
+    get: vi.fn(async (): Promise<TaskWorkspaceView | undefined> => ({
+      id: "00000000-0000-4000-8000-000000000008",
+      taskId,
+      projectId,
+      runtimeId,
+      state: "ready" as const,
+      sharingMode: "shared-mutable" as const,
+      configuredBaseBranch: "main",
+      baseRef: "refs/heads/main",
+      baseCommit: "a".repeat(40),
+      branchName: "task/test",
+      branchStrategy: "task_fallback" as const,
+      failure: null,
+      createdAt: "2026-08-10T00:00:00.000Z",
+      updatedAt: "2026-08-10T00:00:00.000Z",
+      readyAt: "2026-08-10T00:00:00.000Z",
+    })),
     resolveSessionAttachment: vi.fn(async () => ({ kind: "task" as const, taskWorkspaceId: "00000000-0000-4000-8000-000000000008", runtimeId, workspaceRef: "host-task-workspace:00000000-0000-4000-8000-000000000008", sharingMode: "shared-mutable" as const })),
   };
-  return { service: new SessionService({ db, workspace, runtimeResolver: async () => runtime, now: () => "2026-08-10T00:00:00.000Z", newId: vi.fn(() => crypto.randomUUID()) }), createSessionWithEvents, db };
+  return { service: new SessionService({ db, workspace, runtimeResolver: async () => runtime, now: () => "2026-08-10T00:00:00.000Z", newId: vi.fn(() => crypto.randomUUID()) }), createSessionWithEvents, db, workspace };
 }
 
 describe("SessionService.launch", () => {
@@ -87,6 +104,60 @@ describe("SessionService.launch", () => {
         metadata: {},
       },
     })).rejects.toMatchObject({ code: "session_conflict" });
+  });
+});
+
+describe("SessionService.launchForTask", () => {
+  it("locks the ready Workspace Runtime, derives Project from Task, and launches once", async () => {
+    const { service, createSessionWithEvents } = fixture();
+    const result = await service.launchForTask({
+      actor: { actorId: "user-1", teamId, roles: ["owner"] },
+      taskId,
+      request: { sessionId, providerKey: "codex", agentId, manualContext: { text: "Check the regression" } },
+    });
+    expect(result.session).toMatchObject({ id: sessionId, runtimeId, projectId, state: "queued" });
+    expect(createSessionWithEvents).toHaveBeenCalledTimes(1);
+    const launch = createSessionWithEvents.mock.calls[0]![0].launchRequest;
+    expect(launch).toMatchObject({
+      sessionId,
+      runtimeId,
+      providerKey: "codex",
+      agentId,
+      context: { taskId, projectId, manual: { text: "Check the regression" } },
+    });
+    expect(launch.firstUserMessage).toMatchObject({
+      content: [{ type: "text", text: expect.stringContaining("frozen context") }],
+    });
+  });
+
+  it("rejects absent or non-ready Workspace before launching", async () => {
+    const absent = fixture();
+    absent.workspace.get.mockResolvedValue(undefined);
+    await expect(absent.service.launchForTask({
+      actor: { actorId: "user-1", teamId, roles: ["owner"] }, taskId,
+      request: { sessionId, providerKey: "codex", agentId },
+    })).rejects.toMatchObject({ code: "workspace_missing" });
+    expect(absent.createSessionWithEvents).not.toHaveBeenCalled();
+
+    const preparing = fixture();
+    const readyWorkspace = await preparing.workspace.get();
+    preparing.workspace.get.mockResolvedValue({ ...readyWorkspace!, state: "preparing", readyAt: null });
+    await expect(preparing.service.launchForTask({
+      actor: { actorId: "user-1", teamId, roles: ["owner"] }, taskId,
+      request: { sessionId, providerKey: "codex", agentId },
+    })).rejects.toMatchObject({ code: "workspace_not_ready" });
+    expect(preparing.createSessionWithEvents).not.toHaveBeenCalled();
+  });
+});
+
+describe("SessionService.list", () => {
+  it("does not turn a missing or cross-Team Task into an empty successful list", async () => {
+    const { service, db } = fixture();
+    db.getTask.mockResolvedValue(undefined);
+    await expect(service.list({
+      actor: { actorId: "user-1", teamId, roles: ["owner"] }, taskId, limit: 50,
+    })).rejects.toMatchObject({ code: "task_not_found" });
+    expect(db.listSessions).not.toHaveBeenCalled();
   });
 });
 

@@ -4,9 +4,12 @@ import {
   applySessionEventProjection,
   sessionEventBatchSchema,
   sessionEventInputSchema,
+  sessionEventWindowQuerySchema,
   sessionLaunchRequestSchema,
   sessionSchema,
   sessionStateSchema,
+  taskSessionLaunchInputSchema,
+  taskSessionListQuerySchema,
   type Session,
 } from "./session.js";
 
@@ -75,6 +78,32 @@ describe("canonical Session contract", () => {
     expect(() => sessionLaunchRequestSchema.parse({ ...parsed, turnId: crypto.randomUUID() })).toThrow();
     expect(() => sessionLaunchRequestSchema.parse({ ...parsed, availableSlots: 1 })).toThrow();
     expect(() => sessionLaunchRequestSchema.parse({ ...parsed, context: {} })).toThrow();
+  });
+
+  it("validates bounded Task Session launch and list inputs", () => {
+    expect(taskSessionListQuerySchema.parse({ limit: "50" })).toEqual({ limit: 50 });
+    expect(() => taskSessionListQuerySchema.parse({ limit: 51 })).toThrow();
+    expect(taskSessionLaunchInputSchema.parse({
+      sessionId,
+      providerKey: "codex",
+      agentId: "00000000-0000-4000-8000-000000000004",
+      manualContext: { text: "  Inspect the failing test.  " },
+    }).manualContext?.text).toBe("Inspect the failing test.");
+    expect(() => taskSessionLaunchInputSchema.parse({
+      sessionId,
+      providerKey: "codex",
+      agentId: "00000000-0000-4000-8000-000000000004",
+      manualContext: { text: "   " },
+    })).toThrow();
+  });
+
+  it("allows exactly one bounded human event window mode", () => {
+    expect(sessionEventWindowQuerySchema.parse({})).toEqual({ limit: 100, latest: 100 });
+    expect(sessionEventWindowQuerySchema.parse({ latest: "20" })).toEqual({ latest: 20, limit: 100 });
+    expect(sessionEventWindowQuerySchema.parse({ afterSequence: "0", limit: "50" }))
+      .toEqual({ afterSequence: 0, limit: 50 });
+    expect(() => sessionEventWindowQuerySchema.parse({ latest: 20, beforeSequence: 10 })).toThrow();
+    expect(() => sessionEventWindowQuerySchema.parse({ limit: 201 })).toThrow();
   });
 
   it("validates payloads by event kind and rejects secret-shaped or oversized values", () => {
