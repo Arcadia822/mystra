@@ -221,17 +221,19 @@ and CLI.
 Task is a durable Team-scoped Agent context container with Mystra-owned title and description plus immutable
 `0..1` Project context and `0..1` exact Issue references; it does not belong to Project. One exact Issue maps to at
 most one Task, and current external requirement state remains provider-owned rather than copied or written back.
-Task creation and update never launch a Session. Session is a Team-scoped execution concept that belongs to neither Task nor
-Project; it may independently reference `0..1` Task and `0..1` Project. Its remaining persistence fields,
-state machine and CRUD require a separate specification. The current 048/049/050
-delivery slice supports only Task-bound Sessions; Project-only and standalone
-Sessions are deferred and must not be represented by a second Workspace type.
+Task creation and update never launch a Session. Session is a Team-scoped execution object that belongs to neither Task nor
+Project; it may independently reference `0..1` Task and `0..1` Project. Canonical launch atomically persists the Session,
+frozen system prompt, and first user message, then Runtime/Provider execution begins after commit. Mystra has no Turn business
+object; message identity is only command idempotency and SessionEvent correlation.
+Feature 049's current launch slice requires a Task and consumes feature 048's ready Workspace. Project-only and standalone
+Session preparation are deferred; future variants must reuse the same Workspace/attachment contract and differ only in preparation logic.
 Runtime is a first-class execution backend that advertises its available
 Provider capabilities; feature 044 owns host Runtime enrollment plus that
 capability's persistence (registration, Provider discovery/availability,
-heartbeat/status). Runner protocol bookkeeping
-and internal execution facts are not business objects, and a public activity
-timeline is explicitly deferred.
+heartbeat/status). SessionEvent is the typed, bounded, redacted, Team-authorized Session-scoped execution history;
+it is not a top-level business object or log product. Runner protocol bookkeeping, Runtime-private filesystem facts,
+cross-Session activity timelines, and arbitrary stdout/stderr persistence remain deferred. Runtime capacity is a future
+Runtime capability; an idle ready Session does not reserve capacity.
 
 The north-star model is a hosted **Mystra platform** serving many independent
 **Teams**. Each Team may contain multiple Projects, Tasks, Sessions, and Agents
@@ -372,6 +374,8 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域契约 (046-agent-definition)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、React 19、Zod 4、Prisma ORM/Client 7.9.1、现有 GitHub/Linear Integration providers (047-task-context)
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露领域合同 (047-task-context)
+- TypeScript 5.9，Node.js 24.14.0 + Zod 4、Prisma ORM/Client 7.9.1、Next.js 16 Route Handlers、Vitest 4、Node `child_process`、ACP SDK（仅在 concrete adapter 需要时加入） (049-session-launch-framework)
+- SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，经 `RdbProvider`；新增 Session、append-only SessionEvent 与独立 dispatch lease/event stream/head 操作表；领域合同没有 Turn，messageId 仅为消息幂等/事件关联；049 只支持 Task-bound Session 并复用 048 Workspace，非 Task 准备策略延后；Runtime capacity 不入库 (049-session-launch-framework)
 
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

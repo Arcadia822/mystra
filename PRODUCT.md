@@ -8,10 +8,10 @@ Mystra is an open-source platform for autonomous software delivery. You describe
 what you want built; agents handle the full software development lifecycle —
 planning, implementation, testing, and pull request delivery.
 
-The current persistence milestone is direct: an operator or Agent selects an
-Issue and Mystra creates a durable Task. Session persistence and the execution
-handoff are deferred for a separate redesign; the first Prisma schema must not
-encode the former Session/Runner model merely to keep old surfaces running.
+The current persistence milestone extends durable Task intake with Session
+launch and execution truth. A launch atomically creates the Session, frozen
+system prompt, and first user message; Runtime/Provider execution starts only
+after that transaction commits.
 
 Mystra remains a headless execution control plane. It owns durable intent,
 execution truth, resource boundaries, and review handoff; it does not own a
@@ -23,20 +23,24 @@ workflow graph above the Agent.
   title and description plus immutable `0..1` Project and `0..1` exact Issue
   references. Project is context, not ownership; Issue-backed Tasks are created
   from the Project-scoped Issue row and do not copy external requirement state.
-- **Session** is a Team-scoped execution concept and belongs to neither Task nor
-  Project. It may independently reference `0..1` Task and `0..1` Project; its
-  remaining persistence fields, lifecycle and CRUD are deferred. The current
-  048/049/050 delivery slice launches only Task-bound Sessions; Project-only and
-  standalone Sessions remain future scope without a separate Workspace type.
+- **Session** is a Team-scoped execution object and belongs to neither Task nor
+  Project. It may independently reference `0..1` Task and `0..1` Project, and
+  selects Runtime, Provider, Agent and Context independently. It supports
+  serial user messages without a Turn business object. Feature 049's first
+  execution slice requires a Task and consumes its ready Workspace; Project-only
+  and standalone Session launch remain deferred without changing the north-star optional references.
+- **SessionEvent** is the typed, immutable, Session-scoped execution history.
+  Team-authorized callers may page one Session's validated, bounded and redacted
+  events; it is not a top-level business object, global activity feed, or log API.
+- **Runtime** is a first-class execution backend. Runtime capacity/slot limits
+  remain a future capability; an idle ready Session does not reserve capacity.
 - **Workspace** is the unified execution working-directory and context-delivery
   contract. Feature 048 prepares one Runtime-affine Workspace per eligible Task,
   and every Task-bound Session attaches the same mutable Workspace. Future
   preparation for deferred Session modes must reuse this contract rather than
   introduce a parallel variant.
-- **Runtime/Runner** persistence is deferred for a separate capacity and sandbox
-  provider design; the first Prisma schema does not define either table.
-- Runner protocol bookkeeping and internal execution facts are implementation
-  details, not business objects. A public activity timeline remains undecided.
+- Runner protocol bookkeeping and Runtime-private filesystem details remain
+  implementation facts rather than business objects.
 
 ## North-star operating model
 
@@ -164,18 +168,21 @@ In scope:
   top-level tenant boundary, and all protected API/MCP/CLI/Web operations resolve
   effective permissions server-side. Feature 043 owns this contract and waits for
   the 040 Prisma RDB integration on `main`.
-- Stable pull-based Runner enrollment, credential rotation, heartbeat,
-  eligibility, capacity, claim, cancellation, and terminal completion.
+- Stable pull-based Runtime enrollment, credential rotation, heartbeat,
+  eligibility, claim, cancellation, and Session lifecycle reporting. Runtime
+  capacity is a future capability rather than an MVP Session-launch contract.
 - Direct Docker sandbox and Agent execution with test, build, preview, branch,
   commit, review, and `waiting_for_review` evidence.
 - Thin CLI, MCP, and secondary Web clients over the canonical API.
-- Internal structured execution facts needed for recovery and diagnosis.
+- Team-authorized, Session-scoped typed event history needed for execution,
+  recovery and diagnosis.
 
 Out of scope:
 
-- Hosted multi-tenant caller-identity federation, logs API or log persistence, retry API, callbacks, or
-  quality-fix loops.
-- Public activity timeline or a public internal-fact collection.
+- Hosted multi-tenant caller-identity federation, general-purpose logs API or
+  arbitrary stdout/stderr persistence, retry API, callbacks, or quality-fix loops.
+- Cross-Session/global activity timelines, event search, and public
+  internal-fact collections. Session-scoped typed history is the narrow in-scope exception.
 - Claude CLI, Kubernetes sandboxes, cross-Runner shared caches, per-repository
   arbitrary secret management, and managed hosted RDB provisioning or
   administration. Connection-scoped GitHub PAT storage is the narrow exception

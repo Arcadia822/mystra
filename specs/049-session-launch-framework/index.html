@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>049-session-launch-framework</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"049-session-launch-framework","title":"049-session-launch-framework","prototypeHref":"mockups/index.html","generatedAt":"2026-08-10T05:04:51.338Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：Session 发起、多消息执行与状态回报\n\n**功能分支**: `049-session-launch-framework`  \n**创建日期**: 2026-08-09  \n**修订日期**: 2026-08-10  \n**状态**: 草案  \n**输入**: Control Plane 在一个数据库事务中创建 Session、冻结 system prompt 与第一条 user message；事务提交后由指定 Runtime 通过 Provider 执行；Session 支持后续串行 user message；全部经过校验、限长和脱敏的 Session 领域事件持久化。\n\n## 合同摘要\n\nSession 是 Team-scoped、独立于 Task 与 Project 的持久化会话。一次发起明确选择 Runtime、Provider、Agent、Context 四个互不推导的执行输入，并同时提供第一条 user message。\n\nMystra 不定义 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。每条 user message 具有消息身份 `messageId`，只用于命令幂等及关联该消息触发的 response、tool、usage、interrupt 和 result 事件；它不是独立业务对象或外键目标。首条消息与 Session 使用同一个创建事务；后续消息通过 `sendMessage` 追加。\n\n| 输入 | 所有者 | 发起时冻结的内容 | system prompt 贡献 |\n| --- | --- | --- | --- |\n| Runtime | 平台/Runtime | Runtime ID、类型、执行能力快照 | workspace 与执行环境约束 |\n| Provider | Runtime capability | Provider key、协议/adapter 能力快照 | Provider 能力、限制与交互约束 |\n| Agent | Team | Agent ID、revision、system prompt 快照 | Agent 定义的行为指令 |\n| Context | Session | 可选 Project、Task 与手工上下文快照 | 作为转义后的不可信业务上下文数据 |\n\n这里的 `launch` 是 Control Plane 的 canonical application command `SessionService.launch`：它校验参数，组装 system prompt，并在一个数据库事务中写入 Session、system prompt 事件和第一条 user message 事件，然后返回 `queued`。Runtime claim 与 Provider 网络调用只能在该事务提交后发生，数据库事务不得跨 Runtime/provider I/O。\n\n049 当前只支持 Task-bound Session。launch 必须绑定 feature 048 已准备的共享 Task Workspace，并持久化统一的 Workspace attachment 证据。Project-only Session 与既不引用 Task 也不引用 Project 的 Session 延后；未来它们仍使用同一 Workspace/attachment 合同，只是 Workspace 准备逻辑不同，049 不提前定义该逻辑。\n\n`Session.state` 是当前查询投影；`SessionEvent` 是 Session-scoped、类型化、不可变事实历史。它不是全局活动流或通用日志平台。\n\n## 使用场景与测试\n\n### 场景 1：原子创建 Session、system prompt 与第一条 user message（P1）\n\n1. Runtime online、Provider available、Agent active 且 Team 边界有效时，`launch` 必须在一个事务内写入 Session、`session.created`、`session.system_prompt_configured` 与 `session.user_message_submitted`，并把 Session 置为 `queued`、`activeMessageId` 指向首条消息。\n2. 相同 `sessionId` 与完全相同的 launch payload 重试时返回原 Session 与 `created:false`；不同 payload 返回稳定冲突。\n3. 任一校验或事务写入失败时不得留下部分 Session 或事件。\n4. 数据库事务提交后，指定 Runtime 才能 claim；其他 Runtime 不得领取。\n5. Runtime/Provider 失败不回滚已提交的创建事实，而以 SessionEvent 更新 Session 为 `failed`。\n\n### 场景 2：同一 Session 串行接收后续 user message（P1）\n\n1. Session 为 `ready` 时，`sendMessage(messageId, content)` 原子追加 `session.user_message_submitted`，并更新为 `message_pending`。\n2. 相同 `(sessionId,messageId)` 与相同内容重试是幂等重放；不同内容是冲突。\n3. 同一 Session 同时只允许一个 active message/response；`message_pending | running | waiting_for_handoff` 不接收无关联的新消息。\n4. 同一有效 lease 内，后续消息复用 Provider session；lease 切换可产生新的 Provider session，但不改变 Session 身份。\n5. 消息完成、取消或可恢复失败后，如没有下一条 user message，Session 回到 `ready`，Runtime 当前执行槽立即让出。\n\n### 场景 3：冻结且可审计的 system prompt（P1）\n\n1. 四个选择按固定顺序渲染，组件快照与最终文本写入 `session.system_prompt_configured`。\n2. Project、Task 与手工 Context 只是显式标记的不可信数据，不得覆盖系统指令。\n3. launch 后 Agent、Project 或 Task 更新不改变该 Session 已冻结的 system prompt。\n4. 第一条 user message 是独立事件，不拼入 system prompt，也不需要二次 `sendMessage`。\n\n### 场景 4：Runtime 使用 Task Workspace 并通过 Provider 执行（P1）\n\n1. Session 只能使用 ready TaskWorkspace 的 `runtimeId/taskWorkspaceId/workspaceRef/shared-mutable`，不得创建 Session 专属目录。\n2. Runtime 解析 attachment 后启动 Provider，并执行 launch 已持久化的首条 user message。\n3. launch 不引用 Task 时必须失败关闭；不得临时发明第二套 Workspace 类型或准备路径。\n4. Provider adapter 对 ACP 可以调用 `session/new` 与 `session/prompt`，但 ACP 的 prompt turn 不进入 Mystra 领域合同。\n\n### 场景 5：状态与 Runtime 资源释放（P1）\n\n1. `queued -> dispatched` 表示 Runtime 已取得 ownership lease。\n2. 首条消息在 launch 时已等待执行，因此 `session.provider_started` 后进入 `message_pending` 或直接 `running`，不得先错误地投影为 `ready`。\n3. `session.response_started` 使 Session 进入 `running`。\n4. `session.response_completed | session.response_canceled` 清空 `activeMessageId`、记录 `lastMessageId`，使 Session 回到稳定态 `ready`。\n5. `ready` 不是终态；它表示 Provider 会话可以继续接收消息，但当前没有执行占用。\n6. `closed | failed` 才是 Session 终态。Runtime 丢失且无法恢复时失败关闭，不自动迁移。\n7. 049 不持久化、配置或执行 Runtime capacity/slot 限制；capacity 是未来 Runtime capability。lease 只表达执行 ownership 与鉴权，不是容量预留。\n\n### 场景 6：类型化 SessionEvent 历史（P1）\n\n1. Runtime 以至少一次方式回报 lifecycle、provider、response、tool、usage、interrupt、handoff、error 与 result 事件。\n2. Control Plane 按 event ID/source sequence 幂等追加，并在同一事务中更新 Session 投影。\n3. 每个事件与每批请求必须通过共享 Zod schema、大小上限与脱敏规则；二进制内容使用 Artifact 引用。\n4. Team 授权调用方可分页读取一个 Session 的全部已接受事件；不提供跨 Session 搜索、全局活动流、任意 stdout/stderr 存储或日志 API。\n\n## Session 状态模型\n\n```text\nlaunch(first message)\n  -> queued -> dispatched -> message_pending -> running -> ready\n                                    |              |        |\n                                    |              +-> interrupted\n                                    |                      |-> running (resume_message)\n                                    |                      +-> message_pending (new_message)\n                                    +-----------------> waiting_for_handoff\n\nready + sendMessage -> message_pending\n任意非终态 -> closed | failed\n```\n\n| state | 含义 |\n| --- | --- |\n| `queued` | Session 与首条消息已持久化，等待指定 Runtime claim |\n| `dispatched` | Runtime 已取得 lease，尚未确认 Provider 可执行 |\n| `message_pending` | user message 已持久化，等待 Provider 开始响应 |\n| `running` | Runtime/Provider 正在处理 `activeMessageId` |\n| `ready` | 当前消息已结束，可接收下一条消息；当前执行槽已释放 |\n| `interrupted` | 当前 response 等待输入、审批或外部动作，或因 refusal/limit 停止 |\n| `waiting_for_handoff` | 人类接管工作所有权 |\n| `closed` | Session 已正常关闭 |\n| `failed` | Session 无法继续的不可恢复错误 |\n\n## 功能需求\n\n- **FR-001**：提供 canonical `launch`、`sendMessage`、Session read、close 与 SessionEvent read；具体 Web/CLI/MCP 入口由后续规格拥有。\n- **FR-002**：launch 必须显式给出调用方生成的 `sessionId`、Runtime、Provider、Agent、包含必填 `taskId` 的 Context，以及 `firstUserMessage { messageId, content }`。\n- **FR-003**：Session 是 Team-scoped 同级对象，不归属于 Project、Task、Agent 或 Runtime。\n- **FR-004**：Runtime 必须 online，Provider 必须 available，Agent 必须 active 且同 Team；Task-bound Runtime 还必须匹配 feature 048 Workspace affinity。\n- **FR-005**：Project/Task 分别按 Team 校验；不得从 Task 推导 Session Project。\n- **FR-006**：launch 必须先规范化全部输入，再在一个 RDB 事务中写入 Session 与三个初始事件；事务不得包含 Runtime/provider 网络 I/O。\n- **FR-007**：相同 `sessionId` 与相同 launch payload是重放；不同 payload 冲突；不增加 fingerprint/hash 固定字段。\n- **FR-008**：launch 成功立即返回 `queued`，不等待 Runtime。\n- **FR-009**：Mystra 领域合同不得出现 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。\n- **FR-010**：每条 user message 使用 `messageId` 作幂等和事件关联；它不是业务实体或外键。\n- **FR-011**：Session 原生支持串行多次 `sendMessage`；相同 `(sessionId,messageId)` 同 payload 重放、不同 payload 冲突。\n- **FR-012**：首期不得并行处理两条 user message；后续 message 只允许在 `ready` 或允许 `new_message` 的 `interrupted` 状态提交。\n- **FR-013**：Control Plane 通过按 Runtime type 注册的 dispatcher 投递；host runner 只是 Runtime 实现。\n- **FR-014**：claim 只返回请求 `runtimeId` 对应的 queued Session，并用原子 lease 防止重复执行。\n- **FR-015**：`SessionDispatchLease` 只保存 ownership/auth 所需数据；不得包含 capacity slot。Workspace identity 来自统一 attachment 合同，不由 lease 重新定义。\n- **FR-016**：049 不定义 Runtime capacity 数字、默认并发值、平台限制或调度配额。\n- **FR-017**：Runtime 必须重新确认 Provider available/capability；不兼容时失败，不静默回退。\n- **FR-018**：Provider execution 必须通过 ProviderSessionAdapter；同一有效 lease 内保持一个 Provider session 并串行处理消息。\n- **FR-019**：ACP system-prompt 投递策略必须由 adapter 明确声明；不得假定 ACP v1 有可移植 system prompt 字段。\n- **FR-020**：system prompt 四部分按固定顺序生成；完整内容只保存在类型化事件中。\n- **FR-021**：launch 必须持久化 `session.workspace_attached`，引用 feature 048 的 `taskWorkspaceId/runtimeId/workspaceRef/shared-mutable`。\n- **FR-022**：049 必须拒绝缺少 Task 的 launch。Project-only Session 与 standalone Session 延后；未来必须复用同一 Workspace/attachment 合同，只允许准备逻辑不同，不得新增 parallel temporary-workspace model。\n- **FR-023**：Runtime 为上报事件生成稳定 event ID 与来源流连续序号，并至少一次重试。\n- **FR-024**：Control Plane 持久化所有经 schema 校验、限长、脱敏的 Session 领域事件，并提供 Team 授权的 Session-scoped 分页读取。\n- **FR-025**：SessionEvent 保存 `sessionId`、可选 `messageId`、全局/source sequence、kind/version、payload/metadata 与时间戳。\n- **FR-026**：事件追加事务必须完成 lease 校验、幂等去重、序号连续性、状态转换、Session 投影更新与插入。\n- **FR-027**：Session 行只物化 state、activeMessageId、lastMessageId、interruptKind、continuationMode、failureCode、metadata 与 updatedAt；不保存 providerSessionId、workspaceRef、stopReason、完整 prompt/result/error 或事件游标。\n- **FR-028**：response 完成/取消后必须释放 Runtime 当前执行占用并回到 `ready`；idle Session 不构成 049 的 capacity reservation。\n- **FR-029**：`interrupted` 使用 `resume_message | new_message` 指示下一动作；`waiting_for_handoff` 专门表示人类接管。\n- **FR-030**：ACP stopReason 原样保留在 result/interruption 事件，不投影成 Session 固定字段。\n- **FR-031**：租约过期且 Runtime offline 时追加失败事件，不自动迁移、回退或重试。\n- **FR-032**：跨 Team、错误 Runtime/lease/Session 的回报失败关闭，不泄漏其他 Team 对象。\n- **FR-033**：pre-0.1 旧 Session/Turn/单轮结果合同直接替换，不保留兼容路径。\n\n## 核心实体\n\n- **Session**：唯一会话业务对象；保存执行选择引用和当前状态投影。\n- **SessionEvent**：Session-scoped 类型化事实账本；user message、response、过程与结果均在此表达。\n- **SessionDispatchLease**：Runtime 的执行 ownership/auth 操作记录；不是 capacity reservation。\n- **SessionWorkspaceAttachment**：launch 的持久化 Workspace 选择证据；049 的唯一来源是 feature 048 TaskWorkspace。\n- **SessionEventStream / SessionEventHead**：来源幂等游标与 Session 全局事件序号头。\n- **ProviderSessionAdapter / ProviderSessionHandle**：把 ACP/native 协议转换为统一 SessionEvent。\n- **RuntimeSessionDispatcher**：向不同 Runtime 类型投递 Session 的边界。\n\n## 事件目录 v1\n\n| 事件 | `messageId` | 作用/Session 投影 |\n| --- | --- | --- |\n| `session.created` | 无 | 保存选择、引用与创建快照；`queued` |\n| `session.system_prompt_configured` | 无 | 保存四组件与最终 system prompt |\n| `session.user_message_submitted` | 必填 | 保存第一条或后续 user message；设置 activeMessageId |\n| `session.runtime_dispatched` | 无 | Runtime 取得 lease；`dispatched` |\n| `session.workspace_attached` | 无 | feature 048 TaskWorkspace attachment 证据 |\n| `session.provider_started` | 无 | 当前 lease 保存 Provider Session ID；首条消息继续待执行 |\n| `session.response_started` | 必填 | Provider 开始响应；`running` |\n| `session.agent_message_chunk` / `session.agent_thought_chunk` | 必填 | 输出与思考流 |\n| `session.plan_updated` | 必填 | 计划变化 |\n| `session.tool_call` / `session.tool_call_updated` | 必填 | 工具调用与进展 |\n| `session.usage_updated` | 必填 | token/成本用量 |\n| `session.input_requested` / `session.input_received` | 必填 | 补充信息请求/响应 |\n| `session.approval_requested` / `session.approval_resolved` | 必填 | 工具或权限审批 |\n| `session.interrupted` / `session.resumed` | 必填 | 中断与恢复 |\n| `session.handoff_requested` / `session.handoff_accepted` / `session.handoff_completed` | 必填 | 人工接手 |\n| `session.response_completed` | 必填 | 响应完成；清空 activeMessageId，回到 `ready` |\n| `session.response_canceled` | 必填 | 当前响应取消；可继续则回到 `ready` |\n| `session.response_failed` | 必填 | 响应或 Session 不可恢复失败 |\n| `session.close_requested` / `session.closed` | 无 | 主动关闭；`closed` |\n| `session.runtime_lost` / `session.failed` | 可选 | Session 基础设施失败；`failed` |\n\n## 假设与依赖\n\n- 044 提供 Runtime enrollment、存活状态与 Provider discovery；048 提供 Task Workspace setup 与 Runtime materialization；046 提供 Agent；047 提供 Project/Task 数据。\n- host runner 代表注册所得 `runtimeId` 实现 claim、Task Workspace ref resolution 与事件回报。\n- Runtime capacity 当前不限制、不持久化、不作为 claim 输入；未来由 Runtime capability 规格定义。\n- 已接受的类型化事件进入 Session 历史；归档、压缩与冷存储另行设计。\n\n## 范围之外\n\n- Web/CLI/MCP 具体入口与推荐策略。\n- Project repository policy、Task Workspace clone/worktree、交付、preview 与 PR。\n- prompt 效果优化、RAG、skills/knowledge/secret 注入。\n- Turn/SessionTurn、并行消息、自动重试、跨 Runtime 迁移、工作流、多 Agent 编排。\n- Project-only Session、既无 Task 也无 Project 的 Session，以及它们各自的 Workspace 准备策略；未来仍复用统一 Workspace/attachment 合同。\n- Runtime capacity、slot、配额与调度策略。\n- 跨 Session 活动流/搜索、任意 stdout/stderr 日志、日志产品、事件归档/导出。\n- Hosted remote ACP transport。\n\n## 成功标准\n\n- **SC-001**：有效 launch 100% 产生唯一 Session 与三个初始事件；无效组合产生 0 条部分记录。\n- **SC-002**：20 个相同 sessionId 并发 launch 只产生 1 条 Session；不同 payload 全部冲突。\n- **SC-003**：首条 user message 无需二次 API 即被指定 Runtime/Provider 执行。\n- **SC-004**：同一 Session 连续执行至少 3 个 messageId，Provider session 在有效 lease 内不变；数据库和 API 没有 Turn。\n- **SC-005**：20 个相同 messageId 并发 sendMessage 只产生 1 个 user-message event 和 1 次执行。\n- **SC-006**：response 完成/取消后 Session 回到 ready 且 Runtime 当前执行占用已释放；ready 仍可接收下一条消息。\n- **SC-007**：Session 表没有 system prompt、message 内容、result、event cursor、workspaceRef 或 capacity 字段。\n- **SC-008**：1 万条合法类型化事件与输入一一对应；全批重放新增行数为 0。\n- **SC-009**：所有 049 launch 都引用 ready TaskWorkspace 并复用其 attachment；缺少 Task 的 launch 100% 失败关闭，且没有第二套 temporary workspace 类型。\n- **SC-010**：SQLite/PostgreSQL 对 Session/Event/Lease 唯一性、事务与有序读取结果一致；未运行 PostgreSQL 时明确标记未验证。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# Feature 049 摘要\n\n- `launch` 在一个 RDB 事务中创建 Session、system prompt 与第一条 user message；提交后再由 Runtime/Provider 执行。\n- 领域合同没有 Turn、turnId、SessionTurn 或 Turn API；messageId 仅用于消息幂等和事件关联。\n- Session 串行支持后续 `sendMessage`，同一有效 lease 复用 Provider session。\n- `ready` 是一条 response 结束后的可继续稳定态，不是终态；此时 Runtime 当前执行占用已释放。\n- 049 不限制或持久化 Runtime capacity/slot；lease 只表达 ownership/auth。\n- 049 只支持 Task-bound Session，复用 feature 048 的统一 Workspace attachment；Project-only 与 standalone Session 延后，未来只允许准备逻辑不同，不新增 temporary Workspace 类型。\n- Team 授权调用方可以读取 Session-scoped、类型化、限长、脱敏的完整 SessionEvent 历史。\n- 不提供跨 Session 活动流、日志 API、任意 stdout/stderr、Turn、并行消息、自动重试或跨 Runtime 迁移。\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# Feature 049 Readiness Checklist\n\n- [x] launch 同事务创建 Session、system prompt 与第一条 user message。\n- [x] Runtime/provider I/O 明确发生在事务提交后。\n- [x] 领域合同无 Turn/SessionTurn；messageId 只用于幂等与事件关联。\n- [x] ready/closed/failed 语义及 response 后执行占用释放明确。\n- [x] Runtime capacity/slot 明确排除并留给未来 Runtime capability。\n- [x] 049 只支持 Task-bound Session；未来非 Task 仍复用统一 Workspace 合同。\n- [x] Session-scoped typed event history 与日志/全局活动流边界明确。\n- [ ] requirements checklist 按新版 spec 重新核验。\n- [ ] plan-eng-review 按新版 plan 重新执行并通过。\n- [ ] `/speckit.tasks` 仅在工程评审通过后生成。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# Prototype\n\n_specs/049-session-launch-framework/prototype.md is not present for this spec yet._\n\n[Open current standalone prototype](mockups/index.html)","action":{"label":"Open Prototype","href":"mockups/index.html"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# 实施计划：Session 发起、多消息执行与状态回报\n\n**分支**: `049-session-launch-framework` | **日期**: 2026-08-10 | **规格**: [spec.md](./spec.md)\n\n## 摘要\n\n049 建立 canonical Session execution path。`SessionService.launch` 校验 Runtime、Provider、Agent、Context 与 TaskWorkspace，组装 system prompt，并在一个短 RDB 事务中创建 Session、system prompt 与第一条 user message。事务提交后，指定 Runtime claim、准备 workspace、启动 Provider，并执行首条消息。后续 `sendMessage` 串行复用同一 Provider session。\n\n领域模型没有 Turn/SessionTurn。messageId 仅承担消息幂等与事件关联。049 当前只支持 Task-bound Session，并复用 feature 048 的统一 Workspace attachment。Project-only 与 standalone Session 延后；未来仍使用同一 Workspace 合同，只允许准备逻辑不同。SessionEvent 作为 Team 授权、Session-scoped、类型化历史持久化，不成为通用日志平台。\n\n## 技术上下文\n\n- TypeScript 5.9、Node.js 24.14.0、Zod 4、Prisma 7.9.1、Next.js 16 Route Handlers、Vitest 4、Node child_process；concrete ACP adapter 需要时加入 ACP SDK。\n- SQLite 与 PostgreSQL/Supabase-backed PostgreSQL 经 `RdbProvider`。\n- 依赖 044 Runtime/Provider capability、046 Agent、047 Task Context、048 Task Workspace。\n- 无 Turn、无 capacity/slot 合同、无第二套 temporary workspace、无跨 Session 活动流。\n\n## 关键数据流\n\n```text\nCaller\n  -> SessionService.launch(sessionId, runtime, provider, agent, context, firstUserMessage)\n      -> authorize + validate + assemble system prompt\n      -> RDB transaction:\n           Session(queued, activeMessageId)\n           session.created\n           session.system_prompt_configured\n           session.user_message_submitted\n      -> commit and return\n\nRuntime\n  -> claim(runtimeId) [ownership lease, no capacity input]\n  -> resolve feature 048 Task workspace attachment\n  -> start ProviderSessionAdapter\n  -> execute first message\n  -> append typed SessionEvents\n  -> response completes; Session ready; current execution slot released\n\nCaller -> sendMessage(messageId, content) -> event + message_pending -> Runtime executes\n```\n\n数据库事务与 Runtime/provider I/O 明确分段。provider 调用失败通过后续事件收敛，不回滚已提交的 Session 创建事实。\n\n## 模块边界\n\n| 责任 | 目标位置 |\n| --- | --- |\n| Session domain schema/events/state machine | `packages/shared/src/sessions/*` |\n| RdbProvider domain operations | `packages/db/src/contracts/*`, Prisma providers |\n| launch/sendMessage/read | `apps/control-plane/src/lib/sessions/session-service.ts` |\n| system prompt assembly | `apps/control-plane/src/lib/sessions/system-prompt-assembler.ts` |\n| claim/lease/event ingest | `apps/control-plane/src/lib/sessions/runtime-session-service.ts` |\n| Runtime dispatcher registry | `apps/control-plane/src/lib/sessions/runtime-dispatchers/*` |\n| Provider adapter registry | `apps/runner-daemon/src/session/providers/*` |\n| host execution and Workspace ref resolution | `apps/runner-daemon/src/session/*` |\n\n## 状态与事件\n\n首条消息使 Session 从创建起就有 activeMessageId：\n\n`queued -> dispatched -> message_pending -> running -> ready`\n\n后续 `sendMessage`：\n\n`ready -> message_pending -> running -> ready`\n\n`ready` 是可继续对话的稳定态，不是终态。response 完成/取消后 Runtime execute 调用返回并释放当前执行占用。`closed | failed` 才终结 Session。\n\n核心事件：`created`、`system_prompt_configured`、`user_message_submitted`、`runtime_dispatched`、`workspace_attached`、`provider_started`、`response_started`、typed streaming/tool/usage、`interrupted|resumed`、handoff、`response_completed|canceled|failed`、`closed|failed`。\n\n## Workspace\n\n- 049 launch 必须引用 Task，并在事务中冻结 feature 048 attachment 证据。Runtime 必须匹配，使用同一个 opaque workspaceRef，不创建 Session 专属目录。\n- 缺少 Task 的 launch 失败关闭。Project-only 与 standalone Session 的 Workspace 准备策略延后，但未来仍复用同一 Workspace/attachment contract，不新增 parallel temporary model。\n\n这里的 launch 指 SessionService application command；“prepare workspace”和“start provider”才是 Runtime 动作。\n\n## Runtime ownership 与 capacity\n\n`SessionDispatchLease` 只解决多个执行进程竞争同一 Session、事件上报鉴权与失联判断。claim 请求没有 `availableSlots`，lease 没有 slot 字段。049 不限制 Runtime capacity；未来 capacity capability 可控制 Runtime 何时 claim，但不得改变 Session 状态或把 idle Session 解释为占用槽位。\n\n## Provider adapter\n\n```ts\ninterface ProviderSessionAdapter {\n  start(input: ProviderStartInput): Promise<ProviderSessionHandle>;\n}\n\ninterface ProviderSessionHandle {\n  executeMessage(input: ProviderMessageInput, emit: Emit, signal: AbortSignal): Promise<ProviderResponseResult>;\n  resumeMessage(messageId: string, response: JsonObject, emit: Emit, signal: AbortSignal): Promise<ProviderResponseResult>;\n  cancelCurrent(): Promise<void>;\n  close(): Promise<void>;\n}\n```\n\nACP adapter 内部使用 ACP protocol 名称，但输出统一 messageId 关联事件，不向领域层暴露 ACP turn。\n\n## 持久化顺序\n\n1. Session/Event/EventHead 同事务创建与追加。\n2. `session.user_message_submitted` 对 `(sessionId,messageId)` 唯一。\n3. Event batch 事务验证 lease、source sequence、activeMessageId 与状态转换。\n4. SessionDispatchLease 保存 runtimeId/tokenHash/times/providerSessionId，不保存 capacity 或 workspaceRef。\n5. SQLite/PostgreSQL 使用相同领域合同；Prisma 类型不越过 RdbProvider。\n\n## 实施顺序\n\n1. 共享 Session/SessionEvent/Zod schema 与状态 reducer。\n2. SQLite/PostgreSQL Session/Event/Lease/EventStream/EventHead schema 与 provider tests。\n3. canonical SessionService launch/read/sendMessage/close。\n4. Runtime claim/event-ingest/lease lifecycle。\n5. Task attachment resolution 与 Runtime Workspace ref resolution。\n6. provider adapter registry、fake adapter、ACP concrete adapter。\n7. host runner execution loop 与 typed event mapping。\n8. E2E：launch 首消息、三条后续消息、中断/恢复/handoff、close/failure、事件重放。\n\n## 验证\n\n- RDB：20 路 sessionId/messageId 并发重放与冲突；1 万事件；projection 原子性；无 Turn/capacity/parallel temporary-workspace schema。\n- Domain：全部合法/非法状态转换；ready 稳定态与 closed/failed 终态。\n- Runtime：无 capacity 参数 claim；Task attachment affinity；缺少 Task 拒绝 launch；response 后释放执行占用。\n- Provider：同 handle 串行多 message；ACP mapping 不泄漏 turn 概念。\n- Security：Team boundary、lease token、schema limit、redaction、Artifact 引用。\n\n## 工程评审状态\n\n原评审因首消息时序、终态措辞、capacity、Workspace 分叉与 event scope 阻塞。2026-08-10 owner 裁决已写入本计划：049 只支持 Task-bound Session，非 Task 准备策略延后且未来复用统一 Workspace 合同。仍需在 `/speckit.tasks` 前重新运行 `plan-eng-review`。\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks\n\n_specs/049-session-launch-framework/tasks.md is not present for this spec yet._"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

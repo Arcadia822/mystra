@@ -4,11 +4,11 @@
 
 ### I. Specification Owns Product Boundaries
 
-Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce logs API or persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. Self-hosted Mystra provides single-node human username/password authentication and Owner/Admin/Member Team RBAC as in-scope capabilities; registration grants each human User an initial Team they own, every User always belongs to at least one Team, and Team is the top-level tenant boundary (feature 043 owns this contract). Self-host identity introduces no email dependency and no Agent/workload identity. Hosted multi-tenant caller identity federation, caller-login OAuth (SSO/social), managed platform secrets, hosted Team administration, public multi-tenancy, and installation lifecycle handling remain prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
+Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce a general-purpose logs API, arbitrary stdout/stderr persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. A Team-authorized, Session-scoped, typed, schema-validated, bounded and redacted SessionEvent history is the narrow permitted execution-history surface; it does not authorize cross-Session search, a global activity feed, or a log product. Self-hosted Mystra provides single-node human username/password authentication and Owner/Admin/Member Team RBAC as in-scope capabilities; registration grants each human User an initial Team they own, every User always belongs to at least one Team, and Team is the top-level tenant boundary (feature 043 owns this contract). Self-host identity introduces no email dependency and no Agent/workload identity. Hosted multi-tenant caller identity federation, caller-login OAuth (SSO/social), managed platform secrets, hosted Team administration, public multi-tenancy, and installation lifecycle handling remain prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
 
 ### II. Typed Contracts at Service Boundaries
 
-Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each in the north-star model. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs. The current 048/049/050 slice supports Task-bound Sessions only; Project-only and standalone Sessions are deferred. Workspace is one unified execution-directory/context-delivery contract: future preparation policies must reuse it and MUST NOT introduce a parallel Workspace type. Session persistence is currently deferred and must not be inferred from the legacy schema.
+Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each in the north-star model. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs and atomically persists the Session, frozen system prompt, and first user message before Runtime/Provider I/O. Mystra defines no Turn business object; message identity is only command idempotency and SessionEvent correlation. The current 048/049/050 slice supports Task-bound Sessions only; Project-only and standalone Sessions are deferred. Workspace is one unified execution-directory/context-delivery contract: future preparation policies must reuse it and MUST NOT introduce a parallel Workspace type.
 
 ### III. Providers Are Replaceable Boundaries
 
@@ -62,8 +62,10 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   directly reachable. `/automations` remains directly addressable as a Coming
   soon placeholder, is not a primary menu entry, and does not create
   platform-owned workflow orchestration.
-- Runner output may influence internal execution facts and final Session
-  results, but public activity timelines and stdout/stderr storage are out of scope.
+- Runner output may become a typed SessionEvent only after shared-schema
+  validation, size limits and redaction. Team-authorized Session-scoped history
+  is in scope; cross-Session/global activity timelines, arbitrary stdout/stderr
+  storage and a general-purpose log API remain out of scope.
 - Branch names and review titles/bodies belong to Session execution context.
 - Runner caches improve performance only and must never be treated as source-of-truth state.
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
@@ -77,6 +79,15 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   projections. Project-only and standalone Sessions are deferred. The Workspace
   contract remains singular, so future preparation for the deferred Session
   modes may change how a Workspace is prepared but may not create a parallel type.
+
+- 2026-08-10: Feature 049 admitted Team-authorized, Session-scoped typed event
+  history as a narrow execution-truth surface. It also fixed launch as one RDB
+  transaction for Session, frozen system prompt and first user message, with
+  Runtime/Provider I/O after commit; rejected a Turn business object; limited
+  the first slice to Task-bound Sessions using feature 048 Workspace; deferred
+  Project-only/standalone preparation while requiring future variants to reuse
+  the same Workspace contract; and deferred Runtime capacity limits to a future Runtime capability. Cross-Session activity feeds and
+  arbitrary stdout/stderr persistence remain excluded.
 
 - 2026-08-08: Feature 047 replaced the obsolete Project-required Task row with a
   Team-owned Agent context container. Task stores title/description and immutable
@@ -195,4 +206,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.8.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-07
+**Version**: 2.9.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-10

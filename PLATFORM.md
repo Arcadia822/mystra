@@ -195,6 +195,21 @@ Context. Its optional Project and Task references do not provide defaults for
 those execution choices. Add Project therefore asks only for the exact
 connection, repository, Project name, and slug.
 
+Session launch persists the Session, frozen system prompt, and first user
+message in one RDB transaction. Runtime claim and Provider I/O begin only after
+commit. Mystra has no Turn business object; message identity is used only for
+idempotency and SessionEvent correlation. SessionEvent is a typed, bounded,
+redacted, Session-scoped history readable under Team authorization. It does not
+authorize a global event feed, arbitrary stdout/stderr storage, or a log product.
+
+Runtime ownership leases prevent duplicate execution and authenticate event
+reporting; they do not reserve capacity. Runtime capacity/slot limits remain a
+future Runtime capability. A response-complete ready Session has released its
+current execution slot. Feature 049 currently launches only Task-bound Sessions
+against feature 048's ready Workspace. Project-only and standalone Session
+preparation are deferred; future variants must reuse the same Workspace and
+attachment contract, with preparation logic as the only permitted difference.
+
 ## Client surfaces
 
 The Web API is canonical. MCP and CLI are thin adapters; Web is a secondary
