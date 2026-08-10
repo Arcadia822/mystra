@@ -191,9 +191,12 @@ one sandbox provider rather than the sole execution model, and host worktree
 direct execution is the intended default execution direction (feature 044 owns
 host Runtime enrollment; task dispatch, Context/worktree management, Agent
 configuration, and execution/Session remain follow-up specs).
-Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
-Mutable repository names, URLs, default-branch observations, visibility, and archive/delete state are
-not Project persistence; their retrieval and caching require a separate specification. Task persists its own
+Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID and a
+Mystra-owned configured `repositoryBaseBranch`. This is ordinary provider-neutral Project repository configuration,
+not a Provider default-branch observation. Remote branch enumeration, symbolic `HEAD` inspection and exact branch
+resolution use standard Git protocol rather than Integration-specific RepoProvider methods. Mutable repository names,
+URLs, Provider default-branch observations, visibility, and archive/delete state are not Project persistence; their
+retrieval and caching require a separate specification. Task persists its own
 title and description plus immutable optional Project context and exact Issue references; it does not copy current
 Issue/Repository snapshots. Future Integration cache design owns current external information. Local paths and
 caller-supplied clone URLs are not Project repository inputs.
@@ -220,7 +223,9 @@ Task is a durable Team-scoped Agent context container with Mystra-owned title an
 most one Task, and current external requirement state remains provider-owned rather than copied or written back.
 Task creation and update never launch a Session. Session is a Team-scoped execution concept that belongs to neither Task nor
 Project; it may independently reference `0..1` Task and `0..1` Project. Its remaining persistence fields,
-state machine and CRUD require a separate specification.
+state machine and CRUD require a separate specification. The current 048/049/050
+delivery slice supports only Task-bound Sessions; Project-only and standalone
+Sessions are deferred and must not be represented by a second Workspace type.
 Runtime is a first-class execution backend that advertises its available
 Provider capabilities; feature 044 owns host Runtime enrollment plus that
 capability's persistence (registration, Provider discovery/availability,
@@ -238,8 +243,12 @@ Context as four independent execution inputs.
 Use this as the architectural direction when designing extensible interfaces,
 even though the current MVP proves one private, single-node deployment path.
 
-Reserve **workspace** for the Session-scoped working directory and execution-context
-delivery surface, not for tenancy.
+Reserve **workspace** for the unified execution working-directory and
+execution-context delivery surface, not for tenancy. Feature 048 currently
+prepares one Runtime-affine Workspace per eligible Task, and every Task-bound
+Session attaches that same shared-mutable Workspace. Future preparation for the
+deferred Session modes must reuse the same Workspace/attachment contract; do not
+add a parallel Workspace type.
 
 The intended long-term experience is similar in spirit to **Stripe Minion**:
 fast task intake, clear Agent execution ownership, reviewable outputs, and
@@ -296,7 +305,7 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra** (7523 symbols, 13080 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra** (8147 symbols, 14305 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

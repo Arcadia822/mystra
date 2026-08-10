@@ -25,7 +25,14 @@ workflow graph above the Agent.
   from the Project-scoped Issue row and do not copy external requirement state.
 - **Session** is a Team-scoped execution concept and belongs to neither Task nor
   Project. It may independently reference `0..1` Task and `0..1` Project; its
-  remaining persistence fields, lifecycle and CRUD are deferred.
+  remaining persistence fields, lifecycle and CRUD are deferred. The current
+  048/049/050 delivery slice launches only Task-bound Sessions; Project-only and
+  standalone Sessions remain future scope without a separate Workspace type.
+- **Workspace** is the unified execution working-directory and context-delivery
+  contract. Feature 048 prepares one Runtime-affine Workspace per eligible Task,
+  and every Task-bound Session attaches the same mutable Workspace. Future
+  preparation for deferred Session modes must reuse this contract rather than
+  introduce a parallel variant.
 - **Runtime/Runner** persistence is deferred for a separate capacity and sandbox
   provider design; the first Prisma schema does not define either table.
 - Runner protocol bookkeeping and internal execution facts are implementation
@@ -79,16 +86,23 @@ The north-star is a hosted **Mystra platform** with an open-source core:
 - **IntegrationConnection** — provider-neutral Integration account or
   installation metadata, capability configuration, and an opaque credential
   reference. It never stores credential plaintext.
-- **Project** — durable product/repository binding through one exact connection
-  and provider-stable repository external ID. Mutable repository information is
-  not persisted on Project.
+- **Project** — durable product/repository binding through one exact connection,
+  a provider-stable repository external ID, and a Mystra-owned configured base
+  branch. The configured branch is ordinary provider-neutral Project repository
+  configuration; branch discovery and resolution use standard Git protocol, not
+  an Integration-specific RepoProvider extension. Mutable provider observations
+  such as repository name, URL, Provider default branch, visibility, and
+  archive/delete state are not persisted on Project.
 - **Task** — durable Team-scoped Agent context container with title,
   description, and immutable optional Project and exact Issue references. It has
   no Project ownership, Session launch behavior, or requirements state machine.
 - **Agent** — Team-scoped behavior configuration with stable identity and one
   effect-related field, system prompt. It has no Project relation.
 - **Session** — Team-scoped execution object with independent optional Task and
-  Project references; neither object owns it.
+  Project references in the north-star model; the current 048/049/050 slice is
+  Task-bound only and defers Project-only/standalone launch.
+- **Workspace** — one execution-directory/context-delivery contract; currently
+  Task-owned, Runtime-affine and shared-mutable across that Task's Sessions.
 - **Runtime/Runner** remains an execution-capacity concept owned by its separate
   specifications.
 
@@ -127,7 +141,9 @@ In scope:
   caching remain separately designed Integration capabilities.
 - Atomic create-or-open from an exact Project-scoped GitHub or Linear Issue to
   at most one Task; the Issue remains externally owned and read-only.
-- Session creation and persistence are deferred for separate redesign.
+- Task-bound Session creation and persistence are deferred to feature 049;
+  Project-only and standalone Sessions require a later specification that
+  reuses the same Workspace/attachment contract.
 - Multiple explicit GitHub connections with deployment-aware methods:
   self-hosted Mystra supports personal access tokens behind a protected
   SecretProvider. RDB persists only authenticated envelope ciphertext and a

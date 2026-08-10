@@ -55,6 +55,17 @@ export const providerCapabilitySchema = z
   });
 export type ProviderCapability = z.infer<typeof providerCapabilitySchema>;
 
+export const workspaceMaterializationCapabilitySchema = z
+  .object({
+    version: z.literal(1),
+    kinds: z.tuple([z.literal("task-repository")]),
+    sharingModes: z.tuple([z.literal("shared-mutable")]),
+  })
+  .strict();
+export type WorkspaceMaterializationCapability = z.infer<
+  typeof workspaceMaterializationCapabilitySchema
+>;
+
 export const hostRuntimeRegistrationSchema = z
   .object({
     runnerId: z.string().min(1),
@@ -62,6 +73,7 @@ export const hostRuntimeRegistrationSchema = z
     type: z.literal("host"),
     platform: z.string().min(1),
     providers: z.array(providerCapabilitySchema).default([]),
+    workspaceMaterialization: workspaceMaterializationCapabilitySchema,
   })
   .strict();
 export type HostRuntimeRegistration = z.infer<typeof hostRuntimeRegistrationSchema>;
@@ -96,6 +108,7 @@ export const hostRuntimeMetadataSchema = z
   .object({
     runnerId: z.string().min(1),
     platform: z.string().min(1).optional(),
+    workspaceMaterialization: workspaceMaterializationCapabilitySchema,
   })
   .strict();
 export type HostRuntimeMetadata = z.infer<typeof hostRuntimeMetadataSchema>;

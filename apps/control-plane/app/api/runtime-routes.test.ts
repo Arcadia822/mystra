@@ -16,12 +16,17 @@ const userId = randomUUID();
 const runnerId = randomUUID();
 const runtimeId = randomUUID();
 const now = "2026-08-07T10:00:00.000Z";
+const workspaceMaterialization = {
+  version: 1 as const,
+  kinds: ["task-repository"] as ["task-repository"],
+  sharingModes: ["shared-mutable"] as ["shared-mutable"],
+};
 
 const runtime = {
   id: runtimeId,
   name: "Build host",
   type: "host" as const,
-  metadata: { runnerId, platform: "darwin/arm64" },
+  metadata: { runnerId, platform: "darwin/arm64", workspaceMaterialization },
   status: "offline" as const,
   lastSeenAt: null,
   providers: [],
@@ -97,6 +102,7 @@ describe("host Runtime routes", () => {
       type: "host",
       platform: "darwin/arm64",
       providers: [],
+      workspaceMaterialization,
     }));
 
     expect(response.status).toBe(200);
@@ -169,6 +175,7 @@ describe("host Runtime routes", () => {
       type: "host",
       platform: "darwin/arm64",
       providers: [],
+      workspaceMaterialization,
     }));
     vi.mocked(getDb).mockClear();
 

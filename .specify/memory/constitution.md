@@ -8,7 +8,7 @@ Mystra changes must preserve the documented MVP boundary unless the boundary is 
 
 ### II. Typed Contracts at Service Boundaries
 
-Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs. Session persistence is currently deferred and must not be inferred from the legacy schema.
+Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each in the north-star model. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs. The current 048/049/050 slice supports Task-bound Sessions only; Project-only and standalone Sessions are deferred. Workspace is one unified execution-directory/context-delivery contract: future preparation policies must reuse it and MUST NOT introduce a parallel Workspace type. Session persistence is currently deferred and must not be inferred from the legacy schema.
 
 ### III. Providers Are Replaceable Boundaries
 
@@ -45,8 +45,12 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - GitLab is not an enabled/default Integration or control-plane RepoProvider.
   Its existing runner-side RepoDeliveryProvider may remain as a replaceable
   delivery implementation.
-- Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID.
-  Mutable repository metadata is not Project persistence; its retrieval/cache requires a separate specification.
+- Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID and a
+  Mystra-owned configured `repositoryBaseBranch`. This is ordinary provider-neutral Project repository configuration,
+  not a cached observation of the Provider's current default branch. Remote branch enumeration, symbolic `HEAD`
+  inspection and exact branch resolution use standard Git protocol rather than Integration-specific RepoProvider
+  methods. Other mutable repository metadata is not Project persistence; its retrieval/cache requires a separate
+  specification.
   Task persists Mystra-owned title/description and immutable optional Project/exact Issue references, but no
   external Issue/Repository snapshot. Future Integration cache design owns current external information. Local
   paths and caller-supplied clone URLs are invalid Project inputs.
@@ -65,6 +69,14 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
 
 ## Amendment Notes
+
+- 2026-08-10: Features 048/049/050 were narrowed to Task-bound Session delivery.
+  Feature 048 owns one Runtime-affine Task Workspace and a strict ready
+  `task/shared-mutable` attachment; feature 049 consumes that attachment for
+  canonical Task-bound Session launch, and feature 050 consumes the setup/read
+  projections. Project-only and standalone Sessions are deferred. The Workspace
+  contract remains singular, so future preparation for the deferred Session
+  modes may change how a Workspace is prepared but may not create a parallel type.
 
 - 2026-08-08: Feature 047 replaced the obsolete Project-required Task row with a
   Team-owned Agent context container. Task stores title/description and immutable

@@ -15,10 +15,13 @@ import {
   type RepositoryListRequest,
   type RepositoryListResponse,
   type RepositorySnapshot,
+  type TaskIssueReference,
+  type WorkspaceBranchDecision,
 } from "@mystra/shared";
 import { z } from "zod";
 
 import { IntegrationFailure } from "./errors";
+import { issueWorkspaceBranchDecision } from "./issue-workspace-branch";
 import type {
   IntegrationPlugin,
   IssueProvider,
@@ -222,6 +225,22 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
     return normalizeRepository(raw, new Date().toISOString());
   }
 
+  async getProjectRepository(repositoryExternalId: string): Promise<RepositorySnapshot | undefined> {
+    const response = await this.request(
+      `/repositories/${encodeURIComponent(repositoryExternalId)}`,
+      { allowNotFound: true },
+    );
+    if (response.status === 404) return undefined;
+    const raw = await this.parseJson(rawRepositorySchema, response);
+    if (String(raw.id) !== repositoryExternalId) {
+      throw new IntegrationFailure({
+        code: "REPOSITORY_NOT_FOUND",
+        message: "GitHub Repository identity changed",
+      });
+    }
+    return normalizeRepository(raw, new Date().toISOString());
+  }
+
   async listIssues(input: IssueListRequest): Promise<IssueListResponse> {
     const repository = this.requireRepository(input.repository);
     const page = input.after ?? "1";
@@ -349,6 +368,34 @@ export class GitHubIntegrationProvider implements RepoProvider, IssueProvider {
       updatedAt: issue.updated_at,
       url: issue.html_url,
     };
+  }
+
+  async resolveWorkspaceBranch(input: {
+    issue: TaskIssueReference;
+    taskId: string;
+  }): Promise<WorkspaceBranchDecision> {
+    if (input.issue.provider !== "github") {
+      throw new IntegrationFailure({
+        code: "ISSUE_SCOPE_UNAVAILABLE",
+        message: "GitHub Issue reference is invalid",
+      });
+    }
+    const issue = await this.getProjectIssue({
+      repositoryExternalId: input.issue.scopeExternalId,
+      identifier: input.issue.identifier,
+    });
+    if (!issue || issue.externalId !== input.issue.externalId) {
+      throw new IntegrationFailure({
+        code: "ISSUE_NOT_FOUND",
+        message: "Exact GitHub Issue is unavailable",
+      });
+    }
+    return issueWorkspaceBranchDecision({
+      provider: "github",
+      identifier: issue.number.toString(),
+      title: issue.title,
+      taskId: input.taskId,
+    });
   }
 
   private requireRepository(

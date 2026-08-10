@@ -8,7 +8,9 @@ export type RdbErrorCode =
   | "RDB_CONFLICT"
   | "RDB_NOT_FOUND"
   | "RDB_RELATION_CONFLICT"
-  | "RDB_UNAVAILABLE";
+  | "RDB_UNAVAILABLE"
+  | "STALE_WORKSPACE_ATTEMPT"
+  | "TASK_WORKSPACE_CONFLICT";
 
 export class RdbError extends Error {
   readonly code: RdbErrorCode;

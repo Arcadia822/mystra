@@ -26,6 +26,8 @@ model IntegrationConnection {
   projects           Project[]
   issueSources       ProjectIssueSource[]
   issueTasks         Task[]
+  repositoryTaskWorkspaces TaskWorkspace[] @relation("TaskWorkspaceRepositoryConnection")
+  issueTaskWorkspaces      TaskWorkspace[] @relation("TaskWorkspaceIssueConnection")
   team               Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([teamId, integration, provider, providerExternalId])
@@ -50,6 +52,7 @@ model Project {
   repositoryConnection   IntegrationConnection @relation(fields: [repositoryConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   tasks                  Task[]
   issueSources           ProjectIssueSource[]
+  taskWorkspaces         TaskWorkspace[]
   team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([teamId])
@@ -95,6 +98,7 @@ model Task {
   issueConnection      IntegrationConnection? @relation(fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   project              Project?               @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   team                 Team                   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  workspace            TaskWorkspace?
 
   @@unique([teamId, idempotencyKey])
   @@unique([issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId])
@@ -103,6 +107,66 @@ model Task {
   @@index([issueConnectionId])
   @@index([createdAt, id])
   @@map("tasks")
+}
+
+model TaskWorkspace {
+  id                    String   @id
+  teamId                String   @map("team_id")
+  taskId                String   @unique @map("task_id")
+  projectId             String   @map("project_id")
+  runtimeId             String   @map("runtime_id")
+  state                 String
+  sharingMode           String   @map("sharing_mode")
+  connectionId          String   @map("connection_id")
+  repositoryExternalId  String   @map("repository_external_id")
+  configuredBaseBranch  String   @map("configured_base_branch")
+  issueProvider         String?  @map("issue_provider")
+  issueConnectionId     String?  @map("issue_connection_id")
+  issueScopeExternalId  String?  @map("issue_scope_external_id")
+  issueExternalId       String?  @map("issue_external_id")
+  baseRef               String   @map("base_ref")
+  baseCommit            String   @map("base_commit")
+  branchName            String   @map("branch_name")
+  branchStrategy        String   @map("branch_strategy")
+  workspaceRef          String?  @map("workspace_ref")
+  activeAttemptSequence Int      @map("active_attempt_sequence")
+  failureCode           String?  @map("failure_code")
+  failureMessage        String?  @map("failure_message")
+  createdAt             String   @map("created_at")
+  updatedAt             String   @map("updated_at")
+  readyAt               String?  @map("ready_at")
+  task                  Task     @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  runtime               Runtime  @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  repositoryConnection  IntegrationConnection @relation("TaskWorkspaceRepositoryConnection", fields: [connectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  issueConnection       IntegrationConnection? @relation("TaskWorkspaceIssueConnection", fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team                  Team     @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempts              WorkspacePreparationAttempt[]
+
+  @@index([teamId, state, createdAt])
+  @@index([runtimeId, state, createdAt])
+  @@index([connectionId])
+  @@index([issueConnectionId])
+  @@map("task_workspaces")
+}
+
+model WorkspacePreparationAttempt {
+  id             String  @id
+  workspaceId    String  @map("workspace_id")
+  sequence       Int
+  state          String
+  runnerId       String? @map("runner_id")
+  leaseExpiresAt String? @map("lease_expires_at")
+  claimedAt      String? @map("claimed_at")
+  completedAt    String? @map("completed_at")
+  failureCode    String? @map("failure_code")
+  createdAt      String  @map("created_at")
+  workspace      TaskWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([workspaceId, sequence])
+  @@index([state, createdAt])
+  @@index([workspaceId, state])
+  @@map("workspace_preparation_attempts")
 }
 
 model Agent {
@@ -130,6 +194,7 @@ model Runtime {
   createdAt String            @map("created_at")
   updatedAt String            @map("updated_at")
   providers RuntimeProvider[]
+  taskWorkspaces TaskWorkspace[]
 
   @@index([updatedAt, id])
   @@index([createdAt, id])
@@ -231,6 +296,7 @@ model Team {
   tasks                  Task[]
   issueSources           ProjectIssueSource[]
   agents                 Agent[]
+  taskWorkspaces         TaskWorkspace[]
 
   @@index([status])
   @@index([createdAt, id])

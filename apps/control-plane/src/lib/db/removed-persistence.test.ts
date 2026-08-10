@@ -19,13 +19,15 @@ describe("removed persistence surfaces", () => {
   it("keeps deferred execution models out of both Prisma schemas", () => {
     for (const provider of ["sqlite", "postgresql"]) {
       const source = readFileSync(path.join(process.cwd(), `prisma/${provider}/schema.prisma`), "utf8");
-      expect(source.match(/^model\s+/gmu)).toHaveLength(13);
+      expect(source.match(/^model\s+/gmu)).toHaveLength(15);
       expect(source).toMatch(/model\s+ProjectIssueSource\b/u);
       expect(source).toMatch(/model\s+Agent\b/u);
       expect(source).toMatch(/model\s+SecretEnvelope\b/u);
       expect(source).toMatch(/model\s+AuthSession\b/u);
       expect(source).toMatch(/model\s+Runtime\b/u);
       expect(source).toMatch(/model\s+RuntimeProvider\b/u);
+      expect(source).toMatch(/model\s+TaskWorkspace\b/u);
+      expect(source).toMatch(/model\s+WorkspacePreparationAttempt\b/u);
       expect(source).not.toMatch(/model\s+(?:Runner|ContextBundle|Artifact|SessionEvent|MystraSchema)\b/u);
     }
   });

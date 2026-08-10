@@ -7,6 +7,8 @@ import type {
   RepositoryListRequest,
   RepositoryListResponse,
   RepositorySnapshot,
+  TaskIssueReference,
+  WorkspaceBranchDecision,
 } from "@mystra/shared";
 
 export interface RepoProvider {
@@ -20,6 +22,10 @@ export interface IssueProvider {
   readonly repositoryScope: "required" | "optional" | "unsupported";
   listIssues(input: IssueListRequest): Promise<IssueListResponse>;
   getIssue(input: IssueGetRequest): Promise<Issue | undefined>;
+  resolveWorkspaceBranch(input: {
+    issue: TaskIssueReference;
+    taskId: string;
+  }): Promise<WorkspaceBranchDecision>;
 }
 
 export interface IntegrationPlugin {

@@ -788,9 +788,22 @@ describe("host Runtime schemas", () => {
       type: "host",
       platform: "darwin-arm64",
       providers: [provider],
+      workspaceMaterialization: {
+        version: 1,
+        kinds: ["task-repository"],
+        sharingModes: ["shared-mutable"],
+      },
     });
 
     expect(parsed.providers).toEqual([provider]);
+    expect(parsed.workspaceMaterialization.version).toBe(1);
+    expect(() => hostRuntimeRegistrationSchema.parse({
+      runnerId: "runner-1",
+      name: "Build machine",
+      type: "host",
+      platform: "darwin-arm64",
+      providers: [provider],
+    })).toThrow();
   });
 
   it("keeps liveness heartbeats separate from Provider reports", () => {
@@ -801,7 +814,7 @@ describe("host Runtime schemas", () => {
   });
 
   it("accepts a derived Runtime view and a strict rename request", () => {
-    expect(runtimeViewSchema.parse({
+    expect(() => runtimeViewSchema.parse({
       id: "00000000-0000-4000-8000-000000000001",
       name: "Build machine",
       type: "host",
@@ -811,8 +824,25 @@ describe("host Runtime schemas", () => {
       providers: [provider],
       createdAt: "2026-08-07T10:00:00.000Z",
       updatedAt: "2026-08-07T10:00:00.000Z",
-    })).toMatchObject({ metadata: { runnerId: "runner-1" }, status: "online" });
-    expect(hostRuntimeMetadataSchema.parse({ runnerId: "runner-1" })).toEqual({ runnerId: "runner-1" });
+    })).toThrow();
+    const workspaceMaterialization = {
+      version: 1,
+      kinds: ["task-repository"],
+      sharingModes: ["shared-mutable"],
+    } as const;
+    expect(runtimeViewSchema.parse({
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Build machine",
+      type: "host",
+      metadata: { runnerId: "runner-1", platform: "darwin-arm64", workspaceMaterialization },
+      status: "online",
+      lastSeenAt: "2026-08-07T10:00:00.000Z",
+      providers: [provider],
+      createdAt: "2026-08-07T10:00:00.000Z",
+      updatedAt: "2026-08-07T10:00:00.000Z",
+    })).toMatchObject({ metadata: { runnerId: "runner-1", workspaceMaterialization }, status: "online" });
+    expect(hostRuntimeMetadataSchema.parse({ runnerId: "runner-1", workspaceMaterialization }))
+      .toEqual({ runnerId: "runner-1", workspaceMaterialization });
     expect(runtimeRenameSchema.parse({ name: "Renamed host" })).toEqual({ name: "Renamed host" });
     expect(() => runtimeRenameSchema.parse({ name: "Renamed host", type: "host" })).toThrow();
   });

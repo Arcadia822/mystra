@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useResource } from "../_lib/use-resource";
 import { ProjectIssueSourceSettings } from "./project-issue-source-settings";
 import { ProjectIssuesBrowser } from "./project-issues-browser";
+import { ProjectRepositorySettings } from "./project-repository-settings";
 import { ErrorState, LoadingState } from "./states";
 import { UiButton } from "./ui-actions";
 import { ISSUE_COPY } from "./shell-copy";
@@ -29,7 +30,7 @@ export function ProjectDetail({ slug }: { slug: string }) {
       </nav>
       {tab === "overview" ? <section className="projectOverview"><dl><div><dt>Repository external ID</dt><dd>{project.repositoryExternalId}</dd></div><div><dt>Connection</dt><dd>{project.repositoryConnectionId}</dd></div><div><dt>Base branch</dt><dd>{project.repositoryBaseBranch}</dd></div></dl></section> : null}
       {tab === "issues" ? <ProjectIssuesBrowser projectSlug={project.slug} /> : null}
-      {tab === "settings" ? <ProjectIssueSourceSettings projectSlug={project.slug} /> : null}
+      {tab === "settings" ? <div className="projectSettingsStack"><ProjectRepositorySettings project={project} onSaved={resource.refresh} /><ProjectIssueSourceSettings projectSlug={project.slug} /></div> : null}
     </div>
   );
 }

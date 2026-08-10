@@ -2,7 +2,8 @@
 
 Integrations expose named, independently composable capabilities:
 `RepoProvider` discovers and resolves remote repositories, while
-`IssueProvider` lists and reads work items.
+`IssueProvider` lists and reads work items and owns deterministic working-branch
+policy for exact Issue references.
 
 The default registry contains exactly:
 
@@ -21,6 +22,17 @@ The default registry contains exactly:
   provider-discriminated native contract; GitHub and Linear columns, filters and cursors are not fused.
 - Provider errors are mapped to stable public codes without leaking credentials.
 - Pagination cursors remain opaque.
+- `RepoProvider` remains repository discovery/identity only. Project branch
+  inspection and exact configured-branch resolution use the provider-neutral
+  standard Git reader (`git ls-remote`) with the Project's exact connection.
+  Branch enumeration never calls a provider-specific branches API.
+- `Project.repositoryBaseBranch` is ordinary Mystra configuration. A provider
+  default branch or symbolic Git `HEAD` may prefill the setting, but refresh
+  never overwrites the saved value. Setup resolves it to an exact commit and
+  fails closed when it is absent.
+- Standard Git access is created just in time as an opaque in-memory handle.
+  Tokens are passed through process environment configuration, never clone
+  URLs or argv, and Git stderr is not surfaced in stable failures.
 - Feature 045 is read-only and adds no Issue detail or Issue-to-Task dispatch control. Task runtime
   creation remains undefined and requires a separate specification.
 - The HTTP API is the canonical implementation. The operator CLI only calls
@@ -90,6 +102,7 @@ GET  /api/projects/:slug/issue-sources
 PUT  /api/projects/:slug/issue-sources/linear
 DELETE /api/projects/:slug/issue-sources/linear
 GET  /api/projects/:slug/issues/:provider
+GET  /api/projects/:slug/repository/branches
 GET  /api/integrations/:integration/repositories
 POST /api/integrations/:integration/repositories/resolve
 GET  /api/integrations/:integration/issues

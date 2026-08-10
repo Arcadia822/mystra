@@ -6,7 +6,15 @@ const runtime = {
   id: "00000000-0000-4000-8000-000000000001",
   name: "Build host",
   type: "host" as const,
-  metadata: { runnerId: "runner-1", platform: "darwin/arm64" },
+  metadata: {
+    runnerId: "runner-1",
+    platform: "darwin/arm64",
+    workspaceMaterialization: {
+      version: 1 as const,
+      kinds: ["task-repository"] as ["task-repository"],
+      sharingModes: ["shared-mutable"] as ["shared-mutable"],
+    },
+  },
   status: "online" as const,
   lastSeenAt: "2026-08-07T10:00:00.000Z",
   providers: [

@@ -60,6 +60,11 @@ describe("buildHostRuntimeRegistrationPayload", () => {
       }],
     });
 
+    expect(payload.workspaceMaterialization).toEqual({
+      version: 1,
+      kinds: ["task-repository"],
+      sharingModes: ["shared-mutable"],
+    });
     expect(hostRuntimeRegistrationSchema.parse(payload)).toEqual(payload);
   });
 });

@@ -31,6 +31,9 @@ import type {
   RuntimeView,
   ResolvedAgentSnapshot,
   MembershipStatus,
+  TaskWorkspaceTrusted,
+  WorkspacePreparationAttempt,
+  WorkspacePreparationReport,
 } from "@mystra/shared";
 
 export type IntegrationConnectionRecord = IntegrationConnection & {
@@ -138,6 +141,36 @@ export type TaskIssueLinkQuery = {
 
 export type RegisterHostRuntimeInput = HostRuntimeRegistration;
 
+export type TaskWorkspaceCreateInput = Omit<
+  TaskWorkspaceTrusted,
+  | "id"
+  | "state"
+  | "sharingMode"
+  | "workspaceRef"
+  | "activeAttemptSequence"
+  | "failureCode"
+  | "failureMessage"
+  | "createdAt"
+  | "updatedAt"
+  | "readyAt"
+>;
+
+export type TaskWorkspaceCreateResult = {
+  workspace: TaskWorkspaceTrusted;
+  attempt: WorkspacePreparationAttempt;
+  created: boolean;
+};
+
+export type TaskWorkspacePreparationClaim = {
+  workspace: TaskWorkspaceTrusted;
+  attempt: WorkspacePreparationAttempt;
+};
+
+export type CompleteTaskWorkspacePreparationInput = {
+  workspaceId: string;
+  attemptId: string;
+} & WorkspacePreparationReport;
+
 export type SecretEnvelopeWrite = {
   reference: string;
   version: 1;
@@ -225,6 +258,33 @@ export interface RdbProvider {
   listTasks(options?: { projectId?: string; teamId?: string }): Promise<TaskListItem[]>;
   updateTask(id: string, input: TaskUpdateRequest, options: { teamId: string }): Promise<TaskRecord | undefined>;
   findTaskIdsByIssueExternalIds(input: TaskIssueLinkQuery): Promise<Record<string, string>>;
+
+  createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult>;
+  getTaskWorkspaceByTaskId(
+    taskId: string,
+    options: { teamId: string },
+  ): Promise<TaskWorkspaceTrusted | undefined>;
+  getTaskWorkspaceById(
+    workspaceId: string,
+    options?: { teamId?: string },
+  ): Promise<TaskWorkspaceTrusted | undefined>;
+  retryTaskWorkspace(input: {
+    workspaceId: string;
+    teamId: string;
+    runtimeId: string;
+  }): Promise<TaskWorkspacePreparationClaim>;
+  claimTaskWorkspacePreparation(input: {
+    runnerId: string;
+    leaseExpiresAt: string;
+  }): Promise<TaskWorkspacePreparationClaim | undefined>;
+  completeTaskWorkspacePreparation(
+    input: CompleteTaskWorkspacePreparationInput,
+  ): Promise<TaskWorkspaceTrusted>;
+  markTaskWorkspaceUnavailable(input: {
+    workspaceId: string;
+    runtimeId: string;
+    failureMessage: string;
+  }): Promise<TaskWorkspaceTrusted>;
 
   createAgent(input: AgentCreate): Promise<Agent>;
   getAgent(id: string, options: { teamId: string }): Promise<Agent | undefined>;

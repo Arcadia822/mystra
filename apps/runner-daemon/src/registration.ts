@@ -59,5 +59,10 @@ export function buildHostRuntimeRegistrationPayload(input: {
     type: "host",
     platform: input.platform,
     providers: input.providers,
+    workspaceMaterialization: {
+      version: 1,
+      kinds: ["task-repository"],
+      sharingModes: ["shared-mutable"],
+    },
   };
 }

@@ -9,6 +9,7 @@ import {
   projectIssueSourceSchema,
   runtimeViewSchema,
   taskRecordSchema,
+  taskWorkspaceTrustedSchema,
   teamRoleSchema,
   teamStatusSchema,
   membershipStatusSchema,
@@ -19,6 +20,9 @@ import {
   type ProviderCapability,
   type RuntimeView,
   type TaskRecord,
+  type TaskWorkspaceTrusted,
+  type WorkspacePreparationAttempt,
+  workspacePreparationAttemptSchema,
 } from "@mystra/shared";
 
 import type {
@@ -31,9 +35,11 @@ import type {
   Runtime as PrismaRuntime,
   RuntimeProvider as PrismaRuntimeProvider,
   Task as PrismaTask,
+  TaskWorkspace as PrismaTaskWorkspace,
   Team as PrismaTeam,
   TeamMembership as PrismaTeamMembership,
   User as PrismaUser,
+  WorkspacePreparationAttempt as PrismaWorkspacePreparationAttempt,
 } from "../../generated/prisma/sqlite/client";
 import { RdbError } from "./prisma-errors";
 import type {
@@ -128,6 +134,16 @@ export function mapTask(row: PrismaTask): TaskRecord {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });
+}
+
+export function mapTaskWorkspace(row: PrismaTaskWorkspace): TaskWorkspaceTrusted {
+  return taskWorkspaceTrustedSchema.parse(row);
+}
+
+export function mapWorkspacePreparationAttempt(
+  row: PrismaWorkspacePreparationAttempt,
+): WorkspacePreparationAttempt {
+  return workspacePreparationAttemptSchema.parse(row);
 }
 
 export function mapAgent(row: PrismaAgent): Agent {

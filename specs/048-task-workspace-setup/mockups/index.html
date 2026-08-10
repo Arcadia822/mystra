@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mystra 048 Workspace Setup Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d10;
+      --panel: #11151a;
+      --panel-2: #171c22;
+      --line: #29313b;
+      --text: #f0f3f6;
+      --muted: #9aa6b2;
+      --accent: #9ee493;
+      --danger: #ff9b94;
+      --warning: #e8cb7c;
+      --radius: 12px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); }
+    button, input, select { font: inherit; }
+    button, input, select { border: 1px solid var(--line); border-radius: 8px; background: #0d1116; color: var(--text); }
+    button { min-height: 38px; padding: 0 14px; cursor: pointer; }
+    button:hover:not(:disabled) { border-color: #586676; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button:disabled { color: #65717c; cursor: not-allowed; }
+    .primary { background: var(--text); color: #101317; border-color: var(--text); font-weight: 650; }
+    .shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+    aside { border-right: 1px solid var(--line); padding: 24px 16px; }
+    .brand { font-weight: 750; letter-spacing: .08em; margin: 0 8px 30px; }
+    nav { display: grid; gap: 6px; }
+    nav button { text-align: left; border-color: transparent; background: transparent; color: var(--muted); }
+    nav button.active { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+    main { width: min(980px, 100%); margin: 0 auto; padding: 42px 36px 70px; }
+    header h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); letter-spacing: -.04em; }
+    header p { margin: 10px 0 30px; color: var(--muted); }
+    .surface { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+    .surface + .surface { margin-top: 18px; }
+    .surface-title { display: flex; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 1px solid var(--line); align-items: center; }
+    .surface-title h2 { margin: 0; font-size: 16px; }
+    .surface-title p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .rows { padding: 0 20px; }
+    .row { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(260px, 1.2fr); gap: 28px; padding: 20px 0; border-bottom: 1px solid var(--line); align-items: start; }
+    .row:last-child { border-bottom: 0; }
+    .label { font-weight: 650; }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin-top: 5px; }
+    .control { display: grid; gap: 9px; }
+    .control input, .control select { width: 100%; min-height: 40px; padding: 0 10px; }
+    .inline { display: flex; gap: 8px; align-items: center; }
+    .inline > :first-child { flex: 1; }
+    .status-line { min-height: 20px; color: var(--muted); font-size: 13px; }
+    .status-line.success { color: var(--accent); }
+    .status-line.error { color: var(--danger); }
+    .workspace { padding: 20px; }
+    .workspace-top { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+    .eyebrow { color: var(--muted); text-transform: uppercase; letter-spacing: .09em; font-size: 11px; }
+    .state { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 22px; font-weight: 680; }
+    .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--muted); }
+    [data-state="preparing"] .dot { background: var(--warning); }
+    [data-state="ready"] .dot { background: var(--accent); }
+    [data-state="failed"] .dot, [data-state="unavailable"] .dot { background: var(--danger); }
+    .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 20px; }
+    .fact { background: var(--panel-2); padding: 14px; min-width: 0; }
+    .fact dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; }
+    .fact dd { margin: 6px 0 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+    .notice { margin-top: 18px; border: 1px solid #5c5030; background: #201c12; color: #e8d69f; border-radius: 9px; padding: 13px 14px; font-size: 13px; line-height: 1.5; }
+    .error-box { border-color: #653a39; background: #241615; color: #ffbbb5; }
+    .actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
+    .prototype-controls { margin-bottom: 18px; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+    .prototype-controls select { min-height: 34px; padding: 0 8px; }
+    .hidden { display: none !important; }
+    @media (max-width: 720px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 14px; }
+      .brand { margin: 0 0 12px; }
+      nav { grid-template-columns: 1fr 1fr; }
+      main { padding: 26px 16px 50px; }
+      .row { grid-template-columns: 1fr; gap: 12px; }
+      .facts { grid-template-columns: 1fr; }
+      .workspace-top, .actions { flex-direction: column; align-items: stretch; }
+      .inline { align-items: stretch; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">MYSTRA</div>
+      <nav aria-label="Prototype scenes">
+        <button class="active" data-scene-button="project">Project config</button>
+        <button data-scene-button="task">Task Workspace</button>
+      </nav>
+    </aside>
+    <main>
+      <section data-scene="project">
+        <header>
+          <h1>mystra</h1>
+          <p>Project repository configuration</p>
+        </header>
+        <div class="surface">
+          <div class="surface-title">
+            <div><h2>Repository</h2><p>Exact Project binding and ordinary Git configuration.</p></div>
+          </div>
+          <div class="rows">
+            <div class="row">
+              <div><div class="label">Repository</div><div class="hint">Repository identity comes from the bound Integration connection.</div></div>
+              <div class="control"><input value="Arcadia822/mystra" readonly aria-label="Repository"></div>
+            </div>
+            <div class="row">
+              <div><div class="label">Default branch</div><div class="hint">New Task Workspaces resolve this configured branch through standard Git. It does not follow GitHub automatically.</div></div>
+              <div class="control">
+                <div class="inline" id="branch-picker-row">
+                  <select id="branch-picker" aria-label="Default branch">
+                    <option selected>main</option><option>develop</option><option>release/0.1</option>
+                  </select>
+                  <button id="refresh-branches">Refresh</button>
+                </div>
+                <div class="inline hidden" id="branch-text-row">
+                  <input id="branch-text" value="main" aria-label="Default branch text input">
+                  <button id="retry-branches">Retry read</button>
+                </div>
+                <div class="status-line" id="branch-status">Remote HEAD: main · 3 branches read via standard Git</div>
+                <button id="toggle-branch-failure">Simulate branch read failure</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="actions"><span class="status-line" id="save-status"></span><button class="primary" id="save-project">Save changes</button></div>
+      </section>
+
+      <section class="hidden" data-scene="task">
+        <header>
+          <h1>Implement workspace setup</h1>
+          <p>Task ENG-248 · Project mystra</p>
+        </header>
+        <div class="prototype-controls">
+          <label for="state-control">Prototype state</label>
+          <select id="state-control">
+            <option value="absent">Absent</option><option value="preparing">Preparing</option><option value="ready">Ready</option><option value="failed">Failed</option><option value="unavailable">Unavailable</option>
+          </select>
+        </div>
+        <div class="surface" id="workspace-card" data-state="absent">
+          <div class="workspace">
+            <div class="workspace-top">
+              <div><div class="eyebrow">Task Workspace</div><div class="state"><span class="dot"></span><span id="state-label">Not prepared</span></div></div>
+              <button class="primary" id="setup-button">Setup Workspace</button>
+            </div>
+            <div class="facts hidden" id="workspace-facts">
+              <dl class="fact"><dt>Runtime</dt><dd>host-runtime-01 · locked</dd></dl>
+              <dl class="fact"><dt>Base</dt><dd>refs/heads/main @ 4c2c8d1</dd></dl>
+              <dl class="fact"><dt>Work branch</dt><dd>mystra/linear-eng-248-workspace</dd></dl>
+              <dl class="fact"><dt>Workspace ref</dt><dd id="workspace-ref">Not available</dd></dl>
+            </div>
+            <div class="notice hidden" id="shared-notice">Every Session for this Task works in the same mutable directory. Changes and Git conflicts remain visible across Sessions.</div>
+            <div class="notice error-box hidden" id="workspace-error"></div>
+            <div class="actions">
+              <span class="status-line" id="workspace-help">Setup is required before a Session can start.</span>
+              <button id="new-session" disabled>New Session</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const scenes = [...document.querySelectorAll('[data-scene]')];
+    document.querySelectorAll('[data-scene-button]').forEach((button) => button.addEventListener('click', () => {
+      document.querySelectorAll('[data-scene-button]').forEach((item) => item.classList.toggle('active', item === button));
+      scenes.forEach((scene) => scene.classList.toggle('hidden', scene.dataset.scene !== button.dataset.sceneButton));
+    }));
+
+    const pickerRow = document.querySelector('#branch-picker-row');
+    const textRow = document.querySelector('#branch-text-row');
+    const branchStatus = document.querySelector('#branch-status');
+    function branchFailure(failed) {
+      pickerRow.classList.toggle('hidden', failed);
+      textRow.classList.toggle('hidden', !failed);
+      branchStatus.className = `status-line ${failed ? 'error' : ''}`;
+      branchStatus.textContent = failed
+        ? 'Branches unavailable. Enter a branch name; Setup will verify it before use.'
+        : 'Remote HEAD: main · 3 branches read via standard Git';
+      document.querySelector('#toggle-branch-failure').textContent = failed ? 'Restore branch reader' : 'Simulate branch read failure';
+    }
+    document.querySelector('#toggle-branch-failure').addEventListener('click', () => branchFailure(!pickerRow.classList.contains('hidden')));
+    document.querySelector('#retry-branches').addEventListener('click', () => branchFailure(false));
+    document.querySelector('#refresh-branches').addEventListener('click', () => {
+      branchStatus.textContent = 'Refreshing…';
+      setTimeout(() => branchFailure(false), 350);
+    });
+    document.querySelector('#save-project').addEventListener('click', () => {
+      const value = pickerRow.classList.contains('hidden') ? document.querySelector('#branch-text').value : document.querySelector('#branch-picker').value;
+      const target = document.querySelector('#save-status');
+      target.className = 'status-line success';
+      target.textContent = `Saved Default branch: ${value}`;
+    });
+
+    const card = document.querySelector('#workspace-card');
+    const stateControl = document.querySelector('#state-control');
+    const stateLabel = document.querySelector('#state-label');
+    const setupButton = document.querySelector('#setup-button');
+    const facts = document.querySelector('#workspace-facts');
+    const sharedNotice = document.querySelector('#shared-notice');
+    const errorBox = document.querySelector('#workspace-error');
+    const workspaceRef = document.querySelector('#workspace-ref');
+    const workspaceHelp = document.querySelector('#workspace-help');
+    const newSession = document.querySelector('#new-session');
+    const stateCopy = {
+      absent: ['Not prepared', 'Setup Workspace', 'Setup is required before a Session can start.'],
+      preparing: ['Preparing', 'Preparing…', 'Resolving refs and preparing the Runtime directory.'],
+      ready: ['Ready', 'Ready', 'Runtime is locked to the Workspace.'],
+      failed: ['Setup failed', 'Retry Setup', 'The configured branch could not be resolved.'],
+      unavailable: ['Unavailable', 'Unavailable', 'The Runtime no longer has this Workspace.']
+    };
+    function renderState(state) {
+      card.dataset.state = state;
+      const [label, action, help] = stateCopy[state];
+      stateLabel.textContent = label;
+      setupButton.textContent = action;
+      setupButton.disabled = state === 'preparing' || state === 'ready' || state === 'unavailable';
+      workspaceHelp.textContent = help;
+      facts.classList.toggle('hidden', state === 'absent');
+      sharedNotice.classList.toggle('hidden', state !== 'ready');
+      errorBox.classList.toggle('hidden', state !== 'failed' && state !== 'unavailable');
+      errorBox.textContent = state === 'failed' ? 'repository_unavailable · refs/heads/main did not resolve. No fallback was used.' : state === 'unavailable' ? 'workspace_missing · Session launch is blocked; automatic rebuild is not enabled.' : '';
+      workspaceRef.textContent = state === 'ready' ? 'host-task-workspace:8c0f…' : 'Not available';
+      newSession.disabled = state !== 'ready';
+      newSession.classList.toggle('primary', state === 'ready');
+      stateControl.value = state;
+    }
+    stateControl.addEventListener('change', () => renderState(stateControl.value));
+    setupButton.addEventListener('click', () => {
+      renderState('preparing');
+      setTimeout(() => renderState('ready'), 650);
+    });
+    renderState('absent');
+  </script>
+</body>
+</html>

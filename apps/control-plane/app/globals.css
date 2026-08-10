@@ -3854,6 +3854,12 @@ body:has(.searchDialog[open]) {
 .sourceReadOnly { display: grid; gap: var(--space-half); text-align: right; }
 .sourceReadOnly small { color: var(--text3); font-family: var(--font-mono); }
 .projectSourceActions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); }
+.projectSettingsStack { display: grid; gap: var(--space-6); max-width: 900px; }
+.projectRepositorySettings { min-width: 0; }
+.repositoryBranchHint { color: var(--text3); font-size: 11px; }
+.taskWorkspaceBody { display: grid; gap: var(--space-3); padding: var(--panel-inset); }
+.taskWorkspaceRuntime { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(220px, 2fr); align-items: center; gap: var(--space-3); }
+.taskWorkspaceActions { display: flex; justify-content: flex-end; gap: var(--space-2); }
 
 @media (max-width: 760px) {
   .projectContext,
@@ -3866,6 +3872,9 @@ body:has(.searchDialog[open]) {
   .issueTableViewport { margin-inline: calc(-1 * var(--page-inset-inline-narrow)); border-inline: 0; border-radius: 0; }
   .projectOverview dl > div { grid-template-columns: 1fr; gap: var(--space-1); }
   .sourceReadOnly { text-align: left; }
+  .taskWorkspaceRuntime { grid-template-columns: 1fr; }
+  .taskWorkspaceActions { display: grid; }
+  .taskWorkspaceActions .uiAction { width: 100%; }
 }
 
 .settingsCard {

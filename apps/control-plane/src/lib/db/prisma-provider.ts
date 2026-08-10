@@ -64,9 +64,11 @@ import {
   mapPublicIntegrationConnection,
   mapRuntime,
   mapTask,
+  mapTaskWorkspace,
   mapTeam,
   mapTeamMembership,
   mapUser,
+  mapWorkspacePreparationAttempt,
   serializeJson,
 } from "./prisma-mappers";
 import type {
@@ -77,6 +79,10 @@ import type {
   ProjectIssueSourceUpsert,
   TaskCreateResult,
   TaskIssueLinkQuery,
+  TaskWorkspaceCreateInput,
+  TaskWorkspaceCreateResult,
+  TaskWorkspacePreparationClaim,
+  CompleteTaskWorkspacePreparationInput,
   RegisterHostRuntimeInput,
   RdbProvider,
   SecretEnvelopeRecord,
@@ -640,6 +646,383 @@ export class PrismaRdbProvider implements RdbProvider {
     return Object.fromEntries(rows.flatMap((row) => row.issueExternalId ? [[row.issueExternalId, row.id]] : []));
   }
 
+  async createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult> {
+    const existing = await this.#findTaskWorkspaceCreateResult(input.taskId);
+    if (existing) return this.#requireSameTaskWorkspaceIntent(existing, input);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await this.#client.transaction(async (transaction) => {
+          const task = await transaction.task.findUnique({ where: { id: input.taskId } });
+          if (!task || task.teamId !== input.teamId || task.projectId !== input.projectId) {
+            throw new RdbError("RDB_RELATION_CONFLICT", "Task Workspace context does not match Task");
+          }
+          const project = await transaction.project.findUnique({ where: { id: input.projectId } });
+          if (
+            !project
+            || project.teamId !== input.teamId
+            || project.repositoryConnectionId !== input.connectionId
+            || project.repositoryExternalId !== input.repositoryExternalId
+          ) {
+            throw new RdbError("RDB_RELATION_CONFLICT", "Task Workspace repository does not match Project");
+          }
+          const runtime = await transaction.runtime.findUnique({ where: { id: input.runtimeId } });
+          if (!runtime) {
+            throw new RdbError("RDB_RELATION_CONFLICT", "Task Workspace Runtime does not exist");
+          }
+          const timestamp = this.#now();
+          const workspaceRow = await transaction.taskWorkspace.create({
+            data: {
+              id: this.#newId(),
+              ...input,
+              state: "queued",
+              sharingMode: "shared-mutable",
+              workspaceRef: null,
+              activeAttemptSequence: 1,
+              failureCode: null,
+              failureMessage: null,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+              readyAt: null,
+            },
+          });
+          const attemptRow = await transaction.workspacePreparationAttempt.create({
+            data: {
+              id: this.#newId(),
+              workspaceId: workspaceRow.id,
+              sequence: 1,
+              state: "queued",
+              runnerId: null,
+              leaseExpiresAt: null,
+              claimedAt: null,
+              completedAt: null,
+              failureCode: null,
+              createdAt: timestamp,
+            },
+          });
+          return {
+            workspace: mapTaskWorkspace(workspaceRow),
+            attempt: mapWorkspacePreparationAttempt(attemptRow),
+            created: true,
+          };
+        });
+      } catch (error) {
+        if (isDatabaseErrorCode(error, "P2034") && attempt < 2) continue;
+        const normalized = normalizeDatabaseError(error, {
+          conflictCode: "TASK_WORKSPACE_CONFLICT",
+          conflictMessage: "Task already has a Workspace",
+        });
+        if (normalized.code !== "TASK_WORKSPACE_CONFLICT") throw normalized;
+        const raced = await this.#findTaskWorkspaceCreateResult(input.taskId);
+        if (!raced) throw normalized;
+        return this.#requireSameTaskWorkspaceIntent(raced, input);
+      }
+    }
+    throw new RdbError("RDB_UNAVAILABLE", "Task Workspace transaction could not be serialized");
+  }
+
+  async getTaskWorkspaceByTaskId(
+    taskId: string,
+    options: { teamId: string },
+  ): Promise<import("@mystra/shared").TaskWorkspaceTrusted | undefined> {
+    const row = await this.#client.taskWorkspace.findUnique({ where: { taskId } });
+    return row?.teamId === options.teamId ? mapTaskWorkspace(row) : undefined;
+  }
+
+  async getTaskWorkspaceById(
+    workspaceId: string,
+    options: { teamId?: string } = {},
+  ): Promise<import("@mystra/shared").TaskWorkspaceTrusted | undefined> {
+    const row = await this.#client.taskWorkspace.findUnique({ where: { id: workspaceId } });
+    return row && (!options.teamId || row.teamId === options.teamId)
+      ? mapTaskWorkspace(row)
+      : undefined;
+  }
+
+  async retryTaskWorkspace(input: {
+    workspaceId: string;
+    teamId: string;
+    runtimeId: string;
+  }): Promise<TaskWorkspacePreparationClaim> {
+    return this.#client.transaction(async (transaction) => {
+      const current = await transaction.taskWorkspace.findUnique({ where: { id: input.workspaceId } });
+      if (
+        !current
+        || current.teamId !== input.teamId
+        || current.runtimeId !== input.runtimeId
+        || current.state !== "failed"
+      ) {
+        throw new RdbError("TASK_WORKSPACE_CONFLICT", "Task Workspace cannot be retried");
+      }
+      const timestamp = this.#now();
+      const nextSequence = current.activeAttemptSequence + 1;
+      const updated = await transaction.taskWorkspace.updateMany({
+        where: {
+          id: current.id,
+          state: "failed",
+          activeAttemptSequence: current.activeAttemptSequence,
+        },
+        data: {
+          state: "queued",
+          activeAttemptSequence: nextSequence,
+          failureCode: null,
+          failureMessage: null,
+          updatedAt: timestamp,
+        },
+      });
+      if (updated.count !== 1) {
+        throw new RdbError("TASK_WORKSPACE_CONFLICT", "Task Workspace retry lost a race");
+      }
+      const attempt = await transaction.workspacePreparationAttempt.create({
+        data: {
+          id: this.#newId(),
+          workspaceId: current.id,
+          sequence: nextSequence,
+          state: "queued",
+          runnerId: null,
+          leaseExpiresAt: null,
+          claimedAt: null,
+          completedAt: null,
+          failureCode: null,
+          createdAt: timestamp,
+        },
+      });
+      return {
+        workspace: mapTaskWorkspace({
+          ...current,
+          state: "queued",
+          activeAttemptSequence: nextSequence,
+          failureCode: null,
+          failureMessage: null,
+          updatedAt: timestamp,
+        }),
+        attempt: mapWorkspacePreparationAttempt(attempt),
+      };
+    });
+  }
+
+  async claimTaskWorkspacePreparation(input: {
+    runnerId: string;
+    leaseExpiresAt: string;
+  }): Promise<TaskWorkspacePreparationClaim | undefined> {
+    return this.#retryRuntimeWrite(() => this.#client.transaction(async (transaction) => {
+      const runtime = await this.#findHostRuntimeByRunnerId(input.runnerId, transaction);
+      if (!runtime) return undefined;
+      const timestamp = this.#now();
+      const preparing = await transaction.taskWorkspace.findMany({
+        where: { runtimeId: runtime.runtime.id, state: "preparing" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+      for (const workspace of preparing) {
+        const activeAttempt = await transaction.workspacePreparationAttempt.findUnique({
+          where: {
+            workspaceId_sequence: {
+              workspaceId: workspace.id,
+              sequence: workspace.activeAttemptSequence,
+            },
+          },
+        });
+        if (
+          activeAttempt?.state === "claimed"
+          && activeAttempt.leaseExpiresAt
+          && activeAttempt.leaseExpiresAt <= timestamp
+        ) {
+          const workspaceExpiration = await transaction.taskWorkspace.updateMany({
+            where: {
+              id: workspace.id,
+              state: "preparing",
+              activeAttemptSequence: activeAttempt.sequence,
+            },
+            data: {
+              state: "failed",
+              failureCode: "materialization_failed",
+              failureMessage: "Workspace preparation lease expired",
+              updatedAt: timestamp,
+            },
+          });
+          const attemptExpiration = await transaction.workspacePreparationAttempt.updateMany({
+            where: {
+              id: activeAttempt.id,
+              state: "claimed",
+              sequence: activeAttempt.sequence,
+            },
+            data: {
+              state: "expired",
+              completedAt: timestamp,
+              failureCode: "materialization_failed",
+            },
+          });
+          if (workspaceExpiration.count !== 1 || attemptExpiration.count !== 1) {
+            throw new RdbError("STALE_WORKSPACE_ATTEMPT", "Workspace attempt expiration lost a race");
+          }
+        }
+      }
+      const queued = (await transaction.taskWorkspace.findMany({
+        where: { runtimeId: runtime.runtime.id, state: "queued" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      }))[0];
+      if (!queued) return undefined;
+      const attempt = await transaction.workspacePreparationAttempt.findUnique({
+        where: {
+          workspaceId_sequence: {
+            workspaceId: queued.id,
+            sequence: queued.activeAttemptSequence,
+          },
+        },
+      });
+      if (!attempt || attempt.state !== "queued") {
+        throw new RdbError("STALE_WORKSPACE_ATTEMPT", "Workspace attempt is not claimable");
+      }
+      const workspaceUpdate = await transaction.taskWorkspace.updateMany({
+        where: { id: queued.id, state: "queued", activeAttemptSequence: attempt.sequence },
+        data: { state: "preparing", updatedAt: timestamp },
+      });
+      const attemptUpdate = await transaction.workspacePreparationAttempt.updateMany({
+        where: { id: attempt.id, state: "queued", sequence: attempt.sequence },
+        data: {
+          state: "claimed",
+          runnerId: input.runnerId,
+          leaseExpiresAt: input.leaseExpiresAt,
+          claimedAt: timestamp,
+        },
+      });
+      if (workspaceUpdate.count !== 1 || attemptUpdate.count !== 1) {
+        throw new RdbError("STALE_WORKSPACE_ATTEMPT", "Workspace attempt claim lost a race");
+      }
+      return {
+        workspace: mapTaskWorkspace({ ...queued, state: "preparing", updatedAt: timestamp }),
+        attempt: mapWorkspacePreparationAttempt({
+          ...attempt,
+          state: "claimed",
+          runnerId: input.runnerId,
+          leaseExpiresAt: input.leaseExpiresAt,
+          claimedAt: timestamp,
+        }),
+      };
+    }));
+  }
+
+  async completeTaskWorkspacePreparation(
+    input: CompleteTaskWorkspacePreparationInput,
+  ): Promise<import("@mystra/shared").TaskWorkspaceTrusted> {
+    return this.#client.transaction(async (transaction) => {
+      const workspace = await transaction.taskWorkspace.findUnique({ where: { id: input.workspaceId } });
+      const attempt = await transaction.workspacePreparationAttempt.findUnique({ where: { id: input.attemptId } });
+      const timestamp = this.#now();
+      if (
+        !workspace
+        || !attempt
+        || attempt.workspaceId !== workspace.id
+        || workspace.state !== "preparing"
+        || workspace.activeAttemptSequence !== input.attemptSequence
+        || attempt.sequence !== input.attemptSequence
+        || attempt.state !== "claimed"
+        || attempt.runnerId !== input.runnerId
+        || !attempt.leaseExpiresAt
+        || attempt.leaseExpiresAt <= timestamp
+      ) {
+        throw new RdbError("STALE_WORKSPACE_ATTEMPT", "Workspace attempt report is stale");
+      }
+      if (
+        input.status === "succeeded"
+        && (input.observed.baseCommit !== workspace.baseCommit
+          || input.observed.branchName !== workspace.branchName)
+      ) {
+        throw new RdbError("TASK_WORKSPACE_CONFLICT", "Workspace observations do not match frozen intent");
+      }
+      const nextWorkspace = input.status === "succeeded"
+        ? {
+            ...workspace,
+            state: "ready",
+            workspaceRef: input.workspaceRef,
+            failureCode: null,
+            failureMessage: null,
+            updatedAt: timestamp,
+            readyAt: timestamp,
+          }
+        : {
+            ...workspace,
+            state: "failed",
+            workspaceRef: null,
+            failureCode: input.failure.code,
+            failureMessage: input.failure.message,
+            updatedAt: timestamp,
+            readyAt: null,
+          };
+      const workspaceUpdate = await transaction.taskWorkspace.updateMany({
+        where: {
+          id: workspace.id,
+          state: "preparing",
+          activeAttemptSequence: input.attemptSequence,
+        },
+        data: {
+          state: nextWorkspace.state,
+          workspaceRef: nextWorkspace.workspaceRef,
+          failureCode: nextWorkspace.failureCode,
+          failureMessage: nextWorkspace.failureMessage,
+          updatedAt: timestamp,
+          readyAt: nextWorkspace.readyAt,
+        },
+      });
+      const attemptUpdate = await transaction.workspacePreparationAttempt.updateMany({
+        where: {
+          id: attempt.id,
+          workspaceId: workspace.id,
+          sequence: input.attemptSequence,
+          state: "claimed",
+          runnerId: input.runnerId,
+        },
+        data: {
+          state: input.status === "succeeded" ? "succeeded" : "failed",
+          completedAt: timestamp,
+          failureCode: input.status === "failed" ? input.failure.code : null,
+        },
+      });
+      if (workspaceUpdate.count !== 1 || attemptUpdate.count !== 1) {
+        throw new RdbError("STALE_WORKSPACE_ATTEMPT", "Workspace attempt report lost a race");
+      }
+      return mapTaskWorkspace(nextWorkspace);
+    });
+  }
+
+  async markTaskWorkspaceUnavailable(input: {
+    workspaceId: string;
+    runtimeId: string;
+    failureMessage: string;
+  }): Promise<import("@mystra/shared").TaskWorkspaceTrusted> {
+    return this.#client.transaction(async (transaction) => {
+      const workspace = await transaction.taskWorkspace.findUnique({ where: { id: input.workspaceId } });
+      if (!workspace || workspace.runtimeId !== input.runtimeId || workspace.state !== "ready") {
+        throw new RdbError("TASK_WORKSPACE_CONFLICT", "Task Workspace cannot be marked unavailable");
+      }
+      const timestamp = this.#now();
+      const next = {
+        ...workspace,
+        state: "unavailable",
+        workspaceRef: null,
+        failureCode: "workspace_missing",
+        failureMessage: input.failureMessage,
+        updatedAt: timestamp,
+        readyAt: null,
+      };
+      const updated = await transaction.taskWorkspace.updateMany({
+        where: { id: workspace.id, runtimeId: input.runtimeId, state: "ready" },
+        data: {
+          state: "unavailable",
+          workspaceRef: null,
+          failureCode: "workspace_missing",
+          failureMessage: input.failureMessage,
+          updatedAt: timestamp,
+          readyAt: null,
+        },
+      });
+      if (updated.count !== 1) {
+        throw new RdbError("TASK_WORKSPACE_CONFLICT", "Task Workspace unavailable transition lost a race");
+      }
+      return mapTaskWorkspace(next);
+    });
+  }
+
   async createAgent(input: AgentCreate): Promise<Agent> {
     const parsed = agentCreateSchema.parse(input);
     const timestamp = this.#now();
@@ -808,6 +1191,7 @@ export class PrismaRdbProvider implements RdbProvider {
     const metadata = hostRuntimeMetadataSchema.parse({
       runnerId: parsed.runnerId,
       platform: parsed.platform,
+      workspaceMaterialization: parsed.workspaceMaterialization,
     });
     const metadataJson = serializeJson(metadata);
 
@@ -1422,6 +1806,57 @@ export class PrismaRdbProvider implements RdbProvider {
     return this.#client.teamMembership.count({
       where: { teamId, role: "owner", status: "active" },
     });
+  }
+
+  async #findTaskWorkspaceCreateResult(
+    taskId: string,
+    client: MystraPrismaDelegates = this.#client,
+  ): Promise<TaskWorkspaceCreateResult | undefined> {
+    const workspace = await client.taskWorkspace.findUnique({ where: { taskId } });
+    if (!workspace) return undefined;
+    const attempt = await client.workspacePreparationAttempt.findUnique({
+      where: {
+        workspaceId_sequence: {
+          workspaceId: workspace.id,
+          sequence: workspace.activeAttemptSequence,
+        },
+      },
+    });
+    if (!attempt) {
+      throw new RdbError("RDB_UNAVAILABLE", "Task Workspace active attempt is missing");
+    }
+    return {
+      workspace: mapTaskWorkspace(workspace),
+      attempt: mapWorkspacePreparationAttempt(attempt),
+      created: false,
+    };
+  }
+
+  #requireSameTaskWorkspaceIntent(
+    result: TaskWorkspaceCreateResult,
+    input: TaskWorkspaceCreateInput,
+  ): TaskWorkspaceCreateResult {
+    const fields = [
+      "teamId",
+      "taskId",
+      "projectId",
+      "runtimeId",
+      "connectionId",
+      "repositoryExternalId",
+      "configuredBaseBranch",
+      "issueProvider",
+      "issueConnectionId",
+      "issueScopeExternalId",
+      "issueExternalId",
+      "baseRef",
+      "baseCommit",
+      "branchName",
+      "branchStrategy",
+    ] as const;
+    if (fields.some((field) => result.workspace[field] !== input[field])) {
+      throw new RdbError("TASK_WORKSPACE_CONFLICT", "Task already has a different Workspace intent");
+    }
+    return result;
   }
 
   async #findHostRuntimeByRunnerId(

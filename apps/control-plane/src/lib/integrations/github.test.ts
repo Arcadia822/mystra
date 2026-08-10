@@ -159,6 +159,54 @@ describe("GitHubIntegrationProvider repositories", () => {
 });
 
 describe("GitHubIntegrationProvider issues", () => {
+  it("resolves a deterministic workspace branch only for the exact Issue", async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(githubRepository))
+      .mockResolvedValueOnce(jsonResponse(githubIssue));
+    const provider = new GitHubIntegrationProvider({ token: "github-test-token", fetchImpl });
+
+    await expect(provider.resolveWorkspaceBranch({
+      issue: {
+        provider: "github",
+        connectionId: "00000000-0000-4000-8000-000000000001",
+        scopeExternalId: "42",
+        externalId: "101",
+        identifier: "7",
+      },
+      taskId: "12345678-0000-4000-8000-000000000001",
+    })).resolves.toEqual({
+      branchName: "mystra/github-7-render-the-remote-project-12345678",
+      strategy: "github-issue-identifier-title-task-v1",
+      source: "issue-provider",
+    });
+  });
+
+  it("rejects a missing, mismatched, or failed GitHub Issue without fallback", async () => {
+    const input = {
+      issue: {
+        provider: "github" as const,
+        connectionId: "00000000-0000-4000-8000-000000000001",
+        scopeExternalId: "42",
+        externalId: "101",
+        identifier: "7",
+      },
+      taskId: "12345678-0000-4000-8000-000000000001",
+    };
+    const providers = [
+      new GitHubIntegrationProvider({ token: "token", fetchImpl: vi.fn(async () => new Response("missing", { status: 404 })) }),
+      new GitHubIntegrationProvider({
+        token: "token",
+        fetchImpl: vi.fn()
+          .mockResolvedValueOnce(jsonResponse(githubRepository))
+          .mockResolvedValueOnce(jsonResponse({ ...githubIssue, id: 999 })),
+      }),
+      new GitHubIntegrationProvider({ token: "token", fetchImpl: vi.fn(async () => new Response("failed", { status: 500 })) }),
+    ];
+    for (const provider of providers) {
+      await expect(provider.resolveWorkspaceBranch(input)).rejects.toBeDefined();
+    }
+  });
+
   it("lists repository-ID-scoped native Issue rows and excludes Pull Requests", async () => {
     const nativeIssue = {
       ...githubIssue,

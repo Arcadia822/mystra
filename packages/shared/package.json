@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./task-workspace": {
+      "types": "./dist/task-workspace.d.ts",
+      "import": "./dist/task-workspace.js"
     }
   },
   "scripts": {

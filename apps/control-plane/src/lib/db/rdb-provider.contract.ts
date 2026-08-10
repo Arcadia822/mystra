@@ -19,6 +19,21 @@ function envelope(reference: string) {
   };
 }
 
+function workspaceRuntimeRegistration(name: string) {
+  return {
+    runnerId: randomUUID(),
+    name,
+    type: "host" as const,
+    platform: "darwin-arm64",
+    providers: [],
+    workspaceMaterialization: {
+      version: 1 as const,
+      kinds: ["task-repository"] as ["task-repository"],
+      sharingModes: ["shared-mutable"] as ["shared-mutable"],
+    },
+  };
+}
+
 export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>): void {
   let db: RdbProvider;
 
@@ -380,13 +395,22 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         version: "1.0.0",
         unavailableReason: null,
       }],
+      workspaceMaterialization: {
+        version: 1 as const,
+        kinds: ["task-repository"] as ["task-repository"],
+        sharingModes: ["shared-mutable"] as ["shared-mutable"],
+      },
     };
     const registered = await db.registerHostRuntime(registration);
 
     expect(registered).toMatchObject({
       name: registration.name,
       type: "host",
-      metadata: { runnerId: registration.runnerId, platform: registration.platform },
+      metadata: {
+        runnerId: registration.runnerId,
+        platform: registration.platform,
+        workspaceMaterialization: registration.workspaceMaterialization,
+      },
       status: "offline",
       lastSeenAt: null,
       providers: registration.providers,
@@ -419,6 +443,232 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     const renamed = await db.renameRuntime(registered.id, { name: "Renamed host" });
     expect(renamed).toMatchObject({ id: registered.id, name: "Renamed host" });
     expect(await db.reportHostProviders("unknown-runner", registration.providers)).toBeUndefined();
+  });
+
+  it("persists one Task Workspace, fences attempts, and preserves Runtime affinity", async () => {
+    const parent = await project();
+    const task = (await db.createTask({
+      teamId: parent.teamId,
+      projectId: parent.id,
+      title: "Prepare a repository",
+      description: null,
+      idempotencyKey: randomUUID(),
+    })).task;
+    const registration = workspaceRuntimeRegistration("Workspace host");
+    const runtime = await db.registerHostRuntime(registration);
+    const input = {
+      teamId: parent.teamId,
+      taskId: task.id,
+      projectId: parent.id,
+      runtimeId: runtime.id,
+      connectionId: parent.repositoryConnectionId,
+      repositoryExternalId: parent.repositoryExternalId,
+      configuredBaseBranch: parent.repositoryBaseBranch,
+      issueProvider: null,
+      issueConnectionId: null,
+      issueScopeExternalId: null,
+      issueExternalId: null,
+      baseRef: "refs/heads/main",
+      baseCommit: "0123456789abcdef0123456789abcdef01234567",
+      branchName: `mystra/task-${task.id.slice(0, 12).toLowerCase()}`,
+      branchStrategy: "mystra-task-fallback-v1",
+    } as const;
+
+    const results = await Promise.all(Array.from({ length: 20 }, () => db.createTaskWorkspace(input)));
+    expect(results.filter(({ created }) => created)).toHaveLength(1);
+    expect(new Set(results.map(({ workspace }) => workspace.id)).size).toBe(1);
+    const created = results[0]!;
+    expect(created.workspace).toMatchObject({
+      taskId: task.id,
+      state: "queued",
+      runtimeId: runtime.id,
+      activeAttemptSequence: 1,
+      workspaceRef: null,
+    });
+    expect(created.attempt).toMatchObject({ sequence: 1, state: "queued" });
+    expect(await db.getTaskWorkspaceByTaskId(task.id, { teamId: parent.teamId }))
+      .toEqual(created.workspace);
+
+    const otherTeam = (await tenant()).initialTeam;
+    expect(await db.getTaskWorkspaceByTaskId(task.id, { teamId: otherTeam.id })).toBeUndefined();
+
+    const claimed = await db.claimTaskWorkspacePreparation({
+      runnerId: registration.runnerId,
+      leaseExpiresAt: "2026-08-10T05:00:00.000Z",
+    });
+    expect(claimed).toMatchObject({
+      workspace: { id: created.workspace.id, state: "preparing" },
+      attempt: { id: created.attempt.id, sequence: 1, state: "claimed", runnerId: registration.runnerId },
+    });
+
+    const workspaceRef = `host-task-workspace:${created.workspace.id}`;
+    const ready = await db.completeTaskWorkspacePreparation({
+      workspaceId: created.workspace.id,
+      attemptId: created.attempt.id,
+      runnerId: registration.runnerId,
+      attemptSequence: 1,
+      status: "succeeded",
+      workspaceRef,
+      observed: { baseCommit: input.baseCommit, branchName: input.branchName },
+    });
+    expect(ready).toMatchObject({ state: "ready", workspaceRef, readyAt: expect.any(String) });
+    await expect(db.completeTaskWorkspacePreparation({
+      workspaceId: created.workspace.id,
+      attemptId: created.attempt.id,
+      runnerId: registration.runnerId,
+      attemptSequence: 1,
+      status: "failed",
+      failure: { code: "materialization_failed", message: "late failure" },
+    })).rejects.toMatchObject({ code: "STALE_WORKSPACE_ATTEMPT" });
+
+    await expect(db.createTaskWorkspace({ ...input, runtimeId: randomUUID() }))
+      .rejects.toMatchObject({ code: "TASK_WORKSPACE_CONFLICT" });
+  });
+
+  it("retries a failed preparation under the same Workspace identity and marks missing ready data unavailable", async () => {
+    const parent = await project();
+    const task = (await db.createTask({
+      teamId: parent.teamId,
+      projectId: parent.id,
+      title: "Retry workspace",
+      description: null,
+      idempotencyKey: randomUUID(),
+    })).task;
+    const registration = workspaceRuntimeRegistration("Retry host");
+    const runtime = await db.registerHostRuntime(registration);
+    const first = await db.createTaskWorkspace({
+      teamId: parent.teamId,
+      taskId: task.id,
+      projectId: parent.id,
+      runtimeId: runtime.id,
+      connectionId: parent.repositoryConnectionId,
+      repositoryExternalId: parent.repositoryExternalId,
+      configuredBaseBranch: "main",
+      issueProvider: null,
+      issueConnectionId: null,
+      issueScopeExternalId: null,
+      issueExternalId: null,
+      baseRef: "refs/heads/main",
+      baseCommit: "a".repeat(40),
+      branchName: `mystra/task-${task.id.slice(0, 12).toLowerCase()}`,
+      branchStrategy: "mystra-task-fallback-v1",
+    });
+    const claim = await db.claimTaskWorkspacePreparation({
+      runnerId: registration.runnerId,
+      leaseExpiresAt: "2026-08-10T05:00:00.000Z",
+    });
+    await db.completeTaskWorkspacePreparation({
+      workspaceId: first.workspace.id,
+      attemptId: claim!.attempt.id,
+      runnerId: registration.runnerId,
+      attemptSequence: 1,
+      status: "failed",
+      failure: { code: "materialization_failed", message: "checkout failed" },
+    });
+
+    const retried = await db.retryTaskWorkspace({
+      workspaceId: first.workspace.id,
+      teamId: parent.teamId,
+      runtimeId: runtime.id,
+    });
+    expect(retried).toMatchObject({
+      workspace: { id: first.workspace.id, state: "queued", activeAttemptSequence: 2 },
+      attempt: { sequence: 2, state: "queued" },
+    });
+    await expect(db.retryTaskWorkspace({
+      workspaceId: first.workspace.id,
+      teamId: parent.teamId,
+      runtimeId: randomUUID(),
+    })).rejects.toMatchObject({ code: "TASK_WORKSPACE_CONFLICT" });
+
+    const secondClaim = await db.claimTaskWorkspacePreparation({
+      runnerId: registration.runnerId,
+      leaseExpiresAt: "2026-08-10T06:00:00.000Z",
+    });
+    const ready = await db.completeTaskWorkspacePreparation({
+      workspaceId: first.workspace.id,
+      attemptId: secondClaim!.attempt.id,
+      runnerId: registration.runnerId,
+      attemptSequence: 2,
+      status: "succeeded",
+      workspaceRef: `host-task-workspace:${first.workspace.id}`,
+      observed: { baseCommit: first.workspace.baseCommit, branchName: first.workspace.branchName },
+    });
+    const unavailable = await db.markTaskWorkspaceUnavailable({
+      workspaceId: ready.id,
+      runtimeId: runtime.id,
+      failureMessage: "Workspace directory is missing",
+    });
+    expect(unavailable).toMatchObject({
+      id: ready.id,
+      state: "unavailable",
+      workspaceRef: null,
+      failureCode: "workspace_missing",
+    });
+  });
+
+  it("expires a preparation lease before accepting late reports and allows a fenced retry", async () => {
+    const parent = await project();
+    const task = (await db.createTask({
+      teamId: parent.teamId,
+      projectId: parent.id,
+      title: "Expire workspace lease",
+      description: null,
+      idempotencyKey: randomUUID(),
+    })).task;
+    const registration = workspaceRuntimeRegistration("Lease host");
+    const runtime = await db.registerHostRuntime(registration);
+    const created = await db.createTaskWorkspace({
+      teamId: parent.teamId,
+      taskId: task.id,
+      projectId: parent.id,
+      runtimeId: runtime.id,
+      connectionId: parent.repositoryConnectionId,
+      repositoryExternalId: parent.repositoryExternalId,
+      configuredBaseBranch: "main",
+      issueProvider: null,
+      issueConnectionId: null,
+      issueScopeExternalId: null,
+      issueExternalId: null,
+      baseRef: "refs/heads/main",
+      baseCommit: "c".repeat(40),
+      branchName: `mystra/task-${task.id.slice(0, 12).toLowerCase()}`,
+      branchStrategy: "mystra-task-fallback-v1",
+    });
+    const expired = await db.claimTaskWorkspacePreparation({
+      runnerId: registration.runnerId,
+      leaseExpiresAt: "2020-01-01T00:00:00.000Z",
+    });
+    expect(expired?.attempt.state).toBe("claimed");
+
+    expect(await db.claimTaskWorkspacePreparation({
+      runnerId: registration.runnerId,
+      leaseExpiresAt: "2026-08-10T07:00:00.000Z",
+    })).toBeUndefined();
+    expect(await db.getTaskWorkspaceById(created.workspace.id)).toMatchObject({
+      state: "failed",
+      failureCode: "materialization_failed",
+      failureMessage: "Workspace preparation lease expired",
+    });
+    await expect(db.completeTaskWorkspacePreparation({
+      workspaceId: created.workspace.id,
+      attemptId: expired!.attempt.id,
+      runnerId: registration.runnerId,
+      attemptSequence: 1,
+      status: "succeeded",
+      workspaceRef: `host-task-workspace:${created.workspace.id}`,
+      observed: { baseCommit: created.workspace.baseCommit, branchName: created.workspace.branchName },
+    })).rejects.toMatchObject({ code: "STALE_WORKSPACE_ATTEMPT" });
+
+    const retried = await db.retryTaskWorkspace({
+      workspaceId: created.workspace.id,
+      teamId: parent.teamId,
+      runtimeId: runtime.id,
+    });
+    expect(retried).toMatchObject({
+      workspace: { id: created.workspace.id, state: "queued", activeAttemptSequence: 2 },
+      attempt: { sequence: 2, state: "queued" },
+    });
   });
 
   it("manages Team-owned Agents with revisions, pagination, and detached snapshots", async () => {

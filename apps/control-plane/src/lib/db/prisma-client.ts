@@ -18,7 +18,9 @@ import {
   type Task,
   type Team,
   type TeamMembership,
+  type TaskWorkspace,
   type User,
+  type WorkspacePreparationAttempt,
 } from "../../generated/prisma/sqlite/client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 
@@ -37,6 +39,20 @@ type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSal
 type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
 type AgentUpdate = Partial<Pick<Agent, "name" | "systemPrompt" | "revision" | "status" | "archivedAt" | "updatedAt">>;
 type TaskUpdate = Partial<Pick<Task, "title" | "description" | "updatedAt">>;
+type TaskWorkspaceUpdate = Partial<Pick<
+  TaskWorkspace,
+  | "state"
+  | "workspaceRef"
+  | "activeAttemptSequence"
+  | "failureCode"
+  | "failureMessage"
+  | "updatedAt"
+  | "readyAt"
+>>;
+type WorkspacePreparationAttemptUpdate = Partial<Pick<
+  WorkspacePreparationAttempt,
+  "state" | "runnerId" | "leaseExpiresAt" | "claimedAt" | "completedAt" | "failureCode"
+>>;
 type TaskWhere = {
   id?: string;
   teamId?: string;
@@ -88,6 +104,34 @@ export interface MystraPrismaDelegates {
     updateMany(args: { where: { id: string; teamId?: string }; data: TaskUpdate }): Promise<CountResult>;
     findUnique(args: { where: { id: string } }): Promise<Task | null>;
     findMany(args: { where?: TaskWhere; orderBy: OrderBy }): Promise<Task[]>;
+  };
+  taskWorkspace: {
+    create(args: { data: TaskWorkspace }): Promise<TaskWorkspace>;
+    updateMany(args: {
+      where: { id?: string; teamId?: string; runtimeId?: string; state?: string; activeAttemptSequence?: number };
+      data: TaskWorkspaceUpdate;
+    }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { taskId: string } }): Promise<TaskWorkspace | null>;
+    findMany(args: {
+      where?: { teamId?: string; runtimeId?: string; state?: string };
+      orderBy: OrderBy;
+    }): Promise<TaskWorkspace[]>;
+  };
+  workspacePreparationAttempt: {
+    create(args: { data: WorkspacePreparationAttempt }): Promise<WorkspacePreparationAttempt>;
+    updateMany(args: {
+      where: { id?: string; workspaceId?: string; sequence?: number; state?: string; runnerId?: string };
+      data: WorkspacePreparationAttemptUpdate;
+    }): Promise<CountResult>;
+    findUnique(args: {
+      where:
+        | { id: string }
+        | { workspaceId_sequence: Pick<WorkspacePreparationAttempt, "workspaceId" | "sequence"> };
+    }): Promise<WorkspacePreparationAttempt | null>;
+    findMany(args: {
+      where?: { workspaceId?: string; state?: string };
+      orderBy: OrderBy;
+    }): Promise<WorkspacePreparationAttempt[]>;
   };
   agent: {
     create(args: { data: Agent }): Promise<Agent>;
@@ -226,6 +270,8 @@ const modelMethods = {
   project: ["create", "updateMany", "findUnique", "findMany"],
   projectIssueSource: ["upsert", "findUnique", "findMany", "deleteMany"],
   task: ["create", "updateMany", "findUnique", "findMany"],
+  taskWorkspace: ["create", "updateMany", "findUnique", "findMany"],
+  workspacePreparationAttempt: ["create", "updateMany", "findUnique", "findMany"],
   agent: ["create", "updateMany", "findUnique", "findMany"],
   runtime: ["create", "updateMany", "findUnique", "findMany"],
   runtimeProvider: ["create", "deleteMany", "findMany"],

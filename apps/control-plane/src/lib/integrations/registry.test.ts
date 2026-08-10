@@ -16,6 +16,13 @@ const issueProvider: IssueProvider = {
   async getIssue() {
     return undefined;
   },
+  async resolveWorkspaceBranch() {
+    return {
+      branchName: "mystra/fake-issue-12345678",
+      strategy: "fake-v1",
+      source: "issue-provider",
+    };
+  },
 };
 
 const repoProvider: RepoProvider = {

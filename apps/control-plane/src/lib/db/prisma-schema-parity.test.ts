@@ -32,6 +32,8 @@ describe("Prisma provider schema parity", () => {
       "Project",
       "ProjectIssueSource",
       "Task",
+      "TaskWorkspace",
+      "WorkspacePreparationAttempt",
       "Agent",
       "Runtime",
       "RuntimeProvider",
@@ -47,6 +49,8 @@ describe("Prisma provider schema parity", () => {
       '@@map("projects")',
       '@@map("project_issue_sources")',
       '@@map("tasks")',
+      '@@map("task_workspaces")',
+      '@@map("workspace_preparation_attempts")',
       '@@map("agents")',
       '@@map("runtimes")',
       '@@map("runtime_providers")',
@@ -78,5 +82,23 @@ describe("Prisma provider schema parity", () => {
     expect(task).toMatch(/@@unique\(\[teamId, idempotencyKey\]\)/u);
     expect(task).toMatch(/@@unique\(\[issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId\]\)/u);
     expect(task).not.toMatch(/issueDispatchKey|metadata/u);
+  });
+
+  it("models a singular Task Workspace and monotonically sequenced preparation attempts", () => {
+    const schema = modelSection(readSchema("sqlite"));
+    const workspace = schema.match(/model TaskWorkspace \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const attempt = schema.match(/model WorkspacePreparationAttempt \{[\s\S]*?\n\}/u)?.[0] ?? "";
+
+    expect(workspace).toMatch(/taskId\s+String\s+@unique/u);
+    expect(workspace).toMatch(/runtimeId\s+String/u);
+    expect(workspace).toMatch(/workspaceRef\s+String\?/u);
+    expect(workspace).toMatch(/activeAttemptSequence\s+Int/u);
+    expect(workspace).toMatch(/@@index\(\[runtimeId, state, createdAt\]\)/u);
+    expect(workspace).not.toMatch(/workspacePath|cloneUrl|credential/u);
+
+    expect(attempt).toMatch(/workspaceId\s+String/u);
+    expect(attempt).toMatch(/sequence\s+Int/u);
+    expect(attempt).toMatch(/@@unique\(\[workspaceId, sequence\]\)/u);
+    expect(attempt).toMatch(/@@index\(\[state, createdAt\]\)/u);
   });
 });

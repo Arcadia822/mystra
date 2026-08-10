@@ -41,8 +41,12 @@ ownership, and current external Issue information remains provider-resolved
 rather than copied into Task snapshots.
 Session is independently Team-scoped, owns all execution choices and lifecycle,
 and may separately reference `0..1` Project and `0..1` Task. Runner is stable capacity.
-Workspace means the Session-scoped working directory and context-delivery
-surface; it is never a tenancy term.
+Workspace is the unified execution working-directory and context-delivery
+surface; it is never a tenancy term. The current 048/049/050 slice supports
+Task-bound Sessions only: feature 048 prepares one Runtime-affine Task Workspace
+and each Session for that Task attaches the same shared-mutable ref. Project-only
+and standalone Sessions are deferred; a future preparation policy must reuse
+this Workspace/attachment contract instead of creating a parallel type.
 
 ## Commands
 
@@ -63,9 +67,13 @@ pnpm lsp:typescript
 
 - Open Agents is a source-authoritative reference baseline, not an assumed
   packaged runtime dependency.
-- Every Project binds one IntegrationConnection plus a provider-stable remote Repository external ID.
-  Mutable repository metadata is not Project persistence; Repo Info retrieval/cache is separately specified.
-  Local paths and caller-supplied clone URLs are invalid inputs.
+- Every Project binds one IntegrationConnection plus a provider-stable remote Repository external ID and persists
+  a Mystra-owned `repositoryBaseBranch` setting. That setting selects the branch Workspace Setup resolves; it is
+  ordinary provider-neutral configuration, not a cache of the Provider's current default branch. Remote `HEAD`,
+  branch enumeration and exact branch-to-commit resolution use a platform-owned standard Git protocol boundary;
+  they are not GitHub/Integration RepoProvider methods. Other mutable repository metadata remains outside Project
+  persistence and requires a separate Repo Info retrieval/cache specification. Local paths and caller-supplied clone
+  URLs are invalid inputs.
 - Task belongs to exactly one Team and not to Project. It persists title,
   description, an immutable optional Project context reference, and an immutable
   optional exact Issue reference. An Issue reference requires Project context;
@@ -80,6 +88,8 @@ pnpm lsp:typescript
   Project; either or both may be absent. Session owns its independent objective,
   selected Runtime, Provider, Agent and Context, plus branch, lifecycle,
   cancellation and result. Agent belongs to the same Team and has no Project relation.
+  This is the north-star domain model; current 048/049/050 launch is Task-bound
+  only and does not yet accept the optional-reference combinations.
 - Runner has stable identity. Enrollment by name rotates credentials without
   creating a new business object.
 - Runner claim responses contain the selected Session and resolved runtime;
@@ -118,6 +128,7 @@ IntegrationPlugin     named repository and/or Issue capabilities
 IntegrationConnection durable non-secret binding to one provider authorization
 SecretProvider        plaintext crypto boundary; RDB persists only encrypted envelopes
 RepoProvider          remote repository discovery and identity
+GitRemoteRepositoryReader provider-neutral standard Git HEAD/branch/ref inspection
 IssueProvider         GitHub repository-scoped; Linear read-only
 SandboxProvider       single-machine Docker, one Runtime execution backend
 RuntimeProvider       execution backend advertising source-agnostic Provider (agent CLI) capabilities; host-bound Runtime enrolled by the TypeScript `mystra-runner` (feature 044)

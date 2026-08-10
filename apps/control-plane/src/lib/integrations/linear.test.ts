@@ -28,6 +28,51 @@ function graphQlResponse(body: unknown, init: ResponseInit = {}): Response {
 }
 
 describe("LinearIssueProvider", () => {
+  it("resolves a deterministic workspace branch only for the exact Issue", async () => {
+    const provider = new LinearIssueProvider({
+      apiKey: "linear-test-key",
+      fetchImpl: vi.fn(async () => graphQlResponse({
+        data: { issue: { ...linearIssue, team: { id: "team-id" } } },
+      })),
+    });
+
+    await expect(provider.resolveWorkspaceBranch({
+      issue: {
+        provider: "linear",
+        connectionId: "00000000-0000-4000-8000-000000000001",
+        scopeExternalId: "team-id",
+        externalId: "issue-id",
+        identifier: "MYS-101",
+      },
+      taskId: "12345678-0000-4000-8000-000000000001",
+    })).resolves.toEqual({
+      branchName: "mystra/linear-mys-101-ship-the-demo-12345678",
+      strategy: "linear-issue-identifier-title-task-v1",
+      source: "issue-provider",
+    });
+  });
+
+  it("rejects a missing, mismatched, or failed Linear Issue without fallback", async () => {
+    const input = {
+      issue: {
+        provider: "linear" as const,
+        connectionId: "00000000-0000-4000-8000-000000000001",
+        scopeExternalId: "team-id",
+        externalId: "issue-id",
+        identifier: "MYS-101",
+      },
+      taskId: "12345678-0000-4000-8000-000000000001",
+    };
+    const providers = [
+      new LinearIssueProvider({ apiKey: "key", fetchImpl: vi.fn(async () => graphQlResponse({ data: { issue: null } })) }),
+      new LinearIssueProvider({ apiKey: "key", fetchImpl: vi.fn(async () => graphQlResponse({ data: { issue: { ...linearIssue, id: "other", team: { id: "team-id" } } } })) }),
+      new LinearIssueProvider({ apiKey: "key", fetchImpl: vi.fn(async () => new Response("failed", { status: 500 })) }),
+    ];
+    for (const provider of providers) {
+      await expect(provider.resolveWorkspaceBranch(input)).rejects.toBeDefined();
+    }
+  });
+
   it("lists native Issue rows through an exact Linear Team filter", async () => {
     const fetchImpl = vi.fn(async (..._args: Parameters<typeof fetch>) => graphQlResponse({
       data: { issues: { nodes: [linearIssue], pageInfo: { hasNextPage: false, endCursor: null } } },

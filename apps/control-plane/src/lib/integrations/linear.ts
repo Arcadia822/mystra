@@ -11,10 +11,13 @@ import {
   type LinearIssueListRequest,
   type LinearIssueListResponse,
   type LinearIssueListItem,
+  type TaskIssueReference,
+  type WorkspaceBranchDecision,
 } from "@mystra/shared";
 import { z } from "zod";
 
 import { IntegrationFailure } from "./errors";
+import { issueWorkspaceBranchDecision } from "./issue-workspace-branch";
 import type { IntegrationPlugin, IssueProvider } from "./types";
 
 const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
@@ -253,6 +256,34 @@ export class LinearIssueProvider implements IssueProvider {
       cycle: issue.cycle,
       updatedAt: issue.updatedAt,
       url: issue.url,
+    });
+  }
+
+  async resolveWorkspaceBranch(input: {
+    issue: TaskIssueReference;
+    taskId: string;
+  }): Promise<WorkspaceBranchDecision> {
+    if (input.issue.provider !== "linear") {
+      throw new IntegrationFailure({
+        code: "ISSUE_SCOPE_UNAVAILABLE",
+        message: "Linear Issue reference is invalid",
+      });
+    }
+    const issue = await this.getProjectIssue({
+      identifier: input.issue.identifier,
+      linearTeamExternalId: input.issue.scopeExternalId,
+    });
+    if (!issue || issue.externalId !== input.issue.externalId) {
+      throw new IntegrationFailure({
+        code: "ISSUE_NOT_FOUND",
+        message: "Exact Linear Issue is unavailable",
+      });
+    }
+    return issueWorkspaceBranchDecision({
+      provider: "linear",
+      identifier: issue.identifier,
+      title: issue.title,
+      taskId: input.taskId,
     });
   }
 

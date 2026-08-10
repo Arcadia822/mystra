@@ -1,4 +1,5 @@
-import { hostname } from "node:os";
+import { homedir, hostname } from "node:os";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   hostHeartbeatResponseSchema,
@@ -14,6 +15,8 @@ import {
   getStableRunnerId,
 } from "./registration.js";
 import { captureException, flushSentry, initSentry } from "./sentry.js";
+import { WorkspaceMaterializer } from "./workspace-materializer.js";
+import { HttpWorkspaceControlPlaneClient, runWorkspaceLoop } from "./workspace-loop.js";
 
 export const DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15;
 export const DEFAULT_DISCOVERY_INTERVAL_SECONDS = 60;
@@ -26,6 +29,8 @@ interface RunnerConfig {
   heartbeatIntervalSeconds: number;
   discoveryIntervalSeconds: number;
   retryIntervalSeconds: number;
+  workspaceRoot: string;
+  workspacePollWaitSeconds: number;
   once: boolean;
 }
 
@@ -62,6 +67,16 @@ function endpointFromArgs(): string | undefined {
   return endpoint;
 }
 
+function boundedNonNegativeIntEnv(name: string, fallback: number, maximum: number): number {
+  const value = process.env[name];
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > maximum) {
+    throw new Error(`${name} must be an integer between 0 and ${maximum}`);
+  }
+  return parsed;
+}
+
 function readConfig(): RunnerConfig {
   const endpoint = endpointFromArgs()
     ?? process.env.MYSTRA_RUNNER_ENDPOINT
@@ -84,6 +99,14 @@ function readConfig(): RunnerConfig {
     retryIntervalSeconds: positiveIntEnv(
       "MYSTRA_RUNNER_RETRY_INTERVAL_SECONDS",
       DEFAULT_RETRY_INTERVAL_SECONDS,
+    ),
+    workspaceRoot: path.resolve(
+      process.env.MYSTRA_RUNNER_WORKSPACE_ROOT ?? path.join(homedir(), ".mystra", "workspaces"),
+    ),
+    workspacePollWaitSeconds: boundedNonNegativeIntEnv(
+      "MYSTRA_RUNNER_WORKSPACE_POLL_WAIT_SECONDS",
+      25,
+      25,
     ),
     once: process.env.MYSTRA_RUNNER_ONCE === "1",
   };
@@ -200,6 +223,15 @@ export async function runDaemon(
     return;
   }
 
+  const workspaceLoop = runWorkspaceLoop({
+    runnerId,
+    client: new HttpWorkspaceControlPlaneClient(config.endpoint),
+    materializer: new WorkspaceMaterializer({ root: config.workspaceRoot }),
+    waitSeconds: config.workspacePollWaitSeconds,
+    retryIntervalSeconds: config.retryIntervalSeconds,
+    signal,
+  });
+
   let nextHeartbeatAt = Date.now();
   let nextDiscoveryAt = Date.now() + config.discoveryIntervalSeconds * 1_000;
   while (!signal.aborted) {
@@ -247,6 +279,7 @@ export async function runDaemon(
       signal,
     );
   }
+  await workspaceLoop;
 }
 
 async function main(): Promise<void> {

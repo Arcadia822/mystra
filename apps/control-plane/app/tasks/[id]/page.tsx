@@ -15,6 +15,7 @@ import {
 } from "../../_components/task-detail-model";
 import { TASK_DETAIL_COPY } from "../../_components/shell-copy";
 import { useShellLocale } from "../../_components/shell-locale";
+import { TaskWorkspacePanel } from "../../_components/task-workspace-panel";
 import { UiActionAnchor, UiButton } from "../../_components/ui-actions";
 import { UiInput, UiTextarea } from "../../_components/ui-fields";
 import { relativeTime } from "../../_lib/format";
@@ -98,6 +99,7 @@ export default function TaskDetailPage() {
             <div><dt>{copy.updated}</dt><dd>{relativeTime(task.updatedAt)} · {task.updatedAt}</dd></div>
           </dl>
         </section>
+        <TaskWorkspacePanel task={task} />
       </div>
     </div>
   );
