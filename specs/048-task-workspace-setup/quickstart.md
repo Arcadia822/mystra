@@ -22,6 +22,8 @@ fnm exec --using=24.14.0 corepack pnpm --filter @mystra/control-plane db:validat
 - root typecheck、lint、control-plane production build、SQLite/PostgreSQL Prisma schema validation passed。
 - SQLite `RdbProvider` contract suite passed。环境未配置 `MYSTRA_TEST_POSTGRES_URL`，因此 PostgreSQL runtime contract execution 保持 blocked；schema parity/validation 不能冒充真实数据库执行。
 
+Owner boundary reconciliation 后再次验证：shared 18 files / 171 tests、control-plane 65 files passed + 1 skipped / 306 tests passed + 17 skipped、runner-daemon 5 files / 19 tests，以及 shared/control-plane/runner package typecheck 全部通过。本地 generated Prisma client 起初落后于已提交 schema，执行 `pnpm --filter @mystra/control-plane db:generate` 后恢复；generated output 未形成 tracked source change。
+
 ## 2. Task-only 049 dependency checkpoint
 
 `SessionWorkspaceAttachment` 当前只接受：
@@ -35,6 +37,8 @@ sharingMode=shared-mutable
 ```
 
 `resolveSessionAttachment` 只接受 Task ID，只读取 ready Workspace，且保持相同的 `taskWorkspaceId/runtimeId/workspaceRef/shared-mutable`。missing、non-ready、Runtime offline、capability missing 或 Runtime mismatch 全部 fail closed。Project-only 与 standalone Session 整体 deferred；当前没有第二个 union branch、alias、fallback 或猜测字段。
+
+048 不创建或持久化 Session、initial turn、Provider execution 或 launch state，也不返回 `turnId`。Workspace preparation claim/lease 只用于 materialization fencing/retry，不是 Session Runtime capacity、slot 或 execution occupancy。049 负责原子 launch transaction：创建 Session、解析全部输入、拼接 system prompt 与第一条 user message，再发起选定 Provider。
 
 Checkpoint 命令：
 
@@ -119,4 +123,4 @@ fnm exec --using=24.14.0 corepack pnpm dlx gitnexus status
 git diff --check
 ```
 
-最终已运行 Spec-Kit status/analyze、GitNexus fresh analyze/change detection、`git diff --check` 与 targeted consistency search。Spec-Kit status 为 58/58；最新 GitNexus index 为 8,147 nodes / 14,305 edges / 300 flows。048、owner-corrected 049/050 与 5xP/constitution 一致表达：当前仅 Task-bound Session，单一 Workspace/attachment contract，未来 deferred modes 只允许更换准备逻辑。
+最终运行 Spec-Kit status、GitNexus change detection、scoped `git diff --check` 与 targeted consistency search。048 与已落入本地 `main` 的 049/050 spec、实现、测试及 5xP/constitution 一致表达：当前仅 Task-bound Session，单一 Workspace/attachment contract，未来 deferred modes 只允许更换准备逻辑。本次 GitNexus MCP reader 因 database storage version 42 / reader version 40 不兼容而失败，影响结论记为 unknown；targeted source/reference + diff audit 作为降级证据，没有把旧统计数字冒充当前结果。

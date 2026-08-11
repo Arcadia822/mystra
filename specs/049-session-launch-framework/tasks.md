@@ -128,6 +128,12 @@
 
 ---
 
+## Phase 8: Owner Context Delivery Reconciliation
+
+- [x] T056 在 `system-prompt-assembler.test.ts` 先复现 Task exact Issue reference 被 Context projection 丢弃，再由 `system-prompt-assembler.ts` 显式交付 provider、connection、scope、external ID 与 identifier；不复制或实时解析外部 Issue 正文
+
+---
+
 ## Dependencies & Execution Order
 
 ```text

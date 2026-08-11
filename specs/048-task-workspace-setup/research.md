@@ -23,7 +23,7 @@
 
 ### D1. Task owns the durable Workspace identity
 
-**Decision**: 新增 `TaskWorkspace`，以 `taskId` unique 强制 `1 : 0..1`。Session 只记录 attachment，不拥有或复制 Task Workspace。
+**Decision**: 新增 `TaskWorkspace`，以 `taskId` unique 强制 `1 : 0..1`。048 只向后续消费者解析 attachment，不创建 Session，也不拥有 049 的 attachment persistence。
 
 **Why**: 用户要求 setup 在 Session 之前发生，并让多个 Session 共享同一目录。把它建模为 SessionWorkspace 无法表达 setup-before-session。
 
@@ -53,7 +53,7 @@
 
 ### D5. Outbound claim/report protocol with fencing
 
-**Decision**: runner 轮询 claim；RDB transaction 产生 attempt/lease；报告必须携带 workspaceId、attemptId 与 attempt sequence。旧 attempt 返回 conflict，不覆盖状态。
+**Decision**: runner 轮询 Workspace preparation claim；RDB transaction 产生 attempt/lease；报告必须携带 workspaceId、attemptId 与 attempt sequence。旧 attempt 返回 conflict，不覆盖状态。该 lease 只用于 materialization fencing 与 retry，不是 Session claim、Runtime slot、capacity 或执行占用。
 
 **Why**: 延续 044 host Runtime outbound 模型，并处理超时重试后的晚到结果。
 
@@ -73,7 +73,7 @@
 
 ### D8. Shared mutable Session semantics
 
-**Decision**: 所有 Task Session 使用同一 ref，不 snapshot、不 reset。Runtime capacity 决定是否重叠执行；本功能不加目录锁。
+**Decision**: 所有 Task Session 使用同一 ref，不 snapshot、不 reset。048 不定义、持久化或限制 Runtime capacity/slot，也不加目录锁；是否重叠执行由后续 execution contract 决定。
 
 **Why**: 这是 owner 明确选择。自动序列化会额外改变调度合同，自动隔离则直接违背选择。
 
@@ -95,10 +95,12 @@
 
 **Why**: 049 需要消费 Workspace attachment，050 需要消费 048 状态和 049 launch；反序会迫使草案各自发明临时合同。
 
+049 的 launch ownership 是明确边界：在一个原子 transaction 中创建 Session、解析全部输入、拼接 system prompt 与第一条 user message，再通过选定 Provider 发起执行。048 不创建 initial `turnId`，也不为它提供兼容层。
+
 ## Open implementation checks (not product clarifications)
 
 - Git availability/version probe 与 cross-platform atomic rename behavior。
 - Runtime 与 control-plane Git 可执行文件的最低受支持版本及 version probe。
-- runner claim long-poll 是否直接复用 049 Session claim transport，或共享一个内部 polling client。
+- Workspace preparation 与未来 Session execution 可以复用通用 outbound HTTP client/polling utility，但不得复用 claim state、lease 或 capacity 语义。
 - branch slug 的 provider-specific normalization fixtures 和最大长度。
 - UI prototype 由 048 提供最小 panel，还是与 050 共用一个独立 artifact；进入 tasks 前必须锁定。

@@ -67,3 +67,4 @@ node scripts/render-spec-view.mjs --feature 049-session-launch-framework
 - Real Codex verification is blocked: the installed wrapper resolves to a missing vendor binary and exits with
   `ENOENT`. Fake-process adapter coverage therefore does not masquerade as real Codex execution evidence.
 - A real PostgreSQL/Supabase URL was not available; PostgreSQL migration connectivity remains unexecuted.
+- Final owner reconciliation added a RED/GREEN regression proving that the frozen Context component carries the Task exact optional Issue reference. The Provider Agent receives provider/connection/scope/external ID/identifier and may resolve live Issue content through Runtime-local tools; 049 still performs no live Issue read and copies no Issue body.

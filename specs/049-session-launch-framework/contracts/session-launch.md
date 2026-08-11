@@ -59,6 +59,8 @@ interface SessionService {
 
 Runtime claim 和 Provider 调用只允许在 commit 之后开始。
 
+Context component 冻结 Project repository identity 与 Task 自身已持久化的 exact optional Issue reference。Issue reference 包含 provider、connection ID、scope external ID、Issue external ID 与 identifier；它是供 Provider Agent 使用 `gh`、`linctl` 等 Runtime-local capability 解析 source-authoritative 信息的非秘密、不可信数据。049 不在 launch 中读取或复制外部 Issue 正文。
+
 相同 sessionId + 同 launch payload 返回 `created:false`；不同 payload 返回 `session_conflict`。
 
 ## sendMessage 语义

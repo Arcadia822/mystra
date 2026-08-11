@@ -7,7 +7,7 @@
 
 在 control plane 中新增唯一的 `TaskWorkspace` 领域合同和显式 setup service。该 service 从 Task 的 immutable Project/Issue references 出发：读取 Project 的普通 `repositoryBaseBranch` 配置，通过 provider-neutral 标准 Git repository reader 在 exact repository 上读取 refs、验证配置并解析 canonical ref/exact commit，Issue provider 解析工作分支 decision（无 Issue 才使用 Task fallback），然后创建异步 preparation attempt。host `mystra-runner` 通过既有 outbound 模型 claim attempt，在 Runtime 自管根目录中原子化准备 Task 专属 clone/worktree，最后只回传 opaque `workspaceRef`。
 
-Task-bound Session 不再创建目录，而是附着这个 ready Workspace，强制 Runtime affinity，并共享同一个可变文件系统。当前 048/049/050 不支持 Project-only 或 standalone Session，也不预建平行 Workspace 类型。完整 Task 发起/历史 UI 由 feature 050 消费本功能状态。
+048 为 Task-bound Session 提供 ready Workspace attachment resolver，强制 Runtime affinity，并让后续消费者复用同一个可变文件系统。当前 048/049/050 不支持 Project-only 或 standalone Session，也不预建平行 Workspace 类型。048 不创建 Session、initial turn 或 Provider execution；049 拥有原子 launch transaction，完整 Task 发起/历史 UI 由 feature 050 消费本功能状态。
 
 ## Technical Context
 
@@ -28,7 +28,7 @@ Task-bound Session 不再创建目录，而是附着这个 ready Workspace，强
 | Gate | 结论 | 处置 |
 |---|---|---|
 | Task 创建/更新不得产生执行副作用 | PASS | setup 保持显式动作；Task CRUD 不触发 Workspace 或 Session。 |
-| Session、Task、Project 保持 Team-scoped siblings | PASS | Workspace 归 Task，但 Task 仍不属于 Project；Session 仅记录 attachment。 |
+| Session、Task、Project 保持 Team-scoped siblings | PASS | Workspace 归 Task，但 Task 仍不属于 Project；048 只返回 attachment，Session 的创建与持久化由 049 拥有。 |
 | Runtime/Provider/Agent/Context 独立输入 | OWNER-APPROVED REFINEMENT | 当前仅 Task-bound Session；Task Workspace 对 Session 引入强制 Runtime compatibility，而不是把 Runtime 归属到 Task。Project-only/standalone launch 整体 deferred。 |
 | `workspace` execution directory contract | OWNER-APPROVED REPLACEMENT | 当前只有 Task-owned durable Workspace 与同一 attachment 合同；未来对 deferred Session modes 的准备逻辑仍须复用该合同，不得增加平行类型。 |
 | API-first，UI secondary | PASS | canonical service/route 与 runner protocol 先于 Task page 状态组件；feature 050 再完成 launch/history UX。 |
@@ -57,7 +57,8 @@ Task Setup Workspace
 Task Session (049)
   -> requires ready TaskWorkspace
   -> validates requested Runtime == workspace.runtimeId
-  -> records attachment and executes in same shared-mutable workspaceRef
+  -> atomically creates Session, resolves all inputs and composes prompts
+  -> records attachment and starts selected Provider in shared-mutable workspaceRef
 
 ```
 
@@ -71,7 +72,7 @@ Task Session (049)
 - `TaskWorkspaceService`: Team scope、fallback、ref validation、幂等、状态机、Runtime eligibility 与三方编排。
 - `WorkspaceMaterializer`: host filesystem/Git 实现、safe root、临时目录、原子发布、opaque ref resolution。
 - `RdbProvider`: durable TaskWorkspace/attempt transaction，不持有路径或 provider clients。
-- feature 049 Session service: attachment selection 与 Runtime affinity；不重新解析 repository/Issue。
+- feature 049 Session service: 在一个原子 launch transaction 中创建 Session、解析全部输入、拼接 system prompt 与第一条 user message，再通过选定 Provider 发起执行；消费 048 attachment 且不重新解析 repository/Issue。048 不引入 initial `turnId` 或兼容层。
 
 ## Project Structure
 
@@ -176,12 +177,12 @@ apps/runner-daemon/src/
 3. 实现 host materializer：只在配置 root 下创建 UUID 派生目录，使用 argv spawn，不拼 shell；先临时目录后 atomic rename。
 4. 对 branch collision、attempt expiry、partial clone、process crash、path traversal 与 secret redaction 建立 integration tests。
 
-### Phase 3 - Task action and cross-feature attachment
+### Phase 3 - Task action and consumer dependency contract
 
 1. 在 Task detail 增加最小 Workspace panel：Setup、状态、Runtime、branch、失败与 retry。
-2. 修订 049 Session launch：仅接受 Task-bound Session，并只附着 ready TaskWorkspace。
-3. 修订 050 Task experience：Runtime 显示为 Workspace 锁定值；未 ready 时 launch disabled 并引导 Setup。
-4. 加入三个 Task-bound Session 共享目录、missing/non-ready/offline/Runtime mismatch fail-closed 的 cross-feature tests。
+2. 发布给 049 的依赖合同：仅接受 Task-bound input，只附着 ready TaskWorkspace；048 不实现 Session 创建、initial turn、Provider 发起或 Session event 状态机。
+3. 发布给 050 的 read projection：Runtime 显示为 Workspace 锁定值；未 ready 时 launch disabled 并引导 Setup；完整 summary/detail UI 仍由 050 实现。
+4. 加入 repeated attachment resolution 与 missing/non-ready/offline/Runtime mismatch fail-closed tests；真实 Session launch 与 shared-mutation consumer tests 由 049/050 拥有。
 
 ### Phase 4 - Verification and closeout gate
 
@@ -197,7 +198,7 @@ apps/runner-daemon/src/
 - **Service unit**: Team scope、Task without Project、20x idempotency、attempt fencing、ready/failed retry、Runtime capability/affinity。
 - **Runner unit/integration**: safe root、argv injection resistance、temp cleanup、atomic publish、branch collision、secret redaction、crash recovery。
 - **API**: auth/RBAC、setup 202/read 200/conflict/error mapping、runner auth、claim lease、stale report 409。
-- **Cross-feature**: 3 Task-bound Sessions same ref + visible mutation；missing/non-ready/unavailable/offline/mismatch all fail closed；无 Project-only/standalone input contract。
+- **048 consumer contract**: repeated resolution returns the same ref；missing/non-ready/unavailable/offline/mismatch all fail closed；无 Project-only/standalone input contract。真实 Session 创建、Provider 发起与 visible mutation acceptance 由 049/050 测试。
 - **UI runtime**: Task panel 状态与 action 需要真实浏览器验证，但仅在 implementation/tasks 阶段，不用于验证本次 Markdown。
 
 ## Risk Register
@@ -207,7 +208,7 @@ apps/runner-daemon/src/
 | `RdbProvider` 是共享高影响合同 | HIGH | additive domain methods、双 provider contract tests、所有 mocks/fixtures 同步；实现前再次 impact。 |
 | 误把标准 Git branch 操作塞进 RepoProvider | MEDIUM | GitNexus 显示 19 个受影响符号/6 个 direct；保持 RepoProvider 不变，新增 provider-neutral Git reader 与 focused tests。 |
 | Issue provider interface 破坏现有 adapters | MEDIUM | pre-0.1 直接替换并更新 GitHub/Linear/registry tests，不加 optional compatibility shim。 |
-| Task Sessions 共享目录产生 Git/filesystem 竞争 | HIGH (product choice) | 明示 `shared-mutable`，遵守 Runtime capacity，不承诺锁或隔离；测试重叠执行可观测性。 |
+| Task Sessions 共享目录产生 Git/filesystem 竞争 | HIGH (product choice) | 明示 `shared-mutable`，不承诺锁或隔离；048 不定义或持久化 Runtime capacity/slot，重叠执行可观测性由后续 execution contract 测试。 |
 | runner 需要 repository credential | HIGH | authenticated outbound channel、just-in-time resolution、内存使用、日志 redaction；不在 RDB/event/workspace metadata 持久化。 |
 | base branch 在 setup 中变化 | MEDIUM | standard Git reader 返回 exact commit，Workspace 冻结 commit；后续观察不改历史。 |
 | 049/050 consumer 与 048 Workspace 合同漂移 | MEDIUM | 049/050 仅消费 task/shared-mutable attachment；Project-only/standalone 整体 deferred，禁止预建第二种 Workspace 或 clone path。 |

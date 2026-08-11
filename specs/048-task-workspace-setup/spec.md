@@ -2,7 +2,7 @@
 
 **Feature Branch**: `048-task-workspace-setup`
 **Created**: 2026-08-10
-**Status**: Approved for implementation
+**Status**: Implemented；latest 048/049/050 boundary reconciliation complete
 **Input**: 为 Task 提供显式的 Setup Workspace 动作，由 Project 的标准 repository 配置选择基线、通用 Git 能力读取和解析远端 branch、Issue 能力决定工作分支名、Runtime 准备本地仓库或 worktree；当前 048/049/050 只支持 Task-bound Session，并共享该 Task Workspace。
 
 ## User Scenarios & Testing *(mandatory)*
@@ -24,9 +24,9 @@
 
 ---
 
-### User Story 2 - 所有 Task Session 共享同一工作目录 (Priority: P1)
+### User Story 2 - 为 Task Session 提供唯一 ready Workspace attachment (Priority: P1)
 
-操作者从已准备 Workspace 的 Task 发起多个 Session。每个 Session 都在该 Task Workspace 的同一个可变目录中工作；前一个 Session 对文件系统和工作分支的修改会被后续 Session 直接看见。系统不为这些 Session 创建隔离 clone、worktree 或子目录。
+048 为后续 Task-bound Session launch 提供只读、fail-closed 的 attachment resolver。对同一 ready Task 重复解析时，结果始终指向同一个 Task Workspace、Runtime 和可变目录；048 不创建 Session、不发起 Provider，也不为 Session 创建隔离 clone、worktree 或子目录。
 
 **Why this priority**: 这是用户明确选择的执行模型。它保留跨 Session 的连续工作状态，同时把 Runtime 亲和性和共享写入风险变成可见合同，而不是隐藏实现偶然性。
 
@@ -34,10 +34,10 @@
 
 **Acceptance Scenarios**:
 
-1. **Given** Task Workspace 为 ready，**When** 从该 Task 发起 Session，**Then** Session 必须使用 Workspace 所属 Runtime 和同一个 `workspaceRef`。
-2. **Given** 同一 Task 已有多个 Session，**When** 后续 Session 启动，**Then** 它看到 Workspace 当前文件状态，而不是 Setup 时或前一 Session 启动时的快照。
-3. **Given** 调用方选择了与 Task Workspace 不同的 Runtime，**When** 发起 Task Session，**Then** 系统 fail closed，不迁移、不复制 Workspace，也不静默改选 Runtime。
-4. **Given** Runtime 允许多个 Session 同时执行，**When** 它们进入同一 Task Workspace，**Then** 系统明确将其视为 shared-mutable 执行，不宣称目录隔离或写入冲突保护。
+1. **Given** Task Workspace 为 ready，**When** 049 为该 Task 解析 attachment，**Then** 048 返回 Workspace 所属 Runtime 和同一个 `workspaceRef`。
+2. **Given** 同一 ready Task 被连续解析多次，**When** 每次都请求相同 Runtime，**Then** 048 返回逐字段相同的 attachment，且不重新执行 repository/Issue policy 或 materialization。
+3. **Given** 调用方选择了与 Task Workspace 不同的 Runtime，**When** 解析 Task Session attachment，**Then** 048 fail closed，不迁移、不复制 Workspace，也不静默改选 Runtime。
+4. **Given** 049/Runtime 允许多个 Session 执行进入同一 Workspace，**When** 它们消费该 attachment，**Then** `shared-mutable` 明确表示没有目录隔离或写入冲突保护；并发与执行占用不由 048 调度。
 
 ---
 
@@ -47,14 +47,14 @@
 
 **Why this priority**: repository 和 Runtime 都是外部或主机侧能力。失败不可避免；把半成品当作可执行 Workspace 才是可避免的部分。
 
-**Independent Test**: 分别注入 repository 无权限、非法分支名、Runtime 离线和 materialization 失败，验证 Workspace 保持非 ready、Session 启动被拒绝，并可在同一 Runtime 上重试失败的准备。
+**Independent Test**: 分别注入 repository 无权限、非法分支名、Runtime 离线和 materialization 失败，验证 Workspace 保持非 ready、attachment 解析被拒绝，并可在同一 Runtime 上重试失败的准备。
 
 **Acceptance Scenarios**:
 
 1. **Given** exact repository access 或标准 Git branch 解析失败，**When** Setup Workspace 执行，**Then** Workspace 进入 failed 并记录稳定错误码，不调用 Runtime materialization。
 2. **Given** Runtime 在准备过程中失败，**When** 上报结果，**Then** Workspace 进入 failed，任何不完整路径都不成为可消费的 `workspaceRef`。
 3. **Given** failed Workspace 且请求仍指向同一 Runtime 与相同 repository intent，**When** 操作者重试 Setup Workspace，**Then** 系统重用同一个 Workspace 身份开始新一次准备，不创建第二条关系。
-4. **Given** ready Workspace 在 Runtime 上已丢失，**When** Runtime 或 Session launch 检测到该事实，**Then** Workspace 变为 unavailable，Task Session fail closed；MVP 不自动迁移或重建它。
+4. **Given** ready Workspace 在 Runtime 上已丢失，**When** Runtime 在消费前验证该事实，**Then** 048 将 Workspace 标为 unavailable，后续 attachment 解析 fail closed；MVP 不自动迁移或重建它。
 
 ### Edge Cases
 
@@ -106,41 +106,42 @@
 - **FR-018**: Runtime MUST 以 attempt-aware 协议 claim 准备任务并上报结果；过期 attempt 不得覆盖当前状态。
 - **FR-019**: 系统 MUST 仅在 Runtime 确认目录、repository 与 branch 都可用后写入 `ready` 和最终 `workspaceRef`。
 
-#### Session workspace 选择
+#### 049 consumer attachment boundary
 
-- **FR-020**: 从 Task 发起 Session 时，Session launch framework MUST 要求该 Task 已有 ready Workspace。
-- **FR-021**: Task Session MUST 绑定 Task Workspace 的 Runtime 与完全相同的 opaque `workspaceRef`；不得创建 Session 专属 clone、worktree、目录或 filesystem snapshot。
-- **FR-022**: Task Workspace MUST 标记固定的 `shared-mutable` sharing mode；每个 Task Session MUST 看见 Workspace 当时的实际可变内容。
-- **FR-023**: Task Session 请求指定其他 Runtime 时 MUST fail closed，不得复制 Workspace、静默切换 Runtime 或把 Project context 当作 Workspace 替代品。
-- **FR-024**: Workspace sharing 不得改变 Session、Task、Project 的业务归属：Session 仍是 Team-scoped 独立对象，当前 launch 必须引用 Task；Task 仍不属于 Project。
-- **FR-025**: Runtime 并发容量决定同一 Workspace 是否可能同时运行多个 Session；本功能 MUST NOT 宣称 Session 级目录隔离、写入锁或自动冲突处理。
+- **FR-020**: 048 attachment resolver MUST 只接受 Task-bound input，并要求该 Task 已有 ready Workspace。
+- **FR-021**: resolver MUST 返回 Task Workspace 的 Runtime 与完全相同的 opaque `workspaceRef`；不得创建 Session 专属 clone、worktree、目录或 filesystem snapshot。
+- **FR-022**: Task Workspace attachment MUST 标记固定的 `shared-mutable` sharing mode；049 消费者据此进入 Workspace 当时的实际可变内容。
+- **FR-023**: requested Runtime 与 Task Workspace 不同时 resolver MUST fail closed，不得复制 Workspace、静默切换 Runtime 或把 Project context 当作 Workspace 替代品。
+- **FR-024**: Workspace attachment 不得改变 Session、Task、Project 的业务归属：Session 仍是 Team-scoped 独立对象，当前 049 launch input 必须引用 Task；Task 仍不属于 Project。
+- **FR-025**: 048 MUST NOT 定义、持久化或限制 Session Runtime capacity、slot 或执行占用。Workspace preparation 的 claim/lease 只用于 materialization 互斥、重试与过期上报 fencing；它不是 Session claim、Runtime slot 或 capacity accounting。本功能也 MUST NOT 宣称 Session 级目录隔离、写入锁或自动冲突处理。
 
 #### 状态、权限与可观测性
 
-- **FR-026**: Setup、读取状态与 Task Session 消费 MUST 强制 Team scope 与现有 Owner/Admin/Member 权限边界；跨 Team 的 Task、Project、Runtime、Workspace 组合 MUST fail closed。
+- **FR-026**: Setup、读取状态与 attachment resolution MUST 强制 Team scope 与现有 Owner/Admin/Member 权限边界；跨 Team 的 Task、Project、Runtime、Workspace 组合 MUST fail closed。
 - **FR-027**: 系统 MUST 返回稳定错误码，至少覆盖 `task_project_required`、`repository_unavailable`、`repository_branches_unavailable`、`issue_branch_unavailable`、`branch_invalid`、`runtime_unavailable`、`workspace_capability_unavailable`、`materialization_failed`、`workspace_not_ready`、`workspace_missing` 与 `workspace_runtime_mismatch`。
 - **FR-028**: Workspace MUST 保留足以审计 setup 决策的 provenance：Task、Project、connection、repository external ID、Setup 时的 configured base branch、规范 base ref、base commit、可选 Issue reference、branch strategy/name、Runtime、attempt 与时间戳。
 - **FR-029**: Task surface 与 canonical API MUST 展示 Workspace 状态、Runtime、branch、最近失败和可执行动作，但 MUST NOT 暴露宿主机绝对路径或 repository secret。
-- **FR-030**: Task Session 的 durable launch evidence MUST 记录它附着的 Task Workspace 身份、Runtime 与 `shared-mutable` 模式；它不得声称冻结了 Workspace 文件内容。
+- **FR-030**: 048 的 attachment resolver MUST 返回 Task Workspace 身份、Runtime、同一个 opaque `workspaceRef` 与 `shared-mutable` 模式，不得返回 Session、turn、Provider 或 launch 状态。049 是否以及如何把 attachment 写入 Session launch evidence 由 049 自己拥有。
 
 ### Key Entities
 
 - **TaskWorkspace**: Team-scoped、由一个 Task 唯一拥有的可执行目录合同。关键属性包括 Task、Project、Runtime、状态、sharing mode、repository/Issue provenance、冻结 base ref/commit、branch name、opaque workspace reference、当前 attempt 与失败信息。
-- **WorkspacePreparationAttempt**: 一次异步准备尝试，用于 claim、租约、去重和防止过期上报覆盖当前结果。它是 Task Workspace 的操作记录，不是新的顶级业务对象。
+- **WorkspacePreparationAttempt**: 一次异步 materialization 尝试，用于 claim、租约、去重和防止过期上报覆盖当前结果。它是 Task Workspace 的操作记录，不是新的顶级业务对象，也不表示 Session capacity、slot 或执行占用。
 - **ProjectRepositoryConfiguration**: Project 持久化的 exact connection、repository external ID 与普通 `repositoryBaseBranch` 配置；配置不依赖某个 Integration adapter 的 branch 能力。
 - **GitRemoteRepositoryReader**: 平台拥有的标准 Git protocol boundary；使用临时 access context 读取 symbolic `HEAD`、枚举 `refs/heads/*` 并把配置 branch 解析为 exact commit，不拥有 Project 配置，也不创建本地 Workspace。
 - **RepositoryWorkspaceIntent**: 通用 Git repository service 根据 Project 配置解析出的 provider-neutral 输入，包含 exact connection、repository external ID、configured base branch、规范 base ref 与 exact base commit，不含本地路径或 secret。
 - **WorkspaceBranchDecision**: Issue capability 或 manual Task fallback 产生的分支决策，包含 branch name、策略来源与可审计版本。
-- **SessionWorkspaceAttachment**: 当前 Task-bound Session launch evidence 中对 ready Task Workspace 的引用，只包含 `taskWorkspaceId`、`runtimeId`、同一 opaque `workspaceRef` 与 `shared-mutable`。不预定义 deferred Session modes 的字段或第二种 attachment 类型。
+- **SessionWorkspaceAttachment**: 048 为 049 解析出的 ready Task Workspace 引用，只包含 `taskWorkspaceId`、`runtimeId`、同一 opaque `workspaceRef` 与 `shared-mutable`。它不是 Session、turn 或 launch record；不预定义 deferred Session modes 的字段或第二种 attachment 类型。
 
 ## Assumptions & Dependencies
 
 - feature 047 已提供 Task 的 immutable optional Project context 与 exact optional Issue reference；本功能不改变 Task 的业务归属。
 - feature 044 已提供 Runtime enrollment、online 状态与 capability advertisement；本功能扩展新的 workspace materialization capability，但不重新定义 Runtime 注册。
-- 顺延后的 feature 049 负责仅限 Task-bound 的 canonical Session launch；本功能定义其必须消费的 ready Task Workspace attachment contract。
+- 顺延后的 feature 049 负责仅限 Task-bound 的 canonical Session launch：在一个原子 launch transaction 中创建 Session、解析全部输入、拼接 system prompt 与第一条 user message，并通过选定 Provider 发起执行。048 只定义其必须消费的 ready Task Workspace attachment contract，不引入 initial `turnId` 或兼容层。
 - 顺延后的 feature 050 负责 Task 详情中的完整 Session 发起与历史体验；本功能提供 Setup Workspace 动作、状态与最低可用展示合同。
 - Project repository identity/credential 与 Issue provider 必须可从 Project/Task 的稳定引用解析；remote branch 读取和解析使用通用 Git protocol boundary，不进入 Integration-specific provider API。
 - MVP 默认在一个 Runtime 主机上维持 Task Workspace；跨 Runtime 复制、共享文件系统与灾备不在此合同中。
+- Session 一轮执行结束且尚无下一条 user message 时自然释放本轮执行占用；048 不保存该占用，也不据此限制 Runtime capacity。capacity 是未来 Runtime 能力规格。
 
 ## Out of Scope
 
@@ -150,6 +151,8 @@
 - Setup Workspace 调用方提供 clone URL、本地目录、base branch、commit 或工作 branch name；Project Default branch 的普通配置入口不属于该禁止项。
 - repository metadata cache、webhook 同步、Provider default-branch 观察值持久化和外部 repository 状态镜像；Project 的普通 `repositoryBaseBranch` 配置与即时 Git branch 读取明确属于范围内。
 - Project-only Session，以及既无 Task 也无 Project 的 standalone Session；未来支持时必须复用同一 Workspace/attachment contract，不得预建平行 Workspace 类型。
+- Session 创建、initial turn、Provider 发起、Session event 状态机、summary/detail UI，以及任何 `turnId` compatibility contract。
+- Runtime Session capacity/slot persistence、调度限制与验收；Workspace preparation attempt 不得被解释为这些概念。
 
 ## Success Criteria *(mandatory)*
 

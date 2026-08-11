@@ -8,11 +8,11 @@ Mystra changes must preserve the documented MVP boundary unless the boundary is 
 
 ### II. Typed Contracts at Service Boundaries
 
-Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each in the north-star model. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs and atomically persists the Session, frozen system prompt, and first user message before Runtime/Provider I/O. Mystra defines no Turn business object; message identity is only command idempotency and SessionEvent correlation. The current 048/049/050 slice supports Task-bound Sessions only; Project-only and standalone Sessions are deferred. Workspace is one unified execution-directory/context-delivery contract: future preparation policies must reuse it and MUST NOT introduce a parallel Workspace type.
+Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each in the north-star model. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs and atomically persists the Session, frozen system prompt, ready Task Workspace attachment, and first user message before Runtime/Provider I/O. Mystra defines no Turn business object; message identity is only command idempotency and SessionEvent correlation. The current 048/049/050 slice supports Task-bound Sessions only; Project-only and standalone Sessions are deferred. Feature 048 owns Task Workspace setup/materialization, ready state and a stable attachment resolver; it does not create Session or Provider execution. Workspace preparation claim/lease is materialization fencing, not Session Runtime capacity, slot or execution occupancy. Workspace is one unified execution-directory/context-delivery contract: future preparation policies must reuse it and MUST NOT introduce a parallel Workspace type.
 
 ### III. Providers Are Replaceable Boundaries
 
-Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. Runtime is a first-class, replaceable execution backend that advertises which Provider capabilities (agent CLI / protocol families) it can run, expressed source-agnostically so a host-discovered Runtime and a future image-declared Runtime share one contract. A host-bound Runtime enrolled by the TypeScript `mystra-runner` — covering registration, Provider discovery plus availability confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is one such sandbox provider rather than the sole execution model, and host worktree direct execution is the intended default execution direction. Task context and exact Issue intake are owned by feature 047; Context/worktree management, execution and Session persistence remain follow-up boundaries. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
+Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. Runtime is a first-class, replaceable execution backend that advertises which Provider capabilities (agent CLI / protocol families) it can run, expressed source-agnostically so a host-discovered Runtime and a future image-declared Runtime share one contract. A host-bound Runtime enrolled by the TypeScript `mystra-runner` — covering registration, Provider discovery plus availability confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is one such sandbox provider rather than the sole execution model, and host worktree direct execution is the intended default execution direction. Feature 047 owns Task context and exact Issue intake, feature 048 owns Task Workspace preparation, and feature 049 owns Task-bound Session launch, continuation and typed event history. Delivery automation above this execution layer remains a follow-up boundary. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
 
 ### IV. Runner Isolation and Secret Hygiene
 
@@ -74,11 +74,16 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 
 - 2026-08-10: Features 048/049/050 were narrowed to Task-bound Session delivery.
   Feature 048 owns one Runtime-affine Task Workspace and a strict ready
-  `task/shared-mutable` attachment; feature 049 consumes that attachment for
-  canonical Task-bound Session launch, and feature 050 consumes the setup/read
-  projections. Project-only and standalone Sessions are deferred. The Workspace
-  contract remains singular, so future preparation for the deferred Session
-  modes may change how a Workspace is prepared but may not create a parallel type.
+  `task/shared-mutable` attachment resolver；it does not create Session、initial
+  turn、Provider execution、Session events or summary/detail UI. Feature 049 owns
+  the atomic launch transaction：create Session，resolve all inputs，compose the
+  system prompt and first user message，then start the selected Provider，without
+  an initial `turnId` compatibility layer. Feature 050 consumes the setup/read
+  and launch projections. Project-only and standalone Sessions are deferred. The
+  Workspace contract remains singular, so future preparation for the deferred
+  Session modes may change how a Workspace is prepared but may not create a
+  parallel type. Preparation claims/leases remain materialization fencing and
+  MUST NOT be treated as Session Runtime capacity、slots or execution occupancy.
 
 - 2026-08-10: Feature 049 admitted Team-authorized, Session-scoped typed event
   history as a narrow execution-truth surface. It also fixed launch as one RDB

@@ -14,12 +14,14 @@
 - [x] Task `1 : 0..1` Workspace 关系已定义。
 - [x] Project 配置、Integration RepoProvider、标准 Git reader、Issue 与 Runtime 职责已分离。
 - [x] 当前 048/049/050 只支持 Task-bound Session；Project-only 与 standalone Session 整体延后，未来必须复用同一 Workspace/attachment contract。
+- [x] 048 只负责 setup/materialize、ready 状态与 task-only attachment resolver；Session 创建、initial turn、Provider 发起、event 状态机和 summary/detail UI 分属 049/050。
+- [x] preparation claim/lease 仅为 materialization fencing/retry，不是 Session capacity/slot；048 不定义 Runtime execution capacity。
 - [x] 幂等、失败、Runtime 亲和性与 secret 边界已定义。
 - [x] 技术计划完成 standard Git interface、持久化和 runner protocol 设计。
 - [x] 工程评审完成并回写风险处置。
 
 ## 后续插件检查
 
-- [x] 使用 plan engineering review 检查现有 044/047/049/050 合同冲突，并按 owner correction 收敛为 task-only consumer contract。
+- [x] 使用 plan engineering review 检查现有 044/047 与已落入本地 `main` 的 049/050 合同，并按 correction 收敛为 task-only consumer contract；具体 049/050 spec、实现与测试已完成交叉复核。
 - [x] 使用 GitNexus impact 检查 RepoProvider，确认 MEDIUM blast radius 并保持接口不变；IssueProvider、RdbProvider 与 Session launch 在实现前复核。
 - [x] 在真实 control-plane 页面完成 Project branch 与 Task Workspace UI browser verification。

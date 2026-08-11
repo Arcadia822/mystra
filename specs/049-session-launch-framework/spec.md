@@ -17,7 +17,7 @@ Mystra 不定义 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。每条 user m
 | Runtime | 平台/Runtime | Runtime ID、类型、执行能力快照 | workspace 与执行环境约束 |
 | Provider | Runtime capability | Provider key、协议/adapter 能力快照 | Provider 能力、限制与交互约束 |
 | Agent | Team | Agent ID、revision、system prompt 快照 | Agent 定义的行为指令 |
-| Context | Session | 可选 Project、Task 与手工上下文快照 | 作为转义后的不可信业务上下文数据 |
+| Context | Session | 可选 Project、Task（含 exact optional Issue reference）与手工上下文快照 | 作为转义后的不可信业务上下文数据；Provider Agent 可用 Issue reference 读取 source-authoritative 内容 |
 
 这里的 `launch` 是 Control Plane 的 canonical application command `SessionService.launch`：它校验参数，解析 feature 048 attachment，组装 system prompt，并在一个数据库事务中写入 Session、`session.created`、`session.system_prompt_configured`、`session.workspace_attached` 和第一条 `session.user_message_submitted`，然后返回 `queued`。Runtime claim 与 Provider 网络调用只能在该事务提交后发生，数据库事务不得跨 Runtime/provider I/O。
 
@@ -47,8 +47,9 @@ Mystra 不定义 `Turn`、`turnId`、`SessionTurn` 或 Turn CRUD。每条 user m
 
 1. 四个选择按固定顺序渲染，组件快照与最终文本写入 `session.system_prompt_configured`。
 2. Project、Task 与手工 Context 只是显式标记的不可信数据，不得覆盖系统指令。
-3. launch 后 Agent、Project 或 Task 更新不改变该 Session 已冻结的 system prompt。
-4. 第一条 user message 是独立事件，不拼入 system prompt，也不需要二次 `sendMessage`。
+3. Task 带 Issue 时，Context 必须冻结该 Task 已持久化的 exact Issue reference，包括 provider、connection、scope、external ID 与 identifier；049 不复制或实时解析外部 Issue 正文。
+4. launch 后 Agent、Project 或 Task 更新不改变该 Session 已冻结的 system prompt。
+5. 第一条 user message 是独立事件，不拼入 system prompt，也不需要二次 `sendMessage`。
 
 ### 场景 4：Runtime 使用 Task Workspace 并通过 Provider 执行（P1）
 
@@ -122,7 +123,7 @@ ready + sendMessage -> message_pending
 - **FR-017**：Runtime 必须重新确认 Provider available/capability；不兼容时失败，不静默回退。
 - **FR-018**：Provider execution 必须通过 ProviderSessionAdapter；当前 concrete adapter 覆盖已启用的 Codex/Copilot CLI，同一有效 lease 内保持一个 Provider session 并串行处理消息。
 - **FR-019**：每个 adapter 必须显式生成 start 与 continuation command；system prompt 只在 start command 与首条 user message 一起交付，continuation 不得重复注入 system prompt。
-- **FR-020**：system prompt 四部分按固定顺序生成；完整内容只保存在类型化事件中。
+- **FR-020**：system prompt 四部分按固定顺序生成；Context component 必须把 Project repository identity 与 Task exact optional Issue reference 作为非秘密、不可信数据交付给 Provider Agent，完整内容只保存在类型化事件中。049 不复制或实时解析外部 Issue 正文。
 - **FR-021**：launch 必须持久化 `session.workspace_attached`，引用 feature 048 的 `taskWorkspaceId/runtimeId/workspaceRef/shared-mutable`。
 - **FR-022**：049 必须拒绝缺少 Task 的 launch。Project-only Session 与 standalone Session 延后；未来必须复用同一 Workspace/attachment 合同，只允许准备逻辑不同，不得新增 parallel temporary-workspace model。
 - **FR-023**：Runtime 为上报事件生成稳定 event ID 与来源流连续序号，并至少一次重试。

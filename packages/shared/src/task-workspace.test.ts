@@ -63,6 +63,11 @@ describe("Task Workspace contracts", () => {
       runnerId: ids.runner,
       waitSeconds: 26,
     })).toThrow();
+    expect(() => workspacePreparationClaimRequestSchema.parse({
+      runnerId: ids.runner,
+      waitSeconds: 0,
+      sessionCapacity: 1,
+    })).toThrow();
   });
 
   it("keeps the operator setup request narrow and strict", () => {
@@ -115,7 +120,7 @@ describe("Task Workspace contracts", () => {
     })).toThrow();
   });
 
-  it("models only the ready Task Workspace attachment without paths", () => {
+  it("models only the ready Task Workspace attachment without launch-owned fields or paths", () => {
     const taskAttachment = sessionWorkspaceAttachmentSchema.parse({
       kind: "task",
       taskWorkspaceId: ids.workspace,
@@ -125,10 +130,15 @@ describe("Task Workspace contracts", () => {
     });
 
     expect(taskAttachment.kind).toBe("task");
-    expect(() => sessionWorkspaceAttachmentSchema.parse({
-      ...taskAttachment,
-      workspacePath: "/var/lib/mystra/workspace",
-    })).toThrow();
+    for (const forbidden of [
+      { workspacePath: "/var/lib/mystra/workspace" },
+      { turnId: ids.attempt },
+    ]) {
+      expect(() => sessionWorkspaceAttachmentSchema.parse({
+        ...taskAttachment,
+        ...forbidden,
+      })).toThrow();
+    }
   });
 
   it("parses a bounded standard Git ref advertisement", () => {

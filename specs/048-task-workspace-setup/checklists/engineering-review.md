@@ -8,6 +8,7 @@
 - [x] TaskWorkspace ownership and `1 : 0..1` invariant are explicit.
 - [x] Project config、Integration RepoProvider、standard Git reader、Issue、orchestration and Runtime responsibilities are separated.
 - [x] attempt lease/fencing and state transitions are defined.
+- [x] attempt claim/lease is restricted to materialization fencing/retry and is not Session Runtime capacity, slot or execution occupancy.
 - [x] Current 048/049/050 scope is Task-bound only; future Project-only or standalone preparation must reuse the same Workspace/attachment contract.
 - [x] Runtime affinity and no-fallback behavior are defined.
 
@@ -25,9 +26,9 @@
 - [x] shared-mutable concurrent writes are treated as visible risk, not isolation.
 - [x] UI prototype refreshed and verified in a real browser before tasks; evidence is recorded in `prototype.md`.
 - [x] Owner implementation authorization confirms unavailable/rebuild/delete remain excluded for 048 MVP.
-- [x] Owner-corrected 049/050 handoff confirms 049 only consumes `task/shared-mutable` with the same `taskWorkspaceId/runtimeId/workspaceRef`; 050 consumes setup/read projections and does not create a second Workspace type.
+- [x] Owner-corrected 049/050 handoff confirms 049 owns atomic Session creation/input resolution/prompt composition/Provider start and consumes `task/shared-mutable`; 050 consumes setup/read plus 049 launch projections. 048 owns neither and introduces no initial `turnId`.
 - [x] 048 task-only dependency checkpoint passes shared/control-plane focused tests and typecheck; 049 may rebase/stack on this contract before the remaining 048 audit closes.
-- [x] Dependency consistency rechecked against the current 049/050 task-only consumer contracts during final audit.
+- [x] Dependency consistency rechecked against the concrete 049/050 task-only specs, implementations and tests now present on local `main`.
 
 ## Completion evidence
 

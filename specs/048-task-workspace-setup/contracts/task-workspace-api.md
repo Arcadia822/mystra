@@ -46,7 +46,7 @@ Response shape:
 }
 ```
 
-`workspaceRef` 仅供受信 Session launch/runner contract；普通 Task response 不需要暴露它，更不返回 absolute path。
+`workspaceRef` 仅供受信 049 Session service/runner contract；普通 Task response 不需要暴露它，更不返回 absolute path。
 
 ### `GET /api/tasks/{taskId}/workspace`
 
@@ -78,7 +78,7 @@ interface TaskWorkspaceService {
 }
 ```
 
-`resolveSessionAttachment` 只读取 ready Workspace，不重新运行 repository/Issue policy。
+`resolveSessionAttachment` 只接受 Task identity，只读取 ready Workspace，不重新运行 repository/Issue policy。它返回 attachment，但不创建或持久化 Session、turn、Provider execution 或 launch state。requested Runtime 不匹配、Workspace missing/non-ready、Runtime offline 或 capability missing 均 fail closed。
 
 ## Stable failure codes
 

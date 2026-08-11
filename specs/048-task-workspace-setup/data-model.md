@@ -43,7 +43,7 @@ Durable Team-scoped domain entity。Task 与该实体为 `1 : 0..1`；不是 hos
 
 ## WorkspacePreparationAttempt
 
-Runner/control-plane operational record；不作为顶级业务对象展示。
+Runner/control-plane operational record；不作为顶级业务对象展示。它仅约束 Workspace materialization 的互斥、重试和过期结果 fencing，不表达 Session Runtime capacity、slot 或执行占用。
 
 | Field | Type | Rules |
 |---|---|---|
@@ -133,7 +133,7 @@ type SessionWorkspaceAttachment = {
 };
 ```
 
-Attachment 是当前 Task-bound launch evidence，不是 filesystem snapshot。Project-only 与 standalone Session 整体 deferred；本合同不猜测 deferred modes 的字段，也不提供第二种 Workspace 类型。
+Attachment 是 048 为 049 返回的 ready Task Workspace 引用，不是 Session、turn、launch record 或 filesystem snapshot。049 自己决定如何把它写入 Session launch evidence。Project-only 与 standalone Session 整体 deferred；本合同不猜测 deferred modes 的字段，也不提供第二种 Workspace 类型。
 
 ## State transitions
 

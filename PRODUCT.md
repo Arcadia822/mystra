@@ -36,9 +36,14 @@ workflow graph above the Agent.
   remain a future capability; an idle ready Session does not reserve capacity.
 - **Workspace** is the unified execution working-directory and context-delivery
   contract. Feature 048 prepares one Runtime-affine Workspace per eligible Task,
-  and every Task-bound Session attaches the same mutable Workspace. Future
+  and resolves the same mutable Workspace attachment for every Task-bound
+  Session. Feature 048 does not create Session、initial turn or Provider
+  execution；feature 049 owns that atomic launch transaction. Future
   preparation for deferred Session modes must reuse this contract rather than
   introduce a parallel variant.
+- **Runtime/Runner** enrollment and Runtime capability persistence are owned by
+  feature 044. Session claim, continuation and lifecycle reporting are owned by
+  feature 049; capacity/slot persistence and scheduling are a future capability.
 - Runner protocol bookkeeping and Runtime-private filesystem details remain
   implementation facts rather than business objects.
 
@@ -107,8 +112,9 @@ The north-star is a hosted **Mystra platform** with an open-source core:
   Task-bound only and defers Project-only/standalone launch.
 - **Workspace** — one execution-directory/context-delivery contract; currently
   Task-owned, Runtime-affine and shared-mutable across that Task's Sessions.
-- **Runtime/Runner** remains an execution-capacity concept owned by its separate
-  specifications.
+- **Runtime/Runner** enrollment and advertised capabilities are first-class;
+  Session capacity/slot scheduling remains owned by a future Runtime
+  specification, not Workspace setup.
 
 ## Platform topology
 
@@ -168,9 +174,10 @@ In scope:
   top-level tenant boundary, and all protected API/MCP/CLI/Web operations resolve
   effective permissions server-side. Feature 043 owns this contract and waits for
   the 040 Prisma RDB integration on `main`.
-- Stable pull-based Runtime enrollment, credential rotation, heartbeat,
-  eligibility, claim, cancellation, and Session lifecycle reporting. Runtime
-  capacity is a future capability rather than an MVP Session-launch contract.
+- Stable pull-based Runtime enrollment, credential rotation, heartbeat and
+  capability advertisement. Session execution claim, cancellation, continuation
+  and lifecycle reporting belong to 049; capacity/slot accounting remains a
+  future Runtime capability.
 - Direct Docker sandbox and Agent execution with test, build, preview, branch,
   commit, review, and `waiting_for_review` evidence.
 - Thin CLI, MCP, and secondary Web clients over the canonical API.

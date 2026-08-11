@@ -61,7 +61,7 @@ The ownership split is coherent:
 - Issue provider decides **what branch name**;
 - TaskWorkspaceService decides **whether/when setup is valid**;
 - Runtime decides **how/where to materialize**;
-- 049 creates a Task-bound Session and consumes **the ready Task Workspace attachment**.
+- 048 resolves **the ready Task Workspace attachment**；049 separately creates a Task-bound Session and starts Provider execution.
 
 This avoids three dangerous alternatives: provider adapters duplicating standard Git branch APIs, provider adapters writing host files, and runner code inventing business branch policy.
 
@@ -78,11 +78,11 @@ This avoids three dangerous alternatives: provider adapters duplicating standard
 
 ### Shared-mutable concurrency
 
-Owner explicitly selected no Session isolation. Runtime execution policy therefore controls whether writes can overlap; 048 must not quietly add a Workspace mutex, invent a capacity number, or imply concurrent safety. Cross-feature tests must cover that allowed concurrent writers observe one shared directory and that conflicts remain visible rather than “resolved” by hidden copies.
+Owner explicitly selected no Session isolation. The later execution contract controls whether writes can overlap; 048 must not add a Workspace mutex, Runtime capacity/slot persistence, scheduling limit, or imply concurrent safety. A Session execution naturally releases its current execution occupancy after the turn ends and no next user message exists, but 048 neither records nor schedules that occupancy. Consumer tests in 049/050 must cover that allowed concurrent writers observe one shared directory and that conflicts remain visible rather than “resolved” by hidden copies.
 
 ### Runtime protocol
 
-Outbound claim/report is consistent with feature 044. Attempt sequence is a fencing token, not merely telemetry. Lease expiry followed by retry must make late success a `409 stale_workspace_attempt` rather than a ready transition.
+Outbound claim/report is consistent with feature 044. Attempt sequence is a Workspace materialization fencing token, not Session scheduling or capacity telemetry. Lease expiry followed by retry must make late success a `409 stale_workspace_attempt` rather than a ready transition.
 
 ### Credential boundary
 
@@ -187,7 +187,7 @@ PostgreSQL absence is a blocked verification item, not a SQLite-derived pass. A 
 - Repository cloning dominates latency and bytes; record duration/bytes/failure code without secret/path logging.
 - Project branch reads use one remote advertisement, a 30-second timeout, 10,000-ref cap and 8 MiB stdout cap. API pages are 1..100/default 50, sorted by canonical ref and scoped to Project/connection/repository/query in the cursor.
 - The plan deliberately omits shared cache. Add it only after measuring repeated clone cost; it would introduce locking, eviction and credential hygiene.
-- Task status polling should back off in terminal states and does not justify SSE/WebSocket in this MVP.
+- Task Workspace status polling should back off in stable states and does not justify SSE/WebSocket in this MVP. `ready` means Workspace-consumable；it is not a Session terminal state.
 
 ## Failure-mode review
 
@@ -201,8 +201,8 @@ PostgreSQL absence is a blocked verification item, not a SQLite-derived pass. A 
 | branch invalid | required | reject before child process/runner | `branch_invalid` |
 | runner lease expires | required | next attempt may claim；old report fenced | retryable failed/preparing state |
 | clone succeeds but publish fails | required | failed；temp cleaned safely；no ready ref | `materialization_failed` |
-| ready directory later missing | required | mark unavailable；Session fail closed | Workspace unavailable |
-| Runtime offline | required | no new claim/Session；no automatic migration | Runtime unavailable |
+| ready directory later missing | required | mark unavailable；attachment resolution fails closed | Workspace unavailable |
+| Runtime offline | required | no new preparation claim；attachment resolution fails closed；no automatic migration | Runtime unavailable |
 | concurrent Session writes | required | visible shared state/conflict；no hidden clone | shared-mutable warning/result |
 | secret appears in stderr | required | redact before event/log/persistence | safe generic error |
 
@@ -217,8 +217,9 @@ Critical silent gaps：0。
 ```
 
 - 048 lands standard Git/Issue policy, persistence, Runtime and setup/read contracts while keeping Integration RepoProvider branch-neutral.
-- 049 lands canonical Task-bound Session creation and persists the ready Task Workspace attachment.
-- 050 lands the complete human Task Workspace + launch/history experience.
+- 048 lands the stable task-only attachment resolver and does not create Session、initial turn、Provider execution、Session events or summary/detail UI.
+- 049 owns one atomic launch transaction：create Session，resolve all inputs，compose the system prompt and first user message，then start the selected Provider. It persists the ready Task Workspace attachment without introducing an initial `turnId` or compatibility layer.
+- 050 lands the complete human Task Workspace + launch/history experience and consumes 048/049 projections.
 
 Project-only and standalone Sessions are deferred. Neither 049 nor 050 may invent an alternate Workspace or clone path while waiting for a future preparation policy. That sort of convenience is how parallel contracts become permanent archaeological layers.
 
@@ -276,17 +277,18 @@ On 2026-08-10, `sessionWorkspaceAttachmentSchema` was directly replaced with one
 - real HTTPS Git + SQLite + runner closure: symbolic `HEAD=main`, branches `main` and `release/0.1`, exact base commit frozen, working branch materialized, opaque ref returned, public secret/path leak false. A later commit advanced `HEAD` and remained resolvable as shared-mutable.
 - real control-plane browser: branch-read failure visibly degraded to editable text config, `release/0.1` saved, ready Task Workspace facts and locked Runtime rendered, 320px had no horizontal overflow, and a clean tab had no console warnings/errors.
 - PostgreSQL runtime contract: blocked because `MYSTRA_TEST_POSTGRES_URL` is absent. No SQLite-derived pass is claimed.
-- GitNexus fresh index: 8,147 nodes / 14,305 edges / 300 flows. `detect_changes` reported low risk for symbols it mapped, but mapped only tracked documentation because the feature files are untracked; this limitation is recorded rather than presented as full blast-radius proof. Pre-edit impact evidence remains authoritative for the CRITICAL `RdbProvider` and MEDIUM `IssueProvider` surfaces.
+- The earlier implementation closeout refreshed GitNexus and ran change detection. For the current boundary reconciliation the MCP graph is unavailable because its storage format is newer than the loaded reader；targeted source/reference and diff audits are used as fallback, so graph-derived impact remains unknown rather than reported as a fresh pass.
 
 ## Spec-Kit completion analysis
 
-The final read-only consistency pass counted 34 functional requirements and 58 tasks. Every requirement maps to at least one contract/test/implementation/verification task; unmapped tasks: 0; placeholders: 0; duplicate requirements: 0; ambiguity findings: 0; constitution conflicts: 0; critical findings: 0. During the pass, stale capability naming, component paths, attachment type naming, unverifiable latency numbers, and the 048-owned SC-002 boundary were corrected before this final zero-finding result.
+The final read-only consistency pass counted 34 functional requirements and 64 tasks. Every requirement maps to at least one contract/test/implementation/verification task; unmapped tasks: 0; placeholders: 0; duplicate requirements: 0; ambiguity findings: 0; constitution conflicts: 0; critical findings: 0. During the pass, stale capability naming, component paths, attachment type naming, unverifiable latency numbers, and the 048-owned SC-002 boundary were corrected before this final zero-finding result.
 
-Current consumer audit:
+Current consumer-boundary audit:
 
-- 049 requires `taskId`, consumes exactly `taskWorkspaceId/runtimeId/workspaceRef/shared-mutable`, persists `session.workspace_attached`, and rejects missing Task launch.
-- 050 only exposes Task-bound launch, reads ready 048 Workspace, and locks the Workspace Runtime.
-- Both explicitly defer Project-only and standalone Session modes and require any future preparation policy to reuse the same Workspace/attachment contract.
+- The landed 049 contract requires Task-bound launch and the exact `taskWorkspaceId/runtimeId/workspaceRef/shared-mutable` attachment. It owns atomic Session creation/input resolution/prompt composition/Provider start and does not require an initial `turnId`.
+- The landed 050 contract consumes 048 setup/read projections plus 049 launch state；048 owns no Session summary/detail UI.
+- Both defer Project-only and standalone Session modes and require future preparation policy to reuse the same Workspace/attachment contract.
+- Concrete 049/050 specifications, implementations and tests are present on local `main` and were cross-checked against the 048 attachment boundary during final closeout.
 
 ## Review completion
 

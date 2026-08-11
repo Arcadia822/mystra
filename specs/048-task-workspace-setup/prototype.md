@@ -16,7 +16,7 @@
 
 1. **Project repository settings**：repository identity、Default branch picker、remote symbolic `HEAD`、refresh、branch read failure、文本配置退化、保存反馈。
 2. **Task detail / Workspace**：absent、preparing、ready、failed、unavailable；Setup/Retry；Runtime、base branch、work branch、opaque ref；shared-mutable 提示。
-3. **Session gating**：Workspace 非 ready 时 `New Session` disabled；ready 后可用，Runtime 只读锁定。
+3. **049/050 consumer preview**：Workspace 非 ready 时 `New Session` disabled；ready 后可用，Runtime 只读锁定。它只展示依赖关系，不是 048-owned Session UI。
 4. **窄屏**：设置行和 Workspace facts 自动改为单列。
 
 ## 交互说明
@@ -38,7 +38,7 @@
 - [x] 独立 HTML 已通过本地 HTTP 在 Codex In-app Browser 打开（2026-08-10）。
 - [x] branch read failure 明确退化为保留当前值的文本配置，并提供 Retry read。
 - [x] absent/preparing/ready/failed/unavailable 均已通过真实 DOM 状态验证。
-- [x] only-ready Session gating、locked Runtime 与 shared-mutable 提示正确；非 ready 状态的 New Session 均 disabled。
+- [x] 049/050 consumer preview 的 only-ready gating、locked Runtime 与 shared-mutable 提示正确；该静态预览不计作 048 Session UI 实现。
 - [x] 320px 与桌面宽度无不可恢复水平溢出；320px 下 `scrollWidth === clientWidth === 305`，console error/warn 为 0。
 
 ## 浏览器验证证据

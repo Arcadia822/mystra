@@ -5,7 +5,7 @@
 
 **Tests**: 本功能明确要求 TDD、SQLite/PostgreSQL contract parity、真实 Git/文件系统集成与真实浏览器验证。每个测试任务先写并确认在实现前失败。
 
-**Organization**: 任务按 user story 分组。048 实现 Task Workspace 与 task-only attachment handoff；049 只实现 Task-bound canonical Session launch，050 才完成完整 Session UI。Project-only 与 standalone Session 整体 deferred。
+**Organization**: 任务按 user story 分组。048 实现 Task Workspace 与 task-only attachment resolver；049 在一个原子 launch transaction 中创建 Task-bound Session、解析输入、拼接 system prompt/第一条 user message 并发起 Provider，050 才完成完整 Session UI。Project-only 与 standalone Session 整体 deferred。
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -85,7 +85,7 @@
 
 ---
 
-## Phase 4: User Story 2 - 所有 Task Session 共享同一工作目录（Priority: P1）
+## Phase 4: User Story 2 - 为 Task Session 解析唯一 ready Workspace attachment（Priority: P1）
 
 **Goal**: 为 049 提供唯一、只读、fail-closed 的 Task Workspace attachment resolver；048 不创建 Session。
 
@@ -156,7 +156,20 @@
 - [x] T055 在可用的 SQLite 与 PostgreSQL/Supabase-backed PostgreSQL 上运行同一 RdbProvider contract suite；若 PostgreSQL URL 不存在，明确保留阻塞项到 `specs/048-task-workspace-setup/checklists/engineering-review.md`
 - [x] T056 运行真实 control-plane 页面并以浏览器验证 Project branch success/failure-text、Workspace five states、Setup/Retry、locked Runtime、shared-mutable、320px 与 console clean，更新 `specs/048-task-workspace-setup/prototype.md`
 - [x] T057 运行 `.specify` status/analyze、`git diff --check`、targeted consistency search、GitNexus fresh analyze 与 detect changes，并更新 `specs/spec-status.md` 和 `specs/048-task-workspace-setup/checklists.md`
-- [x] T058 对照 `spec.md` FR/SC、049 attachment 与 050 consumer contract 做最终 completion audit，在 `specs/048-task-workspace-setup/checklists/engineering-review.md` 关闭可在 048 内关闭的门禁并列出严格 deferred 项
+- [x] T058 对照 `spec.md` FR/SC 与当时的 049/050 consumer contract 做最终 completion audit，在 `specs/048-task-workspace-setup/checklists/engineering-review.md` 关闭可在 048 内关闭的门禁并列出严格 deferred 项
+
+---
+
+## Phase 8: Owner Boundary Reconciliation
+
+**Purpose**: 在已合并实现上直接替换过宽的 Session/Runtime 表述，冻结 048 的 task-only producer boundary；不增加兼容层。
+
+- [x] T059 审计 shared schema、`resolveSessionAttachment`、runner protocol 与引用，确认 production contract 只有 `task/shared-mutable` attachment，且 048 不创建 Session、turn 或 Provider execution
+- [x] T060 [P] 在 `packages/shared/src/task-workspace.test.ts` 增加 strict regression，拒绝 `turnId`、absolute path 与 Session capacity 字段
+- [x] T061 同步 `spec.md`、plan/data model/contracts/research/tasks/checklists/quickstart/engineering review，明确 setup/materialize、ready 与 launch 的 ownership 术语
+- [x] T062 [P] 同步 `PRODUCT.md`、`PLATFORM.md` 与 constitution：单一 Workspace；Project-only/standalone deferred；preparation lease 不是 Runtime Session capacity/slot
+- [x] T063 运行 shared、task-workspace/control-plane、runner 定向 tests 与 package typecheck，并记录当前证据
+- [x] T064 运行 targeted terminology/contract search、scoped `git diff --check`、Spec-Kit status 与 GitNexus change detection；对不可用工具明确报告 unknown，不复用旧统计数字
 
 ---
 
@@ -171,6 +184,7 @@
 - **Task-only checkpoint / Phase 5**: 依赖 US2 ready Workspace resolver；冻结 049 可直接消费的唯一 attachment 合同。
 - **US3 / Phase 6**: 依赖 US1 persistence/service/runner paths。
 - **Phase 7**: 依赖所有 048-owned tasks；049/050 implementation 不是 048 completion 的伪前置条件。
+- **Phase 8**: 在 Phase 7 landed implementation 上执行 owner scope correction；049/050 只能依赖 T064 后的 task-only producer checkpoint。
 
 ### User Story Dependencies
 
@@ -233,9 +247,10 @@ Task: T048 runner missing verification tests
 ### 048 Completion Boundary
 
 - **必须完成**: Task Workspace shared contracts、Project branch API、standard Git reader、Issue policies、双数据库 persistence、setup/read/attachment service、runner materialization、minimal Project/Task UI、failure/retry/missing、真实验证。
-- **明确 deferred 到 049**: canonical Task-bound Session launch/event ledger、Task Session attachment persistence。
+- **明确 deferred 到 049**: 一个原子 transaction 内的 canonical Task-bound Session 创建、全部输入解析、system prompt/第一条 user message 拼接、Provider 发起、event ledger 与 attachment persistence；048 不引入 initial `turnId` 或兼容层。
 - **明确 deferred 到未来规格**: Project-only 与 standalone Session；未来准备逻辑必须复用同一 Workspace/attachment contract，不得增加平行类型。
-- **明确 deferred 到 050**: 完整 New Session form、Session history/event UX；050 只消费 048 setup/read view。
+- **明确 deferred 到 050**: 完整 New Session form、Session summary/detail/history/event UX；050 消费 048 setup/read 与 049 launch view。
+- **明确 deferred 到 Runtime 未来规格**: Session capacity/slot persistence 与调度限制；048 preparation claim/lease 仅服务 materialization fencing/retry。
 
 ## Notes
 

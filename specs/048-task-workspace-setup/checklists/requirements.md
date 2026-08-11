@@ -33,6 +33,8 @@
 - [x] Task Workspace 固定 Runtime 亲和性
 - [x] 当前仅支持 Task-bound Session；Project-only 与 standalone Session deferred，且未预建第二种 Workspace/attachment 类型
 - [x] feature 顺序冻结为 048 Workspace、049 Session launch、050 Task experience
+- [x] 048 attachment resolver 不创建 Session、turn、Provider execution 或 launch state；049 拥有原子 launch transaction，且不要求 initial `turnId`
+- [x] Workspace preparation claim/lease 不表示 Session Runtime capacity、slot 或执行占用
 
 ## Product Requirements Review
 

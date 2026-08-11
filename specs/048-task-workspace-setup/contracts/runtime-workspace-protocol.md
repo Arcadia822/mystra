@@ -54,6 +54,7 @@ Security rules:
 - credential exists only in transport response memory；never persist or log full payload。
 - endpoint must be provider-produced and validated；runner rejects non-HTTPS/network policies outside connection contract。
 - `workspaceRef` is UUID-derived opaque identity；runner independently maps it under configured safe root。
+- claim/lease only fences Workspace materialization and retry. It is not a Session claim, Runtime slot, capacity counter or execution-occupancy record。
 
 ## Materialization
 
@@ -115,4 +116,4 @@ Failure:
 
 ## Missing detection
 
-When Session execution resolves a Task `workspaceRef`, runner verifies the mapped directory/repository/branch exists. Missing result reports `workspace_missing`; control plane marks TaskWorkspace `unavailable` and rejects launch. MVP performs no automatic rebuild or Runtime migration.
+Before a consumer enters a Task `workspaceRef`, runner verifies the mapped directory/repository/branch exists. Missing result reports `workspace_missing`; control plane marks TaskWorkspace `unavailable`, after which attachment resolution fails closed. MVP performs no automatic rebuild or Runtime migration. Session creation and Provider launch remain feature 049 responsibilities.

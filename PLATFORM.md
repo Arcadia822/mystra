@@ -40,13 +40,18 @@ optional Project context and exact Issue references. Project is not Task
 ownership, and current external Issue information remains provider-resolved
 rather than copied into Task snapshots.
 Session is independently Team-scoped, owns all execution choices and lifecycle,
-and may separately reference `0..1` Project and `0..1` Task. Runner is stable capacity.
+and may separately reference `0..1` Project and `0..1` Task. Runner is a stable
+host service；Session capacity/slot accounting is not implemented by 048.
 Workspace is the unified execution working-directory and context-delivery
 surface; it is never a tenancy term. The current 048/049/050 slice supports
 Task-bound Sessions only: feature 048 prepares one Runtime-affine Task Workspace
-and each Session for that Task attaches the same shared-mutable ref. Project-only
-and standalone Sessions are deferred; a future preparation policy must reuse
-this Workspace/attachment contract instead of creating a parallel type.
+and resolves the same shared-mutable ref for each Session for that Task. Feature
+048 does not create Session、initial turn、Provider execution or Session events;
+feature 049 owns an atomic launch transaction that creates Session, resolves all
+inputs, composes the system prompt and first user message, then starts the
+selected Provider. Project-only and standalone Sessions are deferred; a future
+preparation policy must reuse this Workspace/attachment contract instead of
+creating a parallel type.
 
 ## Commands
 
@@ -92,8 +97,13 @@ pnpm lsp:typescript
   only and does not yet accept the optional-reference combinations.
 - Runner has stable identity. Enrollment by name rotates credentials without
   creating a new business object.
-- Runner claim responses contain the selected Session and resolved runtime;
-  optional Task and Project context is included only when explicitly referenced.
+- Workspace preparation claim/lease only fences materialization and retry. It
+  is not Session Runtime capacity, a slot, or execution occupancy. Feature 048
+  neither persists nor limits Session capacity; that belongs to a future Runtime
+  capability specification.
+- Session execution claim responses contain the selected Session and
+  resolved runtime；optional Task and Project context is included only when
+  explicitly referenced. This is separate from 048 Workspace preparation claim.
 - Internal execution facts support diagnostics and transactional persistence but
   have no independent management API, MCP tool, CLI group, or Web object page.
 - Headless operation is mandatory; Web remains a secondary client.
