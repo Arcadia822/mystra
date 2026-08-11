@@ -10,7 +10,7 @@
     "audit:task-session-terminology": "node ./scripts/audit-task-session-terminology.mjs",
     "build": "pnpm -r --if-present build",
     "dev": "pnpm --filter @mystra/control-plane dev",
-    "dev:control-plane": "pnpm --filter @mystra/control-plane exec next dev -p 3000",
+    "dev:control-plane": "pnpm --filter @mystra/control-plane dev",
     "dev:runner": "pnpm --filter @mystra/runner-daemon dev",
     "doctor": "./scripts/doctor-local.sh",
     "deploy:dev": "bash ./scripts/deploy-dev-machine.sh",
