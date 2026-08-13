@@ -16,6 +16,51 @@ afterEach(async () => {
 });
 
 describe("Session execution SQLite/HTTP E2E", () => {
+  it.each([
+    { label: "without Agent Context", selectedAgent: false },
+    { label: "with frozen Optional Agent Context", selectedAgent: true },
+  ])("starts production $label, replays idempotently, and completes through Runner HTTP", async ({ selectedAgent }) => {
+    fixture = await createSessionE2eFixture();
+    const idempotencyKey = `session-e2e-${selectedAgent ? "agent" : "standard"}`;
+    const request = {
+      runtimeId: fixture.runtime.id,
+      providerKey: "codex",
+      expectedRevision: 1,
+      idempotencyKey,
+      ...(selectedAgent ? { agentId: fixture.agent.id } : {}),
+    };
+
+    const started = await fixture.production.start({ actor: fixture.actor, taskId: fixture.task.id, request });
+    expect(started).toMatchObject({
+      created: true,
+      task: { productionStatus: "in_progress", statusRevision: 2 },
+      harness: selectedAgent
+        ? { agentId: fixture.agent.id, agentName: fixture.agent.name, agentRevision: fixture.agent.revision }
+        : { agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null },
+    });
+    expect(started.harness.sessionId).toBe(started.harness.plannedSessionId);
+
+    const replay = await fixture.production.start({ actor: fixture.actor, taskId: fixture.task.id, request });
+    expect(replay).toMatchObject({
+      created: false,
+      harness: { id: started.harness.id, sessionId: started.harness.sessionId },
+    });
+
+    const assignment = await claim(fixture.endpoint, fixture.runtime.id, fixture.runnerId);
+    expect(assignment.session.id).toBe(started.harness.sessionId);
+    expect(assignment.systemPrompt).toContain("You are executing a Mystra production Task");
+    if (selectedAgent) {
+      expect(assignment.systemPrompt).toContain(fixture.agent.systemPrompt);
+    } else {
+      expect(assignment.systemPrompt).not.toContain(fixture.agent.systemPrompt);
+    }
+    await fakeProviderResponse(fixture.endpoint, assignment, `fake-production-${selectedAgent ? "agent" : "standard"}`);
+    await expect(fixture.sessions.get({ actor: fixture.actor, sessionId: assignment.session.id })).resolves.toMatchObject({
+      state: "ready",
+      agentId: selectedAgent ? fixture.agent.id : null,
+    });
+  });
+
   it("executes the launch message and two continuations through one Provider session", async () => {
     fixture = await createSessionE2eFixture();
     const sessionId = crypto.randomUUID();
@@ -23,12 +68,15 @@ describe("Session execution SQLite/HTTP E2E", () => {
       actor: fixture.actor,
       taskId: fixture.task.id,
       request: {
-        sessionId, providerKey: "codex", agentId: fixture.agent.id,
+        sessionId, providerKey: "codex",
         manualContext: { text: "Exercise the Task-bound Web launch path" },
       },
     });
     const firstMessageId = launched.session.activeMessageId!;
-    expect(launched).toMatchObject({ created: true, session: { state: "queued", activeMessageId: firstMessageId } });
+    expect(launched).toMatchObject({
+      created: true,
+      session: { state: "queued", activeMessageId: firstMessageId, agentId: null, agentRevision: null },
+    });
     expect((await fixture.sessions.listEvents({
       actor: fixture.actor,
       sessionId,
@@ -42,6 +90,9 @@ describe("Session execution SQLite/HTTP E2E", () => {
 
     const first = await claim(fixture.endpoint, fixture.runtime.id, fixture.runnerId);
     expect(first.message.messageId).toBe(firstMessageId);
+    expect(first.session).toMatchObject({ agentId: null, agentRevision: null });
+    expect(first.systemPrompt).toContain("You are executing a Mystra production Task");
+    expect(first.systemPrompt).not.toContain(fixture.agent.systemPrompt);
     expect(first.lease.providerSessionId).toBeNull();
     await fakeProviderResponse(fixture.endpoint, first, "fake-provider-session-1");
     await expect(fixture.sessions.get({ actor: fixture.actor, sessionId })).resolves.toMatchObject({

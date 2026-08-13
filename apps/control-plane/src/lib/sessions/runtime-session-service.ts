@@ -4,6 +4,7 @@ import {
   sessionClaimAssignmentSchema,
   sessionClaimRequestSchema,
   sessionEventBatchSchema,
+  effectiveSystemPromptEvidenceSchema,
   type SessionClaimAssignment,
 } from "@mystra/shared";
 
@@ -24,24 +25,30 @@ export class RuntimeSessionService {
   readonly #now: () => Date;
   readonly #newId: () => string;
   readonly #newToken: () => string;
+  readonly #newExecutionCode: () => string;
 
-  constructor(input: { db: RuntimeSessionDb; now?: () => Date; newId?: () => string; newToken?: () => string }) {
+  constructor(input: { db: RuntimeSessionDb; now?: () => Date; newId?: () => string; newToken?: () => string; newExecutionCode?: () => string }) {
     this.#db = input.db;
     this.#now = input.now ?? (() => new Date());
     this.#newId = input.newId ?? randomUUID;
     this.#newToken = input.newToken ?? (() => randomBytes(32).toString("base64url"));
+    this.#newExecutionCode = input.newExecutionCode ?? (() => randomBytes(32).toString("base64url"));
   }
 
   async claim(input: { runtimeId: string; request: unknown }): Promise<SessionClaimAssignment | undefined> {
     const request = sessionClaimRequestSchema.parse(input.request);
     const now = this.#now();
     const leaseToken = this.#newToken();
+    const executionCode = this.#newExecutionCode();
+    const executionCodeExpiresAt = new Date(now.getTime() + 6 * 60 * 60_000).toISOString();
     const lease = {
       id: this.#newId(),
       runtimeId: input.runtimeId,
       runnerId: request.runnerId,
       leaseToken,
       leaseTokenHash: hashLeaseToken(leaseToken),
+      executionCodeHash: hashLeaseToken(executionCode),
+      executionCodeExpiresAt,
       providerSessionId: null,
       leaseExpiresAt: new Date(now.getTime() + 6 * 60 * 60_000).toISOString(),
       claimedAt: now.toISOString(),
@@ -59,12 +66,20 @@ export class RuntimeSessionService {
     if (!promptEvent || !workspaceEvent || !messageEvent?.messageId) {
       throw new SessionFailure("session_conflict", "Claimed Session has incomplete launch events");
     }
+    const promptEvidence = effectiveSystemPromptEvidenceSchema.parse(promptEvent.payload);
     return sessionClaimAssignmentSchema.parse({
       session: claimed.session,
       lease: { ...claimed.lease, sessionId: claimed.session.id },
-      systemPrompt: promptEvent.payload.finalPrompt,
+      systemPrompt: promptEvidence.finalPrompt,
       workspace: workspaceEvent.payload,
       message: { messageId: messageEvent.messageId, content: messageEvent.payload.content },
+      ...(claimed.executionCodeExpiresAt ? {
+        execution: {
+          code: executionCode,
+          expiresAt: claimed.executionCodeExpiresAt,
+          capabilities: ["context:read", "task-status:read", "task-status:transition"],
+        },
+      } : {}),
     });
   }
 

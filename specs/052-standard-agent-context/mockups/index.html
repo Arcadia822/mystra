@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mystra · Standard Prompt + Agent Context</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui;background:#f5f5f2;color:#20211f}*{box-sizing:border-box}body{margin:0}.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}.side{background:#20211f;color:#eee;padding:24px}.brand{font-weight:700;margin-bottom:32px}.nav{color:#aaa;line-height:2.2}.nav b{color:#fff}.main{padding:32px;max-width:980px;width:100%}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#74766f}.title{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.title h1{margin:8px 0}.lede{color:#666;max-width:680px}.badge{display:inline-flex;border-radius:999px;padding:7px 11px;background:#e7eee3;font-size:12px;color:#315a28}.toolbar{display:flex;gap:8px;margin:22px 0}.toolbar button,.primary{border:1px solid #caccc5;border-radius:8px;background:#fff;padding:9px 12px;cursor:pointer}.toolbar button.active,.primary{background:#222;color:#fff;border-color:#222}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}.card{background:#fff;border:1px solid #dedfd9;border-radius:14px;padding:20px}.card h2{font-size:15px;margin:0 0 12px}.row{display:flex;justify-content:space-between;gap:18px;padding:11px 0;border-top:1px solid #eee;font-size:13px}.muted{color:#73766f;font-size:13px;line-height:1.55}.notice{border-left:3px solid #68845e;background:#f1f6ef;padding:12px 14px;font-size:13px;line-height:1.5}.optional{margin:16px 0;padding:14px;border:1px dashed #c8cac3;border-radius:10px}.optional label{display:block;font-size:12px;color:#666;margin-bottom:7px}.optional select{width:100%;padding:10px;border:1px solid #cfd1ca;border-radius:8px;background:#fff}.stack{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#20211f;color:#e8eadf;padding:15px;border-radius:10px;font-size:12px;line-height:1.8}.dim{color:#9da195}.actions{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px}.evidence{margin-top:16px}@media(max-width:760px){.shell{grid-template-columns:1fr}.side{display:none}.grid{grid-template-columns:1fr}.main{padding:20px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side"><div class="brand">Mystra</div><div class="nav">New<br>Search<br>Inbox<br>Issues<br><br><b>Tasks</b><br>Projects</div></aside>
+  <main class="main">
+    <div class="eyebrow">Task / MST-231</div>
+    <div class="title">
+      <div><h1>Improve issue detail loading</h1><p class="lede">Start with Mystra's standard execution contract. Add a custom Agent only when extra role context is useful.</p></div>
+      <span class="badge">pending</span>
+    </div>
+    <div class="toolbar" aria-label="Prototype variants">
+      <button class="active" data-mode="default">No custom Agents</button>
+      <button data-mode="custom">Custom Agents available</button>
+    </div>
+    <div class="grid">
+      <section class="card">
+        <h2>Start production</h2>
+        <div class="row"><span>Runtime</span><b>Local runner · online</b></div>
+        <div class="row"><span>Provider</span><b>Codex · available</b></div>
+        <div class="notice"><b>Standard execution prompt · v1</b><br>Code change, appropriate self-test, reviewable delivery, and Task status reporting are always applied.</div>
+        <div class="optional" id="agentOption" hidden>
+          <label for="agentSelect">Optional Agent context</label>
+          <select id="agentSelect">
+            <option value="none">None — use only the standard execution prompt</option>
+            <option value="frontend">Frontend specialist · revision 3</option>
+            <option value="i18n">Localization specialist · revision 2</option>
+          </select>
+          <p class="muted">Adds role and domain guidance. It does not replace Mystra's standard execution responsibilities.</p>
+        </div>
+        <div class="actions"><span class="muted" id="pathNote">No Agent setup required.</span><button class="primary" id="start">Start production</button></div>
+      </section>
+      <section class="card">
+        <h2>Prompt composition</h2>
+        <div class="stack"><b>1. STANDARD EXECUTION PROMPT · v1</b><br><span class="dim">required · platform-owned · highest priority</span><br><br><b id="agentLayer">2. AGENT CONTEXT · none</b><br><span class="dim" id="agentDetail">optional · no synthetic Agent</span><br><br><b>3. RUNTIME / PROVIDER CONSTRAINTS</b><br><b>4. TASK / PROJECT / WORKSPACE CONTEXT</b></div>
+        <p class="muted">The execution code identifies this Harness/Session attempt. It is not an Agent identity.</p>
+      </section>
+    </div>
+    <section class="card evidence" id="evidence" hidden>
+      <h2>Frozen execution evidence</h2>
+      <div class="row"><span>Standard prompt</span><b>v1 · frozen</b></div>
+      <div class="row"><span>Agent context</span><b id="frozenAgent">None</b></div>
+      <div class="row"><span>Attempt</span><b>Harness created · Session queued</b></div>
+    </section>
+  </main>
+</div>
+<script>
+  const option=document.getElementById('agentOption');
+  const select=document.getElementById('agentSelect');
+  const layer=document.getElementById('agentLayer');
+  const detail=document.getElementById('agentDetail');
+  const note=document.getElementById('pathNote');
+  function render(){
+    const label=select.options[select.selectedIndex].text;
+    if(select.value==='none'){layer.textContent='2. AGENT CONTEXT · none';detail.textContent='optional · no synthetic Agent';note.textContent='No Agent setup required.'}
+    else{layer.textContent='2. AGENT CONTEXT · '+label;detail.textContent='optional · additive · lower priority';note.textContent='Standard prompt remains active.'}
+  }
+  document.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
+    document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('active',x===button));
+    option.hidden=button.dataset.mode==='default';
+    if(option.hidden)select.value='none';
+    render();
+  }));
+  select.addEventListener('change',render);
+  document.getElementById('start').addEventListener('click',()=>{
+    document.getElementById('frozenAgent').textContent=select.value==='none'?'None — explicitly absent':select.options[select.selectedIndex].text+' · frozen';
+    document.getElementById('evidence').hidden=false;
+  });
+  render();
+</script>
+</body>
+</html>

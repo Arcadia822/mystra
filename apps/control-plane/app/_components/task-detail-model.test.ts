@@ -14,6 +14,11 @@ const task = {
   description: null,
   projectId: null,
   issue: null,
+  productionStatus: "pending" as const,
+  statusRevision: 1,
+  statusNote: null,
+  statusUpdatedAt: "2026-08-08T00:00:00.000Z",
+  statusActor: { kind: "system" as const, actorId: null, agentId: null, harnessId: null, sessionId: null },
   createdAt: "2026-08-08T00:00:00.000Z",
   updatedAt: "2026-08-08T00:00:00.000Z",
 };
@@ -33,4 +38,5 @@ describe("Task detail editor", () => {
     expect(validateTaskDetailEditor({ ...initial, description: "x".repeat(100_001) })).toBe("description-too-long");
     expect(taskDetailEditorDirty(taskDetailEditorSaved({ ...task, title: "Saved" }))).toBe(false);
   });
+
 });

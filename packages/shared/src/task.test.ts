@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  allowedTaskProductionTransitions,
+  taskProductionStatusSchema,
+  taskStatusTransitionRequestSchema,
   manualTaskCreateRequestSchema,
   taskCreateFromIssueSchema,
   taskIssueReferenceSchema,
@@ -112,12 +115,57 @@ describe("Task contracts", () => {
       description: null,
       projectId,
       issue,
+      productionStatus: "pending",
+      statusRevision: 1,
+      statusNote: null,
+      statusUpdatedAt: "2026-08-08T00:00:00.000Z",
+      statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null },
       createdAt: "2026-08-08T00:00:00.000Z",
       updatedAt: "2026-08-08T00:00:00.000Z",
     });
     expect(parsed.issue?.identifier).toBe("GH-42");
     expect("metadata" in parsed).toBe(false);
     expect("issueDispatchKey" in parsed).toBe(false);
-    expect("state" in parsed).toBe(false);
+    expect(parsed.productionStatus).toBe("pending");
+  });
+
+  it("defines the complete Task production state vocabulary", () => {
+    expect(taskProductionStatusSchema.options).toEqual([
+      "pending",
+      "in_progress",
+      "blocked",
+      "waiting_for_review",
+      "done",
+      "canceled",
+    ]);
+  });
+
+  it("keeps Human and Agent production transitions explicit", () => {
+    expect(allowedTaskProductionTransitions("agent", "in_progress")).toEqual(["blocked", "waiting_for_review"]);
+    expect(allowedTaskProductionTransitions("agent", "blocked")).toEqual(["in_progress"]);
+    expect(allowedTaskProductionTransitions("agent", "waiting_for_review")).toEqual([]);
+    expect(allowedTaskProductionTransitions("human", "waiting_for_review")).toEqual(["in_progress", "done", "canceled"]);
+    expect(allowedTaskProductionTransitions("assign", "pending")).toEqual(["in_progress"]);
+    expect(allowedTaskProductionTransitions("human", "pending")).toEqual(["canceled"]);
+    expect(allowedTaskProductionTransitions("human", "done")).toEqual([]);
+  });
+
+  it("requires notes for blocked and waiting_for_review commands", () => {
+    expect(() => taskStatusTransitionRequestSchema.parse({
+      status: "blocked",
+      expectedRevision: 2,
+      idempotencyKey: "cmd-1",
+    })).toThrow();
+    expect(taskStatusTransitionRequestSchema.parse({
+      status: "waiting_for_review",
+      expectedRevision: 2,
+      idempotencyKey: "cmd-2",
+      note: " PR: https://example.test/pr/1 ",
+    }).note).toBe("PR: https://example.test/pr/1");
+    expect(taskStatusTransitionRequestSchema.parse({
+      status: "in_progress",
+      expectedRevision: 3,
+      idempotencyKey: "cmd-3",
+    }).note).toBeUndefined();
   });
 });

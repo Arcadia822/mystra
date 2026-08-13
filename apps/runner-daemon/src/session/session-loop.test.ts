@@ -78,6 +78,7 @@ describe("runSessionLoop", () => {
       runnerId: "runner-1",
       client: { claim, appendEvents: vi.fn() },
       workspace: { resolveReadyWorkspace: vi.fn() },
+      providerExecutables: new Map([["codex", "/opt/mystra/bin/codex"]]),
       waitSeconds: 0,
       retryIntervalSeconds: 0,
       signal: controller.signal,
@@ -87,6 +88,10 @@ describe("runSessionLoop", () => {
     expect(worker.execute.mock.calls.map(([input]) => input.assignment.session.id)).toEqual([
       first.session.id,
       second.session.id,
+    ]);
+    expect(worker.execute.mock.calls.map(([input]) => input.providerExecutable)).toEqual([
+      "/opt/mystra/bin/codex",
+      "/opt/mystra/bin/codex",
     ]);
   });
 
@@ -110,6 +115,7 @@ describe("runSessionLoop", () => {
       runnerId: "runner-1",
       client: { claim, appendEvents: vi.fn() },
       workspace: { resolveReadyWorkspace: vi.fn() },
+      providerExecutables: new Map([["codex", "/opt/mystra/bin/codex"]]),
       waitSeconds: 0,
       retryIntervalSeconds: 0,
       signal: controller.signal,
@@ -134,6 +140,7 @@ describe("runSessionLoop", () => {
       runnerId: "runner-1",
       client: { claim, appendEvents: vi.fn() },
       workspace: { resolveReadyWorkspace: vi.fn() },
+      providerExecutables: new Map([["codex", "/opt/mystra/bin/codex"]]),
       waitSeconds: 0,
       retryIntervalSeconds: 0,
       signal: controller.signal,
@@ -141,5 +148,34 @@ describe("runSessionLoop", () => {
 
     expect(claim).toHaveBeenCalledTimes(3);
     expect(worker.execute).toHaveBeenCalledOnce();
+  });
+
+  it("fails the Session instead of falling back to PATH when the discovered executable is absent", async () => {
+    const controller = new AbortController();
+    const current = assignment("15");
+    const appendEvents = vi.fn();
+    const claim = vi.fn()
+      .mockResolvedValueOnce(current)
+      .mockImplementationOnce(async () => {
+        controller.abort();
+        return undefined;
+      });
+
+    await runSessionLoop({
+      runtimeId: current.session.runtimeId,
+      runnerId: "runner-1",
+      client: { claim, appendEvents },
+      workspace: { resolveReadyWorkspace: vi.fn() },
+      providerExecutables: new Map(),
+      waitSeconds: 0,
+      retryIntervalSeconds: 0,
+      signal: controller.signal,
+    });
+
+    expect(worker.execute).not.toHaveBeenCalled();
+    expect(appendEvents.mock.calls[0]![1][0]).toMatchObject({
+      kind: "session.failed",
+      payload: { code: "provider_unavailable" },
+    });
   });
 });

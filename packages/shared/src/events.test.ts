@@ -17,8 +17,12 @@ describe("sessionEventSchema", () => {
       payload: {
         runtimeId: "550e8400-e29b-41d4-a716-446655440002",
         providerKey: "codex",
-        agentId: "550e8400-e29b-41d4-a716-446655440003",
-        agentRevision: 1,
+        agentContext: {
+          agentId: "550e8400-e29b-41d4-a716-446655440003",
+          name: "Reviewer",
+          revision: 1,
+          systemPrompt: "Review evidence.",
+        },
         taskId: "550e8400-e29b-41d4-a716-446655440004",
         projectId: null,
         context: {},

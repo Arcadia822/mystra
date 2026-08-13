@@ -23,7 +23,12 @@ import {
   sessionLaunchRequestSchema,
   sessionSchema,
   sessionWorkspaceAttachmentSchema,
+  effectiveSystemPromptEvidenceSchema,
+  agentContextSnapshotSchema,
   applySessionEventProjection,
+  harnessSchema,
+  isTaskProductionTransitionAllowed,
+  taskStatusTransitionSchema,
   type IntegrationCapabilities,
   type Agent,
   type AgentArchiveRequest,
@@ -47,6 +52,8 @@ import {
   type TaskCreateFromIssue,
   type TaskListItem,
   type TaskRecord,
+  type Harness,
+  type TaskStatusTransition,
   type Session,
   type SessionEvent,
   type TeamListItem,
@@ -66,6 +73,7 @@ import {
   mapAuthSession,
   mapHostRuntimeMetadata,
   mapIntegrationConnectionRecord,
+  mapHarness,
   mapProviderCapability,
   mapProject,
   mapProjectIssueSource,
@@ -74,6 +82,7 @@ import {
   mapSession,
   mapSessionEvent,
   mapTask,
+  mapTaskStatusTransition,
   mapTaskWorkspace,
   mapTeam,
   mapTeamMembership,
@@ -104,6 +113,8 @@ import type {
   UserRecord,
   SessionEventAppendInput,
   SessionLaunchPersistenceInput,
+  TaskProductionStartInput,
+  TaskStatusTransitionInput,
 } from "./rdb-provider";
 
 type PrismaRdbProviderOptions = {
@@ -165,28 +176,54 @@ export class PrismaRdbProvider implements RdbProvider {
         }
         const workspaceEvent = initialEvents[2];
         const attachment = sessionWorkspaceAttachmentSchema.parse(workspaceEvent?.payload);
-        const [task, project, agent, runtime, providers, workspace] = await Promise.all([
+        const createdAgentContext = agentContextSnapshotSchema.nullable().parse(
+          initialEvents[0]?.payload.agentContext,
+        );
+        const promptEvidence = effectiveSystemPromptEvidenceSchema.parse(initialEvents[1]?.payload);
+        const [task, project, agent, runtime, providers, workspace, harnessSnapshot] = await Promise.all([
           transaction.task.findUnique({ where: { id: requestedSession.taskId } }),
           requestedSession.projectId
             ? transaction.project.findUnique({ where: { id: requestedSession.projectId } })
             : Promise.resolve(null),
-          transaction.agent.findUnique({ where: { id: requestedSession.agentId } }),
+          requestedSession.agentId === null
+            ? Promise.resolve(null)
+            : transaction.agent.findUnique({ where: { id: requestedSession.agentId } }),
           transaction.runtime.findUnique({ where: { id: requestedSession.runtimeId } }),
           transaction.runtimeProvider.findMany({
             where: { runtimeId: requestedSession.runtimeId },
             orderBy: [{ provider: "asc" }],
           }),
           transaction.taskWorkspace.findUnique({ where: { id: attachment.taskWorkspaceId } }),
+          transaction.harness.findUnique({ where: { plannedSessionId: requestedSession.id } }),
         ]);
+        const expectedAgentContext = harnessSnapshot
+          ? harnessSnapshot.agentId === null
+            ? null
+            : {
+                agentId: harnessSnapshot.agentId,
+                name: harnessSnapshot.agentName!,
+                revision: harnessSnapshot.agentRevision!,
+                systemPrompt: harnessSnapshot.agentSystemPrompt!,
+              }
+          : agent
+            ? { agentId: agent.id, name: agent.name, revision: agent.revision, systemPrompt: agent.systemPrompt }
+            : null;
+        const agentMatches = (harnessSnapshot
+          ? harnessSnapshot.teamId === requestedSession.teamId
+            && harnessSnapshot.taskId === requestedSession.taskId
+            && harnessSnapshot.projectId === requestedSession.projectId
+          : requestedSession.agentId === null
+            || (agent?.teamId === requestedSession.teamId && agent.status === "active"))
+          && requestedSession.agentId === (expectedAgentContext?.agentId ?? null)
+          && requestedSession.agentRevision === (expectedAgentContext?.revision ?? null)
+          && JSON.stringify(createdAgentContext) === JSON.stringify(expectedAgentContext)
+          && JSON.stringify(promptEvidence.agentContext) === JSON.stringify(expectedAgentContext);
         if (
           !task
           || task.teamId !== requestedSession.teamId
           || task.projectId !== requestedSession.projectId
           || (requestedSession.projectId !== null && (!project || project.teamId !== requestedSession.teamId))
-          || !agent
-          || agent.teamId !== requestedSession.teamId
-          || agent.status !== "active"
-          || agent.revision !== requestedSession.agentRevision
+          || !agentMatches
           || !runtime
           || !providers.some((provider) => provider.provider === requestedSession.providerKey && provider.available)
           || !workspace
@@ -428,6 +465,27 @@ export class PrismaRdbProvider implements RdbProvider {
       }
       const head = await transaction.sessionEventHead.findUnique({ where: { sessionId: row.id } });
       if (!head) throw new RdbError("RDB_UNAVAILABLE", "Session event ledger is incomplete");
+      const harness = await transaction.harness.findUnique({ where: { sessionId: row.id } });
+      const harnessTask = harness
+        ? await transaction.task.findUnique({ where: { id: harness.taskId } })
+        : null;
+      const executionCodeHash = harness
+        && harness.capabilityRevokedAt === null
+        && harness.teamId === row.teamId
+        && harness.taskId === row.taskId
+        && harness.projectId === row.projectId
+        && harness.runtimeId === row.runtimeId
+        && harness.providerKey === row.providerKey
+        && harness.agentId === row.agentId
+        && harness.agentRevision === row.agentRevision
+        && harnessTask
+        && harnessTask.productionStatus !== "done"
+        && harnessTask.productionStatus !== "canceled"
+        ? input.lease.executionCodeHash ?? null
+        : null;
+      const executionCodeExpiresAt = executionCodeHash
+        ? input.lease.executionCodeExpiresAt ?? null
+        : null;
       const updatedAt = this.#now();
       let persistedLease: import("@mystra/shared").SessionDispatchLease;
       if (row.state === "message_pending") {
@@ -443,6 +501,8 @@ export class PrismaRdbProvider implements RdbProvider {
           data: {
             tokenHash: input.lease.leaseTokenHash,
             leaseExpiresAt: input.lease.leaseExpiresAt,
+            executionCodeHash,
+            executionCodeExpiresAt,
             updatedAt,
           },
         });
@@ -473,6 +533,8 @@ export class PrismaRdbProvider implements RdbProvider {
           providerSessionId: input.lease.providerSessionId,
           leaseExpiresAt: input.lease.leaseExpiresAt,
           claimedAt: input.lease.claimedAt,
+          executionCodeHash,
+          executionCodeExpiresAt,
           updatedAt: input.lease.updatedAt,
         } });
         persistedLease = {
@@ -518,6 +580,7 @@ export class PrismaRdbProvider implements RdbProvider {
         session: mapSession({ ...row, state: "dispatched", updatedAt }),
         launchRequest: sessionLaunchRequestSchema.parse(JSON.parse(head.launchPayload)),
         lease: persistedLease,
+        ...(executionCodeExpiresAt ? { executionCodeExpiresAt } : {}),
       };
     });
   }
@@ -1080,6 +1143,294 @@ export class PrismaRdbProvider implements RdbProvider {
     return Object.fromEntries(rows.flatMap((row) => row.issueExternalId ? [[row.issueExternalId, row.id]] : []));
   }
 
+  async startTaskProduction(input: TaskProductionStartInput): Promise<{
+    task: TaskRecord;
+    harness: Harness;
+    transition: TaskStatusTransition;
+    created: boolean;
+  }> {
+    const requestedHarness = harnessSchema.parse(input.harness);
+    if (
+      requestedHarness.agentId !== null
+      || requestedHarness.agentName !== null
+      || requestedHarness.agentRevision !== null
+      || requestedHarness.agentSystemPrompt !== null
+    ) {
+      throw new RdbError("RDB_CONFLICT", "Agent Context must be resolved inside the Start transaction");
+    }
+    const requestedTransition = taskStatusTransitionSchema.parse(input.transition);
+    const replay = await this.#findAssignmentReplay(input.taskId, requestedHarness);
+    if (replay) return replay;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await this.#client.transaction(async (transaction) => {
+          const [task, agent, project, runtime] = await Promise.all([
+            transaction.task.findUnique({ where: { id: input.taskId } }),
+            input.agentId === null
+              ? Promise.resolve(null)
+              : transaction.agent.findUnique({ where: { id: input.agentId } }),
+            transaction.project.findUnique({ where: { id: requestedHarness.projectId } }),
+            transaction.runtime.findUnique({ where: { id: requestedHarness.runtimeId } }),
+          ]);
+          if (!task || task.teamId !== input.teamId) {
+            throw new RdbError("RDB_NOT_FOUND", "Task does not exist");
+          }
+          if (input.agentId !== null && (!agent || agent.teamId !== input.teamId || agent.status !== "active")) {
+            throw new RdbError("AGENT_UNAVAILABLE", "Selected Agent Context is unavailable");
+          }
+          if (
+            !project || project.teamId !== input.teamId || project.archivedAt !== null
+            || !runtime
+          ) {
+            throw new RdbError("RDB_RELATION_CONFLICT", "Production Start dependencies are unavailable");
+          }
+          const resolvedHarness = harnessSchema.parse({
+            ...requestedHarness,
+            agentId: agent?.id ?? null,
+            agentName: agent?.name ?? null,
+            agentRevision: agent?.revision ?? null,
+            agentSystemPrompt: agent?.systemPrompt ?? null,
+          });
+          if (
+            task.projectId !== requestedHarness.projectId
+            || requestedHarness.teamId !== input.teamId
+            || requestedHarness.taskId !== task.id
+            || requestedTransition.teamId !== input.teamId
+            || requestedTransition.taskId !== task.id
+            || requestedTransition.fromStatus !== task.productionStatus
+            || requestedTransition.toStatus !== "in_progress"
+            || requestedTransition.revision !== input.expectedRevision + 1
+            || requestedTransition.idempotencyKey !== requestedHarness.assignIdempotencyKey
+            || requestedTransition.requestFingerprint !== input.requestFingerprint
+            || requestedHarness.assignRequestFingerprint !== input.requestFingerprint
+          ) {
+            throw new RdbError("RDB_CONFLICT", "Production Start facts are inconsistent");
+          }
+          if (
+            task.statusRevision !== input.expectedRevision
+            || !isTaskProductionTransitionAllowed("assign", task.productionStatus as never, "in_progress")
+          ) {
+            throw new RdbError("RDB_CONFLICT", "Task status revision or transition is no longer eligible");
+          }
+          const updated = await transaction.task.updateMany({
+            where: {
+              id: task.id,
+              teamId: input.teamId,
+              productionStatus: task.productionStatus,
+              statusRevision: input.expectedRevision,
+            },
+            data: {
+              productionStatus: "in_progress",
+              statusRevision: requestedTransition.revision,
+              statusNote: requestedTransition.note,
+              statusUpdatedAt: requestedTransition.occurredAt,
+              statusActor: serializeJson(requestedTransition.actor),
+              updatedAt: requestedTransition.occurredAt,
+            },
+          });
+          if (updated.count !== 1) {
+            throw new RdbError("RDB_CONFLICT", "Task production Start lost a race");
+          }
+          const harness = await transaction.harness.create({ data: harnessWriteData(resolvedHarness) });
+          const transition = await transaction.taskStatusTransition.create({
+            data: taskStatusTransitionWriteData(requestedTransition),
+          });
+          return {
+            task: mapTask({
+              ...task,
+              productionStatus: "in_progress",
+              statusRevision: requestedTransition.revision,
+              statusNote: requestedTransition.note,
+              statusUpdatedAt: requestedTransition.occurredAt,
+              statusActor: serializeJson(requestedTransition.actor),
+              updatedAt: requestedTransition.occurredAt,
+            }),
+            harness: mapHarness(harness),
+            transition: mapTaskStatusTransition(transition),
+            created: true,
+          };
+        });
+      } catch (error) {
+        if (isDatabaseErrorCode(error, "P2034") && attempt < 2) continue;
+        const replayAfterRace = await this.#findAssignmentReplay(input.taskId, requestedHarness);
+        if (replayAfterRace) return replayAfterRace;
+        throw normalizeDatabaseError(error, {
+          conflictCode: "RDB_CONFLICT",
+          conflictMessage: "Task production Start conflicted",
+        });
+      }
+    }
+    throw new RdbError("RDB_UNAVAILABLE", "Task production Start could not be serialized");
+  }
+
+  async transitionTaskStatus(input: TaskStatusTransitionInput): Promise<{
+    task: TaskRecord;
+    transition: TaskStatusTransition;
+    created: boolean;
+  }> {
+    const requested = taskStatusTransitionSchema.parse(input.transition);
+    const replay = await this.#findTaskStatusReplay(input.taskId, requested);
+    if (replay) return replay;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await this.#client.transaction(async (transaction) => {
+          const task = await transaction.task.findUnique({ where: { id: input.taskId } });
+          if (!task || task.teamId !== input.teamId) {
+            throw new RdbError("RDB_NOT_FOUND", "Task does not exist");
+          }
+          if (
+            requested.teamId !== input.teamId
+            || requested.taskId !== task.id
+            || requested.fromStatus !== task.productionStatus
+            || requested.revision !== input.expectedRevision + 1
+          ) {
+            throw new RdbError("RDB_CONFLICT", "Task status transition facts are inconsistent");
+          }
+          if (
+            task.statusRevision !== input.expectedRevision
+            || !isTaskProductionTransitionAllowed(
+              input.actorPolicy,
+              task.productionStatus as never,
+              requested.toStatus,
+            )
+          ) {
+            throw new RdbError("RDB_CONFLICT", "Task status revision or transition is no longer eligible");
+          }
+          const updated = await transaction.task.updateMany({
+            where: {
+              id: task.id,
+              teamId: input.teamId,
+              productionStatus: task.productionStatus,
+              statusRevision: input.expectedRevision,
+            },
+            data: {
+              productionStatus: requested.toStatus,
+              statusRevision: requested.revision,
+              statusNote: requested.note,
+              statusUpdatedAt: requested.occurredAt,
+              statusActor: serializeJson(requested.actor),
+              updatedAt: requested.occurredAt,
+            },
+          });
+          if (updated.count !== 1) throw new RdbError("RDB_CONFLICT", "Task status transition lost a race");
+          const transition = await transaction.taskStatusTransition.create({
+            data: taskStatusTransitionWriteData(requested),
+          });
+          if (requested.toStatus === "done" || requested.toStatus === "canceled") {
+            await transaction.harness.updateMany({
+              where: { id: requested.actor.harnessId ?? "00000000-0000-0000-0000-000000000000", teamId: input.teamId },
+              data: { capabilityRevokedAt: requested.occurredAt, updatedAt: requested.occurredAt },
+            });
+            const taskHarness = await transaction.harness.findUnique({ where: { taskId: task.id } });
+            if (taskHarness && taskHarness.capabilityRevokedAt === null) {
+              await transaction.harness.updateMany({
+                where: { id: taskHarness.id, teamId: input.teamId },
+                data: { capabilityRevokedAt: requested.occurredAt, updatedAt: requested.occurredAt },
+              });
+            }
+          }
+          return {
+            task: mapTask({
+              ...task,
+              productionStatus: requested.toStatus,
+              statusRevision: requested.revision,
+              statusNote: requested.note,
+              statusUpdatedAt: requested.occurredAt,
+              statusActor: serializeJson(requested.actor),
+              updatedAt: requested.occurredAt,
+            }),
+            transition: mapTaskStatusTransition(transition),
+            created: true,
+          };
+        });
+      } catch (error) {
+        if (isDatabaseErrorCode(error, "P2034") && attempt < 2) continue;
+        const replayAfterRace = await this.#findTaskStatusReplay(input.taskId, requested);
+        if (replayAfterRace) return replayAfterRace;
+        throw normalizeDatabaseError(error, {
+          conflictCode: "RDB_CONFLICT",
+          conflictMessage: "Task status transition conflicted",
+        });
+      }
+    }
+    throw new RdbError("RDB_UNAVAILABLE", "Task status transition could not be serialized");
+  }
+
+  async listTaskStatusTransitions(input: {
+    taskId: string;
+    teamId: string;
+    limit?: number;
+  }): Promise<TaskStatusTransition[]> {
+    const rows = await this.#client.taskStatusTransition.findMany({
+      where: { taskId: input.taskId, teamId: input.teamId },
+      orderBy: [{ revision: "desc" }],
+      take: Math.min(Math.max(input.limit ?? 100, 1), 500),
+    });
+    return rows.map(mapTaskStatusTransition);
+  }
+
+  async getHarnessByTaskId(taskId: string, options: { teamId: string }): Promise<Harness | undefined> {
+    const row = await this.#client.harness.findUnique({ where: { taskId } });
+    return row?.teamId === options.teamId ? mapHarness(row) : undefined;
+  }
+
+  async getHarnessBySessionId(sessionId: string): Promise<Harness | undefined> {
+    const row = await this.#client.harness.findUnique({ where: { sessionId } });
+    return row ? mapHarness(row) : undefined;
+  }
+
+  async updateHarness(input: {
+    harnessId: string;
+    teamId: string;
+    workspaceId?: string;
+    sessionId?: string;
+    setupFailureCode?: string | null;
+    setupFailureMessage?: string | null;
+  }): Promise<Harness | undefined> {
+    const updatedAt = this.#now();
+    const result = await this.#client.harness.updateMany({
+      where: { id: input.harnessId, teamId: input.teamId },
+      data: {
+        ...(input.workspaceId !== undefined ? { workspaceId: input.workspaceId } : {}),
+        ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
+        ...(input.setupFailureCode !== undefined ? { setupFailureCode: input.setupFailureCode } : {}),
+        ...(input.setupFailureMessage !== undefined ? { setupFailureMessage: input.setupFailureMessage } : {}),
+        updatedAt,
+      },
+    });
+    if (result.count !== 1) return undefined;
+    const row = await this.#client.harness.findUnique({ where: { id: input.harnessId } });
+    return row ? mapHarness(row) : undefined;
+  }
+
+  async resolveWorkloadExecution(executionCodeHash: string): Promise<import("./rdb-provider").ResolvedWorkloadExecution | undefined> {
+    const lease = await this.#client.sessionDispatchLease.findUnique({ where: { executionCodeHash } });
+    if (!lease?.executionCodeExpiresAt) return undefined;
+    const harness = await this.#client.harness.findUnique({ where: { sessionId: lease.sessionId } });
+    if (!harness || harness.capabilityRevokedAt !== null || !harness.workspaceId || !harness.sessionId) return undefined;
+    const [task, project, workspace, session] = await Promise.all([
+      this.#client.task.findUnique({ where: { id: harness.taskId } }),
+      this.#client.project.findUnique({ where: { id: harness.projectId } }),
+      this.#client.taskWorkspace.findUnique({ where: { id: harness.workspaceId } }),
+      this.#client.session.findUnique({ where: { id: harness.sessionId } }),
+    ]);
+    if (
+      !task || !project || !workspace || !session
+      || task.teamId !== harness.teamId || project.teamId !== harness.teamId
+      || workspace.teamId !== harness.teamId || session.teamId !== harness.teamId
+      || task.productionStatus === "done" || task.productionStatus === "canceled"
+    ) return undefined;
+    return {
+      harness: mapHarness(harness),
+      task: mapTask(task),
+      project: mapProject(project),
+      workspace: mapTaskWorkspace(workspace),
+      session: mapSession(session),
+      executionCodeExpiresAt: lease.executionCodeExpiresAt,
+    };
+  }
+
   async createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult> {
     const existing = await this.#findTaskWorkspaceCreateResult(input.taskId);
     if (existing) return this.#requireSameTaskWorkspaceIntent(existing, input);
@@ -1343,6 +1694,27 @@ export class PrismaRdbProvider implements RdbProvider {
       const workspace = await transaction.taskWorkspace.findUnique({ where: { id: input.workspaceId } });
       const attempt = await transaction.workspacePreparationAttempt.findUnique({ where: { id: input.attemptId } });
       const timestamp = this.#now();
+      if (
+        workspace
+        && attempt
+        && attempt.workspaceId === workspace.id
+        && attempt.sequence === input.attemptSequence
+        && attempt.runnerId === input.runnerId
+        && ((attempt.state === "succeeded" && input.status === "succeeded")
+          || (attempt.state === "failed" && input.status === "failed"))
+      ) {
+        const sameReport = input.status === "succeeded"
+          ? workspace.state === "ready"
+            && workspace.workspaceRef === input.workspaceRef
+            && workspace.baseCommit === input.observed.baseCommit
+            && workspace.branchName === input.observed.branchName
+          : workspace.state === "failed"
+            && workspace.failureCode === input.failure.code
+            && workspace.failureMessage === input.failure.message
+            && attempt.failureCode === input.failure.code;
+        if (sameReport) return mapTaskWorkspace(workspace);
+        throw new RdbError("STALE_WORKSPACE_ATTEMPT", "Workspace attempt report conflicts with its persisted result");
+      }
       if (
         !workspace
         || !attempt
@@ -1615,6 +1987,7 @@ export class PrismaRdbProvider implements RdbProvider {
     }
     return resolvedAgentSnapshotSchema.parse({
       agentId: agent.id,
+      name: agent.name,
       revision: agent.revision,
       systemPrompt: agent.systemPrompt,
     });
@@ -2355,6 +2728,63 @@ export class PrismaRdbProvider implements RdbProvider {
     throw new RdbError("RDB_UNAVAILABLE", "Runtime write transaction could not be serialized");
   }
 
+  async #findAssignmentReplay(
+    taskId: string,
+    requestedHarness: Harness,
+  ): Promise<{
+    task: TaskRecord;
+    harness: Harness;
+    transition: TaskStatusTransition;
+    created: false;
+  } | undefined> {
+    const harnessRow = await this.#client.harness.findUnique({ where: { taskId } });
+    if (!harnessRow) return undefined;
+    if (
+      harnessRow.assignIdempotencyKey !== requestedHarness.assignIdempotencyKey
+      || harnessRow.assignRequestFingerprint !== requestedHarness.assignRequestFingerprint
+    ) {
+      throw new RdbError("RDB_CONFLICT", "Task already has a different production assignment");
+    }
+    const [taskRow, transitionRow] = await Promise.all([
+      this.#client.task.findUnique({ where: { id: taskId } }),
+      this.#client.taskStatusTransition.findUnique({
+        where: {
+          taskId_idempotencyKey: {
+            taskId,
+            idempotencyKey: requestedHarness.assignIdempotencyKey,
+          },
+        },
+      }),
+    ]);
+    if (!taskRow || !transitionRow) {
+      throw new RdbError("RDB_UNAVAILABLE", "Production assignment audit facts are incomplete");
+    }
+    return {
+      task: mapTask(taskRow),
+      harness: mapHarness(harnessRow),
+      transition: mapTaskStatusTransition(transitionRow),
+      created: false,
+    };
+  }
+
+  async #findTaskStatusReplay(
+    taskId: string,
+    requested: TaskStatusTransition,
+  ): Promise<{ task: TaskRecord; transition: TaskStatusTransition; created: false } | undefined> {
+    const transitionRow = await this.#client.taskStatusTransition.findUnique({
+      where: {
+        taskId_idempotencyKey: { taskId, idempotencyKey: requested.idempotencyKey },
+      },
+    });
+    if (!transitionRow) return undefined;
+    if (transitionRow.requestFingerprint !== requested.requestFingerprint) {
+      throw new RdbError("RDB_CONFLICT", "Idempotency key was reused with different status inputs");
+    }
+    const taskRow = await this.#client.task.findUnique({ where: { id: taskId } });
+    if (!taskRow) throw new RdbError("RDB_UNAVAILABLE", "Task status projection is missing");
+    return { task: mapTask(taskRow), transition: mapTaskStatusTransition(transitionRow), created: false };
+  }
+
   async #insertTask(
     input: TaskCreateFromIssue | (TaskCreate & { issue: null }),
     client: MystraPrismaDelegates = this.#client,
@@ -2374,6 +2804,17 @@ export class PrismaRdbProvider implements RdbProvider {
           issueScopeExternalId: input.issue?.scopeExternalId ?? null,
           issueExternalId: input.issue?.externalId ?? null,
           issueIdentifier: input.issue?.identifier ?? null,
+          productionStatus: "pending",
+          statusRevision: 1,
+          statusNote: null,
+          statusUpdatedAt: timestamp,
+          statusActor: serializeJson({
+            kind: "system",
+            actorId: null,
+            agentId: null,
+            harnessId: null,
+            sessionId: null,
+          }),
           createdAt: timestamp,
           updatedAt: timestamp,
         },
@@ -2576,6 +3017,20 @@ function requireMutableAgent(
 function requireTeamId(teamId: string | undefined): string {
   if (!teamId) throw new RdbError("RDB_RELATION_CONFLICT", "Team ID is required");
   return teamId;
+}
+
+function harnessWriteData(harness: Harness) {
+  return {
+    ...harness,
+    taskIssue: harness.taskIssue === null ? null : serializeJson(harness.taskIssue),
+  };
+}
+
+function taskStatusTransitionWriteData(transition: TaskStatusTransition) {
+  return {
+    ...transition,
+    actor: serializeJson(transition.actor),
+  };
 }
 
 function integrationConnectionWithoutCredential(

@@ -78,6 +78,7 @@ export type AgentResponse = z.infer<typeof agentResponseSchema>;
 
 export const resolvedAgentSnapshotSchema = z.object({
   agentId: z.string().uuid(),
+  name: agentDisplayNameSchema,
   revision: z.number().int().positive(),
   systemPrompt: agentSystemPromptSchema,
 }).strict();

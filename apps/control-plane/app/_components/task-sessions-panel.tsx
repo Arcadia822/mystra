@@ -40,7 +40,7 @@ export function TaskSessionsPanel({ task, workspace }: { task: Task; workspace: 
   const providers = useMemo(() => runtime?.providers.filter((provider) => provider.available) ?? [], [runtime]);
   const activeAgents = useMemo(() => agents.data?.agents.filter((agent) => agent.status === "active") ?? [], [agents.data?.agents]);
   const formError = error ?? runtimes.error ?? agents.error;
-  const canLaunch = workspace?.state === "ready" && providerKey.length > 0 && agentId.length > 0 && !busy;
+  const canLaunch = workspace?.state === "ready" && providerKey.length > 0 && !busy;
 
   useEffect(() => {
     if (!page.data) return;
@@ -50,9 +50,6 @@ export function TaskSessionsPanel({ task, workspace }: { task: Task; workspace: 
   useEffect(() => {
     if (!providerKey && providers[0]) setProviderKey(providers[0].provider);
   }, [providerKey, providers]);
-  useEffect(() => {
-    if (!agentId && activeAgents[0]) setAgentId(activeAgents[0].id);
-  }, [activeAgents, agentId]);
 
   async function loadMore() {
     if (!nextCursor || busy) return;
@@ -83,7 +80,7 @@ export function TaskSessionsPanel({ task, workspace }: { task: Task; workspace: 
         body: JSON.stringify({
           sessionId,
           providerKey,
-          agentId,
+          ...(agentId ? { agentId } : {}),
           ...(manual.trim() ? { manualContext: { text: manual.trim() } } : {}),
         }),
       });
@@ -114,12 +111,12 @@ export function TaskSessionsPanel({ task, workspace }: { task: Task; workspace: 
               {providers.map((provider) => <option key={provider.provider} value={provider.provider}>{provider.provider}</option>)}
             </UiSelect>
           </label>
-          <label>{copy.agent}
-            <UiSelect disabled={busy || activeAgents.length === 0} value={agentId} onChange={(event) => setAgentId(event.currentTarget.value)}>
-              {activeAgents.length === 0 ? <option value="">{copy.noAgent}</option> : null}
+          {activeAgents.length > 0 ? <label>{copy.agent}
+            <UiSelect disabled={busy} value={agentId} onChange={(event) => setAgentId(event.currentTarget.value)}>
+              <option value="">{copy.noAgent}</option>
               {activeAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
             </UiSelect>
-          </label>
+          </label> : null}
           <label>{copy.manual}
             <UiTextarea maxLength={64 * 1024} placeholder={copy.manualPlaceholder} value={manual} onChange={(event) => setManual(event.currentTarget.value)} />
           </label>
@@ -141,7 +138,7 @@ export function TaskSessionsPanel({ task, workspace }: { task: Task; workspace: 
           {sessions.map((session) => (
             <Link className="dataRow sessionRow" href={`/sessions/${encodeURIComponent(session.id)}`} key={session.id}>
               <span className="primaryCell"><strong>{sessionStateLabel(session.state, locale)}</strong><small className="mono">{session.id}</small></span>
-              <span><small>{session.providerKey}</small><br /><span className="mono">{session.agentId}</span></span>
+              <span><small>{session.providerKey}</small><br /><span className="mono">{session.agentId ?? copy.noAgent}</span></span>
               <span><small>{copy.updated}</small><br />{relativeTime(session.updatedAt)}</span>
             </Link>
           ))}

@@ -54,12 +54,23 @@ function messageText(payload: Record<string, unknown>): string | undefined {
   return parts.length > 0 ? parts.join("\n") : undefined;
 }
 
+function promptEvidenceDetail(payload: Record<string, unknown>, zh: boolean): string | undefined {
+  const standard = payload.standardPrompt;
+  if (!standard || typeof standard !== "object" || !("version" in standard) || typeof standard.version !== "string") return undefined;
+  const agent = payload.agentContext;
+  if (agent === null) return `${standard.version} · ${zh ? "无附加 Agent 上下文" : "No optional Agent Context"}`;
+  if (agent && typeof agent === "object" && "name" in agent && "revision" in agent && typeof agent.name === "string" && typeof agent.revision === "number") {
+    return `${standard.version} · ${agent.name} r${agent.revision}`;
+  }
+  return standard.version;
+}
+
 export function presentSessionEvent(event: PresentableEvent, locale: ShellLocale): SessionEventPresentation {
   const zh = locale === "zh-CN";
   const payload = event.payload as Record<string, unknown>;
   switch (event.kind) {
     case "session.created": return { title: zh ? "Session 已创建" : "Session created", tone: "neutral" };
-    case "session.system_prompt_configured": return { title: zh ? "执行指令已配置" : "Execution instructions configured", tone: "neutral" };
+    case "session.system_prompt_configured": return { title: zh ? "执行指令已配置" : "Execution instructions configured", detail: promptEvidenceDetail(payload, zh), tone: "neutral" };
     case "session.workspace_attached": return { title: zh ? "Task Workspace 已附加" : "Task Workspace attached", detail: zh ? "共享可变目录" : "Shared mutable directory", tone: "neutral" };
     case "session.user_message_submitted": return { title: zh ? "用户消息" : "User message", detail: messageText(payload), tone: "neutral" };
     case "session.runtime_dispatched": return { title: zh ? "已派发到 Runtime" : "Dispatched to Runtime", tone: "active" };

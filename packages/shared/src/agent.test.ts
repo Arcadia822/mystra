@@ -115,11 +115,13 @@ describe("Agent contracts", () => {
   it("defines an exact detached resolved snapshot", () => {
     expect(resolvedAgentSnapshotSchema.parse({
       agentId,
+      name: "Reviewer",
       revision: 4,
       systemPrompt: "Review evidence.",
-    })).toEqual({ agentId, revision: 4, systemPrompt: "Review evidence." });
+    })).toEqual({ agentId, name: "Reviewer", revision: 4, systemPrompt: "Review evidence." });
     expect(() => resolvedAgentSnapshotSchema.parse({
       agentId,
+      name: "Reviewer",
       revision: 4,
       systemPrompt: "Review evidence.",
       projectId: teamId,

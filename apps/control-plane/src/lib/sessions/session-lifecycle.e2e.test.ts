@@ -111,7 +111,7 @@ describe("Session lifecycle SQLite/HTTP E2E", () => {
     ]));
     const reaper = new RuntimeSessionService({
       db: fixture.db,
-      now: () => new Date("2026-08-10T08:00:00.000Z"),
+      now: () => new Date(Date.now() + 2 * 86_400_000),
     });
 
     await expect(reaper.reconcileExpiredLeases(async () => false)).resolves.toBe(1);

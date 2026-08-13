@@ -14,8 +14,10 @@ import { sessionWorkspaceAttachmentSchema, taskWorkspaceViewSchema } from "@myst
 
 import { createSqlitePrismaClient } from "../src/lib/db/prisma-client";
 import { PrismaRdbProvider } from "../src/lib/db/prisma-provider";
+import { getHostLivenessRegistry } from "../src/lib/runtime/runtime-liveness";
 import { RuntimeSessionService } from "../src/lib/sessions/runtime-session-service";
 import { SessionService } from "../src/lib/sessions/session-service";
+import { TaskProductionService } from "../src/lib/tasks/task-production-service";
 
 const migrationDirectories = [
   "20260806182000_init",
@@ -27,6 +29,8 @@ const migrationDirectories = [
   "20260808200000_task_context",
   "20260810130000_task_workspace_setup",
   "20260810160000_session_launch_framework",
+  "20260811210000_factory_task_harness",
+  "20260812090000_standard_agent_context",
 ];
 
 export async function createSessionE2eFixture() {
@@ -45,7 +49,8 @@ export async function createSessionE2eFixture() {
   sqlite.close();
 
   let tick = 0;
-  const now = () => new Date(Date.UTC(2026, 7, 10, 0, 0, 0, tick++)).toISOString();
+  const startedAt = Date.now();
+  const now = () => new Date(startedAt + tick++).toISOString();
   const db = new PrismaRdbProvider(createSqlitePrismaClient({
     databaseUrl: `file:${databasePath}`,
   }), { now });
@@ -127,8 +132,8 @@ export async function createSessionE2eFixture() {
   const runtime = {
     ...reportedRuntime,
     status: "online" as const,
-    lastSeenAt: "2026-08-10T00:00:00.000Z",
   };
+  getHostLivenessRegistry().markSeen(runnerId, new Date(startedAt));
   const createdWorkspace = await db.createTaskWorkspace({
     teamId,
     taskId: task.id,
@@ -148,7 +153,7 @@ export async function createSessionE2eFixture() {
   });
   const preparation = await db.claimTaskWorkspacePreparation({
     runnerId,
-    leaseExpiresAt: "2026-08-11T00:00:00.000Z",
+    leaseExpiresAt: new Date(startedAt + 86_400_000).toISOString(),
   });
   const workspace = await db.completeTaskWorkspacePreparation({
     workspaceId: createdWorkspace.workspace.id,
@@ -163,11 +168,8 @@ export async function createSessionE2eFixture() {
     },
   });
 
-  const sessions = new SessionService({
-    db,
-    runtimeResolver: async (id) => id === runtime.id ? runtime : undefined,
-    workspace: {
-      get: async (input) => {
+  const workspaceService = {
+      get: async (input: { actor: { teamId: string }; taskId: string }) => {
         const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.actor.teamId });
         return ready ? taskWorkspaceViewSchema.parse({
           id: ready.id,
@@ -187,7 +189,32 @@ export async function createSessionE2eFixture() {
           readyAt: ready.readyAt,
         }) : undefined;
       },
-      resolveSessionAttachment: async (input) => {
+      setup: async (input: { actor: { teamId: string }; taskId: string; runtimeId: string }) => {
+        const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.actor.teamId });
+        if (!ready || ready.runtimeId !== input.runtimeId) throw new Error("Ready E2E Workspace is unavailable");
+        return {
+          workspace: taskWorkspaceViewSchema.parse({
+            id: ready.id,
+            taskId: ready.taskId,
+            projectId: ready.projectId,
+            runtimeId: ready.runtimeId,
+            state: ready.state,
+            sharingMode: ready.sharingMode,
+            configuredBaseBranch: ready.configuredBaseBranch,
+            baseRef: ready.baseRef,
+            baseCommit: ready.baseCommit,
+            branchName: ready.branchName,
+            branchStrategy: ready.branchStrategy,
+            failure: null,
+            createdAt: ready.createdAt,
+            updatedAt: ready.updatedAt,
+            readyAt: ready.readyAt,
+          }),
+          created: false,
+          retried: false,
+        };
+      },
+      resolveSessionAttachment: async (input: { teamId: string; taskId: string; requestedRuntimeId: string }) => {
         const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.teamId });
         return sessionWorkspaceAttachmentSchema.parse({
           kind: "task",
@@ -197,13 +224,18 @@ export async function createSessionE2eFixture() {
           sharingMode: ready!.sharingMode,
         });
       },
-    },
+  };
+  const sessions = new SessionService({
+    db,
+    runtimeResolver: async (id) => id === runtime.id ? runtime : undefined,
+    workspace: workspaceService,
     now,
   });
+  const production = new TaskProductionService({ db, workspace: workspaceService, sessions, now });
   let tokenSequence = 0;
   const runtimeSessions = new RuntimeSessionService({
     db,
-    now: () => new Date("2026-08-10T01:00:00.000Z"),
+    now: () => new Date(startedAt + tick++),
     newToken: () => String(++tokenSequence).padStart(32, "t"),
   });
   const server = await startSessionHttpServer(runtimeSessions);
@@ -211,6 +243,7 @@ export async function createSessionE2eFixture() {
   return {
     db,
     sessions,
+    production,
     runtimeSessions,
     endpoint: server.endpoint,
     actor: { actorId: registration.user.id, teamId, roles: ["owner" as const] },

@@ -6,6 +6,12 @@
 **状态**: 已实现
 **输入**: Control Plane 在一个数据库事务中创建 Session、冻结 system prompt 与第一条 user message；事务提交后由指定 Runtime 通过 Provider 执行；Session 支持后续串行 user message；全部经过校验、限长和脱敏的 Session 领域事件持久化。
 
+> **052 supersession (2026-08-12)**: Agent 选择改为 optional Agent Context。
+> Session 始终冻结 feature 052 的 program-owned Standard Execution Prompt；显式
+> Agent snapshot 只能作为低优先级补充。下文 Agent-required launch 条件、四个必选
+> 输入和 prompt 顺序由 `052-standard-agent-context` 直接替换；049 的原子创建、
+> Workspace attachment、多消息和事件合同继续有效。
+
 ## 合同摘要
 
 Session 是 Team-scoped、独立于 Task 与 Project 的持久化会话。一次发起明确选择 Runtime、Provider、Agent、Context 四个互不推导的执行输入，并同时提供第一条 user message。

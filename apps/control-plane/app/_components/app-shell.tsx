@@ -81,15 +81,12 @@ function routeTitle(pathname: string, locale: ShellLocale): string {
 }
 
 function taskStatus(state?: string): { icon: ShellIconName; kind: string; label: string } {
-  if (!state) return { icon: "circle", kind: "idle", label: "No Sessions" };
-  if (["assigned", "starting", "running"].includes(state)) {
-    return { icon: "spinner", kind: "active", label: state.replaceAll("_", " ") };
-  }
+  if (!state || state === "pending") return { icon: "circle", kind: "idle", label: "pending" };
+  if (state === "in_progress") return { icon: "spinner", kind: "active", label: "in progress" };
+  if (state === "blocked") return { icon: "alert", kind: "error", label: "blocked" };
   if (state === "waiting_for_review") return { icon: "review", kind: "review", label: "waiting for review" };
-  if (state === "succeeded") return { icon: "check", kind: "success", label: "succeeded" };
-  if (["failed", "canceled", "timed_out"].includes(state)) {
-    return { icon: "alert", kind: "error", label: state.replaceAll("_", " ") };
-  }
+  if (state === "done") return { icon: "check", kind: "success", label: "done" };
+  if (state === "canceled") return { icon: "alert", kind: "error", label: "canceled" };
   return { icon: "circle", kind: "queued", label: state.replaceAll("_", " ") };
 }
 
@@ -315,7 +312,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
                 <div className="projectTaskList">
                   {group.tasks.map((task) => {
-                    const status = taskStatus();
+                    const status = taskStatus(task.productionStatus);
                     return (
                       <UiActionLink active={pathname === `/tasks/${task.id}`} block className="sidebarTask" href={`/tasks/${task.id}`} key={task.id}>
                         <SidebarStatusIcon icon={status.icon} label={status.label} status={status.kind} />

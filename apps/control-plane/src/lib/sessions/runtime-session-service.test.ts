@@ -42,9 +42,21 @@ describe("RuntimeSessionService claim and event ingest", () => {
           claimedAt: timestamp,
           updatedAt: timestamp,
         },
+        executionCodeExpiresAt: "2026-08-10T03:00:00.000Z",
       })),
       listSessionEvents: vi.fn(async () => ({ events: [
-        { kind: "session.system_prompt_configured", payload: { finalPrompt: "Frozen prompt" } },
+        { kind: "session.system_prompt_configured", payload: {
+          standardPrompt: { version: `sha256:${"a".repeat(64)}`, content: "Standard" },
+          agentContext: { agentId, name: "Agent", revision: 1, systemPrompt: "Supplemental" },
+          components: [
+            { name: "standard", content: "Standard" },
+            { name: "runtime", content: "Runtime" },
+            { name: "provider", content: "Provider" },
+            { name: "agent_context", content: "Supplemental" },
+            { name: "execution_context", content: "Context" },
+          ],
+          finalPrompt: "Frozen prompt",
+        } },
         { kind: "session.workspace_attached", payload: { kind: "task", taskWorkspaceId: "00000000-0000-4000-8000-000000000008", runtimeId, workspaceRef: "host-task-workspace:00000000-0000-4000-8000-000000000008", sharingMode: "shared-mutable" } },
         { kind: "session.user_message_submitted", messageId, payload: { content: [{ type: "text", text: "Execute" }] } },
       ] })),
@@ -56,6 +68,7 @@ describe("RuntimeSessionService claim and event ingest", () => {
       now: () => new Date("2026-08-10T01:00:00.000Z"),
       newId: () => "00000000-0000-4000-8000-000000000007",
       newToken: () => leaseToken,
+      newExecutionCode: () => "execution-code-value-which-is-long-enough",
     });
 
     const assignment = await service.claim({ runtimeId, request: { runnerId: "runner-1", waitSeconds: 0 } });
@@ -64,6 +77,7 @@ describe("RuntimeSessionService claim and event ingest", () => {
       message: { messageId },
       systemPrompt: "Frozen prompt",
       lease: { leaseToken },
+      execution: { code: "execution-code-value-which-is-long-enough" },
     });
     expect(JSON.stringify(assignment)).not.toContain("leaseTokenHash");
     expect(db.claimSession).toHaveBeenCalledWith(expect.objectContaining({
@@ -72,8 +86,11 @@ describe("RuntimeSessionService claim and event ingest", () => {
       lease: expect.objectContaining({
         leaseToken,
         leaseTokenHash: createHash("sha256").update(leaseToken).digest("hex"),
+        executionCodeHash: createHash("sha256").update("execution-code-value-which-is-long-enough").digest("hex"),
+        executionCodeExpiresAt: "2026-08-10T07:00:00.000Z",
       }),
     }));
+    expect(JSON.stringify(db.claimSession.mock.calls[0]![0])).not.toContain("execution-code-value-which-is-long-enough");
   });
 
   it("requires the same lease token in header/body and hashes it before persistence", async () => {

@@ -4,17 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prebuild": "pnpm --filter @mystra/agent-adapters build",
+    "prebuild": "pnpm --filter @mystra/agent-adapters build && pnpm --filter @mystra/agent-cli build",
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
     "lint": "tsc --noEmit",
-    "pretest": "pnpm --filter @mystra/agent-adapters build",
+    "pretest": "pnpm --filter @mystra/agent-adapters build && pnpm --filter @mystra/agent-cli build",
     "test": "vitest run --passWithNoTests",
-    "pretypecheck": "pnpm --filter @mystra/agent-adapters build",
+    "pretypecheck": "pnpm --filter @mystra/agent-adapters build && pnpm --filter @mystra/agent-cli build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@mystra/agent-adapters": "workspace:*",
+    "@mystra/agent-cli": "workspace:*",
     "@mystra/shared": "workspace:*",
     "@sentry/node": "^10.51.0",
     "zod": "^4.1.13"

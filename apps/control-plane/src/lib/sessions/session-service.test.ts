@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { RuntimeView, TaskRecord, TaskWorkspaceView } from "@mystra/shared";
+import { effectiveSystemPromptEvidenceSchema } from "@mystra/shared";
 import type { SessionLaunchPersistenceInput } from "../db/rdb-provider";
 import { RdbError } from "../db/prisma-errors";
 
@@ -17,14 +18,14 @@ const messageId = "00000000-0000-4000-8000-000000000007";
 function fixture() {
   const createSessionWithEvents = vi.fn(async (input: SessionLaunchPersistenceInput) => ({ session: input.session, created: true }));
   const db = {
-    getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
+    getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, productionStatus: "pending", statusRevision: 1, statusNote: null, statusUpdatedAt: "2026-08-10T00:00:00.000Z", statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null }, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
     getProjectById: vi.fn(async () => ({
       id: projectId, teamId, name: "Mystra", slug: "mystra",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000011",
       repositoryExternalId: "R_mystra", repositoryBaseBranch: "main", metadata: {},
       archivedAt: null, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
     })),
-    resolveActiveAgent: vi.fn(async () => ({ agentId, revision: 2, systemPrompt: "You are the assigned Agent." })),
+    resolveActiveAgent: vi.fn(async () => ({ agentId, name: "Production Agent", revision: 2, systemPrompt: "You are the assigned Agent." })),
     getRuntime: vi.fn(),
     createSessionWithEvents,
     getSession: vi.fn(), listSessions: vi.fn(), appendSessionEvents: vi.fn(), listSessionEvents: vi.fn(),
@@ -59,6 +60,30 @@ function fixture() {
 }
 
 describe("SessionService.launch", () => {
+  it("launches a Harness with frozen Agent and Task input plus the standard production bootstrap", async () => {
+    const { service, createSessionWithEvents, db } = fixture();
+    db.resolveActiveAgent.mockRejectedValue(new Error("current Agent must not be resolved"));
+    const harness = {
+      id: "00000000-0000-4000-8000-000000000020", teamId, taskId, projectId, agentId, agentRevision: 2,
+      agentName: "Production Agent", agentSystemPrompt: "Frozen production Agent prompt.", taskTitle: "Frozen Harness title", taskDescription: "Frozen Harness description", taskIssue: null,
+      runtimeId, providerKey: "codex" as const, workspaceId: "00000000-0000-4000-8000-000000000008",
+      plannedSessionId: sessionId, sessionId: null, firstMessageId: messageId, assignIdempotencyKey: "assign-1",
+      assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,
+      createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
+    };
+    await service.launchHarness({ actor: { actorId: `harness:${harness.id}`, teamId, roles: ["owner"] }, harness });
+    const persisted = createSessionWithEvents.mock.calls[0]![0];
+    const prompt = persisted.events[1]!.payload.finalPrompt;
+    expect(prompt).toContain("Frozen production Agent prompt");
+    expect(prompt).toContain("mystra-agent context get");
+    expect(prompt).toContain("linctl");
+    expect(prompt).toContain("gh");
+    expect(prompt).not.toContain("Frozen Harness title");
+    expect(prompt).not.toContain("Frozen Harness description");
+    expect(prompt).not.toContain("MYSTRA_EXECUTION_CODE");
+    expect(db.resolveActiveAgent).not.toHaveBeenCalled();
+  });
+
   it("persists Session plus the prompt, Workspace, and first user message atomically", async () => {
     const { service, createSessionWithEvents } = fixture();
     const result = await service.launch({
@@ -76,8 +101,38 @@ describe("SessionService.launch", () => {
     expect(persisted.events.map((event) => event.kind)).toEqual([
       "session.created", "session.system_prompt_configured", "session.workspace_attached", "session.user_message_submitted",
     ]);
-    expect(persisted.events[1]!.payload.finalPrompt).toContain("<untrusted_context>");
+    expect(persisted.events[1]!.payload.finalPrompt).toContain("<execution_context_data>");
+    expect(effectiveSystemPromptEvidenceSchema.parse(persisted.events[1]!.payload).standardPrompt.version)
+      .toMatch(/^sha256:[a-f0-9]{64}$/u);
     expect(JSON.stringify(persisted)).not.toMatch(/turnId|maxConcurrency|slot/iu);
+  });
+
+  it("launches without Agent Context and records explicit absence", async () => {
+    const { service, createSessionWithEvents, db } = fixture();
+    db.resolveActiveAgent.mockRejectedValue(new Error("no Agent lookup is permitted"));
+    const result = await service.launch({
+      actor: { actorId: "user-1", teamId, roles: ["owner"] },
+      request: {
+        sessionId, runtimeId, providerKey: "codex",
+        context: { taskId, projectId },
+        firstUserMessage: { messageId, content: [{ type: "text", text: "Implement it" }] },
+        metadata: {},
+      },
+    });
+
+    expect(result.session).toMatchObject({ agentId: null, agentRevision: null });
+    const persisted = createSessionWithEvents.mock.calls[0]![0];
+    expect(persisted.events[0]!.payload.agentContext).toBeNull();
+    expect(persisted.events[1]!.payload).toMatchObject({
+      agentContext: null,
+      components: [
+        { name: "standard" },
+        { name: "runtime" },
+        { name: "provider" },
+        { name: "execution_context" },
+      ],
+    });
+    expect(db.resolveActiveAgent).not.toHaveBeenCalled();
   });
 
   it("maps archived Agent and launch races to stable Session failures", async () => {

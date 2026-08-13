@@ -4,6 +4,19 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 AGENT_DIR="$HOME/Library/LaunchAgents"
 UID_VALUE="$(id -u)"
+NODE_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/.nvmrc")"
+
+if [ -x "$HOME/.nvm/versions/node/v${NODE_VERSION}/bin/node" ]; then
+  NODE_BIN="$HOME/.nvm/versions/node/v${NODE_VERSION}/bin"
+elif [ -x "$HOME/.local/share/fnm/node-versions/v${NODE_VERSION}/installation/bin/node" ]; then
+  NODE_BIN="$HOME/.local/share/fnm/node-versions/v${NODE_VERSION}/installation/bin"
+else
+  echo "Missing repository-pinned Node v${NODE_VERSION}; install it before starting Mystra." >&2
+  exit 1
+fi
+
+COREPACK="$NODE_BIN/corepack"
+SERVICE_PATH="$NODE_BIN:$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 mkdir -p "$AGENT_DIR"
 
@@ -16,9 +29,9 @@ cat >"$AGENT_DIR/com.mystra.control-plane.plist" <<PLIST
   <string>com.mystra.control-plane</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string>
-    <string>-lc</string>
-    <string>cd ${ROOT_DIR} &amp;&amp; pnpm dev:control-plane</string>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>cd ${ROOT_DIR} &amp;&amp; PATH=${SERVICE_PATH} ${COREPACK} pnpm dev:control-plane</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -41,9 +54,9 @@ cat >"$AGENT_DIR/com.mystra.runner.plist" <<PLIST
   <string>com.mystra.runner</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string>
-    <string>-lc</string>
-    <string>sleep 8 &amp;&amp; cd ${ROOT_DIR} &amp;&amp; set -a; if [ -f ~/.mystra/runner.env ]; then source ~/.mystra/runner.env; fi; set +a; MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 pnpm dev:runner</string>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>sleep 8 &amp;&amp; cd ${ROOT_DIR} &amp;&amp; set -a; if [ -f ~/.mystra/runner.env ]; then . ~/.mystra/runner.env; fi; set +a; PATH=${SERVICE_PATH} MYSTRA_CODEX_PATH=$HOME/bin/codex MYSTRA_COPILOT_PATH=$HOME/.local/bin/copilot MYSTRA_CONTROL_PLANE_URL=http://localhost:3000 ${COREPACK} pnpm dev:runner</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

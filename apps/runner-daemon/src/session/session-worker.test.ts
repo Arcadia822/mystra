@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { SessionClaimAssignment, SessionEventInput } from "@mystra/shared";
+import type { ProviderSessionCommand } from "@mystra/agent-adapters";
 
 import { executeSessionAssignment } from "./session-worker.js";
 
@@ -30,6 +31,7 @@ describe("executeSessionAssignment", () => {
       assignment,
       client: { appendEvents },
       workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/mystra/bin/codex",
       runProcess: vi.fn(async () => ({ exitCode: 0, stdout: '{"type":"thread.started","thread_id":"thread-1"}\n{"type":"item.completed","item":{"type":"agent_message","text":"Done"}}\n', stderr: "" })),
     });
     const events = appendEvents.mock.calls[0]![1];
@@ -38,11 +40,41 @@ describe("executeSessionAssignment", () => {
     ]);
     expect(events[0]?.payload).toEqual({ providerSessionId: "thread-1" });
 
+    const runWithCapability = vi.fn(async (_command: ProviderSessionCommand) => ({
+      exitCode: 0,
+      stdout: '{"type":"item.completed","item":{"type":"agent_message","text":"accidental execution-code-value-which-is-long-enough echo"}}\n',
+      stderr: "",
+    }));
+    await executeSessionAssignment({
+      assignment: {
+        ...assignment,
+        execution: {
+          code: "execution-code-value-which-is-long-enough",
+          expiresAt: "2026-08-10T02:00:00.000Z",
+          capabilities: ["context:read", "task-status:read", "task-status:transition"],
+        },
+      },
+      client: { appendEvents },
+      workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      controlPlaneUrl: "http://127.0.0.1:3000",
+      providerExecutable: "/opt/mystra/bin/codex",
+      runProcess: runWithCapability,
+    });
+    expect(runWithCapability.mock.calls[0]![0].argv[0]).toBe("/opt/mystra/bin/codex");
+    expect(runWithCapability.mock.calls[0]![0].environment).toMatchObject({
+      MYSTRA_CONTROL_PLANE_URL: "http://127.0.0.1:3000",
+      MYSTRA_EXECUTION_CODE: "execution-code-value-which-is-long-enough",
+    });
+    expect(runWithCapability.mock.calls[0]![0].environment.PATH).toContain("agent-cli/bin");
+    expect(JSON.stringify(appendEvents.mock.calls.at(-1)?.[1])).not.toContain("execution-code-value-which-is-long-enough");
+    expect(JSON.stringify(appendEvents.mock.calls.at(-1)?.[1])).toContain("[REDACTED]");
+
     appendEvents.mockClear();
     await executeSessionAssignment({
       assignment: { ...assignment, lease: { ...assignment.lease, providerSessionId: "thread-1" } },
       client: { appendEvents },
       workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/mystra/bin/codex",
       runProcess: vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" })),
     });
     expect(appendEvents.mock.calls[0]![1].map((event) => event.kind)).toEqual([
@@ -76,6 +108,7 @@ describe("executeSessionAssignment", () => {
       assignment,
       client: { appendEvents: workspaceFailure },
       workspace: { resolveReadyWorkspace: vi.fn(async () => { throw new Error("missing"); }) },
+      providerExecutable: "/opt/mystra/bin/codex",
     });
     expect(workspaceFailure.mock.calls[0]![1].map((event) => event.kind)).toEqual(["session.failed"]);
     expect(workspaceFailure.mock.calls[0]![1][0]?.payload).toMatchObject({ code: "workspace_unavailable" });
@@ -85,6 +118,7 @@ describe("executeSessionAssignment", () => {
       assignment: { ...assignment, session: { ...assignment.session, providerKey: "unsupported" } },
       client: { appendEvents: providerFailure },
       workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/mystra/bin/unsupported",
     });
     expect(providerFailure.mock.calls[0]![1][0]?.payload).toMatchObject({ code: "provider_unavailable" });
 
@@ -95,6 +129,7 @@ describe("executeSessionAssignment", () => {
       assignment,
       client: { appendEvents: cancellation },
       workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/mystra/bin/codex",
       runProcess: vi.fn(async () => { throw new Error("aborted"); }),
       signal: controller.signal,
     });

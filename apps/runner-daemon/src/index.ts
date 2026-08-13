@@ -206,6 +206,12 @@ export async function runDaemon(
 ): Promise<void> {
   const runnerId = await getStableRunnerId({ filePath: config.runnerIdPath });
   let providers = await discoverProviderCapabilities();
+  const providerExecutables = new Map<string, string>();
+  for (const provider of providers) {
+    if (provider.available && provider.resolvedPath) {
+      providerExecutables.set(provider.provider, provider.resolvedPath);
+    }
+  }
   let runtimeId = "";
 
   const registerRunner = async (): Promise<void> => {
@@ -239,8 +245,10 @@ export async function runDaemon(
     runnerId,
     client: new HttpSessionControlPlaneClient(config.endpoint),
     workspace: materializer,
+    providerExecutables,
     waitSeconds: config.workspacePollWaitSeconds,
     retryIntervalSeconds: config.retryIntervalSeconds,
+    controlPlaneUrl: config.endpoint,
     signal,
   });
 
@@ -269,6 +277,12 @@ export async function runDaemon(
       const nextProviders = await discoverProviderCapabilities();
       if (providerSetChanged(providers, nextProviders)) {
         providers = nextProviders;
+        providerExecutables.clear();
+        for (const provider of providers) {
+          if (provider.available && provider.resolvedPath) {
+            providerExecutables.set(provider.provider, provider.resolvedPath);
+          }
+        }
         try {
           await retryUntilReachable(
             () => reportProviders(config, runnerId, providers),

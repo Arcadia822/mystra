@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mystra · Task Production State</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui;background:#f5f5f2;color:#20211f}*{box-sizing:border-box}body{margin:0}.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}.side{background:#20211f;color:#eee;padding:24px}.brand{font-weight:700;margin-bottom:32px}.nav{color:#aaa;line-height:2.2}.nav b{color:#fff}.main{padding:32px;max-width:1120px;width:100%}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#74766f}.title{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.title h1{margin:8px 0}.lede{color:#666;max-width:760px}.badge{display:inline-flex;border-radius:999px;padding:7px 11px;background:#ebece7;font-size:12px}.badge.primary{background:#dff5d8;color:#215d19}.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;margin-top:20px}.card{background:white;border:1px solid #dedfd9;border-radius:14px;padding:20px}.card h2{font-size:15px;margin:0 0 12px}.muted{color:#777;font-size:13px}.states{display:flex;gap:7px;flex-wrap:wrap}.state{border:1px solid #d9dad4;background:#fafaf8;border-radius:999px;padding:8px 10px;font-size:12px;cursor:pointer}.state.active{background:#222;color:#fff;border-color:#222}.arrow{color:#aaa}.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#1f211f;color:#e7eadf;padding:14px;border-radius:9px;line-height:1.7;font-size:12px;white-space:pre-wrap}.notice{border-left:3px solid #999;background:#f7f7f4;padding:11px 13px;font-size:13px}.warning{border-color:#b68618;background:#fff8e8}.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid #eee;font-size:13px}.history{margin-top:16px}.dot{width:8px;height:8px;border-radius:50%;background:#222;display:inline-block;margin-right:8px}.actions button{border:1px solid #ccc;background:#fff;border-radius:8px;padding:8px 10px;margin:5px 5px 0 0}.actions button.primary{background:#222;color:#fff;border-color:#222}@media(max-width:780px){.shell{grid-template-columns:1fr}.side{display:none}.grid{grid-template-columns:1fr}.main{padding:20px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side"><div class="brand">Mystra</div><div class="nav">New<br>Search<br>Inbox<br>Issues<br><br><b>Tasks</b><br>Projects</div></aside>
+  <main class="main">
+    <div class="eyebrow">Task / MST-214</div>
+    <div class="title">
+      <div><h1>Localize account settings</h1><p class="lede">Task owns production progress. Session owns execution state. They are related, not synchronized.</p></div>
+      <span class="badge primary" id="taskBadge">in_progress · r3</span>
+    </div>
+    <div class="states" aria-label="Prototype states">
+      <button class="state" data-state="pending">pending</button><span class="arrow">→</span>
+      <button class="state active" data-state="in_progress">in_progress</button>
+      <button class="state" data-state="blocked">blocked</button>
+      <button class="state" data-state="waiting_for_review">waiting_for_review</button>
+      <button class="state" data-state="done">done</button>
+      <button class="state" data-state="canceled">canceled</button>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Task production status</h2>
+        <div class="row"><span>Assigned Agent</span><b>Software Engineer · revision 3</b></div>
+        <div class="row"><span>Harness attempt</span><b>HAR-02 · one Session</b></div>
+        <div class="row"><span>Status note</span><b id="statusNote">Implementing settings locale switcher</b></div>
+        <div class="notice" id="statusNotice">Agent may report blocked or waiting_for_review. Human owns done and canceled.</div>
+        <div class="actions" id="actions"></div>
+      </section>
+
+      <section class="card">
+        <h2>Session execution state <span class="badge" id="sessionBadge">running</span></h2>
+        <p class="muted">Session state changes independently. A failed Session does not silently rewrite the Task.</p>
+        <div class="actions"><button id="toggleSession">Toggle running / failed</button></div>
+        <div class="row"><span>Session</span><b>SES-91</b></div>
+        <div class="row"><span>Last activity</span><b>8 seconds ago</b></div>
+      </section>
+
+      <section class="card">
+        <h2>mystra-agent · exact injected scope</h2>
+        <div class="code" id="cli">mystra-agent context get
+
+mystra-agent task status get
+
+mystra-agent task status set blocked \
+  --expected-revision 3 \
+  --idempotency-key cmd-101 \
+  --note "Waiting for API contract"</div>
+        <p class="muted">Runtime injects MYSTRA_CONTROL_PLANE_URL + MYSTRA_EXECUTION_CODE. No arbitrary Task ID. The mystra CLI remains for Control Plane management.</p>
+      </section>
+
+      <section class="card">
+        <h2>Agent-reported delivery</h2>
+        <div class="notice warning">Not verified by Mystra</div>
+        <div class="row"><span>PR</span><b id="prText">Not reported</b></div>
+        <div class="row"><span>Self-test</span><b id="testText">Not reported</b></div>
+        <p class="muted">Agent reads Linear with local linctl and creates the PR with local gh. Mystra stores the note; it does not proxy or verify either command.</p>
+      </section>
+    </div>
+
+    <section class="card history">
+      <h2>Append-only transition history</h2>
+      <div class="row"><span><i class="dot"></i>pending → in_progress</span><span>system.assign · revision 3</span></div>
+      <div class="row" id="latestTransition"><span><i class="dot"></i>Current projection</span><span>in_progress · Agent</span></div>
+    </section>
+  </main>
+</div>
+<script>
+  const data={
+    pending:{note:"Waiting for Agent assignment",notice:"Assign/Start is the only path to in_progress.",cli:"mystra-agent context get\\n\\nmystra-agent task status get",pr:"Not reported",test:"Not reported",actor:"System"},
+    in_progress:{note:"Implementing settings locale switcher",notice:"Agent may report blocked or waiting_for_review. Human owns done and canceled.",cli:'mystra-agent context get\\n\\nlinctl issue get LIN-214\\n\\nmystra-agent task status set blocked \\\\\\n  --expected-revision 3 \\\\\\n  --idempotency-key cmd-101 \\\\\\n  --note "Waiting for API contract"',pr:"Not reported",test:"Not reported",actor:"Agent"},
+    blocked:{note:"Waiting for API contract",notice:"Agent may resume to in_progress. Human may also resume or cancel.",cli:'mystra-agent task status set in_progress \\\\\\n  --expected-revision 4 \\\\\\n  --idempotency-key cmd-102 \\\\\\n  --note "Contract received"',pr:"Not reported",test:"Blocked before completion",actor:"Agent"},
+    waiting_for_review:{note:"PR: github.com/acme/app/pull/214; tests: pnpm test passed",notice:"Agent declared readiness. Human may accept as done or return to in_progress.",cli:"gh pr create --fill\\n\\nmystra-agent task status get",pr:"github.com/acme/app/pull/214",test:"pnpm test · reported passed",actor:"Agent"},
+    done:{note:"Accepted by reviewer",notice:"Terminal in v1. Reopen is deferred.",cli:"mystra-agent task status get",pr:"github.com/acme/app/pull/214",test:"pnpm test · Agent reported passed",actor:"Human"},
+    canceled:{note:"Canceled by owner",notice:"Terminal in v1. Reopen is deferred.",cli:"mystra-agent task status get",pr:"Not applicable",test:"Not applicable",actor:"Human"}
+  };
+  function render(state){
+    document.querySelectorAll(".state").forEach(x=>x.classList.toggle("active",x.dataset.state===state));
+    document.getElementById("taskBadge").textContent=state+" · r"+(state==="pending"?"1":"3");
+    document.getElementById("statusNote").textContent=data[state].note;
+    document.getElementById("statusNotice").textContent=data[state].notice;
+    document.getElementById("cli").textContent=data[state].cli;
+    document.getElementById("prText").textContent=data[state].pr;
+    document.getElementById("testText").textContent=data[state].test;
+    document.getElementById("latestTransition").innerHTML="<span><i class='dot'></i>Current projection</span><span>"+state+" · "+data[state].actor+"</span>";
+  }
+  document.querySelectorAll(".state").forEach(x=>x.addEventListener("click",()=>render(x.dataset.state)));
+  document.getElementById("toggleSession").addEventListener("click",()=>{
+    const b=document.getElementById("sessionBadge");b.textContent=b.textContent==="running"?"failed":"running";
+  });
+</script>
+</body>
+</html>

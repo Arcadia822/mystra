@@ -4,19 +4,19 @@
 
 ### I. Specification Owns Product Boundaries
 
-Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Do not introduce a general-purpose logs API, arbitrary stdout/stderr persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, or platform-owned workflow automation as incidental work. A Team-authorized, Session-scoped, typed, schema-validated, bounded and redacted SessionEvent history is the narrow permitted execution-history surface; it does not authorize cross-Session search, a global activity feed, or a log product. Self-hosted Mystra provides single-node human username/password authentication and Owner/Admin/Member Team RBAC as in-scope capabilities; registration grants each human User an initial Team they own, every User always belongs to at least one Team, and Team is the top-level tenant boundary (feature 043 owns this contract). Self-host identity introduces no email dependency and no Agent/workload identity. Hosted multi-tenant caller identity federation, caller-login OAuth (SSO/social), managed platform secrets, hosted Team administration, public multi-tenancy, and installation lifecycle handling remain prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
+Mystra changes must preserve the documented MVP boundary unless the boundary is explicitly amended first. GitHub connection methods are deployment-aware: self-hosted Mystra supports explicit PAT connections behind `SecretProvider`; the platform-operated Mystra GitHub App is hosted-only. The open-source tree may retain hosted App code and tests, but self-hosted entry points must report a stable unavailable capability and fail closed. Hosted OAuth verifies that an authenticated actor may bind an installation to a Team; App installation tokens remain short-lived; PAT plaintext stays behind a protected SecretProvider boundary. Durable relational state may store only non-secret connection metadata, opaque references, and authenticated encryption envelopes whose per-secret DEK is wrapped by a KEK held outside RDB. Every Project binds one exact connection and connection modes never silently fall back. Mystra's MVP is a flexible software factory: standardized requirements enter as Tasks, Providers execute under a program-owned Standard Execution Prompt, optional Agent Context supplies lower-priority behavior guidance, and reviewable results leave the factory. Task owns a Mystra productionStatus distinct from external Issue status and Session execution state. Feature 051 separates `mystra`, the Control Plane management CLI, from `mystra-agent`, the workload-local attempt CLI. The latter uses a short-lived execution code to retrieve minimum sufficient Task/Project/Issue-reference/Workspace context and request allowlisted Task-status transitions without accepting arbitrary Task IDs. In the first self-use path the executing Provider uses the host user's authenticated `linctl` to read Linear and authenticated `gh` to publish a PR; Mystra does not proxy, credential, fall back, query, or verify those operations. Agent-authored PR and self-test notes are unverified. A thin Harness attempt freezes an optional selected Agent snapshot and associates one goal/autopilot Session without introducing a parallel production state machine. Do not introduce a general-purpose logs API, arbitrary stdout/stderr persistence, retry API, arbitrary callbacks, quality-gate fix loops, webhooks, Issue write-back, a general-purpose Integration management catalog, Claude CLI, Kubernetes sandbox workloads, cross-runner shared caches, arbitrary per-repository secret management, standing orders, arbitrary triggers, or general workflow automation as incidental work. A Team-authorized, typed, schema-validated, bounded and redacted Harness/Session event history is permitted for production truth; it does not authorize cross-Task global search, a general activity feed, or a log product. Self-hosted Mystra provides single-node human username/password authentication and Owner/Admin/Member Team RBAC as in-scope capabilities; registration grants each human User an initial Team they own, every User always belongs to at least one Team, and Team is the top-level tenant boundary (feature 043 owns this contract). Self-host identity introduces no email dependency and no long-lived Agent/workload identity. Hosted multi-tenant caller identity federation, caller-login OAuth (SSO/social), managed platform secrets, hosted Team administration, public multi-tenancy, and installation lifecycle handling remain prerequisites owned by explicit hosted phases, not capabilities that self-hosted code may assume already exist. PostgreSQL and user-configured Supabase-backed PostgreSQL are approved RDB deployment targets, but they do not authorize public multi-tenancy, managed database provisioning, or hosted Team administration.
 
 ### II. Typed Contracts at Service Boundaries
 
-Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project; Session belongs to neither Task nor Project and may independently reference `0..1` of each in the north-star model. Session launch resolves Runtime, Provider, Agent and Context as four independent execution inputs and atomically persists the Session, frozen system prompt, ready Task Workspace attachment, and first user message before Runtime/Provider I/O. Mystra defines no Turn business object; message identity is only command idempotency and SessionEvent correlation. The current 048/049/050 slice supports Task-bound Sessions only; Project-only and standalone Sessions are deferred. Feature 048 owns Task Workspace setup/materialization, ready state and a stable attachment resolver; it does not create Session or Provider execution. Workspace preparation claim/lease is materialization fencing, not Session Runtime capacity, slot or execution occupancy. Workspace is one unified execution-directory/context-delivery contract: future preparation policies must reuse it and MUST NOT introduce a parallel Workspace type.
+Control-plane APIs, CLI payloads, Runner protocol payloads, MCP tools and Integration capabilities must use explicit TypeScript and Zod contracts. Team is the tenant boundary: Agent, Task, Project, Harness, and Session are distinct Team-scoped objects. Agent and Task do not belong to Project. Task owns productionStatus: pending, in_progress, blocked, waiting_for_review, done, or canceled. Start, with omitted/null or an explicit active Team Agent ID, atomically moves pending to in_progress and creates one thin Harness attempt in a short RDB transaction; after commit it requests Workspace preparation, and Workspace readiness idempotently leads to the attempt's one goal/autopilot Session. The attempt-scoped workload may only report blocked, resume in_progress, or declare waiting_for_review through a dedicated scoped transition contract; Human owns done and canceled. Every transition is allowlisted, revision-safe, idempotent and append-only audited. Harness freezes all Agent identity fields or none but owns no parallel production lifecycle. Session state changes never automatically mutate Task status. Session belongs to neither Task nor Project as an ownership parent; it remains a Team-scoped execution object and MAY reference its driving Harness plus optional Task/Project context. Session launch resolves Runtime, Provider, optional Agent Context and execution Context, composes the immutable program-owned Standard Execution Prompt with lower-priority optional Agent Context, and atomically persists the Session, frozen effective prompt evidence, ready Task Workspace attachment, and first user message before Runtime/Provider I/O. Mystra defines no Turn business object; message identity is only command idempotency and SessionEvent correlation. Features 048/049/050 provide the underlying Task Workspace, Session launch/continuation and observation contracts; feature 051 adds the thin Task production attempt above them; feature 052 replaces mandatory Agent assignment without introducing a default/sentinel Agent or a second Workspace type. Workspace preparation claim/lease is materialization fencing, not Session Runtime capacity, slot or execution occupancy.
 
 ### III. Providers Are Replaceable Boundaries
 
-Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. Runtime is a first-class, replaceable execution backend that advertises which Provider capabilities (agent CLI / protocol families) it can run, expressed source-agnostically so a host-discovered Runtime and a future image-declared Runtime share one contract. A host-bound Runtime enrolled by the TypeScript `mystra-runner` — covering registration, Provider discovery plus availability confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is one such sandbox provider rather than the sole execution model, and host worktree direct execution is the intended default execution direction. Feature 047 owns Task context and exact Issue intake, feature 048 owns Task Workspace preparation, and feature 049 owns Task-bound Session launch, continuation and typed event history. Delivery automation above this execution layer remains a follow-up boundary. The platform core must not define a WorkflowProvider, workflow blueprint, workflow node graph or workflow DSL above the Agent.
+Mystra uses Open Agents as a source-authoritative framework baseline but owns its provider and execution boundaries. RDB, Issue, sandbox, repository, and Agent integrations must sit behind explicit Mystra-owned contracts. SQLite, PostgreSQL, and Supabase-backed PostgreSQL are selectable RDB deployments behind the same `RdbProvider`; Supabase is a PostgreSQL deployment profile rather than a separate domain contract. GitHub supplies the active remote RepoProvider and repository-scoped IssueProvider; Linear supplies a read-only IssueProvider. Runtime is a first-class, replaceable execution backend that advertises which Provider capabilities (agent CLI / protocol families) it can run, expressed source-agnostically so a host-discovered Runtime and a future image-declared Runtime share one contract. A host-bound Runtime enrolled by the TypeScript `mystra-runner` — covering registration, Provider discovery plus availability confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is one such sandbox provider rather than the sole execution model, and host worktree direct execution is the intended default execution direction. Feature 047 owns Task context and exact Issue intake, feature 048 owns Task Workspace preparation, feature 049 owns Task-bound Session launch/continuation and typed event history, feature 051 owns Task productionStatus, `mystra-agent` context/status surfaces, a thin Harness attempt and exactly one goal/autopilot Session, and feature 052 owns the Standard Execution Prompt plus optional Agent Context contract. The platform core must not define a general WorkflowProvider, user-configurable workflow blueprint, workflow node graph or workflow DSL outside this slice. Harness-owned heartbeat/event subscriptions, multiple Session coordination, generic Artifact/Delivery contracts, platform-proxied external CLIs, PR/self-test verification and Production Recipes require explicit follow-up specifications.
 
 ### IV. Runner Isolation and Secret Hygiene
 
-Runner hosts connect outbound to the control plane; the control plane must not require inbound access to a runner host. A host-bound Runtime advertises the Provider CLIs it has discovered and confirmed available without baking their credentials or login state into the platform. Where a provider uses containers, runner daemons may use the host Docker socket while task containers must not mount it; this Docker-socket allowance is provider-specific, not a universal runner assumption. Secrets are injected at runtime through environment variables or read-only files and must not be committed or baked into images.
+Runner hosts connect outbound to the control plane; the control plane must not require inbound access to a runner host. A host-bound Runtime advertises the Provider CLIs it has discovered and confirmed available without baking their credentials or login state into the platform. Feature 051 additionally assumes host-local `linctl` and `gh` are installed and authenticated for the same OS user as the executing Provider; their credentials remain owned by those tools and are never returned by `mystra-agent`. The `MYSTRA_EXECUTION_CODE` is a separate, short-lived, revocable attempt capability and must not appear in prompts, ordinary logs, status notes, or plaintext persistence. Where a provider uses containers, runner daemons may use the host Docker socket while task containers must not mount it; this Docker-socket allowance is provider-specific, not a universal runner assumption. Secrets are injected at runtime through environment variables or read-only files and must not be committed or baked into images.
 
 ### V. Verification And Documentation Before Delivery
 
@@ -29,8 +29,12 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
 - Cloud services are provider implementations, not product architecture assumptions.
 - GitHub and Linear are the enabled MVP Integrations: GitHub provides remote
   repositories and repository-scoped Issues; Linear provides read-only Issues.
-- GitHub repository discovery and delivery MUST use the exact App or PAT
-  connection bound by the Project. OAuth user tokens are verification-only and
+- Platform-mediated GitHub repository discovery and RepoDeliveryProvider
+  delivery MUST use the exact App or PAT connection bound by the Project.
+  Feature 051's explicit self-use exception lets the Agent invoke host-local
+  `gh` under that OS user's existing authentication; Mystra MUST NOT inject,
+  reuse, proxy, verify, or fall back to the Project connection for this path.
+  OAuth user tokens are verification-only and
   MUST not be persisted; installation access tokens are short-lived and MUST
   NOT appear in durable state, logs, public responses, or evidence. PAT
   plaintext and the KEK MUST remain behind `SecretProvider` and MUST NOT enter
@@ -56,21 +60,63 @@ Every non-trivial change needs evidence. Contract changes need focused tests. Br
   paths and caller-supplied clone URLs are invalid Project inputs.
 - Mystra remote MCP is the primary submission path for other agents and skills.
 - Web API is the canonical management implementation; CLI and MCP are thin adapters over the same contracts.
+- `mystra` is the Control Plane management CLI. `mystra-agent` is a separate
+  workload-local adapter whose short-lived execution code addresses only the
+  current attempt; it MUST NOT accept arbitrary Task IDs or expose external
+  credentials.
 - Web UI is a secondary client. Its demo shell exposes New, Search, Inbox, and
   Issues, followed by Projects and Team-scoped Tasks with latest-Session
   status icons. Existing Task, Session, Runner, and Project object routes remain
   directly reachable. `/automations` remains directly addressable as a Coming
-  soon placeholder, is not a primary menu entry, and does not create
-  platform-owned workflow orchestration.
+  soon placeholder, is not a primary menu entry, and does not create a general
+  automation catalog. Task assignment and productionStatus remain Task surfaces.
 - Runner output may become a typed SessionEvent only after shared-schema
   validation, size limits and redaction. Team-authorized Session-scoped history
   is in scope; cross-Session/global activity timelines, arbitrary stdout/stderr
   storage and a general-purpose log API remain out of scope.
-- Branch names and review titles/bodies belong to Session execution context.
+- Agent-authored PR URLs, commit identifiers, test commands and results are
+  unverified status-note content in feature 051; they are never platform
+  evidence merely because the Agent submitted them.
 - Runner caches improve performance only and must never be treated as source-of-truth state.
 - Optional Agent plugin/hooks may extend Agent behavior, but they must remain removable packages and cannot become required platform orchestration.
 
 ## Amendment Notes
+
+- 2026-08-12: Feature 052 replaced mandatory Agent assignment with canonical
+  Start plus optional Agent Context. Every Session receives the immutable,
+  content-addressed Standard Execution Prompt; an explicitly selected active
+  Team Agent contributes a transaction-frozen name/revision/system-prompt
+  snapshot at lower priority. Omitted/null means no Agent, invalid explicit
+  selection fails closed, and default/sentinel Agents or `/assign` aliases are
+  prohibited. This directly supersedes the Agent-required portions of 046,
+  049, and 051 under the pre-0.1 replacement policy.
+
+- 2026-08-11: Named the feature 051 workload client `mystra-agent` and reserved
+  `mystra` for Control Plane management. Added attempt-scoped execution-code
+  context retrieval, host-local `linctl`/`gh` responsibility, no credential or
+  delivery fallback, and the short Assign/Start transaction followed by
+  asynchronous Workspace preparation and idempotent Session creation. This is
+  an MVP boundary amendment because the original 051 clause exposed only Task
+  status and platform delivery previously assumed RepoDeliveryProvider.
+
+- 2026-08-11: Amended feature 051 to add the thin Task production state machine
+  and a scoped Agent Task-status CLI. Task now owns pending, in_progress,
+  blocked, waiting_for_review, done and canceled; Session state is independent,
+  Harness owns no parallel lifecycle, and only Human actors may complete or
+  cancel. Agent-reported PR/self-test notes are explicitly unverified. This
+  supersedes 047's no-Task-lifecycle clause without copying or writing external
+  Issue status. Generic Artifacts, verification, multi-Session orchestration,
+  heartbeat/event subscriptions and Production Recipes remain deferred.
+
+- 2026-08-11: Reframed Mystra's product direction as a flexible software factory. Task is the
+  production order, Agent is the responsible producer, Harness identifies one
+  production attempt, Session is one multi-turn execution conversation, and
+  Workspace is the production directory/context surface. Feature 051 is the
+  explicit exception to the former blanket exclusion of platform-owned
+  orchestration, limited to Assign/Start and scoped Task status transitions.
+  General WorkflowProvider, workflow DSL,
+  arbitrary triggers, standing orders, configurable Production Recipes,
+  triage/review automation and mandatory quality gates remain deferred.
 
 - 2026-08-10: Features 048/049/050 were narrowed to Task-bound Session delivery.
   Feature 048 owns one Runtime-affine Task Workspace and a strict ready
@@ -211,4 +257,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.9.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-10
+**Version**: 2.13.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-11

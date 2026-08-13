@@ -3,6 +3,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "..");
 const allowMarker = "legacy-term-audit: allow";
@@ -45,6 +46,7 @@ const inspectionTargets = [
 const ignoredFiles = new Set([
   "apps/control-plane/next-env.d.ts",
   "scripts/audit-task-session-terminology.mjs",
+  "scripts/audit-task-session-terminology.test.ts",
 ]);
 const legacyPatterns = [
   /\bJob(?:InlineContextBundlePayload|Snapshot|Submission|Spec|Source|Record)?s?\b/,
@@ -56,6 +58,11 @@ const legacyPatterns = [
   /\b(?:jobs|runs|runner_sessions|run_events)\b/,
   /[\"'`](?:job|run)\.[a-z][a-z0-9_.-]*[\"'`]/,
   /\/api\/(?:runner\/)?jobs(?:\/|\b)/,
+  /\bDefault Agent\b/i,
+  /\b(?:default|sentinel|builtIn|system)AgentId\b/,
+  /\/production\/assign\b/,
+  /\btaskAssign(?:Request|Result|RequestSchema|ResultSchema)?\b/,
+  /\bAssign\s*(?:&|and)\s*start\b/i,
 ];
 const legacyPathSegment = /(^|[-_.\/])(?:job|jobs|run|runs|runner-session|runner-sessions)(?=$|[-_.\/])/i;
 
@@ -90,7 +97,7 @@ async function collectFiles(targetPath) {
   return files;
 }
 
-function lineViolations(relativePath, content) {
+export function lineViolations(relativePath, content) {
   const violations = [];
   const lines = content.split(/\r?\n/);
   for (const [index, line] of lines.entries()) {
@@ -139,4 +146,6 @@ async function main() {
   process.exitCode = 1;
 }
 
-await main();
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+  await main();
+}

@@ -9,6 +9,7 @@ import {
   type ProviderSessionCommand,
   type ProviderProcessResult,
 } from "@mystra/agent-adapters";
+import { agentCliBinDirectory } from "@mystra/agent-cli";
 import type { SessionClaimAssignment, SessionEventInput } from "@mystra/shared";
 
 import type { SessionControlPlaneClient } from "./session-client.js";
@@ -20,7 +21,9 @@ export async function executeSessionAssignment(input: {
   assignment: SessionClaimAssignment;
   client: Pick<SessionControlPlaneClient, "appendEvents">;
   workspace: WorkspaceResolver;
+  providerExecutable: string;
   runProcess?: (command: ProviderSessionCommand, signal?: AbortSignal) => Promise<ProviderProcessResult>;
+  controlPlaneUrl?: string;
   signal?: AbortSignal;
 }): Promise<void> {
   const { assignment } = input;
@@ -51,6 +54,25 @@ export async function executeSessionAssignment(input: {
           userMessage: message,
           workingDirectory: resolved.directory,
         });
+    if (!path.isAbsolute(input.providerExecutable)) {
+      throw new Error("Provider executable must be an absolute discovered path");
+    }
+    command = {
+      ...command,
+      argv: [input.providerExecutable, ...command.argv.slice(1)],
+    };
+    if (assignment.execution) {
+      if (!input.controlPlaneUrl) throw new Error("Control Plane URL is unavailable");
+      command = {
+        ...command,
+        environment: {
+          ...command.environment,
+          PATH: [agentCliBinDirectory, process.env.PATH].filter(Boolean).join(path.delimiter),
+          MYSTRA_CONTROL_PLANE_URL: input.controlPlaneUrl,
+          MYSTRA_EXECUTION_CODE: assignment.execution.code,
+        },
+      };
+    }
   } catch {
     await input.client.appendEvents(assignment, [failureEvent(assignment, "provider_unavailable", "Provider is unsupported by this Runtime")]);
     return;
@@ -85,7 +107,10 @@ export async function executeSessionAssignment(input: {
     events.push(event("session.provider_started", { providerSessionId }));
   }
   events.push(event("session.response_started", {}, assignment.message.messageId));
-  const assistantMessage = extractAssistantMessage(assignment.session.providerKey, result.stdout);
+  const assistantMessage = redactExecutionCode(
+    extractAssistantMessage(assignment.session.providerKey, result.stdout),
+    assignment.execution?.code,
+  );
   if (assistantMessage) {
     events.push(event("session.agent_message_chunk", { text: assistantMessage.slice(0, 32_768) }, assignment.message.messageId));
   }
@@ -130,6 +155,11 @@ function extractAssistantMessage(providerKey: string, stdout: string): string | 
     }
   }
   return messages.join("\n").trim() || undefined;
+}
+
+function redactExecutionCode(message: string | undefined, executionCode: string | undefined): string | undefined {
+  if (!message || !executionCode) return message;
+  return message.replaceAll(executionCode, "[REDACTED]");
 }
 
 function failureEvent(

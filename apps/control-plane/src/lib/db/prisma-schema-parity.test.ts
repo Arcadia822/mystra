@@ -32,6 +32,8 @@ describe("Prisma provider schema parity", () => {
       "Project",
       "ProjectIssueSource",
       "Task",
+      "Harness",
+      "TaskStatusTransition",
       "TaskWorkspace",
       "WorkspacePreparationAttempt",
       "Agent",
@@ -54,6 +56,8 @@ describe("Prisma provider schema parity", () => {
       '@@map("projects")',
       '@@map("project_issue_sources")',
       '@@map("tasks")',
+      '@@map("harnesses")',
+      '@@map("task_status_transitions")',
       '@@map("task_workspaces")',
       '@@map("workspace_preparation_attempts")',
       '@@map("agents")',
@@ -81,12 +85,26 @@ describe("Prisma provider schema parity", () => {
 
     expect(session).toMatch(/taskId\s+String/u);
     expect(session).toMatch(/runtimeId\s+String/u);
-    expect(session).toMatch(/agentRevision\s+Int/u);
+    expect(session).toMatch(/agentId\s+String\?/u);
+    expect(session).toMatch(/agentRevision\s+Int\?/u);
+    expect(session).toMatch(/agent\s+Agent\?/u);
     expect(session).not.toMatch(/launchPayload/u);
     expect(schema.match(/model SessionEventHead \{[\s\S]*?\n\}/u)?.[0]).toMatch(/launchPayload\s+String/u);
     expect(event).toMatch(/@@unique\(\[sessionId, sourceId, sourceSequence\]\)/u);
     expect(event).toMatch(/@@unique\(\[sessionId, globalSequence\]\)/u);
     expect(schema).not.toMatch(/model\s+Turn|capacity|slot/u);
+  });
+
+  it("models optional Agent snapshots without a default or sentinel relation", () => {
+    const schema = modelSection(readSchema("sqlite"));
+    const harness = schema.match(/model Harness \{[\s\S]*?\n\}/u)?.[0] ?? "";
+
+    expect(harness).toMatch(/agentId\s+String\?/u);
+    expect(harness).toMatch(/agentName\s+String\?/u);
+    expect(harness).toMatch(/agentRevision\s+Int\?/u);
+    expect(harness).toMatch(/agentSystemPrompt\s+String\?/u);
+    expect(harness).toMatch(/agent\s+Agent\?/u);
+    expect(schema).not.toMatch(/defaultAgent|sentinelAgent/u);
   });
 
   it("models Task as Team-owned text with optional immutable context references", () => {

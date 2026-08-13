@@ -109,6 +109,19 @@ describe("Task Session human routes", () => {
     expect(services.launchForTask).toHaveBeenCalledWith({
       actor: { actorId: userId, teamId, roles: ["member"] }, taskId, request: input,
     });
+
+    const standardInput = { sessionId: randomUUID(), providerKey: "codex" };
+    const standardLaunch = await launchTaskSession(request(`http://localhost/api/tasks/${taskId}/sessions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(standardInput),
+    }), { params: Promise.resolve({ id: taskId }) });
+    expect(standardLaunch.status).toBe(201);
+    expect(services.launchForTask).toHaveBeenLastCalledWith({
+      actor: { actorId: userId, teamId, roles: ["member"] },
+      taskId,
+      request: { ...standardInput, agentId: null },
+    });
   });
 
   it("returns Session detail and reverses bounded latest events into global order", async () => {

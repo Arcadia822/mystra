@@ -6,6 +6,8 @@ import {
   sessionSchema,
   taskSessionLaunchInputSchema,
   type RuntimeView,
+  type Harness,
+  type ResolvedAgentSnapshot,
   type Session,
   type SessionEvent,
   type SessionEventInput,
@@ -20,7 +22,7 @@ import {
 import type { RdbProvider } from "../db/rdb-provider";
 import { RdbError } from "../db/prisma-errors";
 import { TaskWorkspaceFailure } from "../task-workspaces/task-workspace-errors";
-import { assembleSystemPrompt } from "./system-prompt-assembler";
+import { assembleHarnessSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
 import { SessionFailure } from "./session-errors";
 
 type SessionDb = Pick<RdbProvider,
@@ -54,21 +56,34 @@ export class SessionService {
     this.#newId = input.newId ?? randomUUID;
   }
 
-  async launch(input: { actor: SessionSubject; request: SessionLaunchRequest }): Promise<{ session: Session; created: boolean }> {
+  async launch(input: {
+    actor: SessionSubject;
+    request: SessionLaunchRequest;
+    frozenAgent?: ResolvedAgentSnapshot | null;
+    frozenTask?: TaskRecord;
+    harnessBootstrap?: boolean;
+  }): Promise<{ session: Session; created: boolean }> {
     const request = sessionLaunchRequestSchema.parse(input.request);
     const [task, agent, runtime, project] = await Promise.all([
       this.#db.getTask(request.context.taskId, { teamId: input.actor.teamId }),
-      this.#db.resolveActiveAgent(request.agentId, { teamId: input.actor.teamId }).catch((error: unknown) => {
-        if (error instanceof RdbError && error.code === "AGENT_ARCHIVED") return undefined;
-        throw error;
-      }),
+      input.frozenAgent !== undefined
+        ? Promise.resolve(input.frozenAgent)
+        : request.agentId === null
+          ? Promise.resolve(null)
+          : this.#db.resolveActiveAgent(request.agentId, { teamId: input.actor.teamId }).catch((error: unknown) => {
+          if (error instanceof RdbError && error.code === "AGENT_ARCHIVED") return undefined;
+          throw error;
+        }),
       this.#runtimeResolver(request.runtimeId),
       request.context.projectId
         ? this.#db.getProjectById(request.context.projectId, { teamId: input.actor.teamId })
         : Promise.resolve(undefined),
     ]);
     if (!task) throw new SessionFailure("task_not_found", "Task was not found");
-    if (!agent) throw new SessionFailure("agent_unavailable", "Agent is unavailable");
+    if (request.agentId !== null && !agent) throw new SessionFailure("agent_unavailable", "Agent is unavailable");
+    if ((agent?.agentId ?? null) !== request.agentId) {
+      throw new SessionFailure("agent_unavailable", "Frozen Agent Context does not match request");
+    }
     this.#validateProject(request, task, project);
     this.#validateRuntime(request, runtime);
 
@@ -89,14 +104,22 @@ export class SessionService {
       }
       throw new SessionFailure("workspace_unavailable", "Ready Task Workspace is unavailable");
     }
-    const prompt = assembleSystemPrompt({
-      runtime: runtime!,
-      providerKey: request.providerKey,
-      agent,
-      task,
-      project: project ?? null,
-      ...(request.context.manual ? { manualContext: request.context.manual } : {}),
-    });
+    const agentContext = agent ? {
+      agentId: agent.agentId,
+      name: agent.name,
+      revision: agent.revision,
+      systemPrompt: agent.systemPrompt,
+    } : null;
+    const prompt = input.harnessBootstrap
+      ? assembleHarnessSystemPrompt({ runtime: runtime!, providerKey: request.providerKey, agentContext })
+      : assembleSystemPrompt({
+          runtime: runtime!,
+          providerKey: request.providerKey,
+          agentContext,
+          task: input.frozenTask ?? task,
+          project: project ?? null,
+          ...(request.context.manual ? { manualContext: request.context.manual } : {}),
+        });
     const timestamp = this.#now();
     const session = sessionSchema.parse({
       id: request.sessionId,
@@ -105,8 +128,8 @@ export class SessionService {
       projectId: request.context.projectId ?? null,
       runtimeId: request.runtimeId,
       providerKey: request.providerKey,
-      agentId: agent.agentId,
-      agentRevision: agent.revision,
+      agentId: agent?.agentId ?? null,
+      agentRevision: agent?.revision ?? null,
       state: "queued",
       activeMessageId: request.firstUserMessage.messageId,
       lastMessageId: null,
@@ -126,6 +149,37 @@ export class SessionService {
       }
       throw error;
     }
+  }
+
+  async launchHarness(input: {
+    actor: SessionSubject;
+    harness: Harness;
+  }): Promise<{ session: Session; created: boolean }> {
+    return this.launch({
+      actor: input.actor,
+      harnessBootstrap: true,
+      frozenAgent: input.harness.agentId === null ? null : {
+        agentId: input.harness.agentId,
+        name: input.harness.agentName!,
+        revision: input.harness.agentRevision!,
+        systemPrompt: input.harness.agentSystemPrompt!,
+      },
+      request: {
+        sessionId: input.harness.plannedSessionId,
+        runtimeId: input.harness.runtimeId,
+        providerKey: input.harness.providerKey,
+        agentId: input.harness.agentId,
+        context: {
+          taskId: input.harness.taskId,
+          projectId: input.harness.projectId,
+        },
+        firstUserMessage: {
+          messageId: input.harness.firstMessageId,
+          content: [{ type: "text", text: "Complete this Task: implement the code change, self-test it, create the PR with gh, and report the Task production status." }],
+        },
+        metadata: { harnessId: input.harness.id, mode: "goal-autopilot" },
+      },
+    });
   }
 
   async launchForTask(input: {
@@ -279,7 +333,7 @@ export class SessionService {
     timestamp: string,
   ): SessionEvent[] {
     const definitions: Array<{ kind: SessionEvent["kind"]; messageId?: string; payload: SessionEvent["payload"] }> = [
-      { kind: "session.created", payload: { runtimeId: session.runtimeId, providerKey: session.providerKey, agentId: session.agentId, agentRevision: session.agentRevision, taskId: session.taskId, projectId: session.projectId, context: { taskId: request.context.taskId, ...(request.context.projectId ? { projectId: request.context.projectId } : {}), ...(request.context.manual ? { manual: request.context.manual } : {}) } } },
+      { kind: "session.created", payload: { runtimeId: session.runtimeId, providerKey: session.providerKey, agentContext: prompt.agentContext, taskId: session.taskId, projectId: session.projectId, context: { taskId: request.context.taskId, ...(request.context.projectId ? { projectId: request.context.projectId } : {}), ...(request.context.manual ? { manual: request.context.manual } : {}) } } },
       { kind: "session.system_prompt_configured", payload: prompt },
       { kind: "session.workspace_attached", payload: workspace },
       { kind: "session.user_message_submitted", messageId: request.firstUserMessage.messageId, payload: { content: request.firstUserMessage.content } },

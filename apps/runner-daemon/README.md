@@ -65,9 +65,35 @@ completed response releases local execution ownership; the durable Session
 remains `ready` and may receive another user message. No Runtime capacity or
 slot value is sent or persisted.
 
+Provider discovery is also the execution authority: the Session worker runs the
+exact absolute CLI path that discovery probed as available. It never resolves a
+second bare `codex` or `copilot` command from `PATH`; a missing discovered path
+fails the Session as `provider_unavailable`.
+
+The frozen prompt is the Control Plane's single effective prompt. It always
+contains the content-addressed Standard Execution Prompt. When a Start request
+explicitly selects an Agent, its frozen name/revision/system prompt appears only
+as lower-priority Optional Agent Context. The runner and Provider adapters do
+not reconstruct, replace, or inject a separate Agent prompt or Agent-specific
+environment variable.
+
 Event batches reuse stable IDs on retry and carry the lease token in both the
 request body and header. The control plane validates the lease, source sequence,
 payload limits, idempotency, and state projection in one transaction.
+
+For a feature 051 Harness Session only, the claim also returns a short-lived,
+attempt-scoped execution capability. This capability identifies the attempt
+even when no Agent Context was selected. The runner prepends the bundled
+`mystra-agent` bin directory to that Provider process's `PATH` and injects
+`MYSTRA_CONTROL_PLANE_URL` plus `MYSTRA_EXECUTION_CODE`. The raw code is never
+written to Session events or runner logs; only its SHA-256 digest and expiry are
+persisted by the Control Plane. Generic Sessions receive no workload capability.
+
+The first self-use deployment expects `linctl` and `gh` to be installed and
+authenticated for the same host OS user running the Provider process. Mystra
+does not issue those credentials, proxy either CLI, or fall back to the Project
+Integration credential. An Agent that cannot use either tool reports `blocked`
+through `mystra-agent`.
 
 ## Commands
 

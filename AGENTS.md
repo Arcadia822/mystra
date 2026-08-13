@@ -182,46 +182,67 @@ SDK surfaces where upstream does not provide reusable package contracts. The
 current provider set is selectable SQLite, PostgreSQL, or Supabase-backed
 PostgreSQL behind `RdbProvider`, GitHub Integration with
 remote `RepoProvider` plus repository-scoped `IssueProvider`, read-only Linear
-`IssueProvider`, direct Agent execution, and Runtime as a first-class execution
+`IssueProvider`, direct Agent execution, Task-bound Harness production, and Runtime as a first-class execution
 backend that advertises its Provider (agent CLI) capabilities source-agnostically.
 A host-bound Runtime enrolled by the TypeScript `mystra-runner` — registration
 (endpoint-configured, no MVP pairing), Provider discovery plus availability
 confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is
 one sandbox provider rather than the sole execution model, and host worktree
-direct execution is the intended default execution direction (feature 044 owns
-host Runtime enrollment; task dispatch, Context/worktree management, Agent
-configuration, and execution/Session remain follow-up specs).
+direct execution is the intended default execution direction. Feature 044 owns
+host Runtime enrollment; 047–050 own Task Context, Workspace and Session
+foundations; feature 051 owns Task productionStatus, the attempt-scoped
+`mystra-agent` context/status CLI, optional Agent Context, and one goal/autopilot
+Session per thin Harness attempt. `mystra` remains the Control Plane management
+CLI. The self-use Agent reads Linear with host-local `linctl` and creates its PR
+with host-local `gh`; Mystra does not proxy or credential those tools. PR and
+self-test text is Agent-reported and is not verified by Mystra.
 Every Project binds one IntegrationConnection plus a provider-stable remote repository external ID and a
 Mystra-owned configured `repositoryBaseBranch`. This is ordinary provider-neutral Project repository configuration,
 not a Provider default-branch observation. Remote branch enumeration, symbolic `HEAD` inspection and exact branch
 resolution use standard Git protocol rather than Integration-specific RepoProvider methods. Mutable repository names,
 URLs, Provider default-branch observations, visibility, and archive/delete state are not Project persistence; their
 retrieval and caching require a separate specification. Task persists its own
-title and description plus immutable optional Project context and exact Issue references; it does not copy current
+title, description and productionStatus plus immutable optional Project context and exact Issue references; it does not copy current
 Issue/Repository snapshots. Future Integration cache design owns current external information. Local paths and
 caller-supplied clone URLs are not Project repository inputs.
 
 The near-term MVP goal is self-use: let an operator or another Agent select a
 GitHub or Linear Issue and dispatch it through canonical API, thin CLI, remote
-MCP, or the secondary Web client. Mystra starts the selected Agent directly in
-the sandbox, performs bounded test/build/preview/review delivery, and returns a
-GitHub PR plus durable `waiting_for_review` evidence.
+MCP, or the secondary Web client. Assigning an Agent to the resulting
+Project-bound Task atomically moves `pending` to `in_progress`, creates a thin
+Harness attempt, requests Task Workspace preparation after commit, and
+idempotently starts exactly one goal/autopilot Session once that shared
+Workspace is ready. `mystra` remains the Human/external-Agent Control Plane
+management CLI. The workload-local `mystra-agent` resolves the current attempt
+through a short-lived execution code, returns its Task/Project/Issue-reference/
+Workspace context, and lets the scoped Agent report `blocked`, resume
+`in_progress`, or declare `waiting_for_review`. The Agent reads Linear with the
+host user's authenticated `linctl` and creates its PR with the host user's
+authenticated `gh`; Mystra does not proxy, credential, or verify those tools.
+Human actors own `done` and `canceled`. Session state never automatically
+mutates Task status, and Mystra does not verify Agent-reported PR or self-test statements.
+Harness-owned heartbeat/event subscriptions, multiple Sessions, generic
+Artifact submission and non-PR outputs are follow-up specifications.
 
 The active MVP demo UI uses a Castrel-inspired primary menu: New, Search,
 Inbox, and Issues, followed by Projects and a Team-scoped Tasks section.
-Task icons reflect the latest Session state. Existing Task, Session, Runner, and
+Task icons reflect Task productionStatus. Existing Task, Session, Runner, and
 Project object routes remain directly reachable even when they are not primary
 menu items. `/automations` remains directly reachable as a Coming soon
-placeholder, but it is not a primary menu entry and does not introduce
-platform-owned workflow orchestration. The first Prisma schema does not preserve
+placeholder, but it is not a primary menu entry and does not introduce a
+general automation catalog. Task Harness controls remain Task surfaces. The first Prisma schema does not preserve
 Session-, Runner-, or ContextBundle-derived views as persistence requirements;
 resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
 and CLI.
 
-Task is a durable Team-scoped Agent context container with Mystra-owned title and description plus immutable
+Task is a durable Team-scoped production task with Mystra-owned title, description and productionStatus plus immutable
 `0..1` Project context and `0..1` exact Issue references; it does not belong to Project. One exact Issue maps to at
 most one Task, and current external requirement state remains provider-owned rather than copied or written back.
-Task creation and update never launch a Session. Session is a Team-scoped execution object that belongs to neither Task nor
+Task creation initializes `pending` and never launches a Session. Start on an eligible Task, optionally with explicit Agent Context, atomically enters
+`in_progress`, creates one Harness attempt and drives Workspace preparation plus exactly one first-version Autopilot Session.
+Harness freezes the selected Agent name/revision/system-prompt snapshot when present and otherwise records no Agent; it does not own a parallel production state machine.
+Task status updates use a dedicated allowlisted transition service with expected revision, idempotency and append-only history.
+One Session is the attempt's multi-turn execution conversation. Session is a Team-scoped execution object that belongs to neither Task nor
 Project; it may independently reference `0..1` Task and `0..1` Project. Canonical launch atomically persists the Session,
 frozen system prompt, and first user message, then Runtime/Provider execution begins after commit. Mystra has no Turn business
 object; message identity is only command idempotency and SessionEvent correlation.
@@ -236,12 +257,13 @@ cross-Session activity timelines, and arbitrary stdout/stderr persistence remain
 Runtime capability; an idle ready Session does not reserve capacity.
 
 The north-star model is a hosted **Mystra platform** serving many independent
-**Teams**. Each Team may contain multiple Projects, Tasks, Sessions, and Agents
+**Teams**. Each Team may contain multiple Projects, Tasks, Harnesses, Sessions, and Agents
 while sharing platform-owned provider pools such as sandbox capacity. Agent,
-Task, Project, and Session are Team-scoped siblings: Agent and Task do not belong
+Task, Project, Harness, and Session are Team-scoped: Agent and Task do not belong
 to Project, and Session belongs to neither Task nor Project. Session may
-independently reference `0..1` of each and selects Runtime, Provider, Agent, and
-Context as four independent execution inputs.
+independently reference `0..1` of each and selects Runtime, Provider, optional Agent Context, and
+Context as four independent execution inputs. A Harness-driven Session receives
+those resolved inputs from its Harness and must use the Harness-frozen optional Agent snapshot. Every Session receives the program-owned, content-addressed Standard Execution Prompt; Agent Context is supplemental and lower priority.
 Use this as the architectural direction when designing extensible interfaces,
 even though the current MVP proves one private, single-node deployment path.
 
@@ -267,6 +289,9 @@ platform-owned, and installation tokens are short-lived. App and PAT modes
 never silently fall back to one another. Repository discovery and
 RepoDeliveryProvider clone/push/review always resolve the exact connection bound
 by the Project.
+Feature 051's host-local `linctl`/`gh` workload path is an explicit self-use
+exception: it does not invoke RepoDeliveryProvider, reuse the Project connection
+credential, or make Mystra responsible for the external CLI identity/result.
 The current self-hosted MVP does not implement the hosted App activation
 prerequisites (hosted caller-identity federation, hosted Team tenancy, hosted
 RDB, and managed secrets); until they land, hosted App capability remains
@@ -284,8 +309,8 @@ cross-runner shared caches, per-repository secret management, and managed hosted
 RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
 PostgreSQL remain approved deployment targets. Hosted platform persistence
 management remains a separate phase. GitLab is not an enabled/default
-Integration, and standing-order or agent-operated workflow orchestration above
-the Agent remains excluded. GitLab may remain as a
+Integration, standing orders, general WorkflowProvider/DSL, arbitrary triggers,
+and orchestration outside the Task-bound Harness remain excluded. GitLab may remain as a
 runner-side `RepoDeliveryProvider`; that does not make it an active Project
 repository Integration. PostgreSQL and Supabase-backed PostgreSQL are approved
 deployment targets; the `RdbProvider` interface must not leak database dialect,

@@ -54,6 +54,7 @@ model Project {
   issueSources           ProjectIssueSource[]
   taskWorkspaces         TaskWorkspace[]
   sessions               Session[]
+  harnesses              Harness[]
   team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([teamId])
@@ -94,6 +95,11 @@ model Task {
   issueScopeExternalId String?                @map("issue_scope_external_id")
   issueExternalId      String?                @map("issue_external_id")
   issueIdentifier      String?                @map("issue_identifier")
+  productionStatus     String                 @map("production_status")
+  statusRevision       Int                    @map("status_revision")
+  statusNote           String?                @map("status_note")
+  statusUpdatedAt      String                 @map("status_updated_at")
+  statusActor          String                 @map("status_actor")
   createdAt            String                 @map("created_at")
   updatedAt            String                 @map("updated_at")
   issueConnection      IntegrationConnection? @relation(fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -101,6 +107,8 @@ model Task {
   team                 Team                   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   workspace            TaskWorkspace?
   sessions             Session[]
+  harness              Harness?
+  statusTransitions    TaskStatusTransition[]
 
   @@unique([teamId, idempotencyKey])
   @@unique([issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId])
@@ -109,6 +117,68 @@ model Task {
   @@index([issueConnectionId])
   @@index([createdAt, id])
   @@map("tasks")
+}
+
+model Harness {
+  id                       String         @id
+  teamId                   String         @map("team_id")
+  taskId                   String         @unique @map("task_id")
+  projectId                String         @map("project_id")
+  agentId                  String?        @map("agent_id")
+  agentName                String?        @map("agent_name")
+  agentRevision            Int?           @map("agent_revision")
+  agentSystemPrompt        String?        @map("agent_system_prompt")
+  taskTitle                String         @map("task_title")
+  taskDescription          String?        @map("task_description")
+  taskIssue                String?        @map("task_issue")
+  runtimeId                String         @map("runtime_id")
+  providerKey              String         @map("provider_key")
+  workspaceId              String?        @unique @map("workspace_id")
+  plannedSessionId         String         @unique @map("planned_session_id")
+  sessionId                String?        @unique @map("session_id")
+  firstMessageId           String         @map("first_message_id")
+  assignIdempotencyKey     String         @map("assign_idempotency_key")
+  assignRequestFingerprint String         @map("assign_request_fingerprint")
+  capabilityRevokedAt      String?        @map("capability_revoked_at")
+  setupFailureCode         String?        @map("setup_failure_code")
+  setupFailureMessage      String?        @map("setup_failure_message")
+  createdAt                String         @map("created_at")
+  updatedAt                String         @map("updated_at")
+  team                     Team           @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  task                     Task           @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  project                  Project        @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  agent                    Agent?         @relation(fields: [agentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  runtime                  Runtime        @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  workspace                TaskWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  session                  Session?       @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([taskId, assignIdempotencyKey])
+  @@index([teamId, createdAt])
+  @@index([agentId])
+  @@index([runtimeId])
+  @@map("harnesses")
+}
+
+model TaskStatusTransition {
+  id                 String  @id
+  teamId             String  @map("team_id")
+  taskId             String  @map("task_id")
+  fromStatus         String  @map("from_status")
+  toStatus           String  @map("to_status")
+  revision           Int
+  actor              String
+  note               String?
+  idempotencyKey     String  @map("idempotency_key")
+  requestFingerprint String  @map("request_fingerprint")
+  occurredAt         String  @map("occurred_at")
+  team               Team    @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  task               Task    @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([taskId, revision])
+  @@unique([taskId, idempotencyKey])
+  @@index([teamId, occurredAt])
+  @@index([taskId, occurredAt])
+  @@map("task_status_transitions")
 }
 
 model TaskWorkspace {
@@ -144,6 +214,7 @@ model TaskWorkspace {
   issueConnection       IntegrationConnection?        @relation("TaskWorkspaceIssueConnection", fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   team                  Team                          @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   attempts              WorkspacePreparationAttempt[]
+  harness               Harness?
 
   @@index([teamId, state, createdAt])
   @@index([runtimeId, state, createdAt])
@@ -183,6 +254,7 @@ model Agent {
   updatedAt    String    @map("updated_at")
   team         Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   sessions     Session[]
+  harnesses    Harness[]
 
   @@index([teamId, status, id])
   @@index([createdAt, id])
@@ -200,6 +272,7 @@ model Runtime {
   taskWorkspaces TaskWorkspace[]
   sessions       Session[]
   sessionLeases  SessionDispatchLease[]
+  harnesses      Harness[]
 
   @@index([updatedAt, id])
   @@index([createdAt, id])
@@ -303,6 +376,8 @@ model Team {
   agents                 Agent[]
   taskWorkspaces         TaskWorkspace[]
   sessions               Session[]
+  harnesses              Harness[]
+  taskStatusTransitions  TaskStatusTransition[]
 
   @@index([status])
   @@index([createdAt, id])
@@ -316,8 +391,8 @@ model Session {
   projectId        String?               @map("project_id")
   runtimeId        String                @map("runtime_id")
   providerKey      String                @map("provider_key")
-  agentId          String                @map("agent_id")
-  agentRevision    Int                   @map("agent_revision")
+  agentId          String?               @map("agent_id")
+  agentRevision    Int?                  @map("agent_revision")
   state            String
   activeMessageId  String?               @map("active_message_id")
   lastMessageId    String?               @map("last_message_id")
@@ -331,11 +406,12 @@ model Session {
   task             Task                  @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   project          Project?              @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   runtime          Runtime               @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  agent            Agent                 @relation(fields: [agentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  agent            Agent?                @relation(fields: [agentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   events           SessionEvent[]
   eventHead        SessionEventHead?
   eventStreams     SessionEventStream[]
   dispatchLease    SessionDispatchLease?
+  harness          Harness?
 
   @@index([teamId, updatedAt, id])
   @@index([taskId, updatedAt, id])
@@ -394,6 +470,8 @@ model SessionDispatchLease {
   leaseExpiresAt    String  @map("lease_expires_at")
   claimedAt         String  @map("claimed_at")
   updatedAt         String  @map("updated_at")
+  executionCodeHash      String? @unique @map("execution_code_hash")
+  executionCodeExpiresAt String? @map("execution_code_expires_at")
   session           Session @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   runtime           Runtime @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 

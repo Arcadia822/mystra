@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>051-factory-task-harness</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"051-factory-task-harness","title":"051-factory-task-harness","prototypeHref":"mockups/index.html?v=1786454186583","generatedAt":"2026-08-11T14:56:52.466Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：薄 Task 生产状态机与 mystra-agent CLI\n\n**Feature Branch**: 051-factory-task-harness\n**Created**: 2026-08-11\n**Status**: Complete\n**Input**: Mystra 以“工厂”为核心产品模型。第一版先为 Task 增加薄生产状态机，并提供 workload-local `mystra-agent` CLI，让被分配 Agent 用当前 attempt 的短期 execution code 获取完整执行上下文并报告生产进度。`mystra` 保留为面向 Human、外部 Agent 和操作者的 Control Plane 管理 CLI。Agent 通过宿主机已认证的 `linctl` 读取 Linear、通过 `gh` 提交 PR；Mystra 不代理或验证这些操作。一个 Harness attempt 仍只启动一个 goal/autopilot Session；完整 Harness 编排、平台验收和通用产出物延后。\n\n## 决策摘要\n\nTask 是基本生产任务，并拥有 Mystra-owned 的 productionStatus。Session 只表达一次执行会话的运行状态，两者不得互相镜像。Harness 第一版只是一次生产 attempt 的归因身份：冻结 Agent revision，关联一个 Session，不再拥有第二套生产状态机。\n\n`mystra` 与 `mystra-agent` 是两个明确分离的客户端。前者管理 Control Plane 资源；后者只服务当前运行中的 workload，通过 Runtime 注入的 execution code 解析当前 Team、Task、Harness、Session、冻结 Agent revision、Project、Issue reference 和 Workspace。`mystra-agent` 不接受任意 Task ID，也不能使用通用 Task PATCH 修改 title、description、Project 或 Issue context。\n\nAgent 通过宿主机本地、已认证的 `linctl` 读取 Linear Issue，通过本地 `gh` 推送分支并创建 PR。execution code 不授权这两个工具，Mystra 也不代理其请求、托管其凭据或验证其结果。Agent 对 PR、自测和阻塞原因的说明都是未验证声明；Mystra 本期不运行测试、不查询或验证 PR，也不根据 Session 输出推断 Task 是否完成。\n\n本规格明确取代 047 中“Task 没有生产状态”的边界，但不改变其外部信息所有权：Linear/GitHub Issue status 仍由 Provider 拥有，Mystra 不复制、不回写，也不把它映射为 productionStatus。\n\n## Task Production State Machine\n\n### 状态\n\n| productionStatus | 含义 | 进入者 |\n| --- | --- | --- |\n| pending | Task 已创建，尚未开始生产 | 系统创建 |\n| in_progress | 已分配 Agent，生产正在进行或恢复进行 | Assign/Start；Agent 恢复；Human 退回修改 |\n| blocked | Agent 明确声明当前无法继续，并提供原因 | Agent |\n| waiting_for_review | Agent 明确声明已完成当前生产目标，等待人工审查 | Agent |\n| done | 人工确认本次生产任务结束 | Human |\n| canceled | 人工终止未完成的生产任务 | Human |\n\nTask 不提供 failed 状态。失败属于 Harness/Session attempt；Agent 无法继续时将 Task 置为 blocked。这样可以避免一次进程异常永久定义业务任务，也避免 Mystra 假装理解 Agent 的执行结果。\n\n### 合法迁移\n\n    create ───────────────→ pending\n    pending ──Assign/Start→ in_progress\n    in_progress ──Agent───→ blocked\n    blocked ─────Agent────→ in_progress\n    in_progress ──Agent───→ waiting_for_review\n    waiting_for_review ─Human→ in_progress\n    waiting_for_review ─Human→ done\n    blocked ────────────Human→ in_progress\n    any nonterminal ────Human→ canceled\n\ndone 和 canceled 在第一版为终态；reopen 延后。Agent 不得设置 pending、done 或 canceled，也不得从 waiting_for_review 自行恢复生产。\n\n### 状态机规则\n\n1. Assign/Start 的短 RDB 事务必须原子完成 pending → in_progress 并创建 Harness attempt。事务提交后自动请求 Workspace preparation；Workspace ready 后再幂等创建该 attempt 的唯一 Session。数据库事务不得跨越 Workspace 或 Runtime I/O。\n2. productionStatus 与 Session.state 独立。Session failed、closed、interrupted 或 ready 均不得自动改变 Task；Task 状态迁移也不得隐式启动、停止或重试 Session。\n3. 如果 Agent 退出前没有报告 blocked 或 waiting_for_review，Task 可以保持 in_progress。本期接受这一不完整信号，不由 Mystra猜测结果。\n4. blocked 和 waiting_for_review 必须包含非空 note；其他迁移可选 note。每次迁移都替换当前 statusNote；未提供时投影为 null，不保留上一状态的旧说明。\n5. 每次迁移使用 expectedRevision 乐观并发控制。旧 revision 返回稳定 task_status_conflict，不覆盖新状态。\n6. 每次写入必须带 idempotency key。同 key 与同 payload 重放返回原结果；同 key 不同 payload 返回稳定冲突。\n7. 当前投影保存在 Task；每次迁移同时追加 TaskStatusTransition，供审计和恢复当前投影。\n\n## mystra-agent CLI Contract\n\nMystra 提供两个边界不同的 CLI：\n\n- `mystra`：面向 Human、外部 Agent 和自动化，管理 Control Plane 资源；它不是任务 workload 的默认身份入口。\n- `mystra-agent`：面向当前运行中的 Agent workload，只能访问 execution code 授权的 attempt。\n\n第一版 `mystra-agent` 开放身份、执行上下文、Task 状态读取和受控迁移：\n\n    mystra-agent whoami\n    mystra-agent context get\n    mystra-agent task status get\n    mystra-agent task status set blocked --expected-revision 3 --idempotency-key cmd-101 --note \"Waiting for API contract\"\n    mystra-agent task status set in_progress --expected-revision 4 --idempotency-key cmd-102 --note \"Contract received\"\n    mystra-agent task status set waiting_for_review --expected-revision 5 --idempotency-key cmd-103 --note \"PR: ...; tests: ...\"\n\nRuntime 至少注入 `MYSTRA_CONTROL_PLANE_URL` 与 `MYSTRA_EXECUTION_CODE`。execution code 是一次 Harness/Session attempt 的短期、可吊销 capability，绑定准确 Team、Task、Harness、Session 和冻结 Agent revision；它不是 Agent 的长期身份 code，也不得出现在 system prompt、普通日志、状态 note 或明文持久化中。`mystra-agent` 不接受任意 Task ID。\n\n`context get` 返回 schema-versioned `TaskExecutionContext`，至少包含 execution identity、冻结的 Task title/description 与 exact Issue reference、Project repository identity 与 configured base branch、Workspace root/working branch，以及当前允许的 CLI capabilities。它不得复制 Linear Issue body，不得返回 GitHub/Linear credentials、Project Integration secret 或其他 secrets。\n\n`task status` 只能调用专用 TaskStatusService.transition，不复用人类 Task PATCH。输出为稳定 JSON，至少包含 taskId、productionStatus、statusRevision、statusUpdatedAt 和 transitionId。错误至少区分 invalid_transition、task_status_conflict、missing_status_note、scope_mismatch 和 capability_expired。\n\nAgent 拿到 exact Linear Issue reference 后，使用宿主机本地、已认证的 `linctl` 获取当前需求；完成代码与自测后，使用宿主机本地、已认证的 `gh` 推送分支并创建 PR。Mystra 不代理这些 CLI、不向它们兑换凭据、不查询 PR，也不验证自测。若任一工具缺失、未认证或不可执行，Agent 应通过 `mystra-agent task status set blocked` 报告原因；平台不回退到 Project Integration credential 或 RepoDeliveryProvider 代为完成。\n\nAgent note 是不可信文本。即使包含 PR URL、commit SHA 或测试结果，Mystra 也只保存并展示为 “Agent reported”，不连接 GitHub、不运行命令、不做结果验真。\n\n## User Scenarios & Testing\n\n### User Story 1 - Assign Agent 开始生产 (Priority: P1)\n\n作为 Team 操作者，我希望为 pending Task 分配 Agent 后自动开始一个生产 attempt，以便 Task 明确进入 in_progress 并启动唯一 Autopilot Session。\n\n**Independent Test**: 对 eligible Task 执行 Assign/Start，验证短事务原子创建状态迁移与 Harness；随后 Workspace ready 事件只触发一个 Session，重复命令或事件不产生重复对象。\n\n**Acceptance Scenarios**:\n\n1. **Given** pending Project-bound Task 和同 Team active Agent，**When** 操作者 Assign/Start，**Then** Task 与冻结 Agent revision 的 Harness 在同一短事务中创建，Task 进入 in_progress，提交后开始 Workspace preparation。\n2. **Given** Workspace 随后 ready，**When** launch continuation 被触发或重放，**Then** 该 Harness 幂等获得恰好一个 Session。\n3. **Given** 同一 Assign/Start 命令被重放，**When** 服务处理，**Then** 返回同一 transition 和 Harness，不创建重复 Workspace 或 Session。\n4. **Given** Task 非 pending、Project 不可交付或 Agent 无效，**When** Assign/Start，**Then** fail closed 且不留下部分 Task/Harness 状态。\n\n### User Story 2 - Agent 报告生产状态 (Priority: P1)\n\n作为被分配 Agent，我希望只凭当前 attempt 的 execution code，通过 `mystra-agent` 获取身份、Task、Project、Issue reference 和 Workspace 信息并更新当前 Task 状态，以便用标准 bootstrap prompt 开始工作，同时继续使用本地 `linctl` 与 `gh` 完成外部读取和 PR 交付。\n\n**Independent Test**: 仅注入 Control Plane URL 与 execution code，验证 Agent 无需 Task ID 即可取得 `TaskExecutionContext`；随后用 fixture `linctl`/`gh` 完成读取与 PR 创建，并依次执行 in_progress → blocked → in_progress → waiting_for_review，验证 revision、note、actor 和 transition history。\n\n**Acceptance Scenarios**:\n\n1. **Given** Runtime 注入有效 execution code，**When** Agent 执行 `mystra-agent whoami` 和 `context get`，**Then** 返回当前 attempt 的身份与完整执行上下文，不要求或接受 Task ID。\n2. **Given** context 含 exact Linear Issue reference，**When** Agent 读取需求，**Then** 使用本地 `linctl`；Mystra 不复制 Linear body 或代理调用。\n3. **Given** Task 为 in_progress，**When** Agent 带 note 设置 blocked，**Then** 状态和审计记录原子更新。\n4. **Given** Task 为 blocked，**When** 同一 Agent 设置 in_progress，**Then** 生产恢复，Session 是否继续由执行层独立决定。\n5. **Given** Agent 完成代码与自测，**When** 它使用本地 `gh` 创建 PR 并带交付说明设置 waiting_for_review，**Then** Mystra 只保存未验证声明，不创建、不查询或验证 PR 和自测。\n6. **Given** `linctl` 或 `gh` 缺失或未认证，**When** Agent 无法继续，**Then** Agent 报告 blocked，Mystra 不提供 Integration credential fallback。\n7. **Given** Agent 尝试设置 done、canceled、pending、指定其他 Task ID 或修改其他 Task 字段，**When** CLI 处理，**Then** 拒绝请求。\n\n### User Story 3 - 人工收口或退回 (Priority: P1)\n\n作为 Reviewer，我希望确认 Agent 声明后把 Task 标记 done，或退回 in_progress，以便业务完成权仍属于人。\n\n**Independent Test**: 从 waiting_for_review 分别执行 done 与 in_progress，并验证 actor 权限和审计记录。\n\n**Acceptance Scenarios**:\n\n1. **Given** waiting_for_review Task，**When** Human 接受结果，**Then** Task 进入 done。\n2. **Given** waiting_for_review Task，**When** Human 要求修改，**Then** Task 进入 in_progress；是否启动新 Session 不由该迁移隐式决定。\n3. **Given** 任意非终态 Task，**When** Human 取消，**Then** Task 进入 canceled。\n4. **Given** done 或 canceled Task，**When** 任意调用方请求迁移，**Then** 第一版返回 invalid_transition。\n\n### User Story 4 - 状态与 Session 可分别观察 (Priority: P2)\n\n作为操作者，我希望同时看见 Task productionStatus 和最新 Session.state，以便区分业务进度与进程运行情况。\n\n**Independent Test**: 构造 Session failed 但 Task in_progress，以及 Session ready 但 Task blocked；验证系统不自动同步两者。\n\n**Acceptance Scenarios**:\n\n1. **Given** Session failed，**When** Agent 未更新 Task，**Then** Task 保持 in_progress。\n2. **Given** Task blocked，**When** Session state 变化，**Then** Task 不被自动修改。\n3. **Given** waiting_for_review note 包含 PR 和 tests，**When** 页面或 API 展示，**Then** 明确标识为 Agent reported / not verified by Mystra。\n\n### Edge Cases\n\n- 两个 Agent 命令使用同一 expectedRevision 时只有一个成功。\n- 过期 Harness、Session 或 Agent revision 的 capability 不得更新新 attempt 的 Task。\n- CLI 网络超时后可用同 idempotency key安全重试。\n- Session 崩溃且 Agent 未能发出 blocked 时，Task 保持 in_progress。\n- 外部 Issue 被关闭、重开或改状态时，productionStatus 不自动变化。\n- waiting_for_review 的 URL 无效或测试说明虚假时，Mystra 仍只保存声明；人工 Reviewer 决定后续状态。\n- execution code 过期、吊销、泄漏到错误 attempt 或 scope 不匹配时，`mystra-agent` fail closed，不返回任何 Task/Project/Workspace context。\n- `linctl` 或 `gh` 不在 PATH、未认证或返回错误时，不改变 Mystra 的外部 Integration；Agent 可报告 blocked，平台不静默切换凭据或 delivery provider。\n- Workspace preparation 失败时 Harness 保留可诊断事实，Task 可继续保持 in_progress；Mystra 不根据基础设施失败猜测业务状态。\n\n## Requirements\n\n### Functional Requirements\n\n- **FR-001**: Task MUST 增加 Mystra-owned productionStatus，取值仅为 pending、in_progress、blocked、waiting_for_review、done、canceled。\n- **FR-002**: 新 Task MUST 初始化为 pending。\n- **FR-003**: Task productionStatus MUST 与外部 Issue status、Session.state 和 Harness attempt outcome 分离，不进行自动映射。\n- **FR-004**: 第一版 MUST NOT 提供 Task failed 状态。\n- **FR-005**: Assign/Start 的短 RDB 事务 MUST 原子执行 pending → in_progress 并创建一个 Harness attempt；事务提交后 MUST 请求 Workspace preparation，Workspace ready 后 MUST 幂等创建该 attempt 的唯一 Autopilot Session，且事务不得跨越 Workspace 或 Runtime I/O。\n- **FR-006**: Harness MUST 冻结 Agent revision 并关联 Task、Workspace 和一个 Session，但 MUST NOT 拥有平行生产状态机。\n- **FR-007**: Agent 只可请求 in_progress → blocked、blocked → in_progress、in_progress → waiting_for_review。\n- **FR-008**: Human 只可按本规格执行 waiting_for_review → done、waiting_for_review/blocked → in_progress，以及任意非终态 → canceled。\n- **FR-009**: done 和 canceled MUST 为第一版终态。\n- **FR-010**: blocked 与 waiting_for_review 迁移 MUST 要求非空 note。\n- **FR-011**: 所有 productionStatus 迁移 MUST 使用专用 TaskStatusService；Agent 尤其不得复用允许编辑 title/description 的通用 Task PATCH。\n- **FR-012**: `mystra-agent` execution capability MUST 绑定准确 Team、Task、Harness、Session、Agent ID/revision，且 CLI 不得接受任意 Task ID 越权寻址。\n- **FR-013**: 每次状态迁移 MUST 使用 expectedRevision 并返回稳定冲突错误。\n- **FR-014**: 每次状态迁移 MUST 支持 idempotency key；相同 key/payload 重放返回同一结果。\n- **FR-015**: Task MUST 保存当前状态投影、statusRevision、当前 transition 的 statusNote、statusUpdatedAt 和最后 actor summary；新迁移无 note 时 statusNote MUST 清为 null。\n- **FR-016**: 每次成功迁移 MUST 原子追加不可变 TaskStatusTransition，记录 transitionId、taskId、from、to、revision、actor、可选 Agent/Harness/Session identity、note、idempotency identity 和 occurredAt。\n- **FR-017**: `mystra-agent` MUST 提供 `whoami`、`context get`、`task status get` 和 `task status set`，输出稳定 machine-readable JSON；`mystra` MUST 保留为独立的 Control Plane 管理 CLI。\n- **FR-018**: CLI 错误 MUST 至少区分 invalid_transition、task_status_conflict、missing_status_note、scope_mismatch 和 capability_expired。\n- **FR-019**: Session state 变化 MUST NOT 自动改变 productionStatus；普通 productionStatus 迁移 MUST NOT 隐式控制 Session。\n- **FR-020**: Agent 未报告最终状态时，Mystra MUST 允许 Task 保持 in_progress，不根据 Session 文本、exit code 或事件推断结果。\n- **FR-021**: Agent note 中的 PR、commit 和自测信息 MUST 标识为未验证 Agent 声明；Mystra 本期 MUST NOT 查询 PR、运行测试或验证证据。\n- **FR-022**: Issue Provider MUST 保持 read-only；productionStatus 更新不得回写外部 Issue。\n- **FR-023**: 状态读取、迁移和历史 MUST 受 Team authorization、字段级 allowlist、有界文本和敏感信息清理约束。\n- **FR-024**: Runtime MUST 通过 `MYSTRA_CONTROL_PLANE_URL` 和 `MYSTRA_EXECUTION_CODE` 向 workload 注入连接信息；execution code MUST 短期、可吊销、attempt-scoped，且 MUST NOT 出现在 prompt、普通日志、状态 note 或明文持久化中。\n- **FR-025**: `context get` MUST 返回 schema-versioned `TaskExecutionContext`，包含 execution identity、冻结 Task 输入、exact Issue reference、Project repository identity/configured base branch、Workspace root/working branch 与允许的 capabilities；MUST NOT 返回 Linear body、Integration credentials 或 secrets。\n- **FR-026**: 第一版 Agent MUST 使用宿主机本地、已认证的 `linctl` 读取 Linear，并使用本地、已认证的 `gh` 推送和创建 PR；Mystra MUST NOT 代理、授权、查询或验证这些操作。\n- **FR-027**: `linctl` 或 `gh` 缺失、未认证或失败时，平台 MUST NOT 回退到 Project Integration credential 或 RepoDeliveryProvider；Agent MAY 将 Task 报告为 blocked。\n\n### Key Entities\n\n- **Task**: Team-scoped 基本生产任务，保存 requirement context 和当前 production status projection。\n- **TaskStatusTransition**: append-only 状态迁移事实，用于审计、幂等、冲突诊断和投影恢复。\n- **Harness Attempt**: 一次生产归因 identity，冻结 Agent revision，关联一个 Session；第一版不拥有独立状态机。\n- **Session**: Agent 的执行会话，拥有自己的 execution state；不代表 Task 业务状态。\n- **TaskExecutionContext**: `mystra-agent context get` 返回的版本化、最小充分执行上下文；包含当前 attempt 的身份、冻结需求引用、Project/Workspace 信息和允许能力，不包含外部系统正文或凭据。\n- **Execution Capability**: Runtime 注入的短期、可吊销、最小权限 execution code，只允许当前 attempt 读取上下文和申请合法 Task 状态迁移。\n\n## Assumptions & Dependencies\n\n- 第一版仍为一个 Harness attempt 启动一个 goal/autopilot Session。\n- Assign Agent 后立即 Start；自动分诊和独立 Start UI 不在本期。\n- 现有 Task Context、Workspace、Session launch、Runtime/Provider 和 Agent revision 合同可复用。\n- 第一版目标环境为 host Runtime；Provider 进程继承同一操作系统用户可用的 PATH 与本地 CLI 登录态。\n- `linctl` 与 `gh` 已安装、可执行且预先认证，是该自用 MVP deployment 的运行前提，不由 Mystra 配置或托管。\n- 内置 Agent 的标准 bootstrap prompt 只需要求：先调用 `mystra-agent context get`，再按 Issue reference 使用 `linctl`，在提供的 Workspace/branch 内改码和自测，使用 `gh` 创建 PR，最后通过 `mystra-agent` 报告 waiting_for_review 或 blocked。\n- 项目处于 pre-0.1；本功能直接替换旧的“Task 无生产状态”开发合同，不增加兼容别名或迁移 shim。\n\n## Deferred / Out of Scope\n\n- Mystra 验证 PR、commit、自测证据或执行质量门禁。\n- 通用 Artifact/Delivery 提交、非 PR 产出物和多类型流水线。\n- 多 Session Harness、心跳、事件订阅、自动恢复、自动 Retry 和等待条件。\n- Production Recipe、Skill/Workflow 自动选择、任务分诊、需求审查和多 Agent 协作。\n- Agent 创建/编辑 Task 需求字段、选择任意 Task 或人工完成/取消 Task。\n- 由 Mystra 代理 `linctl`/`gh`、托管其用户凭据、用 Project Integration credential 代替本地 CLI，或让 workload CLI 管理任意 Control Plane 资源。\n- done/canceled reopen、外部 Issue write-back、PR merge、部署与发布。\n\n## Success Criteria\n\n- **SC-001**: 100% 新 Task 初始化为 pending；Assign/Start 原子产生 in_progress 与唯一 Harness，Workspace ready 后幂等产生该 Harness 的唯一 Session。\n- **SC-002**: Agent 的所有允许和禁止迁移均由一张确定性 transition table 判定；非法迁移无状态副作用。\n- **SC-003**: 对同一 revision 的 20 个并发迁移请求，最多一个成功，其余返回 task_status_conflict。\n- **SC-004**: 同一 idempotency key/payload 重放 20 次只产生一个 TaskStatusTransition。\n- **SC-005**: Agent capability 无法设置 done/canceled/pending，也无法更新 title、description、Project 或 Issue context。\n- **SC-006**: Session 的任意状态变化都不会自动改变 productionStatus。\n- **SC-007**: waiting_for_review 展示中的 PR 和测试信息 100% 标识为 Agent reported / not verified by Mystra。\n- **SC-008**: Owner 可从 Task 详情和 CLI/API 一致看到当前 productionStatus、revision、note、actor、最新 Session.state 和迁移历史。\n- **SC-009**: 仅凭一个有效 execution code，Agent 可在不提交 Task ID 的情况下取得唯一 `TaskExecutionContext`；跨 Task、过期或吊销 code 100% fail closed。\n- **SC-010**: fixture host 环境中，Agent 可通过本地 `linctl` 读取 exact Issue、通过本地 `gh` 创建 PR 并报告 waiting_for_review；Mystra 的记录中不存在外部 CLI 凭据、代理调用或 PR/self-test 验真结果。\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：薄 Task 生产状态机与 mystra-agent CLI\n\n## 摘要\n\n051 的第一版只增加一套业务状态：Task.productionStatus。Assign/Start 的短事务把 pending Task 原子推进到 in_progress 并创建轻量 Harness attempt；Workspace ready 后再幂等启动其唯一 Autopilot Session。随后由 Agent 通过 workload-local `mystra-agent` 报告 blocked、恢复 in_progress 或声明 waiting_for_review；done 与 canceled 仍由人控制。\n\n## 状态边界\n\n- Task productionStatus：pending、in_progress、blocked、waiting_for_review、done、canceled。\n- Session.state：执行会话是否 queued、running、ready、failed 等。\n- Harness attempt：冻结 Agent revision 并关联一次 Session，不拥有第二套状态机。\n- External Issue status：仍由 Linear/GitHub Provider 拥有，不复制、不回写、不映射。\n\n## 两个 CLI 的边界\n\n- `mystra`：Human、外部 Agent 和自动化使用的 Control Plane 管理 CLI。\n- `mystra-agent`：当前 Agent workload 使用的 attempt-scoped CLI。\n- `mystra-agent whoami`：解析当前 execution identity。\n- `mystra-agent context get`：取得版本化 `TaskExecutionContext`。\n- `mystra-agent task status get`：读取当前状态、revision 和允许迁移。\n- `mystra-agent task status set blocked`：报告阻塞，必须带 note。\n- `mystra-agent task status set in_progress`：从 blocked 恢复。\n- `mystra-agent task status set waiting_for_review`：声明等待人工审查，必须带 note。\n- Runtime 只注入 Control Plane URL 与短期 execution code；CLI 不允许 Agent 指定任意 Task。\n\n`TaskExecutionContext` 提供冻结 Task 输入、exact Issue reference、Project repository 配置和 Workspace 路径/分支，但不复制 Linear body，也不返回任何外部凭据。Agent 使用宿主机已认证的 `linctl` 读取 Linear，使用已认证的 `gh` 推送并创建 PR。Agent note 可包含 PR 和自测摘要，但这些只是 Agent reported。Mystra 不代理这些 CLI、不回退到 Project Integration credential、不查询 PR、不运行测试、不验证交付结果。\n\n## 第一版边界\n\n- 一个 Harness attempt 只启动一个 goal/autopilot Session。\n- Session state 不自动驱动 Task productionStatus。\n- 所有状态迁移使用专用 TaskStatusService，并应用 transition allowlist、expectedRevision、idempotency key 和 append-only history。\n- Agent 不能设置 pending、done、canceled，也不能通过 CLI 修改 Task requirement。\n- `linctl` 或 `gh` 缺失/未认证时，由 Agent 报告 blocked；Mystra 不代为执行。\n- 完整 Harness 心跳、事件订阅、多 Session、通用 Artifact、Production Recipe 和质量验收均延后。\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：薄 Task 生产状态机\n\n## Owner 决策\n\n- [x] Task 是基本生产任务，并拥有 Mystra-owned productionStatus。\n- [x] 状态仅为 pending、in_progress、blocked、waiting_for_review、done、canceled。\n- [x] Agent 只可报告 blocked、恢复 in_progress、声明 waiting_for_review。\n- [x] done 与 canceled 由 Human 控制。\n- [x] Task productionStatus 与 Session.state 独立，不自动同步。\n- [x] `mystra` 保留为 Control Plane 管理 CLI；workload-local 客户端定名为 `mystra-agent`。\n- [x] `mystra-agent` 通过 attempt-scoped execution code 提供 whoami、context get 与 Task status 命令，不接受任意 Task ID。\n- [x] Agent 使用本地已认证的 `linctl` 读取 Linear、使用本地已认证的 `gh` 提交 PR；Mystra 不代理、不提供凭据、不验证。\n- [x] PR 和自测信息只是 Agent 声明；Mystra 不验证。\n- [x] 一个 Harness attempt 仍只启动一个 goal/autopilot Session。\n- [x] 已通过 shared contract、CLI command tests、真实 HTTP smoke 与浏览器 Task detail 验证状态机和 CLI 交互。\n\n## Spec 就绪度\n\n- [x] transition table、actor 权限和终态明确。\n- [x] expectedRevision 与 idempotency 规则明确。\n- [x] `mystra-agent` execution scope、`TaskExecutionContext` 与字段 allowlist 明确。\n- [x] TaskStatusTransition 审计事实明确。\n- [x] 047 的旧无状态边界被显式、有限地取代。\n- [x] 外部 Issue status、Session state 和 Agent report 的边界明确。\n- [x] Assign/Start 短事务与 Workspace-ready 后 Session launch 的边界已在 Spec 明确。\n- [x] plan 与实现已确认 claim-time 签发、SHA-256 hash 持久化、六小时过期、终态吊销、Runner 环境传输和敏感信息清理。\n\n## 后续边界\n\n- [x] 已确认 PR/自测验真排除于 051，必须由后续独立 Spec 引入。\n- [x] 已确认多 Session、心跳和事件订阅排除于 051，必须由后续独立 Spec 引入。\n- [x] 已确认通用 Artifact/Delivery 与 Production Recipe 不是 051 的隐藏依赖。\n- [x] 已确认 Mystra 不代理 `linctl`/`gh`、不托管本地 CLI 凭据；改变该边界必须另立 Spec。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# 原型：Task 生产状态与 mystra-agent CLI\n\n## 入口\n\n- [打开独立 HTML 线框原型](mockups/index.html)\n\n## Design Intake\n\n- **目标用户**：观察 Agent 生产进度并人工收口的 Team 操作者。\n- **首要行动**：区分 Task productionStatus 与 Session.state，并理解谁能执行下一次迁移。\n- **核心信息**：当前状态、revision、Agent note、允许迁移、最新 Session state、transition history。\n- **硬约束**：Agent report 不等于 Mystra verification；Agent 不能完成或取消 Task。\n- **变体范围**：只验证状态机和薄 CLI，不设计完整 Harness orchestration。\n\n## Wireframe 方向\n\n页面以 Task 状态为主轴。顶部展示 productionStatus 与 revision；中部展示 `mystra-agent` 的 attempt-scoped context/status contract、本地 `linctl`/`gh` 工具边界和独立 Session execution state；底部展示 append-only transition history。waiting_for_review 的 PR 与测试文字明确标注 Agent reported / not verified by Mystra。\n\n## 覆盖状态\n\n- pending：等待 Assign/Start。\n- in_progress：Agent 正在生产。\n- blocked：Agent 报告无法继续，必须有 note。\n- waiting_for_review：Agent 声明可审查，内容未经 Mystra 验证。\n- done：Human 接受，终态。\n- canceled：Human 取消，终态。\n\n## 交互说明\n\n- 状态切换按钮只用于原型评审，不代表真实权限实现。\n- `mystra-agent` 只展示当前 attempt 的 whoami/context/status contract，不允许任意 Task ID。\n- `mystra` 明确保留为 Control Plane 管理 CLI；原型内的 workload 命令不使用该名称。\n- Linear 读取与 PR 创建分别标注为本地 `linctl` 和 `gh`，Mystra 不代理或验证。\n- Session badge 可以独立切换，证明 Session failed 不会自动修改 Task。\n- Human actions 只在对应 Task 状态出现。\n\n## 当前限制\n\n- 静态 fixture 不连接真实 API、Runtime、`mystra-agent`、`linctl` 或 `gh`。\n- 不表示最终视觉设计。\n- 不设计 PR/测试验真、多 Session、心跳、通用 Artifact 或 Production Recipe。\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1786454186583"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# 实施计划：薄 Task 生产状态机与 mystra-agent CLI\n\n**分支**: `051-factory-task-harness` | **日期**: 2026-08-11 | **规格**: [spec.md](./spec.md)\n\n## 摘要\n\n051 在现有 047–050 Task、Workspace、Session、Runtime 基础上增加一条最薄的生产路径：Human 对 pending Task 执行 Assign/Start，在一个短 RDB 事务中写入 `pending -> in_progress` 和唯一 Harness attempt；事务提交后复用 048 的 Task Workspace preparation；Workspace ready 时幂等创建该 Harness 唯一的 049 Session。Harness 冻结 Agent revision、system prompt 与 Task 输入，但不拥有第二套状态机。\n\nAgent workload 通过独立的 `mystra-agent` CLI 使用 attempt-scoped execution code 读取当前 identity/context，并仅通过专用 `TaskStatusService` 报告 `blocked`、恢复 `in_progress` 或声明 `waiting_for_review`。execution code 在 Runtime claim 时一次性签发，数据库只保存 SHA-256 hash，并与 Session lease、Harness revocation 和过期时间共同校验。Agent 仍使用宿主机已认证的 `linctl` 读取 Linear、使用 `gh` push/create PR；Mystra 不代理、授权或验证这些命令与声明。\n\n## 技术上下文\n\n- **语言/运行时**: TypeScript 5.9、Node.js 24.14.0。\n- **主要依赖**: Next.js 16 Route Handlers、React 19、Zod 4、Prisma 7.9.1、Vitest 4、Node `crypto`/`child_process`；既有 `@mystra/shared`、`@mystra/agent-adapters`、`mystra-runner`。\n- **存储**: SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider` 暴露相同领域合同。\n- **测试**: Vitest unit/contract/integration/E2E；fixture `linctl`/`gh` 可执行文件；真实 HTTP 与 host Runner smoke test。\n- **目标平台**: self-hosted single-node Control Plane + host-bound TypeScript Runner；Web 为次要 Human client，CLI/API 为主要合同。\n- **性能目标**: Task list读取 current projection，history/capability lookup走有界分页与索引；Assign/Start RDB事务不执行网络或文件系统 I/O；每个 Task第一版最多一个 Harness、一个 Harness最多一个 Session。\n- **约束**: capability 明文只存在于 claim response 与 workload environment；不得进入 prompt、普通日志、状态 note 或持久化；Task/Session 状态完全解耦；pre-0.1 直接替换旧合同，无兼容 shim。\n- **范围**: Task schema/status/history、Harness persistence、Human production API/UI、workload API、`mystra-agent` package、Runner environment 注入、Workspace-ready continuation 和一个完整 happy/blocked/review journey。\n\n## Constitution Check\n\n### 规划前 gate\n\n- **5xP 与 Spec-Kit**: PASS。051 已同步 PRODUCT/PLATFORM/PROCESS/AGENTS/constitution，feature artifacts 保持在 `specs/051-factory-task-harness/`。\n- **边界复用**: PASS。复用 047 Task context、048 Task Workspace、049 Session launch/claim、050 Task surface；不引入 parallel Workspace、Turn、Workflow DSL 或 Harness 状态机。\n- **Provider/RDB 隔离**: PASS。双 Prisma schema 通过 `RdbProvider` 统一；Prisma 类型不越过 DB 模块。\n- **安全与授权**: PASS。Human 使用现有 Team auth/RBAC；workload 使用独立 capability；Agent CLI 无任意 Task ID；外部 CLI credential 不进入 Control Plane。\n- **事务边界**: PASS。Assign/Start 只包含数据库状态与 Harness 创建；Workspace、Git、Runtime、Provider I/O 均在提交后。\n- **验证纪律**: PASS。先写 schema/service contract tests，再实现；完成前执行聚焦测试、全量 typecheck/build、真实 HTTP/Runner smoke 和 graph-aware review。\n\n### Phase 1 设计后复核\n\n- execution code 采用 claim-time opaque token + persisted hash，解决一次性交付、过期和显式吊销，不需要新增 secret store 或 JWT signing key。\n- `TaskExecutionContext.workspace.root` 由 workload-local CLI 使用真实 `process.cwd()` 合成；Control Plane 只提供 Workspace logical identity/branch，保持 Runtime-private path 边界。\n- Harness 冻结 Agent system prompt 与 Task title/description，避免 Agent 或 Task 在 Workspace 异步准备期间变化导致 Session 输入漂移。\n- Workspace ready continuation 使用 Harness 预分配的 `sessionId` 和 `firstMessageId`，依赖现有 Session create idempotency，重复 ready report 不产生第二 Session。\n\n所有 gate 继续 PASS；没有需要豁免的 constitution violation。\n\n## 已有能力与改动边界\n\n| 已有能力 | 051 的扩展 |\n| --- | --- |\n| `Task` CRUD 与 immutable Project/Issue references | 增加 production projection、history 与 dedicated transition service |\n| `TaskWorkspaceService.setup` + Runner preparation/report | Assign 后调用 setup；ready report 后触发 Harness continuation |\n| `SessionService.launch` 与 idempotent `createSessionWithEvents` | 增加使用 Harness-frozen Agent/Task 输入的 launch 路径 |\n| `RuntimeSessionService.claim` + `SessionDispatchLease` | claim 时为 Harness Session 生成 execution code hash/expiry并返回明文一次 |\n| Runner Provider command environment merge | 注入 Control Plane URL、execution code，并确保 `mystra-agent` 在 PATH |\n| Task detail + Workspace/Sessions panels | 增加 Assign/Start、production status/history 和 Human review controls |\n| root `scripts/operator-cli.mjs` | 保持为 Control Plane operator CLI；新增独立 `packages/agent-cli` |\n\n## 关键数据流\n\n```text\nHuman Assign/Start\n  -> TaskProductionService.assignStart\n     -> validate Team Task + active Agent snapshot + online Runtime/provider\n     -> RDB tx: Task pending->in_progress + transition + Harness(frozen inputs + plannedSessionId)\n  -> commit\n  -> TaskWorkspaceService.setup\n     -> queued: Runner materializes repository\n     -> already ready: continue immediately\n     -> failed: persist Harness setup diagnostic; Task stays in_progress\n\nRunner workspace report ready (same attempt/payload replay is idempotent)\n  -> WorkspacePreparationService.report\n  -> TaskProductionService.continueReadyWorkspace\n     -> attach Workspace to Harness\n     -> SessionService.launchHarness(planned session/message IDs)\n     -> attach created unique Session to Harness.sessionId\n\nRunner claims Harness Session\n  -> RDB tx: SessionDispatchLease + executionCodeHash/expiresAt\n  -> claim response includes executionCode plaintext once\n  -> runner process env: MYSTRA_CONTROL_PLANE_URL + MYSTRA_EXECUTION_CODE\n  -> Agent executes standardized bootstrap prompt\n     -> mystra-agent context get\n     -> linctl read\n     -> code + tests\n     -> gh push/pr\n     -> mystra-agent task status set waiting_for_review | blocked\n```\n\n## 状态与权限\n\n```text\npending --Human Assign/Start--> in_progress\nin_progress --Agent-----------> blocked\nblocked --Agent/Human---------> in_progress\nin_progress --Agent-----------> waiting_for_review\nwaiting_for_review --Human----> in_progress | done\nnonterminal --Human-----------> canceled\n```\n\n`done`/`canceled` 终态。Session `failed|ready|closed` 不修改 Task；Task 状态修改也不启动、停止或重试 Session。Human `done|canceled` 同一状态事务吊销 Harness execution capability；其他状态迁移只更新 Task projection/history。\n\n## 模块边界\n\n```text\npackages/shared/src/\n├── task.ts                       # productionStatus/projection/transition contracts\n├── harness.ts                    # Harness, assignment, execution context/capability schemas\n├── session.ts                    # optional Harness execution claim envelope\n└── index.ts\n\npackages/agent-cli/\n├── src/cli.ts                    # mystra-agent argv/env/stdout/stderr boundary\n├── src/client.ts                 # workload HTTP adapter\n└── src/*.test.ts\n\napps/control-plane/\n├── prisma/{sqlite,postgresql}/   # Task projection, Harness, transition, lease capability\n├── src/lib/db/                   # RdbProvider + Prisma transaction implementation\n├── src/lib/tasks/                # TaskStatusService + TaskProductionService\n├── src/lib/sessions/             # frozen Harness launch + claim capability\n├── src/lib/task-workspaces/      # ready continuation hook\n├── app/api/tasks/[id]/production/*\n├── app/api/agent-execution/*     # execution-code-only workload surface\n└── app/tasks/[id]/*              # production status/assignment/review UI\n\napps/runner-daemon/src/\n├── index.ts                      # Control Plane URL and CLI path wiring\n└── session/*                     # execution code handoff and child env merge\n```\n\n**结构决策**: `mystra-agent` 是独立 workspace package 和 binary，不污染 Control Plane management CLI。Runner 声明该 package 为运行时依赖，并把其 bin directory prepend 到 Provider child `PATH`；部署 runner 即同时部署 workload helper。API、CLI 和 UI 都调用同一 application services，不复制状态迁移逻辑。\n\n## 持久化与事务顺序\n\n1. Assign/Start 前读取并验证 Task、Project、active Agent snapshot、Runtime/provider capability。\n2. 一个 RDB 事务验证 Task `pending`、expected revision 和 idempotency，写 Task projection、TaskStatusTransition、Harness；Harness 保存非外键 `plannedSessionId`/`firstMessageId` 并冻结 Agent/Task/Issue输入，实际 `sessionId` 保持 null。\n3. 提交后调用现有 Workspace setup。失败把 bounded setup failure code/message 写入 Harness，Task 保持 `in_progress`，不伪造 blocked。\n4. 同一个 Workspace preparation attempt 的同 payload completion 是幂等命令；ready continuation 原子绑定 Harness.workspaceId，再用 `plannedSessionId` 作为 Session create ID执行 frozen launch；成功后把 actual `sessionId` 绑定 Harness。相同 ID/payload replay 返回原 Session，不同 attempt/payload 仍 fail closed。\n5. Runtime claim 事务在 Session lease 上保存 execution code hash/expiry；明文只在 claim response 中返回。\n6. workload API 对 code hash、expiry、revocation、Harness/Session/Task/Agent revision scope 做全量校验后读取 context 或调用 TaskStatusService。\n7. 状态迁移事务以 `(taskId, idempotencyKey)` 判重，以 expectedRevision 防并发，写 projection + append-only transition；终态同时写 Harness capability revocation。\n\n## API 与 CLI\n\n- Human API: `POST /api/tasks/{taskId}/production/assign`、`GET /api/tasks/{taskId}/production`、`POST /api/tasks/{taskId}/production/status`。\n- Workload API: `GET /api/agent-execution/whoami`、`GET /api/agent-execution/context`、`GET|POST /api/agent-execution/task-status`；只接受 Bearer execution code。\n- CLI: `mystra-agent whoami|context get|task status get|task status set ...`；JSON stdout、稳定错误 JSON stderr、成功 0/输入或服务错误非 0。\n- Runner protocol: `SessionClaimAssignment.execution` 为可选；只有关联 Harness 的 Session 才返回 `{ code, expiresAt, capabilities }`。\n\n详细 schema 与错误映射见 [contracts](./contracts/) 和 [data-model.md](./data-model.md)。\n\n## 失败模式\n\n| 失败 | 系统行为 |\n| --- | --- |\n| 并发 Assign 或 stale revision | 只有一个事务成功；其他返回 `task_status_conflict`/idempotent replay |\n| Workspace preparation 失败 | Harness 持久化 bounded setup diagnostic，Task 保持 `in_progress`；不自动改状态 |\n| ready report 后 launch 失败 | Runner 重放相同 attempt/report；completion 返回既有 ready Workspace，再重试幂等 continuation |\n| ready report 重放 | 相同 preparation payload 与预分配 Session ID 返回既有结果，不创建重复对象 |\n| claim response 丢失 | 既有 Session lease 到期/回收后重新 claim 并轮换 execution code；旧 hash 失效 |\n| capability 过期/吊销/foreign scope | workload API fail closed，不返回上下文 |\n| status 命令超时 | 相同 idempotency key 安全重放 |\n| Session/Provider 失败 | Session 记录 execution failure；Task 仍 `in_progress`，除非 Agent 成功报告 blocked |\n| `linctl`/`gh` 不可用 | Agent 报告 blocked；Mystra 无 credential/delivery fallback |\n| Agent note 伪造 PR/tests | 原样作为有界不可信声明展示；Human 决定 done/退回 |\n\n## 测试与验证\n\n```text\nshared schema/reducer tests\n  -> RdbProvider contract tests (SQLite + optional PostgreSQL)\n     -> TaskStatusService/TaskProductionService unit + race/idempotency tests\n        -> Human/workload API route tests\n           -> mystra-agent CLI contract tests\n              -> Runner env/capability claim tests\n                 -> HTTP + fake provider + fixture linctl/gh E2E\n                    -> task detail browser/runtime smoke\n```\n\n- 迁移矩阵覆盖全部合法/非法 actor transition、note、terminal 状态。\n- 20 路并发 expectedRevision/idempotency race 只产生一条 transition/Harness/Session；Workspace ready report 的 completion/continuation 分段故障可恢复。\n- Team、Task、Harness、Session、Agent revision 任一 scope mismatch 均 fail closed。\n- 测试断言 execution code 不出现在 prompt、SessionEvent、普通日志、Task note 或数据库明文字段。\n- E2E fixture 证明 Agent 能只凭两个环境变量运行 `mystra-agent`，再调用本地 `linctl`/`gh`；fixture 不是 Mystra provider fallback。\n- 完成前运行 `db:generate`、focused tests、`pnpm typecheck`、`pnpm test`、`pnpm build`、真实 HTTP/Runner smoke 和 `gitnexus_detect_changes`。\n\n## 实施顺序\n\n1. 共享 Task/Harness/execution schemas 与纯状态迁移规则测试。\n2. 双 Prisma schema、migration、mapper、RdbProvider 原子命令与 contract tests，包括 Workspace completion idempotency。\n3. TaskStatusService 和 TaskProductionService，包括 Harness-frozen inputs 与 Workspace continuation。\n4. Human production API；随后 Task detail projection/controls。\n5. claim-time execution capability、workload API 和泄漏/越权测试。\n6. `packages/agent-cli` binary、Runner PATH/env 注入和 provider child tests。\n7. Harness-specific standardized prompt/Session launch，移除该路径对 mutable Task/Agent 的二次解析。\n8. 完整 journey E2E、运行验证、代码审查与 Spec-Kit closeout。\n\n## NOT in scope\n\n- Harness heartbeat、事件订阅、多 Session、retry/recovery policy 或独立 Harness 状态机。\n- 自动分诊、需求审查、Recipe/Skill/Workflow 选择、standing orders、arbitrary triggers。\n- Mystra 执行/验证测试，查询/验证 PR，解析 Agent 输出推断 Task 状态。\n- Linear/GitHub credential 托管、CLI 代理、Issue write-back 或 RepoDeliveryProvider fallback。\n- 通用 Artifact/Delivery API、非 PR 产出物、质量门禁与修复循环。\n- task reopen、第二次 Harness attempt、并行 Agent、跨 Runtime 迁移。\n- 通用 Control Plane `mystra` CLI 的重构或发布；本期只新增 workload-local `mystra-agent`。\n\n## Complexity Tracking\n\n无 constitution violation。新增 Harness 与 TaskStatusTransition 是规格要求的最小 durable facts；execution capability 复用 SessionDispatchLease，不新增独立认证平台。\n\n## GSTACK REVIEW REPORT\n\n| Review | Trigger | Why | Runs | Status | Findings |\n| --- | --- | --- | --- | --- | --- |\n| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | 产品边界已由 owner 明确冻结 |\n| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | 工程评审后决定是否需要 |\n| Eng Review | `/plan-eng-review` | Architecture/data/tests (required) | 1 | CLEAR | 9 findings resolved, 0 critical gaps |\n| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | 只扩展既有 Task detail surface |\n| DX Review | `/plan-devex-review` | CLI developer experience | 0 | — | CLI contract 在本计划内直接评审 |\n\n**UNRESOLVED:** 0\n\n**VERDICT:** ENG CLEARED — ready for task decomposition and implementation\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: 薄 Task 生产状态机与 mystra-agent CLI\n\n**Input**: `/specs/051-factory-task-harness/` 下的 spec、plan、research、data-model、contracts 与 quickstart  \n**Tests**: 本功能明确采用 TDD；每个行为切片先写失败测试，再实现并回归。  \n**Organization**: 按四个 user stories 分阶段；共享状态/RDB/capability foundation 先完成。\n\n## Format: `[ID] [P?] [Story] Description`\n\n- **[P]**: 可在不同文件中并行，且不依赖同阶段未完成任务\n- **[Story]**: 对应 spec 中 US1–US4\n- 所有任务包含目标文件路径\n\n## Phase 1: Setup（共享工程结构）\n\n**Purpose**: 建立 workload CLI package 与 feature verification 入口，不实现业务行为\n\n- [x] T001 在 `packages/agent-cli/package.json`、`packages/agent-cli/tsconfig.json`、`packages/agent-cli/tsconfig.build.json` 创建 private `@mystra/agent-cli` workspace package 和 `mystra-agent` bin build contract\n- [x] T002 在 `packages/agent-cli/bin/mystra-agent` 与 `packages/agent-cli/src/index.ts` 建立可执行 wrapper 和 Runner 可解析的 bin-directory export\n- [x] T003 更新 `apps/runner-daemon/package.json` 的 production dependency 与 prebuild/predev/pretest wiring，确保 Runner 安装/构建时包含 `@mystra/agent-cli`\n- [x] T004 更新 `package.json` 增加直接运行 workload CLI 的本地开发命令，并保持 `mystra` operator CLI 边界不变\n\n---\n\n## Phase 2: Foundational（状态合同、持久化与安全基础）\n\n**Purpose**: 所有 user story 共同依赖的 Task/Harness/status/capability 领域合同\n\n**⚠️ CRITICAL**: 本阶段完成前不进入任何 user story implementation\n\n### Tests first\n\n- [x] T005 [P] 在 `packages/shared/src/task.test.ts` 写 productionStatus、actor allowlist、note、terminal、statusNote clearing 与 allowedTransitions 的失败测试\n- [x] T006 [P] 在 `packages/shared/src/harness.test.ts` 写 Harness、TaskExecutionContext、execution identity/capability schema 的边界与 secret-exclusion 失败测试\n- [x] T007 在 `apps/control-plane/src/lib/db/rdb-provider.contract.ts` 写 Task projection/history、assign atomicity、idempotency、20-way revision race、Harness uniqueness、capability lifecycle 与 Workspace completion replay 的 provider contract 失败测试\n\n### Shared contracts and persistence\n\n- [x] T008 在 `packages/shared/src/task.ts` 实现 production projection、transition request/result/history schemas 与纯 transition policy，并在 `packages/shared/src/management.ts` 扩展 Task record projections\n- [x] T009 在 `packages/shared/src/harness.ts` 实现 Harness、Assign/Start、TaskExecutionContext、workload identity/status 与 stable error schemas，并从 `packages/shared/src/index.ts` 导出\n- [x] T010 在 `packages/shared/src/session.ts` 扩展 `SessionClaimAssignment.execution` 可选 capability envelope，保证普通 Session 合同兼容当前 049 行为\n- [x] T011 [P] 在 `apps/control-plane/prisma/sqlite/schema.prisma` 与 `apps/control-plane/prisma/postgresql/schema.prisma` 增加 Task production projection、Harness、TaskStatusTransition 和 SessionDispatchLease execution hash/expiry\n- [x] T012 在 `apps/control-plane/prisma/sqlite/migrations/20260811210000_factory_task_harness/migration.sql` 与 `apps/control-plane/prisma/postgresql/migrations/20260811210000_factory_task_harness/migration.sql` 根据 T011 schema 编写等价 migration 与必要 unique/index constraints\n- [x] T013 在 `apps/control-plane/src/lib/db/prisma-client.ts` 与 `apps/control-plane/src/lib/db/prisma-mappers.ts` 增加新模型 client facade 与 domain mapper\n- [x] T014 在 `apps/control-plane/src/lib/db/rdb-provider.ts` 定义 assign/status/history/Harness/capability/Workspace-completion-idempotency 的 dialect-neutral commands\n- [x] T015 在 `apps/control-plane/src/lib/db/prisma-provider.ts` 实现短事务、fingerprint replay、optimistic revision、terminal revocation、indexed capability resolution 与同 attempt/report completion replay\n- [x] T016 运行 `corepack pnpm --filter @mystra/control-plane db:generate`、shared tests 和 RdbProvider contract tests，修复 foundation 直至 SQLite 全绿并在有 `MYSTRA_TEST_POSTGRES_URL` 时验证 PostgreSQL\n\n**Checkpoint**: 共享 schema 与 RDB 已能原子表达 Task production、Harness 和 execution capability；无 service/API/UI 行为\n\n---\n\n## Phase 3: User Story 1 — Assign Agent 开始生产（Priority: P1）\n\n**Goal**: pending Task Assign/Start 后原子进入 in_progress、创建 frozen Harness、准备 Workspace，并在 ready/replay 后只创建一个 Session\n\n**Independent Test**: 对 eligible Task 并发/重放 Assign，验证唯一 transition/Harness；模拟 Workspace queued→ready、ready 后 launch failure→report replay，最终恰有一个 frozen-input Autopilot Session\n\n### Tests first\n\n- [x] T017 [P] [US1] 在 `apps/control-plane/src/lib/tasks/task-production-service.test.ts` 写 eligibility、atomic replay、post-commit setup diagnostic、already-ready 与 continuation idempotency 失败测试\n- [x] T018 [P] [US1] 在 `apps/control-plane/src/lib/sessions/session-service.test.ts` 写 Harness launch 使用 frozen Agent/Task/Issue input、标准 bootstrap prompt 且不嵌入 execution code/current mutable context 的失败测试\n- [x] T019 [P] [US1] 在 `apps/control-plane/app/api/task-production-routes.test.ts` 写 Human auth、Assign response、stable error 与 Workspace-ready report retry route 失败测试\n\n### Implementation\n\n- [x] T020 [US1] 在 `apps/control-plane/src/lib/tasks/task-production-service.ts` 实现 Assign/Start preflight、短事务、Workspace setup、diagnostic persistence 与 idempotent ready continuation\n- [x] T021 [US1] 在 `apps/control-plane/src/lib/tasks/task-production-service-factory.ts` 组装 Agent/Runtime/Workspace/Session dependencies，避免 API route 复制 orchestration\n- [x] T022 [US1] 在 `apps/control-plane/src/lib/sessions/system-prompt-assembler.ts` 增加 Harness-only runtime/provider/frozen-agent/bootstrap prompt variant，保持普通 049 Session assembler 不变\n- [x] T023 [US1] 在 `apps/control-plane/src/lib/sessions/session-service.ts` 增加 `launchHarness`，使用 planned Session/message IDs 和 frozen snapshots 复用现有 atomic Session create path，成功后绑定 actual Harness.sessionId\n- [x] T024 [US1] 在 `apps/control-plane/src/lib/task-workspaces/workspace-preparation-service.ts` 与 `apps/control-plane/app/api/runner/workspaces/[workspaceId]/attempts/[attemptId]/route.ts` 接入同 payload completion replay和 ready continuation\n- [x] T025 [US1] 在 `apps/control-plane/app/api/tasks/[id]/production/assign/route.ts` 与 `apps/control-plane/app/api/tasks/[id]/production/route.ts` 实现 Human Assign/production read endpoints\n- [x] T026 [US1] 通过 `task-production-service.test.ts`、`session-service.test.ts`、`task-production-routes.test.ts` 与真实 HTTP smoke 覆盖 queued Workspace、failure/replay recovery、唯一 Session 和 frozen prompt 的 RDB/HTTP 边界\n\n**Checkpoint**: US1 可独立证明 Human Assign 到唯一 Session 启动；Agent 尚不能通过 workload CLI 更新状态\n\n---\n\n## Phase 4: User Story 2 — Agent 获取上下文并报告生产状态（Priority: P1）\n\n**Goal**: Harness Session claim 获得 attempt-scoped code；Agent 只凭 URL/code 使用 `mystra-agent` 读取 context 并迁移 blocked/in_progress/waiting_for_review\n\n**Independent Test**: fixture Runner/Provider workload 在没有 Task ID/平台外部 credential 的情况下运行 whoami/context/status，使用 fixture `linctl`/`gh`，覆盖 blocked→resume→waiting_for_review 与 capability failure\n\n### Tests first\n\n- [x] T027 [P] [US2] 在 `apps/control-plane/src/lib/tasks/task-status-service.test.ts` 写 Agent transition matrix、note、revision/idempotency、scope 与 terminal revocation 失败测试\n- [x] T028 [P] [US2] 在 `apps/control-plane/src/lib/tasks/agent-execution-service.test.ts` 写 hash/expiry/revocation/Team/Harness/Session/Agent revision resolution 和 context secret exclusion 失败测试\n- [x] T029 [P] [US2] 在 `apps/control-plane/src/lib/sessions/runtime-session-service.test.ts` 写 Harness-only claim code issuance、hash persistence、reclaim rotation 与普通 Session无 capability 失败测试\n- [x] T030 [P] [US2] 在 `apps/control-plane/app/api/task-production-routes.test.ts` 写 bearer-only workload routes、无 arbitrary IDs、stable errors 与 no-store 失败测试\n- [x] T031 [P] [US2] 在 `packages/agent-cli/src/cli.test.ts` 与 `packages/agent-cli/src/client.test.ts` 写 argv/env/JSON/error/cwd composition/redaction 失败测试\n- [x] T032 [P] [US2] 在 `apps/runner-daemon/src/session/session-worker.test.ts` 与 `apps/runner-daemon/src/session/session-loop.test.ts` 写 PATH/endpoint/code environment handoff 和 no-code manual Session 失败测试\n\n### Implementation\n\n- [x] T033 [US2] 在 `apps/control-plane/src/lib/tasks/task-status-service.ts` 实现 shared policy 驱动的 Human/Agent transition application service 与 history read\n- [x] T034 [US2] 在 `apps/control-plane/src/lib/tasks/agent-execution-service.ts` 实现 execution code resolution、uniform fail-closed auth、whoami/context/status application methods\n- [x] T035 [US2] 在 `apps/control-plane/src/lib/tasks/agent-execution-service-factory.ts` 与 `apps/control-plane/src/lib/tasks/task-status-service-factory.ts` 组装 dialect-neutral dependencies\n- [x] T036 [US2] 在 `apps/control-plane/src/lib/sessions/runtime-session-service.ts` 扩展 claim-time code issuance/hash/expiry，并在 `packages/shared/src/session.ts` 合同下返回 capability envelope\n- [x] T037 [US2] 在 `apps/control-plane/app/api/agent-execution/whoami/route.ts`、`context/route.ts` 与 `task-status/route.ts` 实现 execution-code-only HTTP surface 和 stable error mapping\n- [x] T038 [US2] 在 `packages/agent-cli/src/client.ts`、`packages/agent-cli/src/cli.ts` 与 `packages/agent-cli/bin/mystra-agent` 实现 workload HTTP client、commands、machine-readable output 与 secret-safe failures\n- [x] T039 [US2] 在 `apps/runner-daemon/src/index.ts`、`apps/runner-daemon/src/session/session-loop.ts` 与 `apps/runner-daemon/src/session/session-worker.ts` 注入 Runner endpoint、CLI bin PATH 和 claim execution code，不把 environment 写入 event/log\n- [x] T040 [US2] 在 `packages/agent-cli/src/journey.test.ts` 使用临时 fixture `linctl`/`gh` 完成 issue-read/PR-report journey，并断言 `mystra-agent` 只访问 scoped Control Plane URLs、没有 Integration/RepoDelivery fallback\n\n**Checkpoint**: US2 独立证明 Agent workload 能完成 accepted CLI journey；PR/tests 仍只是未验证 note\n\n---\n\n## Phase 5: User Story 3 — Human 收口或退回（Priority: P1）\n\n**Goal**: Human 可从 waiting_for_review 标记 done/退回 in_progress，blocked 可恢复，任意非终态可 canceled；terminal 吊销 execution capability\n\n**Independent Test**: 从 waiting_for_review/blocked/nonterminal 执行所有 Human 合法迁移，验证 actor audit、terminal revocation 与 Agent 无完成权限\n\n### Tests first\n\n- [x] T041 [P] [US3] 在 `apps/control-plane/app/api/task-production-routes.test.ts` 写 Human RBAC、done/return/cancel、terminal、actor audit 和 stable error 失败测试\n- [x] T042 [P] [US3] 在 `apps/control-plane/src/lib/tasks/task-status-service.test.ts` 增加 Human/Agent并发 terminal revocation 与 stale workload command 失败测试\n\n### Implementation\n\n- [x] T043 [US3] 在 `apps/control-plane/app/api/tasks/[id]/production/status/route.ts` 实现 Human status endpoint，并传递现有 auth subject userId/team role\n- [x] T044 [US3] 在 `apps/control-plane/src/lib/tasks/task-status-service.ts` 完成 Human transition、terminal capability revocation 与 append-only actor projection\n- [x] T045 [US3] 通过 `task-status-service.test.ts`、`agent-execution-service.test.ts`、route tests 与真实 HTTP smoke 验证 waiting_for_review→done/return、cancel 和旧 execution code fail closed\n\n**Checkpoint**: US3 独立证明业务完成权属于 Human，terminal 状态不可 reopen\n\n---\n\n## Phase 6: User Story 4 — Task 状态与 Session 分别观察（Priority: P2）\n\n**Goal**: Task detail/API 同时展示 productionStatus/history/Harness/latest Session，并明确 Agent report 未经 Mystra 验证\n\n**Independent Test**: 构造 Session failed + Task in_progress、Session ready + Task blocked、waiting_for_review虚假 URL/tests，验证互不驱动且 UI 标注 unverified\n\n### Tests first\n\n- [x] T046 [P] [US4] 在邻近 Task presentation/model tests、production route tests 与浏览器 smoke 验证 production projection、Assign controls、Human review controls、history 和 Agent-reported label\n- [x] T047 [P] [US4] 在 `apps/control-plane/app/api/task-production-routes.test.ts` 增加 latest Session/Task 独立 projection 与 limit-bounded history 失败测试\n\n### Implementation\n\n- [x] T048 [US4] 在 `apps/control-plane/app/tasks/[id]/page.tsx` 与 `apps/control-plane/app/_components/task-production-panel.tsx` 增加 status badge、Assign/Start、history、Harness/latest Session 和 Human review controls\n- [x] T049 [US4] 在 `apps/control-plane/app/api/tasks/[id]/production/route.ts` 与 Task presentation mapper 返回独立 Task/Session projections，并把 Agent note 标为 `verified:false`\n- [x] T050 [US4] 通过 production route tests、shell/task presentation tests 与真实浏览器 smoke 验证 failed/ready Session 不驱动 Task、Task icon 使用 productionStatus 和 review 声明标注\n\n**Checkpoint**: US4 独立证明操作者能区分业务状态与执行状态\n\n---\n\n## Phase 7: Polish & Cross-Cutting Verification\n\n**Purpose**: 安全、文档、全量验证与 feature closeout\n\n- [x] T051 [P] 在 shared、RDB、prompt、runtime claim、route 与 Runner worker tests 中覆盖 execution code 不进入 DB 明文、prompt、SessionEvent、Task note、route/Runner logs 的泄漏回归\n- [x] T052 [P] 更新 `apps/runner-daemon/README.md`、`packages/agent-cli/README.md` 与 `PLATFORM.md` 的 Runner-bundled CLI、host `linctl`/`gh` 前置条件、配置和故障语义\n- [x] T053 执行 `corepack pnpm --filter @mystra/control-plane db:generate`、四 package focused tests、`corepack pnpm typecheck`、`corepack pnpm test`、`corepack pnpm build` 与 scoped `git diff --check`\n- [x] T054 按 `specs/051-factory-task-harness/quickstart.md` 完成真实 HTTP + host boundary smoke；记录不能执行的 PostgreSQL/真实外部 CLI 条件且不夸大证据\n- [x] T055 针对 `packages/shared/`、`apps/control-plane/`、`apps/runner-daemon/`、`packages/agent-cli/` 运行 GitNexus change detection、project-local code review、Spec-Kit analyze/status/doctor，修正所有 P1/P2、contract drift 与 artifact health 问题\n- [x] T056 更新 `specs/051-factory-task-harness/spec.md` 状态、`specs/051-factory-task-harness/checklists.md`、`specs/spec-status.md` 与生成的 `index.html`，执行 `aaa-spec-close` 完成 051 收口\n\n---\n\n## Dependencies & Execution Order\n\n### Phase Dependencies\n\n- **Phase 1 Setup**: 无依赖。\n- **Phase 2 Foundation**: 依赖 Phase 1；阻塞所有 user stories。\n- **US1**: 依赖 Foundation；建立 Harness/Session production path。\n- **US2**: 依赖 US1 的 Harness Session 与 Foundation capability fields。\n- **US3**: 依赖 Foundation TaskStatusService；最终 E2E 依赖 US2 capability。\n- **US4**: 依赖 US1–US3 API/projection。\n- **Polish**: 依赖所有目标 stories 完成。\n\n### User Story Dependency Graph\n\n```text\nSetup -> Foundation -> US1 Assign/Harness/Session -> US2 Agent CLI/status\n                         |                          |\n                         +--------------------------+-> US3 Human closeout\n                                                     -> US4 Observation UI\nUS1 + US2 + US3 + US4 -> Polish/Review/Closeout\n```\n\n### Within Each Story\n\n1. 先写测试并确认因缺失行为失败。\n2. shared/RDB contracts 先于 service。\n3. service 先于 route/CLI/UI adapter。\n4. focused tests 通过后才执行 story E2E。\n5. 每个 checkpoint 必须独立可演示，不能用后续 story 掩盖失败。\n\n### Parallel Opportunities\n\n- T005/T006 可并行编写 shared tests；T011/T012 可在 schema shape稳定后并行写双 dialect artifacts。\n- 每个 story 内标记 `[P]` 的测试文件可并行起草，但实现仍按 foundation→service→adapter 顺序。\n- US3 route tests可在 US2 CLI实现后段起草；US4 UI tests可在 production read contract稳定后起草。\n- 实际单 agent执行采用顺序模式，避免共享 `packages/shared` 和 DB provider 冲突。\n\n## Parallel Example: User Story 2\n\n```text\nLane A: task-status-service.test.ts -> TaskStatusService\nLane B: agent-execution-service.test.ts -> AgentExecutionService\nLane C: agent-cli tests -> CLI client/bin\nLane D: runner session tests -> environment handoff\n\nMerge A+B foundation, then workload routes; merge C+D after shared claim schema stabilizes。\n```\n\n## Implementation Strategy\n\n### Accepted MVP Journey\n\n本 feature 的 MVP 不是只完成 US1。用户明确的最大产品边界是：\n\n```text\nTask Assign -> one Harness/Session -> Agent context via mystra-agent\n-> local linctl/gh work -> Agent waiting_for_review -> Human done/return\n```\n\n因此最小可交付范围是 Foundation + US1 + US2 + US3；US4 是 P2 可观察性，但 051 完成条件仍要求其 spec acceptance 通过。\n\n### Incremental Validation\n\n1. Foundation：纯状态/RDB安全性。\n2. US1：生产链路能自动启动唯一 Session。\n3. US2：Agent能自助取上下文和报告状态。\n4. US3：Human拥有业务收口权。\n5. US4：操作者能区分 Task/Session truth。\n6. 全量安全、运行、审查和 Spec closeout。\n\n## Notes\n\n- 不创建 Task failed、Harness state、Turn、event bus、generic Artifact 或 PR verification。\n- `mystra-agent` 不执行 `linctl`/`gh`；Agent prompt执行，fixture仅验证 journey。\n- 任何代码 symbol/API edit 前按 AGENTS.md 运行 GitNexus impact；完成前运行 change detection。\n- 当前 worktree 有 owner 的无关 dirty changes；只修改/验证 051 目标路径，禁止覆盖或全量 stage。\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

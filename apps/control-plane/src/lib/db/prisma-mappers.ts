@@ -27,6 +27,10 @@ import {
   type Session,
   type SessionEvent,
   workspacePreparationAttemptSchema,
+  harnessSchema,
+  taskStatusTransitionSchema,
+  type Harness,
+  type TaskStatusTransition,
 } from "@mystra/shared";
 
 import type {
@@ -46,6 +50,8 @@ import type {
   WorkspacePreparationAttempt as PrismaWorkspacePreparationAttempt,
   Session as PrismaSession,
   SessionEvent as PrismaSessionEvent,
+  Harness as PrismaHarness,
+  TaskStatusTransition as PrismaTaskStatusTransition,
 } from "../../generated/prisma/sqlite/client";
 import { RdbError } from "./prisma-errors";
 import type {
@@ -137,8 +143,27 @@ export function mapTask(row: PrismaTask): TaskRecord {
       externalId: row.issueExternalId,
       identifier: row.issueIdentifier,
     },
+    productionStatus: row.productionStatus,
+    statusRevision: row.statusRevision,
+    statusNote: row.statusNote,
+    statusUpdatedAt: row.statusUpdatedAt,
+    statusActor: parseJsonObject(row.statusActor),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  });
+}
+
+export function mapHarness(row: PrismaHarness): Harness {
+  return harnessSchema.parse({
+    ...row,
+    taskIssue: row.taskIssue === null ? null : parseJsonObject(row.taskIssue),
+  });
+}
+
+export function mapTaskStatusTransition(row: PrismaTaskStatusTransition): TaskStatusTransition {
+  return taskStatusTransitionSchema.parse({
+    ...row,
+    actor: parseJsonObject(row.actor),
   });
 }
 

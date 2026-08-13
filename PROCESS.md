@@ -19,9 +19,23 @@ The current product boundary is Open Agents source-authoritative baseline reuse
 with Mystra-owned interfaces at provider and execution seams: selectable
 SQLite/PostgreSQL/Supabase-backed PostgreSQL RDB,
 GitHub RepoProvider plus repository-scoped IssueProvider, read-only Linear
-IssueProvider, direct Agent execution, and a single-machine sandbox path. Every
-Project repository is remote and provider-resolved. Product runtime MUST NOT
-depend on a WorkflowProvider, workflow blueprint or workflow node graph.
+IssueProvider, direct Agent execution, Task-bound Harness production, and a
+single-machine sandbox path. Every Project repository is remote and
+provider-resolved. Feature 051 standardizes Task productionStatus and splits
+`mystra` Control Plane management from the attempt-scoped `mystra-agent`
+workload CLI. The latter resolves execution context and permits only allowlisted
+Task status transitions. Feature 052 makes Agent Context optional: a thin Harness
+attempt freezes the selected Agent snapshot only when supplied and always starts
+exactly one goal/autopilot Session after its Task Workspace is ready. Every Session
+uses the program-owned, content-addressed Standard Execution Prompt; optional Agent
+Context is lower-priority supplemental text and never replaces platform constraints.
+The self-use Agent reads Linear through host-local `linctl` and creates its PR
+through host-local `gh`; Mystra does not proxy, credential, or verify either
+operation. PR/self-test text is Agent-reported and is not verified by Mystra.
+Harness-owned heartbeat, event subscriptions, multiple Sessions, generic
+Artifact submission and verification are follow-up specifications. Product runtime MUST NOT depend on a
+general WorkflowProvider, configurable workflow blueprint, workflow node graph,
+or DSL outside that Harness.
 The approved GitHub App connection exception is hosted-only. It uses OAuth only
 to verify that an authenticated actor may bind an installation to a Team and
 uses short-lived installation tokens for both discovery and delivery. The
@@ -50,6 +64,10 @@ self-hosted support contract or create a general Integration catalog.
      Project, Issue, and dispatch behavior. CLI and Web are clients of those
      contracts and must not introduce repository resolution or provider
      branching of their own.
+   - Another durable rule now in force: Mystra is a flexible software factory.
+     Task is the production order and owns productionStatus; Harness identifies
+     one production attempt, Session is one execution conversation, and Agent is
+     the responsible producer. Agent-reported results are not platform-verified.
 5. Keep feature-specific requirements inside Spec-Kit specs, plans, tasks, and generated design artifacts.
 6. Do not create feature-level PRDs, plans, task lists, or generated design artifacts directly under `docs/`; use `specs/<feature>/`.
 7. If a submodule needs durable operating knowledge, add the smallest useful local documentation near that submodule and link it from the relevant Spec-Kit artifact or 5xP file.

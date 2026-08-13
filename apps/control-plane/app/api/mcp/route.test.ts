@@ -6,6 +6,10 @@ import { getDb } from "@/lib/db";
 import { POST } from "./route";
 
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
+const startProduction = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/tasks/task-production-service-factory", () => ({
+  createTaskProductionService: vi.fn(() => ({ start: startProduction })),
+}));
 
 const userId = randomUUID();
 const teamId = randomUUID();
@@ -13,6 +17,7 @@ const otherTeamId = randomUUID();
 const projectId = randomUUID();
 const taskId = randomUUID();
 const agentId = randomUUID();
+const runtimeId = randomUUID();
 const task = {
   id: taskId,
   teamId,
@@ -20,6 +25,11 @@ const task = {
   description: null,
   projectId: null,
   issue: null,
+  productionStatus: "pending" as const,
+  statusRevision: 1,
+  statusNote: null,
+  statusUpdatedAt: "2026-08-07T00:00:00.000Z",
+  statusActor: { kind: "system" as const, actorId: null, agentId: null, harnessId: null, sessionId: null },
   createdAt: "2026-08-07T00:00:00.000Z",
   updatedAt: "2026-08-07T00:00:00.000Z",
 };
@@ -59,6 +69,13 @@ function toolCall(name: string, arguments_: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  startProduction.mockReset();
+  startProduction.mockResolvedValue({
+    task: { ...task, productionStatus: "in_progress", statusRevision: 2 },
+    transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: { kind: "human", actorId: userId, agentId: null, harnessId: randomUUID(), sessionId: null }, note: null, idempotencyKey: "start-mcp-1", requestFingerprint: "a".repeat(64), occurredAt: "2026-08-07T00:00:00.000Z" },
+    harness: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
+    created: true,
+  });
   vi.mocked(getDb).mockResolvedValue({
     getAuthSessionByTokenHash: vi.fn(async () => ({
       id: randomUUID(),
@@ -272,6 +289,27 @@ describe("MCP human session authorization", () => {
       provider: "codex",
     })));
     await expect(invalid.json()).resolves.toMatchObject({ error: { code: -32602 } });
+  });
+
+  it("lists and calls canonical Start production without Agent Context", async () => {
+    const listed = await POST(rpcRequest(call("tools/list")));
+    const listedPayload = await listed.json() as { result: { tools: Array<{ name: string; inputSchema: { required?: string[] } }> } };
+    const tool = listedPayload.result.tools.find(({ name }) => name === "mystra_start_task_production");
+    expect(tool?.inputSchema.required).not.toContain("agentId");
+
+    const response = await POST(rpcRequest(toolCall("mystra_start_task_production", {
+      taskId,
+      runtimeId,
+      providerKey: "codex",
+      expectedRevision: 1,
+      idempotencyKey: "start-mcp-1",
+    })));
+    expect(response.status).toBe(200);
+    expect(startProduction).toHaveBeenCalledWith({
+      actor: { actorId: userId, teamId },
+      taskId,
+      request: { agentId: null, runtimeId, providerKey: "codex", expectedRevision: 1, idempotencyKey: "start-mcp-1" },
+    });
   });
 
   it("manages Agents through the resolved active Team", async () => {

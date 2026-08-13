@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applySessionEventProjection,
+  effectiveSystemPromptEvidenceSchema,
   sessionEventBatchSchema,
   sessionEventInputSchema,
   sessionEventWindowQuerySchema,
@@ -80,15 +81,54 @@ describe("canonical Session contract", () => {
     expect(() => sessionLaunchRequestSchema.parse({ ...parsed, context: {} })).toThrow();
   });
 
+  it("allows Session launch and persistence without optional Agent Context", () => {
+    expect(sessionSchema.parse({ ...baseSession(), agentId: null, agentRevision: null })).toMatchObject({
+      agentId: null,
+      agentRevision: null,
+    });
+    expect(() => sessionSchema.parse({ ...baseSession(), agentId: null })).toThrow();
+    const launch = sessionLaunchRequestSchema.parse({
+      sessionId,
+      runtimeId: "00000000-0000-4000-8000-000000000003",
+      providerKey: "codex",
+      context: { taskId: "00000000-0000-4000-8000-000000000002" },
+      firstUserMessage: { messageId, content: [{ type: "text", text: "Implement feature 052" }] },
+      metadata: {},
+    });
+    expect(launch.agentId).toBeNull();
+  });
+
+  it("freezes ordered Standard Prompt evidence with explicit absent Agent Context", () => {
+    const parsed = event("session.system_prompt_configured", {
+      standardPrompt: { version: `sha256:${"a".repeat(64)}`, content: "Always complete and self-test the Task." },
+      agentContext: null,
+      components: [
+        { name: "standard", content: "Always complete and self-test the Task." },
+        { name: "runtime", content: "Runtime facts" },
+        { name: "provider", content: "Provider facts" },
+        { name: "execution_context", content: "Task facts" },
+      ],
+      finalPrompt: "Frozen prompt",
+    });
+    const evidence = effectiveSystemPromptEvidenceSchema.parse(parsed.payload);
+    expect(evidence.agentContext).toBeNull();
+    expect(evidence.components.map((component) => component.name)).toEqual([
+      "standard", "runtime", "provider", "execution_context",
+    ]);
+    expect(() => event("session.system_prompt_configured", {
+      ...evidence,
+      components: [...evidence.components].reverse(),
+    })).toThrow();
+  });
+
   it("validates bounded Task Session launch and list inputs", () => {
     expect(taskSessionListQuerySchema.parse({ limit: "50" })).toEqual({ limit: 50 });
     expect(() => taskSessionListQuerySchema.parse({ limit: 51 })).toThrow();
     expect(taskSessionLaunchInputSchema.parse({
       sessionId,
       providerKey: "codex",
-      agentId: "00000000-0000-4000-8000-000000000004",
       manualContext: { text: "  Inspect the failing test.  " },
-    }).manualContext?.text).toBe("Inspect the failing test.");
+    })).toMatchObject({ agentId: null, manualContext: { text: "Inspect the failing test." } });
     expect(() => taskSessionLaunchInputSchema.parse({
       sessionId,
       providerKey: "codex",

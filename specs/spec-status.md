@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=f0a8516ac7baa2814e64a2936d02effa548d0a87 updated=2026-08-11T02:26:47Z -->
+<!-- spec-status: project=mystra commit=f3ece879c39fb542b80b6c655302f9593ef5da00 updated=2026-08-13T05:24:18Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -45,6 +45,8 @@
 | 048-task-workspace-setup           | ✓     | ✓  | ✓   | ✓ Complete |
 | 049-session-launch-framework       | ✓     | ✓  | ✓   | ✓ Complete |
 | 050-task-session-experience        | ✓     | ✓  | ✓   | ✓ Complete |
+| 051-factory-task-harness           | ✓     | ✓  | ✓   | ✓ Complete |
+| 052-standard-agent-context         | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -88,3 +90,5 @@
 <!-- feature: 048-task-workspace-setup has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=64 tasks_completed=64 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 049-session-launch-framework has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=56 tasks_completed=56 checklist_files=engineering-review.md,requirements.md -->
 <!-- feature: 050-task-session-experience has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=42 tasks_completed=42 checklist_files=requirements.md -->
+<!-- feature: 051-factory-task-harness has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=56 tasks_completed=56 checklist_files=engineering-review.md,requirements.md,verification.md -->
+<!-- feature: 052-standard-agent-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=56 tasks_completed=56 checklist_files=requirements.md,verification.md -->

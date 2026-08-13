@@ -23,8 +23,14 @@ const migrations = [
   "20260806182000_init",
   "20260806210000_secret_envelopes",
   "20260807150000_identity_team_rbac",
+  "20260807181000_runtime_provider",
+  "20260808173000_project_issue_sources",
   "20260808180000_agent_definition",
   "20260808200000_task_context",
+  "20260810130000_task_workspace_setup",
+  "20260810160000_session_launch_framework",
+  "20260811210000_factory_task_harness",
+  "20260812090000_standard_agent_context",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
@@ -177,6 +183,7 @@ describe("active Task routes", () => {
     }, "PATCH"), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000097" }) });
     expect(invalidUpdate.status).toBe(400);
   });
+
 });
 
 describe("active Agent routes", () => {
@@ -296,6 +303,7 @@ describe("active MCP surface", () => {
       "mystra_list_tasks",
       "mystra_get_task",
       "mystra_update_task",
+      "mystra_start_task_production",
       "mystra_health",
     ]);
     expect(names.some((name) => /session|runner|context/i.test(name))).toBe(false);

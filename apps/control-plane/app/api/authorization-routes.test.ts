@@ -15,6 +15,13 @@ vi.mock("@/lib/tasks/task-service-factory", () => ({
 const userId = randomUUID();
 const teamId = randomUUID();
 const taskId = randomUUID();
+const taskStatus = {
+  productionStatus: "pending" as const,
+  statusRevision: 1,
+  statusNote: null,
+  statusUpdatedAt: "2026-08-07T00:00:00.000Z",
+  statusActor: { kind: "system" as const, actorId: null, agentId: null, harnessId: null, sessionId: null },
+};
 const session = {
   id: randomUUID(),
   userId,
@@ -68,6 +75,7 @@ beforeEach(() => {
       description: null,
       projectId: null,
       issue: null,
+      ...taskStatus,
       createdAt: "2026-08-07T00:00:00.000Z",
       updatedAt: "2026-08-07T00:00:00.000Z",
     }]),
@@ -80,6 +88,7 @@ beforeEach(() => {
           description: null,
           projectId: null,
           issue: null,
+          ...taskStatus,
           createdAt: "2026-08-07T00:00:00.000Z",
           updatedAt: "2026-08-07T00:00:00.000Z",
         }
@@ -207,6 +216,7 @@ describe("management route authorization", () => {
           externalId: "issue-42",
           identifier: "42",
         },
+        ...taskStatus,
         createdAt: "2026-08-07T00:00:00.000Z",
         updatedAt: "2026-08-07T00:00:00.000Z",
       })),

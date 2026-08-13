@@ -40,6 +40,9 @@ import type {
   SessionEventPage,
   SessionLaunchRequest,
   SessionDispatchLease,
+  Harness,
+  TaskStatusTransition,
+  TaskTransitionActor,
 } from "@mystra/shared";
 
 export type IntegrationConnectionRecord = IntegrationConnection & {
@@ -209,6 +212,35 @@ export type SessionEventAppendInput = {
 
 export type SessionLeaseWrite = Omit<SessionDispatchLease, "sessionId"> & {
   leaseTokenHash: string;
+  executionCodeHash?: string;
+  executionCodeExpiresAt?: string;
+};
+
+export type TaskProductionStartInput = {
+  teamId: string;
+  taskId: string;
+  agentId: string | null;
+  expectedRevision: number;
+  requestFingerprint: string;
+  harness: Harness;
+  transition: TaskStatusTransition;
+};
+
+export type TaskStatusTransitionInput = {
+  teamId: string;
+  taskId: string;
+  actorPolicy: TaskTransitionActor;
+  expectedRevision: number;
+  transition: TaskStatusTransition;
+};
+
+export type ResolvedWorkloadExecution = {
+  harness: Harness;
+  task: TaskRecord;
+  project: Project;
+  workspace: TaskWorkspaceTrusted;
+  session: Session;
+  executionCodeExpiresAt: string;
 };
 
 export type ExpiredSessionLease = {
@@ -290,6 +322,29 @@ export interface RdbProvider {
   listTasks(options?: { projectId?: string; teamId?: string }): Promise<TaskListItem[]>;
   updateTask(id: string, input: TaskUpdateRequest, options: { teamId: string }): Promise<TaskRecord | undefined>;
   findTaskIdsByIssueExternalIds(input: TaskIssueLinkQuery): Promise<Record<string, string>>;
+  startTaskProduction(input: TaskProductionStartInput): Promise<{
+    task: TaskRecord;
+    harness: Harness;
+    transition: TaskStatusTransition;
+    created: boolean;
+  }>;
+  transitionTaskStatus(input: TaskStatusTransitionInput): Promise<{
+    task: TaskRecord;
+    transition: TaskStatusTransition;
+    created: boolean;
+  }>;
+  listTaskStatusTransitions(input: { taskId: string; teamId: string; limit?: number }): Promise<TaskStatusTransition[]>;
+  getHarnessByTaskId(taskId: string, options: { teamId: string }): Promise<Harness | undefined>;
+  getHarnessBySessionId(sessionId: string): Promise<Harness | undefined>;
+  updateHarness(input: {
+    harnessId: string;
+    teamId: string;
+    workspaceId?: string;
+    sessionId?: string;
+    setupFailureCode?: string | null;
+    setupFailureMessage?: string | null;
+  }): Promise<Harness | undefined>;
+  resolveWorkloadExecution(executionCodeHash: string): Promise<ResolvedWorkloadExecution | undefined>;
 
   createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult>;
   getTaskWorkspaceByTaskId(
@@ -362,7 +417,12 @@ export interface RdbProvider {
     runtimeId: string;
     runnerId: string;
     lease: SessionLeaseWrite;
-  }): Promise<{ session: Session; launchRequest: SessionLaunchRequest; lease: SessionDispatchLease } | undefined>;
+  }): Promise<{
+    session: Session;
+    launchRequest: SessionLaunchRequest;
+    lease: SessionDispatchLease;
+    executionCodeExpiresAt?: string;
+  } | undefined>;
   updateSessionLeaseProviderId(input: {
     sessionId: string;
     leaseTokenHash: string;

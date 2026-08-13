@@ -23,6 +23,7 @@
     "db:test:reset": "node ./scripts/migrate-rdb.mjs reset",
     "db:validate": "pnpm --filter @mystra/control-plane db:validate",
     "operator:cli": "node ./scripts/operator-cli.mjs",
+    "agent:cli": "pnpm --filter @mystra/agent-cli build && node ./packages/agent-cli/bin/mystra-agent",
     "preview": "node ./scripts/preview-containers.mjs",
     "runner:image:build": "bash ./scripts/build-runner-image.sh",
     "lint": "pnpm -r --if-present lint",

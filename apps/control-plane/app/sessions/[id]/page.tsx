@@ -127,7 +127,7 @@ export default function SessionDetailPage() {
           <dl className="definitionList">
             <div><dt>{copy.runtime}</dt><dd className="mono">{session.runtimeId}</dd></div>
             <div><dt>{copy.provider}</dt><dd>{session.providerKey}</dd></div>
-            <div><dt>{copy.agent}</dt><dd className="mono">{session.agentId} · r{session.agentRevision}</dd></div>
+            <div><dt>{copy.agent}</dt><dd className="mono">{session.agentId ? `${session.agentId} · r${session.agentRevision}` : (locale === "zh-CN" ? "无附加 Agent 上下文" : "No optional Agent Context")}</dd></div>
             <div><dt>{copy.project}</dt><dd className="mono">{session.projectId ?? copy.noProject}</dd></div>
             <div><dt>{copy.created}</dt><dd>{relativeTime(session.createdAt)} · {session.createdAt}</dd></div>
             <div><dt>{copy.updated}</dt><dd>{relativeTime(session.updatedAt)} · {session.updatedAt}</dd></div>

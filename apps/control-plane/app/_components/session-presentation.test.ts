@@ -34,8 +34,9 @@ describe("Session event presentation", () => {
   });
 
   it("redacts sensitive domain facts and safely labels unknown events", () => {
-    const prompt = presentSessionEvent({ ...event(1), kind: "session.system_prompt_configured", payload: { finalPrompt: "do not expose" } }, "en");
+    const prompt = presentSessionEvent({ ...event(1), kind: "session.system_prompt_configured", payload: { standardPrompt: { version: `sha256:${"a".repeat(64)}` }, agentContext: null, finalPrompt: "do not expose" } }, "en");
     expect(JSON.stringify(prompt)).not.toContain("do not expose");
+    expect(prompt.detail).toContain("No optional Agent Context");
     const workspace = presentSessionEvent({ ...event(1), kind: "session.workspace_attached", payload: { workspaceRef: "/private/path" } }, "en");
     expect(JSON.stringify(workspace)).not.toContain("/private/path");
     expect(presentSessionEvent({ ...event(1), kind: "session.future_event" }, "en").title).toContain("Unknown event");

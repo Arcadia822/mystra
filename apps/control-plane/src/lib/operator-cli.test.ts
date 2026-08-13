@@ -242,6 +242,31 @@ describe("operator CLI Task and Session commands", () => {
     expect(updated.exitCode).toBe(EXIT_CODES.OK);
   });
 
+  it("starts Task production without Agent Context through the canonical Start API", async () => {
+    const runtimeId = "00000000-0000-4000-8000-000000000020";
+    const started = await execute([
+      "tasks", "start", taskId,
+      "--runtime-id", runtimeId,
+      "--provider", "codex",
+      "--expected-revision", "1",
+      "--idempotency-key", "start-052-1",
+      "--json",
+    ], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/tasks/${taskId}/production/start`);
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        runtimeId,
+        providerKey: "codex",
+        expectedRevision: 1,
+        idempotencyKey: "start-052-1",
+      });
+      return response({ task: { id: taskId }, created: true });
+    });
+    expect(started.exitCode).toBe(EXIT_CODES.OK);
+    expect(parseArgs(["tasks", "start", taskId, "--runtime-id", runtimeId, "--provider", "codex"]))
+      .toMatchObject({ ok: false });
+  });
+
   it("lists and creates independent Sessions beneath one Task", async () => {
     const listed = await execute(["sessions", "list", taskId, "--json"], async (url) => {
       expect(url).toBe(`http://localhost:3000/api/tasks/${taskId}/sessions`);

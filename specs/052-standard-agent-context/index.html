@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>052-standard-agent-context</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #e7e8eb;
+        --surface: #f7f7f5;
+        --surface-muted: #eeeeeb;
+        --panel: #ffffff;
+        --text: #202124;
+        --muted: #686d75;
+        --line: #c9ccd2;
+        --line-soft: #dedfe3;
+        --accent: #355f8f;
+        --accent-soft: #e6edf5;
+        --ok: #2f7659;
+        --warn: #9a641d;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 14px;
+        border-right: 1px solid var(--line);
+        background: #dfe1e5;
+        overflow: auto;
+      }
+
+      .brand {
+        display: grid;
+        gap: 6px;
+        margin: 0 4px 18px;
+      }
+
+      .brand small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .brand strong {
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .tabs {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tab-button {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        background: transparent;
+        color: #383b40;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        font: inherit;
+        text-align: left;
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        background: #eceef1;
+        outline: none;
+      }
+
+      .tab-button[aria-selected="true"] {
+        border-color: #bfc7d1;
+        background: var(--surface);
+        color: #111315;
+      }
+
+      .tab-index {
+        color: var(--muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .title-block {
+        min-width: 0;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 5px 0 0;
+        font-size: 25px;
+        line-height: 1.22;
+        font-weight: 680;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge,
+      .action {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #32363b;
+        font-size: 13px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .action {
+        background: #24384f;
+        border-color: #24384f;
+        color: white;
+        font-weight: 600;
+      }
+
+      .action:hover {
+        text-decoration: none;
+        background: #1d3045;
+      }
+
+      .content {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        min-height: calc(100vh - 112px);
+        overflow: hidden;
+      }
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+      }
+
+      .content-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 680;
+      }
+
+      .content-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .doc {
+        max-width: 920px;
+        padding: 22px 24px 48px;
+      }
+
+      .doc h1,
+      .doc h2,
+      .doc h3 {
+        color: #191b1f;
+        line-height: 1.25;
+      }
+
+      .doc h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .doc h2 {
+        margin: 30px 0 12px;
+        padding-top: 4px;
+        font-size: 19px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .doc h3 {
+        margin: 24px 0 10px;
+        font-size: 16px;
+      }
+
+      .doc p,
+      .doc li {
+        color: #34383f;
+        line-height: 1.65;
+      }
+
+      .doc p {
+        margin: 9px 0;
+      }
+
+      .doc ul,
+      .doc ol {
+        padding-left: 23px;
+      }
+
+      .doc hr {
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        margin: 24px 0;
+      }
+
+      .doc code {
+        border: 1px solid #d8dbe0;
+        border-radius: 5px;
+        background: #f1f2f4;
+        padding: 1px 5px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      .doc pre {
+        overflow: auto;
+        border: 1px solid #d8dbe0;
+        border-radius: var(--radius);
+        background: #f3f4f5;
+        padding: 12px;
+      }
+
+      .doc pre code {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .doc blockquote {
+        margin: 14px 0;
+        padding: 4px 14px;
+        border-left: 3px solid var(--line);
+        color: var(--muted);
+        background: #f7f7f6;
+      }
+
+      .doc table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      .doc th,
+      .doc td {
+        border: 1px solid var(--line-soft);
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .doc th {
+        background: var(--surface-muted);
+        font-weight: 650;
+      }
+
+      .empty-note {
+        border: 1px solid #ddc58d;
+        border-radius: var(--radius);
+        background: #fff8e8;
+        color: #5f4318;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 860px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .rail {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          display: grid;
+        }
+
+        .meta {
+          justify-content: flex-start;
+        }
+
+        .doc {
+          padding: 18px 16px 38px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail" aria-label="Spec sections">
+        <div class="brand">
+          <small id="feature-id"></small>
+          <strong>Spec Review Surface</strong>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Spec document tabs" id="tabs"></div>
+      </aside>
+      <main class="main">
+        <div class="shell">
+          <div class="topbar">
+            <div class="title-block">
+              <div class="eyebrow" id="active-eyebrow"></div>
+              <h1 id="page-title"></h1>
+            </div>
+            <div class="meta">
+              <span class="badge" id="generated-at"></span>
+              <a class="action" id="prototype-link" target="_blank" rel="noreferrer">Open Prototype</a>
+            </div>
+          </div>
+          <article class="content">
+            <div class="content-header">
+              <h2 id="active-label"></h2>
+              <span id="active-position"></span>
+            </div>
+            <div class="doc" id="doc"></div>
+          </article>
+        </div>
+      </main>
+    </div>
+    <script id="spec-data" type="application/json">{"feature":"052-standard-agent-context","title":"052-standard-agent-context","prototypeHref":"mockups/index.html?v=1786504985964","generatedAt":"2026-08-12T04:29:18.243Z","tabs":[{"id":"spec","label":"SPEC","eyebrow":"Specification","markdown":"# 功能规格：标准执行提示词与可选 Agent 上下文\n\n**Feature Branch**: `052-standard-agent-context`  \n**Created**: 2026-08-12  \n**Status**: Draft  \n**Input**: 用户要求默认路径无需数据库中的 Agent 即可运行；程序提供标准 system prompt，自定义 Agent 只作为附加上下文，不替换标准提示词。\n**Clarification Review**: 2026-08-12 用户明确否定“默认 Agent”概念。平台默认的是程序拥有的标准执行提示词；自定义 Agent 与该提示词是上下文叠加关系，不是替换关系。\n\n## 合同摘要\n\nMystra 的默认执行行为来自程序版本化的 **Standard Execution Prompt**，而不是一个自动注入 Team 的 Agent 数据对象。任何 Task production attempt 都必须应用这份标准提示词，因此 Team 即使没有任何自定义 Agent，也能直接 Start。\n\n自定义 Agent 继续是 Team-scoped、可修订的行为配置，但只贡献可选的 **Agent Context**。它可以补充角色、领域知识、编码偏好或协作约束，不得替换、关闭或降级标准执行职责。\n\n```text\nEffective System Prompt\n  = Standard Execution Prompt (required, platform-owned)\n  + Optional Agent Context (team-authored, frozen when selected)\n  + Runtime / Provider constraints (resolved execution facts)\n  + Task / Project / Workspace context (bounded business data)\n```\n\n这不是“系统 Agent + 自定义 Agent 二选一”。系统中不存在隐藏的默认 Agent、特殊 Agent ID 或为每个 Team 复制的默认 Agent 记录。自定义 Agent 缺席是正常状态，不是配置错误。\n\n## 关键产品决定\n\n| 决定 | 本期合同 |\n| --- | --- |\n| 默认行为从哪里来 | 程序拥有并版本化的 Standard Execution Prompt |\n| Team 是否必须拥有 Agent | 否；零个自定义 Agent 的 Team 可完整执行 Task |\n| 自定义 Agent 的作用 | 可选 Agent Context，只补充标准执行提示词 |\n| Start 是否必须选择 Agent | 否；未选择时不创建虚拟引用或 sentinel ID |\n| 选择 Agent 后是否替换标准提示词 | 否；标准提示词始终保留且优先级更高 |\n| 谁标识 workload | Harness/Session attempt 的 execution code，而不是 Agent 的长期身份 code |\n| 历史如何复核 | Session 冻结最终 prompt、标准提示词版本及可选 Agent snapshot |\n\n## User Scenarios & Testing *(mandatory)*\n\n### User Story 1 - 无需配置 Agent 直接开始生产 (Priority: P1)\n\n作为创建 Task 的操作者，我希望无需先创建或选择 Agent 就能开始生产，以便从 Issue 创建 Task 后可以直接进入代码修改、自测和提交 PR 的核心旅程。\n\n**Why this priority**: Agent 配置不是工厂输入的必要条件。把一个空下拉框放在生产入口前，只会把内部抽象伪装成用户必须理解的准备工作。\n\n**Independent Test**: 使用一个没有任何自定义 Agent 的 Team 创建 eligible Project-bound Task，执行 Start，验证 Task 进入 `in_progress`、Harness 与唯一 Session 被创建，Session 使用标准执行提示词且没有 Agent ID。\n\n**Acceptance Scenarios**:\n\n1. **Given** Team 没有自定义 Agent且 Task 满足 051 的 Start 前置条件，**When** 操作者 Start production，**Then** 系统使用当前 Standard Execution Prompt 创建 Harness/Session，且不得要求 Agent ID。\n2. **Given** Team 没有自定义 Agent，**When** 操作者打开 Task production surface，**Then** Start 操作可用，界面不得显示必填但为空的 Agent selector。\n3. **Given** 未选择 Agent 的 Start 命令被重放，**When** 服务处理同一 idempotency key，**Then** 返回同一 Harness/Session，不因缺少 Agent 生成第二次 attempt 或虚拟 Agent。\n\n---\n\n### User Story 2 - 用自定义 Agent 补充执行上下文 (Priority: P1)\n\n作为需要特定角色或领域偏好的操作者，我希望可以选择一个自定义 Agent 作为附加上下文，以便 Agent 获得专门指令，同时仍遵守 Mystra 的标准完成任务、自测、交付和状态回报职责。\n\n**Why this priority**: “柔性”来自可选上下文，而不是复制整套执行合同。否则每个自定义 Agent 都必须重新正确描述工厂职责，最终会以非常高效的方式制造不一致。\n\n**Independent Test**: 对同一个 Task 分别不选择 Agent 和选择一个 active Team Agent 发起两个独立 attempt；验证两者都包含相同版本的标准提示词，后者额外包含所选 Agent revision 的 context，且标准职责未被替换。\n\n**Acceptance Scenarios**:\n\n1. **Given** Team 存在 active 自定义 Agent，**When** 操作者在 Start 时选择它，**Then** 最终 system prompt 同时包含标准执行提示词与该 Agent 的已冻结上下文。\n2. **Given** 自定义 Agent context 与标准执行职责冲突，**When** 系统组装提示词，**Then** 标准执行提示词保持更高优先级，并把自定义内容明确标记为补充上下文。\n3. **Given** 操作者明确选择的 Agent 不存在、已归档或属于其他 Team，**When** Start 执行，**Then** 命令明确失败且不静默退回无 Agent 模式。\n4. **Given** Team 没有自定义 Agent，**When** 查看默认生产入口，**Then** 不展示 Agent 配置负担；当自定义 Agent 能被选择时，该控件明确标注为可选上下文。\n\n---\n\n### User Story 3 - 复核每次执行实际使用的提示词 (Priority: P2)\n\n作为 Reviewer，我希望知道一次 Session 使用了哪个标准提示词版本以及是否叠加了哪个自定义 Agent revision，以便历史执行在程序升级或 Agent 修改后仍可解释。\n\n**Why this priority**: 程序提示词与自定义上下文都会变化。若只保存“当前值”，历史执行语义就会在不通知任何人的情况下自行改写，确实非常神奇。\n\n**Independent Test**: 启动 Session 后分别升级 Standard Execution Prompt 和更新自定义 Agent，再读取原 Session；验证最终 prompt、标准版本与可选 Agent snapshot 逐字不变，新 Session 使用新版本。\n\n**Acceptance Scenarios**:\n\n1. **Given** Session 已创建，**When** 程序中的标准提示词升级，**Then** 既有 Session 的标准版本与最终 prompt 不变，之后创建的 Session 使用新版本。\n2. **Given** Session 选择了自定义 Agent revision 3，**When** Agent 更新到 revision 4，**Then** 既有 Session 仍引用 revision 3 的 context，新 Session 使用 revision 4。\n3. **Given** Session 未选择自定义 Agent，**When** Reviewer 读取其 prompt evidence，**Then** 能明确区分“未选择 Agent”与“Agent 数据缺失”。\n\n### Edge Cases\n\n- Team 中没有任何 Agent 是有效的常态；不得触发默认数据注入、自动创建或修复流程。\n- Agent selector 的空值表示“不附加 Agent Context”，不是名为 Default、Built-in 或 System 的 Agent。\n- 调用方省略 `agentId` 与显式传入空值必须规范化为同一个无 Agent 选择；空字符串、未知 ID 和跨 Team ID 必须拒绝。\n- 明确选择的 Agent 在 Start 校验与 Session 创建之间被更新或归档时，必须使用同一原子边界冻结一致 revision，或让命令失败；不得混合两个 revision。\n- Standard Execution Prompt 不可用、无法识别版本或无法组装时，Start 必须失败关闭；不得用自定义 Agent prompt 单独执行。\n- 自定义 Agent context 为空、超长或包含凭据时，继续遵守 046 的校验与非秘密边界。\n- 自定义 Agent context 试图取消自测、PR 交付、Task 状态回报或覆盖 Runtime/Provider 安全约束时，标准合同仍保持优先；Mystra 不承诺模型绝对服从，但必须保证输入结构与优先级没有把补充内容当作替代内容。\n- Runtime、Provider、Project、Task、Workspace 或 Issue context 无效时，仍按其所属规格失败；无 Agent 模式不构成任何 fallback 权限。\n\n## Requirements *(mandatory)*\n\n### Functional Requirements — Standard Execution Prompt\n\n- **FR-001**: 平台 MUST 定义一个程序拥有、非 Team 数据、不可由产品用户编辑的 Standard Execution Prompt，并为每个可执行版本提供稳定版本标识。\n- **FR-002**: 每个 051 Task-bound Harness 创建的 Session MUST 应用 Standard Execution Prompt；缺失或无法解析该提示词时 MUST fail closed。\n- **FR-003**: Standard Execution Prompt MUST 定义默认生产职责：读取已交付的 Task/Project/Issue-reference/Workspace context，完成代码改动，执行适当自测，使用 workload 可用的本地工具提交可审查交付，并通过 `mystra-agent` 回报 Task 状态。\n- **FR-004**: Standard Execution Prompt MUST 保留 051 的工具责任边界：Linear 内容由 workload 使用 host-local `linctl` 读取，PR 由 host-local `gh` 创建；Mystra MUST NOT 代理、提供凭据或验证这些结果。\n- **FR-005**: Standard Execution Prompt MUST NOT 被建模为 Agent、Team 初始化数据、Project 默认值、环境变量 fallback、隐藏 Agent ID 或其他持久化 Agent 记录。\n- **FR-006**: Standard Execution Prompt 的版本变化 MUST 只影响之后创建的 Session；既有 Session 的最终 prompt evidence MUST 保持不变。\n\n### Functional Requirements — Optional Agent Context\n\n- **FR-007**: 自定义 Agent MUST 继续是 Team-scoped、可修订、可归档的显式配置，但在 Session 发起中 MUST 是可选输入。\n- **FR-008**: 未提供 Agent 选择时，Start MUST 使用标准执行提示词继续执行，并 MUST 将 Agent snapshot 表达为明确缺席，而不是合成默认 Agent。\n- **FR-009**: 提供 Agent 选择时，系统 MUST 校验它 active、同 Team，并原子冻结其 ID、revision 与 systemPrompt 作为 Agent Context；无效的显式选择 MUST 失败，禁止静默忽略。\n- **FR-010**: Agent Context MUST 作为标记清晰、低于 Standard Execution Prompt 优先级的补充行为上下文组装；MUST NOT 替换标准执行提示词、Runtime/Provider 约束或 Task/Workspace 事实。\n- **FR-011**: Agent Context MAY 补充角色、领域知识、编码风格与协作偏好；MUST NOT 获得 Provider、Runtime、Context、凭据、workflow 或 Task lifecycle 的隐式所有权。\n- **FR-012**: 更新或归档自定义 Agent MUST NOT 改写既有 Session 已冻结的 Agent Context；新 Session 只解析当时有效的 revision。\n\n### Functional Requirements — Start、Harness 与 Session\n\n- **FR-013**: 051 Assign/Start 输入中的 Agent reference MUST 从必填改为可选；`pending → in_progress`、Harness 幂等、Workspace preparation 和唯一 Session 规则保持不变。\n- **FR-014**: Harness MUST 冻结 `0..1` Agent snapshot reference；没有选择 Agent 的 attempt 是完整有效的生产 attempt，且 execution code 仍绑定准确 Team、Task、Harness 与 Session。\n- **FR-015**: `mystra-agent context get` MUST 能区分并报告可选 Agent Context 是否存在，但 execution code MUST NOT 被描述为 Agent 的长期身份。\n- **FR-016**: Session launch MUST 冻结 Standard Execution Prompt version、可选 Agent snapshot、各 prompt component 与最终 system prompt；后续继续消息不得重复注入或重新解析这些输入。\n- **FR-017**: 最终提示词的固定优先级与组成 MUST 在 API、Runner 与 Provider adapter 间保持一致；不得由某个 adapter 把 Agent Context 当作完整 system prompt 覆盖其他组件。\n- **FR-018**: Start API、CLI、MCP 与 Web adapter MUST 对 Agent 可选性使用同一 canonical application contract；任一入口不得单独要求默认 Agent。\n\n### Functional Requirements — Product Experience\n\n- **FR-019**: 没有可选自定义 Agent 时，Task production surface MUST 不显示必填 Agent selector，且 Start 操作 MUST 保持可用。\n- **FR-020**: 当产品暴露自定义 Agent 选择时，控件 MUST 明确表达“可选 Agent Context”，默认值 MUST 是不附加额外上下文；不得使用“Default Agent”措辞。\n- **FR-021**: 标准执行提示词 MUST 作为平台行为而非用户配置呈现；本期 MUST NOT 增加其查看、编辑、Team 初始化或 Project 配置入口。\n- **FR-022**: 历史 Session/attempt 的审查投影 MUST 显示标准提示词版本，以及可选 Agent 的名称/ID/revision或明确的“无附加 Agent Context”。\n\n### Contract Supersession\n\n- **FR-023**: 本规格 MUST supersede 046/049 中“Agent 是每次 Session 必填的四要素之一”的条款；当前模型是 Runtime、Provider、执行 Context 必须解析，Agent Context 可选，Standard Execution Prompt 始终必填。\n- **FR-024**: 本规格 MUST supersede 051 中“Assign Agent 才能 Start”及“Harness 必须冻结 Agent revision”的必填语义；操作语义改为 Start production，并只在明确选择自定义 Agent 时冻结 revision。\n- **FR-025**: 046 的 Agent 管理、Team 隔离、revision、active/archived 与非秘密规则继续有效；本规格只改变 Agent 在执行组装中的必填性和优先级。\n\n### Key Entities\n\n- **Standard Execution Prompt**: 程序拥有的版本化平台执行合同；始终参与 Task-bound Session 的 system prompt 组装，不是 Agent 或 Team 数据。\n- **Agent Context**: 从可选自定义 Agent 当前 revision 冻结的补充行为上下文；包含 Agent ID、revision 与 prompt snapshot，缺席是合法值。\n- **Effective System Prompt Evidence**: Session 创建时冻结的标准版本、组成组件、可选 Agent snapshot 与最终文本，用于历史审查。\n- **Harness Attempt**: Task 的一次生产 attempt；可引用 `0..1` Agent snapshot，但其 workload 身份来自 attempt-scoped execution code。\n\n## 假设与依赖\n\n- 046 继续提供自定义 Agent 的管理与 revision 合同；052 不新增 Agent 管理 UI。\n- 049 继续拥有 Session 原子 launch、prompt evidence 与 Provider adapter 边界；052 修改其 prompt 组成和 Agent 可选性。\n- 051 继续拥有 Task productionStatus、Harness、Workspace-to-Session 启动和 `mystra-agent`；052 只解除 Agent 必填门槛。\n- Standard Execution Prompt 的具体逐字内容与版本机制在 plan 中确定，但不得把它持久化为 Team Agent。\n- 现有 pre-0.1 本地数据可以按当前合同直接重建；不提供默认 Agent 数据迁移或兼容 fallback。\n\n## 范围之外\n\n- 自定义 Agent 创建、编辑或市场化模板体验。\n- 将自定义 Agent 自动绑定到 Team、Project、Task 类型、Workflow 或 Production Recipe。\n- 多 Agent 编排、Agent 自动分诊、任务路由或角色推荐。\n- 用户编辑、覆写或关闭 Standard Execution Prompt。\n- 提示词效果评测、PR/自测验证、质量门禁或自动修复循环。\n- Task 删除；该产品能力由独立规格拥有。\n- Harness 心跳、事件订阅、多 Session 与通用 Artifact submission。\n\n## Success Criteria *(mandatory)*\n\n### Measurable Outcomes\n\n- **SC-001**: 对没有任何自定义 Agent 的 Team，100% eligible Task 可成功 Start，并创建一个有效 Harness 与一个使用 Standard Execution Prompt 的 Session。\n- **SC-002**: 默认 Task production journey 中需要用户完成的 Agent 配置或选择步骤数量为 0，且不存在空 Agent selector 阻断 Start。\n- **SC-003**: 抽样 100 个无 Agent attempt，Agent ID/snapshot 均明确缺席，且没有生成默认 Agent、sentinel ID 或 Team 初始化 Agent 数据。\n- **SC-004**: 抽样 100 个选择自定义 Agent 的 Session，100% 同时包含正确 Standard Execution Prompt version 与所选 Agent revision context；0 个 Session 仅使用自定义 Agent prompt。\n- **SC-005**: 标准提示词或 Agent 更新后，100% 既有 Session 的最终 prompt evidence 保持逐字不变，之后的 Session 使用新版本。\n- **SC-006**: API、CLI、MCP、Web 与 Runner 的合同测试对同一输入得到一致的 Agent 可选性和 prompt component 顺序；不存在入口级默认 Agent fallback。\n- **SC-007**: 术语审计中 100% 的默认路径使用“Standard Execution Prompt / 标准执行提示词”和“Optional Agent Context / 可选 Agent 上下文”，不再把系统默认行为称为“Default Agent”。\n\n"},{"id":"features","label":"FEATURES","eyebrow":"Features","markdown":"# 功能说明：标准执行提示词与可选 Agent 上下文\n\n## 摘要\n\nMystra 的默认 Task 生产路径不再依赖一个所谓的“默认 Agent”。平台始终提供版本化的标准执行提示词；Team 即使没有任何自定义 Agent，也能直接 Start production。自定义 Agent 只在需要特定角色、领域知识或协作偏好时作为附加上下文参与执行，不替换标准职责。\n\n## 功能地图\n\n- **标准执行提示词**：程序拥有、不可由 Team 用户编辑，定义代码改动、自测、可审查交付与 Task 状态回报的默认职责。\n- **无 Agent 默认路径**：Agent 选择可缺席，Task 仍创建 Harness 与唯一 Session。\n- **可选 Agent 上下文**：选择 active Team Agent 时冻结其 revision，并以低于标准提示词的优先级叠加。\n- **执行证据**：Session 冻结标准提示词版本、可选 Agent snapshot、prompt components 与最终文本。\n- **产品入口**：无自定义 Agent 时不显示空 selector；存在扩展能力时明确标记为 Optional Agent Context。\n\n## 边界\n\n- 不初始化、不隐藏、也不合成 Default Agent 数据。\n- 不允许自定义 Agent 关闭或替换平台标准执行职责。\n- 不改变 051 的 Task 状态机、Workspace preparation、Harness 幂等或单 Session 规则。\n- 不新增 Agent 管理 UI、自动分诊、默认绑定、提示词评测、PR 验真或 Task 删除。\n- workload 身份仍来自 attempt-scoped execution code，而不是 Agent 的长期身份。\n\n## 分阶段能力图\n\n1. **本期**：标准提示词版本、Agent 可选合同、prompt 叠加与冻结证据、默认 Start UX。\n2. **后续可选扩展**：自定义 Agent 管理体验、模板与发现，但仍只能补充标准提示词。\n3. **独立后续规格**：Task 删除、任务分诊、Production Recipe、多 Session Harness、Artifact delivery 与质量验证。\n\n"},{"id":"checklists","label":"CHECKLISTS","eyebrow":"Checklists","markdown":"# 评审清单：标准执行提示词与可选 Agent 上下文\n\n## Owner 评审\n\n- [x] 默认概念是 Standard Execution Prompt，而不是 Default Agent。\n- [x] 自定义 Agent 与标准提示词是上下文叠加关系，不是替换关系。\n- [x] 零 Agent Team 可以直接 Start production。\n- [x] Task 删除保持独立范围。\n- [x] 标准执行提示词逐字内容与首个版本号 `sha256:2afef43c1b5c60921d70f939bc4e4acc02099ab088a7f2a69a0205af8fff380a` 已通过spec、review与golden test确认。\n\n## Spec 就绪度\n\n- [x] 默认路径与可选扩展路径都有独立 acceptance scenarios。\n- [x] 046、049、051 的 supersession 范围已写明。\n- [x] UI 原型覆盖无 Agent 与有可选 Agent 两种状态。\n- [x] requirements checklist 已完成且无 clarification marker。\n- [x] `/speckit.plan` 已确定program-owned prompt constant、shared evidence schema与SessionEvent持久化投影的最小改动。\n\n## 后续插件检查\n\n- [x] `/speckit.plan` 完成后已运行 `plan-eng-review`。\n- [x] 工程评审已通过并生成 `/speckit.tasks`。\n- [x] 实现前已对 046/049/051 相关符号运行 GitNexus impact analysis并向owner提示HIGH/CRITICAL范围。\n- [x] 已分别验证无 Agent Start 与可选 Agent Context两条隔离SQLite/HTTP端到端路径。\n"},{"id":"prototype","label":"PROTOTYPE","eyebrow":"Prototype","markdown":"# 原型：标准执行提示词与可选 Agent 上下文\n\n## 入口\n\n- [打开独立 HTML 原型](mockups/index.html)\n\n## Design Intake\n\n- **目标用户**：从 Issue 创建 Task 后立即开始生产的 Team 操作者。\n- **首要行动**：在不配置 Agent 的情况下 Start production。\n- **核心信息**：标准执行职责始终生效；自定义 Agent 只是可选附加上下文。\n- **硬约束**：不得呈现隐藏的 Default Agent，也不得让空 Agent selector 阻断生产。\n- **变体范围**：只验证无自定义 Agent与存在自定义 Agent两个入口状态，不设计 Agent 管理页。\n\n## 界面方向\n\nTask production card 默认直接展示 Runtime、Provider 与 Start production。标准执行提示词以简短的只读说明呈现，不暴露编辑器。只有当 Team 存在可选自定义 Agent 时，才出现折叠的 “Add Agent context” 控件；其默认状态为 None，并明确说明它不会替换标准执行职责。\n\n## 覆盖状态\n\n- **Default path**：Team 无自定义 Agent；无 selector，Start 可用。\n- **Optional context**：Team 有自定义 Agent；操作者可保持 None 或选择一个 revision。\n- **Frozen evidence**：开始后显示 Standard Prompt version 与可选 Agent Context snapshot。\n\n## 当前限制\n\n- 静态 fixture 不连接真实 Task API、Agent API、Harness 或 Session。\n- 不表示最终视觉设计。\n- 不设计自定义 Agent 创建/编辑、默认绑定、分诊、PR 验真或 Task 删除。\n\n","action":{"label":"Open Prototype","href":"mockups/index.html?v=1786504985964"}},{"id":"plan","label":"PLAN","eyebrow":"Plan","markdown":"# 实施计划：标准执行提示词与可选 Agent 上下文\n\n**分支**: `052-standard-agent-context` | **日期**: 2026-08-12 | **规格**: [spec.md](./spec.md)\n\n## 摘要\n\n052 直接替换 046/049/051 的 Agent 必填执行合同。所有 Task-bound Session 都先应用程序拥有、版本化且不可由 Team 编辑的 Standard Execution Prompt；调用方可以不选择 Agent，或选择一个 active Team Agent 作为低优先级 Optional Agent Context。Harness、Session、workload identity、Prisma 关系和所有 Start adapter 都用同一个 `0..1` Agent snapshot 合同，不创建默认 Agent、sentinel ID 或兼容 fallback。\n\n实现会把标准提示词、runtime/provider 约束、可选 Agent Context 和执行事实按固定顺序组装，并在 `session.system_prompt_configured` 初始事件中原子冻结版本、组件、可选 snapshot 与最终文本。Task production API 从 `/assign` 直接替换为 `/start`；`mystra` operator CLI、MCP 和 Web 只做 canonical `TaskProductionService.start` 的薄适配。Runner 与 Provider adapter 继续只消费 Control Plane 冻结的最终 prompt，不重新解析 Agent。\n\n## 技术上下文\n\n- **语言/运行时**: TypeScript 5.9、Node.js 24.14.0。\n- **主要依赖**: Next.js 16、React 19、Zod 4、Prisma 7.9.1、Vitest 4；现有 `@mystra/shared`、`@mystra/agent-adapters`、`@mystra/agent-cli`、`mystra-runner`。\n- **存储**: SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，经同一 `RdbProvider`；Harness/Session Agent 外键改为 nullable，不新增默认数据。\n- **测试**: Vitest shared/service/provider/route/CLI/Runner contract tests；SQLite 必跑，PostgreSQL 在 `MYSTRA_TEST_POSTGRES_URL` 存在时运行；真实 HTTP/host Runner journey。\n- **目标平台**: self-hosted Control Plane、host-bound TypeScript Runner；API/MCP/CLI 为主要管理合同，Web 为次要操作面。\n- **性能目标**: Start 事务仍不包含 Workspace/Runtime I/O；标准提示词解析为 O(1)；prompt evidence 只写一次，继续消息不重复注入。\n- **约束**: Standard Execution Prompt 不是 Team 数据；无 Agent 不得触发数据修复；显式 foreign/archived Agent 必须 fail closed；execution code 仍是 attempt identity；pre-0.1 不保留旧路径或 schema shim。\n- **范围**: shared contracts、双 Prisma schema/migration、RDB 原子冻结、Session prompt 证据、Human API、operator CLI、MCP、Web、workload CLI projection、Runner/adapter contract tests、规格与 durable docs 同步。\n\n## Constitution Check\n\n### 规划前 gate\n\n- **产品边界**: PASS。只重定义默认执行合同和 Agent 可选性，不增加 Agent 市场、多 Agent、Workflow、Artifact 验真或外部 credential 代理。\n- **Team 与 workload identity**: PASS。Agent Context 仍验证 Team scope；无 Agent attempt 由 Harness/Session execution code 标识，不创建长期 workload identity。\n- **Typed contracts**: PASS。API、MCP、CLI、Runner、SessionEvent、RDB 输入均由 shared Zod schema/TypeScript 类型统一。\n- **Provider/RDB 隔离**: PASS。Prisma nullable 关系不越过 `RdbProvider`；Runner/Provider adapter 只接收最终 prompt。\n- **事务顺序**: PASS。可选 Agent 必须在 Start RDB 事务内验证并冻结；Workspace setup 与 Session dispatch 继续发生在提交后。\n- **pre-0.1 policy**: PASS。直接替换 `/assign`、必填 Agent 字段和旧 prompt component vocabulary，不增加 dual-read/dual-write。\n- **文档与验证**: PASS。052 产物位于 `specs/052-standard-agent-context/`，完成前执行 focused tests、全量 gates、真实 journey 和 GitNexus change detection。\n\n### Phase 1 设计后复核\n\n- Standard Execution Prompt 由 Control Plane program module拥有，shared package只定义 evidence schema；version使用内容寻址 `sha256:<content digest>`，文本变化自动生成新版本且无法忘记提升。\n- Prompt evidence 保持 append-only SessionEvent source of truth；Session/Harness 只持久化 nullable Agent snapshot，避免复制最终 prompt 到第二张投影表。\n- Start idempotency fingerprint 明确包含 `agentId ?? null`。省略与 JSON `null` 规范化为同一 intent；空字符串、unknown、archived、foreign 均拒绝。\n- Agent snapshot 在 `assignTaskForProduction` 的同一数据库事务中读取并冻结，消除 service 预读与 Agent update/archive 之间的竞态。\n- 普通 Task Session launch 与 Harness launch 均采用同一 optional Agent/prompt assembly contract；052 不只修复 Web happy path。\n\n全部 gate 继续 PASS，无 constitution waiver。\n\n## 已有能力与改动边界\n\n| 已有能力 | 052 的直接替换 |\n| --- | --- |\n| `TaskProductionService.assign` + atomic Harness | 改为 `start`，Agent ID 可选，事务内冻结可选 snapshot |\n| `HARNESS_BOOTSTRAP_PROMPT` | 升级为版本化 Standard Execution Prompt，不再依赖 Agent prompt 承担默认职责 |\n| 四段 `runtime/provider/agent/context` prompt | 改为 `standard/runtime/provider/[agent_context]/execution_context` 固定顺序 |\n| Harness/Session 必填 Agent FK | 改为 nullable `0..1` snapshot；无 sentinel/default row |\n| `session.system_prompt_configured` | 扩展为可审查 evidence：standard version、nullable Agent snapshot、ordered components、finalPrompt |\n| `/production/assign` + Web 必填 selector | 直接替换为 `/production/start` 和默认无 Agent Start |\n| `mystra-agent` identity 含必填 Agent | 改为明确的 `agentContext: object | null` |\n| Runner 接收 `assignment.systemPrompt` | 保持不变，只增加 Agent nullable schema 测试，禁止 Runner 重组 prompt |\n\n## 关键数据流\n\n```text\nAPI / mystra CLI / MCP / Web Start\n  -> taskStartRequestSchema\n     agentId omitted|null => no Agent Context\n     agentId uuid         => explicit Agent Context request\n  -> TaskProductionService.start\n     -> validate Task/Project/Runtime/Provider\n     -> RDB tx\n        -> re-check pending/revision/idempotency\n        -> if agentId: read same-Team active Agent and freeze name/revision/prompt\n        -> Task pending->in_progress + transition + Harness(optional snapshot)\n  -> commit\n  -> Workspace setup/ready continuation\n  -> SessionService.launchHarness\n     -> resolve Standard Execution Prompt or fail closed\n     -> assemble ordered evidence\n        standard -> runtime -> provider -> optional agent_context -> execution_context\n     -> atomically persist Session + evidence + Workspace + first message\n  -> Runner claim returns frozen finalPrompt\n  -> Provider adapter starts once with finalPrompt; no Agent-specific override\n```\n\n## 数据与合同决策\n\n### Standard Execution Prompt\n\n- 程序常量：`{ version, content }`，不进入 Team/Agent/Project 配置或环境变量。\n- version 使用内容寻址 `sha256:<64 hex>`；同一文本跨进程稳定，文本变化自动产生新版本。\n- 内容明确要求：先读取 `mystra-agent context get`；按 exact Issue reference 使用 host-local `linctl`；只在 attached Workspace/branch 工作；实现并自测；用 host-local `gh` 交付 PR；报告 `waiting_for_review` 或 `blocked`；PR/test 仍为未验证声明。\n\n### Optional Agent Context\n\n- canonical 形态：`{ agentId, name, revision, systemPrompt } | null`。\n- Harness 持久化 nullable snapshot；Session 持久化 nullable `agentId/agentRevision`，完整 name/prompt snapshot 位于初始 prompt evidence。\n- 显式选择必须 active、同 Team；事务内读取决定 frozen revision。无效选择不降级为 null。\n\n### Effective System Prompt Evidence\n\n```text\nstandardPrompt: { version, content }\nagentContext: { agentId, name, revision, systemPrompt } | null\ncomponents: ordered 4..5 entries\nfinalPrompt: immutable text passed to Runner\n```\n\ncomponent name 只允许 `standard|runtime|provider|agent_context|execution_context`；没有 Agent 时数组没有 `agent_context`，同时顶层 `agentContext:null` 证明它是明确缺席而非数据损坏。\n\n## API、CLI、MCP 与 Web\n\n- Human API: `POST /api/tasks/{taskId}/production/start`；旧 `/assign` 在 pre-0.1 直接删除。\n- Operator CLI: `mystra tasks start <taskId> --runtime-id <uuid> --provider <key> [--agent-context-id <uuid>] --expected-revision <n> --idempotency-key <key>`。\n- MCP: `mystra_start_task_production` 暴露同一字段，其中 `agentId` 可选。\n- Web: 无 active Agent 时不渲染 selector；有 active Agent 时显示 “Optional Agent Context”，默认 `None`，Start disabled 条件不包含 Agent。\n- Workload CLI: `whoami` 与 `context get` 输出 `agentContext:null|snapshot identity`，不把 execution code 描述为 Agent identity。\n- Review projection: Task production response和 Session event presentation显示 standard version，以及 Agent name/ID/revision或 “No optional Agent context”。\n\n详细示例见 [contracts](./contracts/) 与 [data-model.md](./data-model.md)。\n\n## 失败模式\n\n| 失败 | 系统行为 | 验证 |\n| --- | --- | --- |\n| Standard prompt 缺失、空、超限或 version 不合法 | Start/Session launch fail closed，不用 Agent prompt 单独启动 | assembler/service unit tests |\n| omitted 与 null 的 replay | 同一 fingerprint，返回同一 Harness/Session | RDB contract + route tests |\n| 同 key 从 null 改为 UUID | idempotency conflict，无第二 attempt | RDB contract |\n| selected Agent 被 update/archive | Start tx冻结同一行版本，或因 inactive/foreign 明确失败 | provider race tests |\n| Agent Context 与标准职责冲突 | evidence 顺序及标签保持标准合同优先；不承诺模型绝对服从 | prompt golden tests |\n| prompt evidence 与 Session Agent nullable字段不一致 | create/claim fail closed；Runner拿不到 assignment | RDB/RuntimeSession tests |\n| adapter 单独要求 Agent | shared schema contract与 adapter tests失败 | API/CLI/MCP/Web tests |\n| Runner重新拼接 Agent prompt | Runner/adapter golden test断言只传 `finalPrompt` | Runner tests |\n| 历史 Agent/标准文本更新 | 既有 SessionEvent逐字不变，新 Session使用新 snapshot/version | Session service tests |\n\n无“无测试、无错误处理且静默”的已知关键路径。\n\n## 项目结构\n\n```text\npackages/shared/src/\n├── harness.ts                     # optional snapshot/start/workload schemas\n└── session.ts                     # optional Agent + prompt evidence schemas\n\napps/control-plane/\n├── prisma/{sqlite,postgresql}/     # nullable Harness/Session Agent relations\n├── src/lib/db/                     # transaction-time snapshot and parity\n├── src/lib/tasks/                  # TaskProductionService.start\n├── src/lib/sessions/               # program prompt, one assembly path and evidence\n├── app/api/tasks/[id]/production/start/\n├── app/api/mcp/                    # thin Start tool\n└── app/_components/                # Optional Agent Context UI/evidence\n\npackages/agent-cli/                 # nullable Agent Context projection\nscripts/operator-cli.mjs            # human/external-Agent Start adapter\napps/runner-daemon/                 # nullable contract, finalPrompt-only execution\npackages/agent-adapters/            # no prompt ownership; regression tests\n```\n\n## 实施顺序\n\n1. Shared Standard Prompt、optional Agent、prompt evidence 与 adapter request schemas，先写失败测试。\n2. 双 Prisma schema/migration、mappers、`RdbProvider` atomic Start contract与 race/idempotency tests。\n3. `TaskProductionService.start`、Session launch/assembler、Runtime claim evidence一致性。\n4. Human `/start` API 与 production review projection。\n5. `mystra` CLI、MCP、Web 三个薄 adapter。\n6. `mystra-agent` nullable Agent Context、Runner/Provider finalPrompt regression。\n7. focused/full tests、HTTP/Runner journey、术语审计、Spec View/status 与 graph-aware review。\n\n## GSTACK REVIEW REPORT\n\n| Review | Trigger | Why | Runs | Status | Findings |\n| --- | --- | --- | --- | --- | --- |\n| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | 052 规格已冻结产品边界 |\n| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | 本次未调用外部模型 |\n| Eng Review | `/plan-eng-review` | Architecture/data/tests (required) | 1 | CLEAR | 8 findings resolved, 0 critical gaps |\n| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | 已有静态 prototype；本期复用 Task production panel |\n| DX Review | `/plan-devex-review` | CLI developer experience | 0 | — | operator/workload CLI contracts在本计划内评审 |\n\n**UNRESOLVED:** 0\n\n**VERDICT:** ENG CLEARED — ready for task decomposition and implementation\n\n## 并行化分析\n\n当前工作树包含尚未提交的 051 基线，且 052 的 shared schema会影响所有后续模块。为避免多个 worktree基于不同的 nullable contract修改同一文件，本期顺序实施，不建议并行 worktree。测试文件可与实现交错，但共享同一主线。\n\n## NOT in scope\n\n- Standard Execution Prompt 的用户查看、编辑、Team 初始化或 Project 覆写。\n- Agent 创建/编辑体验、模板市场、默认绑定、自动推荐或任务分诊。\n- 多 Agent、Harness 多 Session、Recipe/Workflow、Artifact submission、质量验真与修复循环。\n- Mystra 代理、credential exchange、查询或验证 `linctl`/`gh` 结果。\n- Task 删除、reopen、第二次 attempt、Runtime capacity 与 Session自动修改 Task状态。\n- pre-0.1 数据升级兼容；开发数据按新 schema直接重建。\n\n## Complexity Tracking\n\n无 constitution violation。新增 Standard Prompt 常量和扩展已有 prompt evidence，而不是增加持久化配置对象；nullable Agent 直接替换旧必填关系，不引入双合同。\n"},{"id":"tasks","label":"TASKS","eyebrow":"Tasks","markdown":"# Tasks: 标准执行提示词与可选 Agent 上下文\n\n**Input**: `spec.md`、`plan.md`、`research.md`、`data-model.md`、`contracts/`、`quickstart.md`  \n**Tests**: 本规格明确要求 contract、race、历史冻结、adapter一致性与真实 journey，因此测试任务均先于实现任务。  \n**Organization**: 按 US1 无 Agent默认路径、US2 可选 Agent Context、US3 历史审查组织；当前未提交051基线和共享nullable合同使实现保持单工作树顺序推进。\n\n## Format: `[ID] [P?] [Story] Description`\n\n- `[P]` 只表示不同文件且不依赖未完成实现；本期不建议拆到并行worktree。\n- `[US1]` 无需配置 Agent直接开始生产。\n- `[US2]` 选择自定义 Agent作为补充上下文。\n- `[US3]` 复核每次执行实际使用的提示词。\n\n## Phase 1: Setup\n\n**Purpose**: 冻结当前051未提交基线并建立052验证入口。\n\n- [x] T001 运行并记录 051 focused baseline（shared、control-plane、agent-cli、runner）到 `specs/052-standard-agent-context/checklists/verification.md`\n- [x] T002 [P] 为052新增术语与default/sentinel Agent禁用审计脚本测试到 `scripts/audit-task-session-terminology.test.ts`\n- [x] T003 [P] 在 `apps/control-plane/src/lib/db/prisma-schema-parity.test.ts` 增加 Harness/Session nullable Agent字段和双schema一致性失败断言\n\n**Checkpoint**: 051当前基线结果可追溯；052预期schema变化已有失败测试。\n\n---\n\n## Phase 2: Foundational — shared contracts 与 RDB nullable model\n\n**Purpose**: 建立所有user story共同依赖的 Standard Prompt evidence、optional Agent snapshot和atomic Start持久化。\n\n**CRITICAL**: 本阶段完成前不得修改API/CLI/MCP/Web adapter。\n\n- [x] T004 [P] 在 `packages/shared/src/harness.test.ts` 写 omitted/null/UUID/empty Agent Start input、Harness全有或全无snapshot、workload `agentContext:null|identity`失败测试\n- [x] T005 [P] 在 `packages/shared/src/session.test.ts` 写 nullable Session Agent、created event和4..5段prompt evidence顺序/refinement失败测试\n- [x] T006 在 `packages/shared/src/harness.ts` 与 `packages/shared/src/session.ts` 实现 canonical Start、optional Agent snapshot、workload identity和Effective System Prompt Evidence schema，并更新 `packages/shared/src/index.ts`\n- [x] T007 在 `apps/control-plane/src/lib/db/rdb-provider.contract.ts` 写100-case无 Agent matrix、atomic Start、null/omitted replay、null→UUID conflict、20-way race及optional snapshot scope失败测试\n- [x] T008 在 `apps/control-plane/prisma/sqlite/schema.prisma` 与 `apps/control-plane/prisma/postgresql/schema.prisma` 将 Harness/Session Agent关系改为nullable并为Harness增加nullable frozen name字段\n- [x] T009 在 `apps/control-plane/prisma/sqlite/migrations/20260812090000_standard_agent_context/migration.sql` 与 `apps/control-plane/prisma/postgresql/migrations/20260812090000_standard_agent_context/migration.sql` 直接替换pre-0.1关系，不增加default/sentinel数据\n- [x] T010 在 `apps/control-plane/src/lib/db/rdb-provider.ts` 定义nullable Agent Start command与snapshot invariants\n- [x] T011 在 `apps/control-plane/src/lib/db/prisma-mappers.ts`、`apps/control-plane/src/lib/db/prisma-provider.ts`、`apps/control-plane/src/lib/db/prisma-client.ts` 实现nullable mapping、transaction-time optional Agent snapshot冻结和一致性检查\n- [x] T012 运行 `corepack pnpm --filter @mystra/control-plane db:generate` 并更新受影响的generated Prisma client artifacts\n- [x] T013 运行shared、RDB provider、SQLite与schema parity focused tests并把结果写入 `specs/052-standard-agent-context/checklists/verification.md`\n\n**Checkpoint**: 无 Agent attempt已能被shared/RDB原子表达；显式Agent仍必须在同一transaction内冻结。\n\n---\n\n## Phase 3: User Story 1 — 无需配置 Agent直接开始生产 (Priority: P1)\n\n**Goal**: 零 Agent Team可通过API、operator CLI、MCP和Web Start production，创建唯一Harness/Session并应用Standard Execution Prompt。\n\n**Independent Test**: 建立没有Agent的Team和eligible Project-bound Task，分别通过四个adapter Start；验证同一canonical request、`agentContext:null`、唯一Harness/Session、标准prompt evidence和idempotent replay。\n\n### Tests for User Story 1\n\n- [x] T014 [P] [US1] 在 `apps/control-plane/src/lib/sessions/system-prompt-assembler.test.ts` 写Standard Prompt内容寻址version、无Agent固定component顺序、缺失/超限fail-closed golden tests\n- [x] T015 [P] [US1] 在 `apps/control-plane/src/lib/sessions/session-service.test.ts` 写无Agent普通Task launch与Harness launch、历史prompt冻结和continue不重复注入失败测试\n- [x] T016 [P] [US1] 在 `apps/control-plane/src/lib/tasks/task-production-service.test.ts` 写无Agent eligibility、replay、Workspace ready continuation和Session唯一性失败测试\n- [x] T017 [P] [US1] 在 `apps/control-plane/app/api/task-production-routes.test.ts` 写 `/production/start` omitted/null成功、empty失败并断言旧 `/assign`不存在\n- [x] T018 [P] [US1] 在 `scripts/operator-cli.test.ts` 写 `mystra tasks start` 无 `--agent-context-id`的request/JSON/error contract测试\n- [x] T019 [P] [US1] 在 `apps/control-plane/app/api/mcp/route.test.ts` 写 `mystra_start_task_production` tool schema、auth与无Agent调用测试\n- [x] T020 [P] [US1] 在 `apps/control-plane/app/_components/task-detail-model.test.ts` 与 `apps/control-plane/app/_components/shell-model.test.ts` 写0 active Agent不显示selector且Start可用的UI model测试\n\n### Implementation for User Story 1\n\n- [x] T021 [US1] 在 `apps/control-plane/src/lib/sessions/standard-execution-prompt.ts` 实现程序拥有prompt与SHA-256版本，并在 `apps/control-plane/src/lib/sessions/system-prompt-assembler.ts` 建立唯一ordered assembly path\n- [x] T022 [US1] 在 `apps/control-plane/src/lib/sessions/session-service.ts` 将Task/Harness Session launch改为optional Agent并原子冻结prompt evidence\n- [x] T023 [US1] 在 `apps/control-plane/src/lib/tasks/task-production-service.ts` 与 `apps/control-plane/src/lib/tasks/task-production-service-factory.ts` 将canonical操作替换为 `start`并保持Workspace continuation\n- [x] T024 [US1] 删除 `apps/control-plane/app/api/tasks/[id]/production/assign/route.ts`，新增 `apps/control-plane/app/api/tasks/[id]/production/start/route.ts` 调用canonical service\n- [x] T025 [US1] 在 `scripts/operator-cli.mjs` 增加 `mystra tasks start`薄adapter，缺省不发送Agent字段\n- [x] T026 [US1] 在 `apps/control-plane/app/api/mcp/route.ts` 增加 `mystra_start_task_production`薄tool并复用shared schema/service error\n- [x] T027 [US1] 在 `apps/control-plane/app/_components/task-production-panel.tsx` 将动作改为Start；0 Agent时隐藏selector且不再以Agent阻断按钮\n- [x] T028 [US1] 运行US1 service/API/CLI/MCP/UI focused tests并更新 `specs/052-standard-agent-context/checklists/verification.md`\n\n**Checkpoint**: 没有任何Agent数据的Team可完成默认Start路径；所有入口无default/sentinel fallback。\n\n---\n\n## Phase 4: User Story 2 — 用自定义 Agent补充执行上下文 (Priority: P1)\n\n**Goal**: 显式选择active Team Agent时冻结一致revision/name/prompt，并在Standard Prompt之后作为低优先级补充上下文；无效选择不降级。\n\n**Independent Test**: 选择Agent revision 3 Start后立即更新/归档Agent；原Harness/Session保持revision 3，新的选择解析revision 4或因archived失败，且两者的Standard Prompt version相同。\n\n### Tests for User Story 2\n\n- [x] T029 [P] [US2] 在 `apps/control-plane/src/lib/db/rdb-provider.contract.ts` 增加100-case selected Agent snapshot matrix、Agent update/archive并发冻结、foreign/unknown/archived失败与snapshot成对invariant测试\n- [x] T030 [P] [US2] 在 `apps/control-plane/src/lib/sessions/system-prompt-assembler.test.ts` 写冲突Agent文本仍位于standard/runtime/provider之后、明确标签且不能替换finalPrompt其他组件的golden test\n- [x] T031 [P] [US2] 在 `apps/control-plane/src/lib/tasks/agent-execution-service.test.ts` 写optional Agent Context identity、scope mismatch和status actor nullable测试\n- [x] T032 [P] [US2] 在 `packages/agent-cli/src/cli.test.ts` 与 `packages/agent-cli/src/journey.test.ts` 写 `agentContext:null|identity` parse/print journey测试\n- [x] T033 [P] [US2] 在 `apps/runner-daemon/src/session/session-worker.test.ts` 与 `packages/agent-adapters/src/session.test.ts` 写Runner只传evidence.finalPrompt、无Agent-specific override/env的回归测试\n\n### Implementation for User Story 2\n\n- [x] T034 [US2] 在 `apps/control-plane/src/lib/db/prisma-provider.ts` 完成显式Agent transaction-time active/Team冻结与replay intent比较\n- [x] T035 [US2] 在 `apps/control-plane/src/lib/sessions/system-prompt-assembler.ts` 组装nullable Agent Context snapshot并保持固定优先级\n- [x] T036 [US2] 在 `apps/control-plane/src/lib/tasks/agent-execution-service.ts` 将execution identity/scope检查改为明确optional Agent Context\n- [x] T037 [US2] 在 `packages/agent-cli/src/client.ts`、`packages/agent-cli/src/cli.ts` 与相关schema消费处支持nullable Agent Context\n- [x] T038 [US2] 在 `apps/control-plane/src/lib/sessions/runtime-session-service.ts`、`apps/runner-daemon/src/session/session-worker.ts` 与 `packages/agent-adapters/src/session.ts` 校验并保持finalPrompt-only handoff\n- [x] T039 [US2] 在 `apps/control-plane/app/_components/task-production-panel.tsx` 为存在active Agent的场景显示默认None的“Optional Agent Context”控件\n- [x] T040 [US2] 运行US2 RDB/session/workload/Runner focused tests并更新 `specs/052-standard-agent-context/checklists/verification.md`\n\n**Checkpoint**: 自定义Agent只补充Standard Prompt；Agent变更不会改写历史attempt；无效显式选择fail closed。\n\n---\n\n## Phase 5: User Story 3 — 复核实际提示词 (Priority: P2)\n\n**Goal**: Reviewer从Task production与Session history看到Standard Prompt version、optional Agent name/ID/revision或明确的无Agent状态。\n\n**Independent Test**: 创建无Agent和有Agent两个Session，修改program prompt fixture/Agent后读取旧Session；验证冻结evidence逐字不变，projection不查询当前Agent来重写历史。\n\n### Tests for User Story 3\n\n- [x] T041 [P] [US3] 在 `apps/control-plane/src/lib/tasks/task-production-service.test.ts` 写production review projection读取frozen evidence而非当前Agent的测试\n- [x] T042 [P] [US3] 在 `apps/control-plane/app/_lib/task-view.test.ts` 与 `apps/control-plane/app/_components/task-detail-model.test.ts` 写standard version与optional Agent evidence presentation测试\n- [x] T043 [P] [US3] 在 `apps/control-plane/src/lib/sessions/session-execution.e2e.test.ts` 写prompt/Agent更新前后旧新Session证据不变/变化测试\n\n### Implementation for User Story 3\n\n- [x] T044 [US3] 在 `apps/control-plane/src/lib/tasks/task-production-service.ts` 与 `apps/control-plane/app/api/tasks/[id]/production/route.ts` 增加bounded frozen prompt evidence projection\n- [x] T045 [US3] 在 `apps/control-plane/app/_lib/task-view.ts` 与 `apps/control-plane/app/_components/task-production-panel.tsx` 展示Standard Prompt version和Optional Agent Context evidence\n- [x] T046 [US3] 在 `apps/control-plane/app/_components/session-presentation.ts` 与 `apps/control-plane/app/_components/session-presentation.test.ts` 保持prompt evidence结构化展示且不暴露可编辑入口\n- [x] T047 [US3] 运行US3 projection/presentation/Session E2E focused tests并更新 `specs/052-standard-agent-context/checklists/verification.md`\n\n**Checkpoint**: 历史执行可解释，明确区分未选择Agent与数据损坏。\n\n---\n\n## Phase 6: Polish & Cross-Cutting Verification\n\n**Purpose**: 同步durable contract，完成全量/真实证据与graph-aware review。\n\n- [x] T048 [P] 将Agent可选与Standard Prompt durable规则同步到 `.specify/memory/constitution.md`、`PRODUCT.md`、`PLATFORM.md`、`PROCESS.md`、`AGENTS.md` 与相关051/049 supersession说明\n- [x] T049 [P] 更新 `apps/runner-daemon/README.md`、`packages/agent-cli/README.md` 或最小相邻文档，说明execution code标识attempt且Agent Context可缺席\n- [x] T050 运行 `scripts/audit-task-session-terminology.mjs` 与052 default/sentinel Agent审计并修复所有旧“Assign Agent/default Agent”默认路径措辞\n- [x] T051 运行 `corepack pnpm --filter @mystra/shared test`、control-plane focused suites、agent-cli、runner-daemon与agent-adapters测试\n- [x] T052 在真实 `MYSTRA_TEST_POSTGRES_URL`存在时运行PostgreSQL provider contract；未提供则在 `specs/052-standard-agent-context/checklists/verification.md` 明确标记未验证\n- [x] T053 运行 `corepack pnpm typecheck`、`corepack pnpm test`、`corepack pnpm build` 与 `git diff --check`\n- [x] T054 按 `specs/052-standard-agent-context/quickstart.md` 启动本地Control Plane与host Runner，运行无Agent与有Agent真实HTTP journey，并在 `specs/052-standard-agent-context/checklists/verification.md` 记录命令、时间、Task/Harness/Session ID、prompt version与结果\n- [x] T055 运行 `gitnexus_detect_changes`、project-local `code-review-and-quality`，修复scope外影响或评审发现\n- [x] T056 更新 `specs/052-standard-agent-context/checklists/verification.md`、重新渲染 `specs/052-standard-agent-context/index.html` 并运行052 status/Spec-Kit health检查\n\n---\n\n## Dependencies & Execution Order\n\n### Phase Dependencies\n\n- Phase 1建立baseline，可立即执行。\n- Phase 2依赖Phase 1，阻塞全部user story。\n- US1依赖Phase 2，建立无Agent canonical Start与Standard Prompt。\n- US2依赖US1的assembly和adapter shape，再增加显式Agent snapshot。\n- US3依赖US1/US2已有两种evidence。\n- Polish依赖全部user story。\n\n### User Story Dependencies\n\n```text\nSetup -> Foundation -> US1 no-Agent Start -> US2 optional Agent Context\n                                          -> US3 frozen review evidence\nUS2 + US3 -> Full verification/closeout\n```\n\n### Parallel Opportunities\n\n- T002/T003可并行起草，但实现仍顺序合并。\n- 每个story内部标记 `[P]` 的测试可在对应前置contract稳定后并行编写。\n- 不并行修改 `packages/shared`、Prisma schema、`PrismaRdbProvider`、`SessionService`或`TaskProductionService`。\n\n---\n\n## Implementation Strategy\n\n### MVP First\n\n1. 完成Phase 1/2。\n2. 完成US1，证明零Agent Team可Start并运行Standard Prompt。\n3. 运行US1 checkpoint；若失败，不进入Agent叠加和presentation。\n\n### Incremental Delivery\n\n1. Foundation：nullable model与atomic Start。\n2. US1：default no-Agent production journey。\n3. US2：explicit Optional Agent Context。\n4. US3：frozen evidence review。\n5. 全量、真实journey、code review与Spec-Kit closeout。\n\n### Sequential Worktree Strategy\n\n当前051实现尚未提交且052会修改同一批shared/RDB/session文件。保持一个工作树、逐task验证，避免多个分支各自解释nullable contract后再制造合并实验。\n\n---\n\n## Notes\n\n- 每个实现任务前对将修改的symbol运行GitNexus upstream impact；HIGH/CRITICAL先告知owner。\n- 测试必须先失败，再实现；不因现有051测试通过而跳过052 negative cases。\n- 不创建default/sentinel Agent，不保留 `/assign` alias，不做pre-0.1 migration shim。\n- 未实际运行PostgreSQL、HTTP或Runner时不得把相应证据标为已验证。\n"}]}</script>
+    <script>
+      const data = JSON.parse(document.getElementById("spec-data").textContent);
+      const tabsEl = document.getElementById("tabs");
+      const docEl = document.getElementById("doc");
+      const pageTitleEl = document.getElementById("page-title");
+      const activeLabelEl = document.getElementById("active-label");
+      const activePositionEl = document.getElementById("active-position");
+      const activeEyebrowEl = document.getElementById("active-eyebrow");
+      const prototypeLinkEl = document.getElementById("prototype-link");
+
+      document.getElementById("feature-id").textContent = data.feature;
+      document.getElementById("generated-at").textContent =
+        "Generated " + new Date(data.generatedAt).toLocaleString();
+      pageTitleEl.textContent = data.title;
+      prototypeLinkEl.href = data.prototypeHref;
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function inlineMarkdown(value) {
+        let html = escapeHtml(value);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        return html;
+      }
+
+      function renderTable(lines) {
+        const rows = lines
+          .filter((line) => !/^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line))
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^\|/, "")
+              .replace(/\|$/, "")
+              .split("|")
+              .map((cell) => inlineMarkdown(cell.trim())),
+          );
+        return rows
+          .map((row, index) => {
+            const tag = index === 0 ? "th" : "td";
+            return "<tr>" + row.map((cell) => `<${tag}>${cell}</${tag}>`).join("") + "</tr>";
+          })
+          .join("");
+      }
+
+      function renderMarkdown(markdown) {
+        const lines = markdown.split(/\r?\n/);
+        const out = [];
+        let listType = null;
+        let paragraph = [];
+        let table = [];
+        let inCode = false;
+        let codeLines = [];
+
+        function closeParagraph() {
+          if (paragraph.length) {
+            out.push(`<p>${inlineMarkdown(paragraph.join(" "))}</p>`);
+            paragraph = [];
+          }
+        }
+
+        function closeList() {
+          if (listType) {
+            out.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        function closeTable() {
+          if (table.length) {
+            out.push(`<table>${renderTable(table)}</table>`);
+            table = [];
+          }
+        }
+
+        for (const line of lines) {
+          if (line.startsWith("```")) {
+            closeParagraph();
+            closeList();
+            closeTable();
+            if (inCode) {
+              out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+              codeLines = [];
+              inCode = false;
+            } else {
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
+
+          if (line.trim().startsWith("|") && line.includes("|")) {
+            closeParagraph();
+            closeList();
+            table.push(line);
+            continue;
+          }
+
+          closeTable();
+
+          if (!line.trim()) {
+            closeParagraph();
+            closeList();
+            continue;
+          }
+
+          const heading = line.match(/^(#{1,3})\s+(.+)$/);
+          if (heading) {
+            closeParagraph();
+            closeList();
+            const level = heading[1].length;
+            out.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+            continue;
+          }
+
+          if (/^---+\s*$/.test(line.trim())) {
+            closeParagraph();
+            closeList();
+            out.push("<hr />");
+            continue;
+          }
+
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+          if (unordered || ordered) {
+            closeParagraph();
+            const nextType = unordered ? "ul" : "ol";
+            if (listType !== nextType) {
+              closeList();
+              out.push(`<${nextType}>`);
+              listType = nextType;
+            }
+            out.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+            continue;
+          }
+
+          if (line.startsWith(">")) {
+            closeParagraph();
+            closeList();
+            out.push(`<blockquote>${inlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+          }
+
+          paragraph.push(line.trim());
+        }
+
+        closeParagraph();
+        closeList();
+        closeTable();
+        return out.join("\n");
+      }
+
+      function setActive(id) {
+        const activeIndex = Math.max(0, data.tabs.findIndex((tab) => tab.id === id));
+        const tab = data.tabs[activeIndex];
+        for (const button of tabsEl.querySelectorAll("button")) {
+          button.setAttribute("aria-selected", String(button.dataset.tabId === tab.id));
+        }
+        activeLabelEl.textContent = tab.label;
+        activePositionEl.textContent = `${activeIndex + 1} / ${data.tabs.length}`;
+        activeEyebrowEl.textContent = tab.eyebrow;
+        docEl.innerHTML = renderMarkdown(tab.markdown);
+        const missing = tab.markdown.includes("is not present for this spec yet");
+        if (missing) {
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "This artifact is not available yet. The view is intentionally preserved so the spec surface stays stable.";
+          docEl.prepend(note);
+        }
+        history.replaceState(null, "", `#${tab.id}`);
+      }
+
+      data.tabs.forEach((tab, index) => {
+        const button = document.createElement("button");
+        button.className = "tab-button";
+        button.type = "button";
+        button.role = "tab";
+        button.dataset.tabId = tab.id;
+        button.innerHTML = `<span>${tab.label}</span><span class="tab-index">${String(index + 1).padStart(2, "0")}</span>`;
+        button.addEventListener("click", () => setActive(tab.id));
+        tabsEl.append(button);
+      });
+
+      setActive(location.hash.replace("#", "") || data.tabs[0].id);
+    </script>
+  </body>
+</html>

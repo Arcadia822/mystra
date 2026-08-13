@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  agentContextSnapshotSchema,
+  sessionExecutionCapabilitySchema,
+} from "./harness.js";
+
 import { sessionWorkspaceAttachmentSchema } from "./task-workspace.js";
 
 export const SESSION_EVENT_MAX_BYTES = 64 * 1024;
@@ -102,8 +107,8 @@ export const sessionSchema = z.object({
   projectId: z.string().uuid().nullable(),
   runtimeId: z.string().uuid(),
   providerKey: z.string().min(1).max(128),
-  agentId: z.string().uuid(),
-  agentRevision: z.number().int().positive(),
+  agentId: z.string().uuid().nullable(),
+  agentRevision: z.number().int().positive().nullable(),
   state: sessionStateSchema,
   activeMessageId: z.string().uuid().nullable(),
   lastMessageId: z.string().uuid().nullable(),
@@ -113,7 +118,11 @@ export const sessionSchema = z.object({
   metadata: sessionJsonObjectSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-}).strict();
+}).strict().superRefine((value, context) => {
+  if ((value.agentId === null) !== (value.agentRevision === null)) {
+    context.addIssue({ code: "custom", path: ["agentId"], message: "Session Agent Context must be wholly present or absent" });
+  }
+});
 export type Session = z.infer<typeof sessionSchema>;
 
 export const sessionSubjectSchema = z.object({
@@ -139,7 +148,7 @@ export const sessionLaunchRequestSchema = z.object({
   sessionId: z.string().uuid(),
   runtimeId: z.string().uuid(),
   providerKey: z.string().min(1).max(128),
-  agentId: z.string().uuid(),
+  agentId: z.string().uuid().nullish().transform((value) => value ?? null),
   context: z.object({
     projectId: z.string().uuid().optional(),
     taskId: z.string().uuid(),
@@ -197,23 +206,57 @@ const shortTextSchema = z.string().min(1).max(SESSION_CHUNK_MAX_LENGTH);
 const normalTextSchema = z.string().min(1).max(SESSION_TEXT_MAX_LENGTH);
 const optionalReasonSchema = z.object({ reason: normalTextSchema.optional() }).strict();
 
+export const standardExecutionPromptSchema = z.object({
+  version: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+  content: normalTextSchema,
+}).strict();
+export type StandardExecutionPrompt = z.infer<typeof standardExecutionPromptSchema>;
+
+const systemPromptComponentSchema = z.object({
+  name: z.enum(["standard", "runtime", "provider", "agent_context", "execution_context"]),
+  content: normalTextSchema,
+}).strict();
+
+export const effectiveSystemPromptEvidenceSchema = z.object({
+  standardPrompt: standardExecutionPromptSchema,
+  agentContext: agentContextSnapshotSchema.nullable(),
+  components: z.array(systemPromptComponentSchema).min(4).max(5),
+  finalPrompt: normalTextSchema,
+}).strict().superRefine((value, context) => {
+  const expected = value.agentContext
+    ? ["standard", "runtime", "provider", "agent_context", "execution_context"]
+    : ["standard", "runtime", "provider", "execution_context"];
+  const actual = value.components.map((component) => component.name);
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    context.addIssue({ code: "custom", path: ["components"], message: "System Prompt components are out of order" });
+  }
+  if (value.components[0]?.content !== value.standardPrompt.content) {
+    context.addIssue({ code: "custom", path: ["components", 0, "content"], message: "Standard Prompt component does not match evidence" });
+  }
+  const agentComponent = value.components.find((component) => component.name === "agent_context");
+  if (value.agentContext && !agentComponent?.content.includes(promptSafeText(value.agentContext.systemPrompt))) {
+    context.addIssue({ code: "custom", path: ["components"], message: "Agent Context component does not contain the frozen snapshot" });
+  }
+});
+export type EffectiveSystemPromptEvidence = z.infer<typeof effectiveSystemPromptEvidenceSchema>;
+
+function promptSafeText(value: string): string {
+  return JSON.stringify(value).slice(1, -1)
+    .replaceAll("&", "\\u0026")
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e");
+}
+
 const sessionEventPayloadSchemas = {
   "session.created": z.object({
     runtimeId: z.string().uuid(),
     providerKey: z.string().min(1).max(128),
-    agentId: z.string().uuid(),
-    agentRevision: z.number().int().positive(),
+    agentContext: agentContextSnapshotSchema.nullable(),
     taskId: z.string().uuid(),
     projectId: z.string().uuid().nullable(),
     context: sessionJsonObjectSchema,
   }).strict(),
-  "session.system_prompt_configured": z.object({
-    components: z.array(z.object({
-      name: z.enum(["runtime", "provider", "agent", "context"]),
-      content: normalTextSchema,
-    }).strict()).length(4),
-    finalPrompt: normalTextSchema,
-  }).strict(),
+  "session.system_prompt_configured": effectiveSystemPromptEvidenceSchema,
   "session.workspace_attached": sessionWorkspaceAttachmentSchema,
   "session.user_message_submitted": z.object({
     content: z.array(userMessageContentPartSchema).min(1).max(64),
@@ -348,12 +391,13 @@ export type TaskSessionPage = z.infer<typeof taskSessionPageSchema>;
 export const taskSessionLaunchInputSchema = z.object({
   sessionId: z.string().uuid(),
   providerKey: z.string().min(1).max(128),
-  agentId: z.string().uuid(),
+  agentId: z.string().uuid().nullish().transform((value) => value ?? null),
   manualContext: z.object({
     text: z.string().trim().min(1).max(SESSION_TEXT_MAX_LENGTH),
   }).strict().optional(),
 }).strict();
-export type TaskSessionLaunchInput = z.infer<typeof taskSessionLaunchInputSchema>;
+export type TaskSessionLaunchInput = z.input<typeof taskSessionLaunchInputSchema>;
+export type ParsedTaskSessionLaunchInput = z.output<typeof taskSessionLaunchInputSchema>;
 
 export const taskSessionLaunchResponseSchema = z.object({
   session: sessionSchema,
@@ -412,6 +456,7 @@ export const sessionClaimAssignmentSchema = z.object({
   systemPrompt: z.string().min(1).max(SESSION_TEXT_MAX_LENGTH),
   workspace: sessionWorkspaceAttachmentSchema,
   message: userMessageInputSchema,
+  execution: sessionExecutionCapabilitySchema.optional(),
 }).strict();
 export type SessionClaimAssignment = z.infer<typeof sessionClaimAssignmentSchema>;
 

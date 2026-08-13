@@ -113,6 +113,7 @@ function usage() {
   pnpm operator:cli -- tasks create --title TEXT [--description TEXT] [--project PROJECT_ID] [--idempotency-key UUID] [--json]
   pnpm operator:cli -- tasks inspect <task-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- tasks update <task-id> [--title TEXT] [--description TEXT] [--json]
+  pnpm operator:cli -- tasks start <task-id> --runtime-id UUID --provider NAME [--agent-context-id UUID] --expected-revision N --idempotency-key KEY [--json]
   pnpm operator:cli -- sessions list <task-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- sessions create <task-id> --title TITLE --objective TEXT [--provider NAME] [--branch NAME] [--json]
   pnpm operator:cli -- sessions inspect <session-id> [--json] [--control-plane-url URL]
@@ -224,6 +225,8 @@ function parseArgs(argv) {
     idempotencyKey: undefined,
     systemPrompt: undefined,
     expectedRevision: undefined,
+    runtimeId: undefined,
+    agentContextId: undefined,
     includeArchived: false,
     intervalSeconds: 2,
     timeoutSeconds: 3600,
@@ -277,6 +280,8 @@ function parseArgs(argv) {
       ["--idempotency-key", "idempotencyKey"],
       ["--system-prompt", "systemPrompt"],
       ["--expected-revision", "expectedRevision"],
+      ["--runtime-id", "runtimeId"],
+      ["--agent-context-id", "agentContextId"],
       ["--username", "username"],
       ["--interval-seconds", "intervalSeconds"],
       ["--timeout-seconds", "timeoutSeconds"],
@@ -306,7 +311,7 @@ function parseArgs(argv) {
     (group === "repositories" && command === "get") ||
     (group === "runners" && command === "inspect") ||
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
-    (group === "tasks" && ["inspect", "update"].includes(command)) ||
+    (group === "tasks" && ["inspect", "update", "start"].includes(command)) ||
     (group === "agents" && ["inspect", "update", "archive"].includes(command)) ||
     (group === "teams" && command === "use") ||
     (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command))
@@ -339,7 +344,7 @@ function parseArgs(argv) {
   if (group === "agents" && !["list", "inspect", "create", "update", "archive"].includes(command)) {
     return { ok: false, message: `Unknown agents command: ${command}` };
   }
-  if (group === "tasks" && !["list", "create", "inspect", "update"].includes(command)) {
+  if (group === "tasks" && !["list", "create", "inspect", "update", "start"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
   }
   if (group === "sessions" && !["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command)) {
@@ -391,6 +396,13 @@ function parseArgs(argv) {
   }
   if (group === "tasks" && command === "update" && !flags.title && flags.description === undefined) {
     return { ok: false, message: "tasks update requires --title or --description" };
+  }
+  if (group === "tasks" && command === "start") {
+    const revision = Number(flags.expectedRevision);
+    if (!flags.runtimeId || !flags.provider || !flags.idempotencyKey || !Number.isInteger(revision) || revision < 1) {
+      return { ok: false, message: "tasks start requires --runtime-id, --provider, positive --expected-revision, and --idempotency-key" };
+    }
+    flags.expectedRevision = revision;
   }
   if (group === "sessions" && command === "create" && (!flags.title || !flags.objective)) {
     return { ok: false, message: "sessions create requires --title and --objective" };
@@ -449,6 +461,8 @@ function parseArgs(argv) {
       ...(flags.idempotencyKey ? { idempotencyKey: flags.idempotencyKey } : {}),
       ...(flags.systemPrompt ? { systemPrompt: flags.systemPrompt } : {}),
       ...(flags.expectedRevision !== undefined ? { expectedRevision: flags.expectedRevision } : {}),
+      ...(flags.runtimeId ? { runtimeId: flags.runtimeId } : {}),
+      ...(flags.agentContextId ? { agentContextId: flags.agentContextId } : {}),
       ...(flags.includeArchived ? { includeArchived: true } : {}),
       ...(group === "sessions" && command === "wait"
         ? {
@@ -922,7 +936,7 @@ function formatSuccess(command, payload, jsonMode) {
   if (command.group === "tasks" && command.command === "list") {
     return `${formatTasksList(payload)}\n`;
   }
-  if (command.group === "tasks" && ["inspect", "create", "update"].includes(command.command)) {
+  if (command.group === "tasks" && ["inspect", "create", "update", "start"].includes(command.command)) {
     return `${formatTaskInspect(payload)}\n`;
   }
   if (command.group === "sessions" && command.command === "list") {
@@ -1228,6 +1242,18 @@ async function executeCommand(command, fetchImpl, deps = {}) {
       body: JSON.stringify({
         ...(command.title ? { title: command.title } : {}),
         ...(command.description !== undefined ? { description: command.description } : {}),
+      }),
+    });
+  }
+  if (command.group === "tasks" && command.command === "start") {
+    return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}/production/start`, baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({
+        runtimeId: command.runtimeId,
+        providerKey: command.provider,
+        expectedRevision: command.expectedRevision,
+        idempotencyKey: command.idempotencyKey,
+        ...(command.agentContextId ? { agentId: command.agentContextId } : {}),
       }),
     });
   }

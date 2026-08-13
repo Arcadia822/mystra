@@ -18,6 +18,7 @@ const services = vi.hoisted(() => ({
   claimWorkspace: vi.fn(),
   reportWorkspace: vi.fn(),
   reportWorkspaceMissing: vi.fn(),
+  continueProduction: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
 vi.mock("@/lib/integrations/github-credential", () => ({
@@ -39,6 +40,11 @@ vi.mock("@/lib/task-workspaces/workspace-preparation-service-factory", () => ({
     claim: services.claimWorkspace,
     report: services.reportWorkspace,
     reportMissing: services.reportWorkspaceMissing,
+  })),
+}));
+vi.mock("@/lib/tasks/task-production-service-factory", () => ({
+  createTaskProductionService: vi.fn(() => ({
+    continueAfterWorkspaceReady: services.continueProduction,
   })),
 }));
 
@@ -111,7 +117,7 @@ beforeEach(() => {
   services.getWorkspace.mockResolvedValue(workspace);
   services.setupWorkspace.mockResolvedValue({ workspace, created: true, retried: false });
   services.claimWorkspace.mockResolvedValue(claim);
-  services.reportWorkspace.mockResolvedValue({ id: workspace.id, state: "ready" });
+  services.reportWorkspace.mockResolvedValue({ id: workspace.id, teamId, taskId, state: "ready" });
   services.reportWorkspaceMissing.mockResolvedValue({ id: workspace.id, state: "unavailable" });
 });
 

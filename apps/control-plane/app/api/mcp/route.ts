@@ -12,12 +12,15 @@ import {
   taskListResponseSchema,
   taskDescriptionSchema,
   taskTitleSchema,
+  taskStartRequestSchema,
+  taskStartResultSchema,
 } from "@mystra/shared";
 import { z } from "zod";
 
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/lib/rbac";
 import { createTaskService } from "@/lib/tasks/task-service-factory";
+import { createTaskProductionService } from "@/lib/tasks/task-production-service-factory";
 import { requireHumanSession, requireTeamPermission } from "../_auth";
 
 const jsonRpcRequestSchema = z.object({
@@ -85,6 +88,7 @@ const taskUpdateToolSchema = z.object({
 }).strict().refine((value) => value.title !== undefined || value.description !== undefined, {
   message: "At least one of title or description is required",
 });
+const taskStartToolSchema = taskStartRequestSchema.extend({ taskId: z.string().uuid() }).strict();
 
 const tools = [
   {
@@ -160,6 +164,23 @@ const tools = [
   { name: "mystra_list_tasks", description: "List durable Task records.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "mystra_get_task", description: "Inspect one durable Task record.", inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string", format: "uuid" } }, additionalProperties: false } },
   { name: "mystra_update_task", description: "Update Task-owned title or description.", inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string", format: "uuid" }, title: { type: "string", minLength: 1, maxLength: 500 }, description: { type: ["string", "null"], maxLength: 100000 } }, additionalProperties: false } },
+  {
+    name: "mystra_start_task_production",
+    description: "Start Task production with the Standard Execution Prompt and optional Agent Context.",
+    inputSchema: {
+      type: "object",
+      required: ["taskId", "runtimeId", "providerKey", "expectedRevision", "idempotencyKey"],
+      properties: {
+        taskId: { type: "string", format: "uuid" },
+        runtimeId: { type: "string", format: "uuid" },
+        providerKey: { type: "string", minLength: 1, maxLength: 128 },
+        agentId: { type: ["string", "null"], format: "uuid" },
+        expectedRevision: { type: "integer", minimum: 1 },
+        idempotencyKey: { type: "string", minLength: 1, maxLength: 200 },
+      },
+      additionalProperties: false,
+    },
+  },
   { name: "mystra_health", description: "Report local control-plane database health.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
 ] as const;
 
@@ -180,9 +201,11 @@ export async function POST(request: Request) {
   }
   let db;
   let active;
+  let actorId: string;
   try {
     db = await getDb();
     const subject = await requireHumanSession(db, request, "mcp");
+    actorId = subject.user.id;
     active = await requireTeamPermission(db, subject, "team.resource.access");
   } catch (error) {
     const code = mcpAuthorizationErrorCode(error);
@@ -301,6 +324,17 @@ export async function POST(request: Request) {
         ? { task }
         : { error: { code: "TASK_NOT_FOUND", message: `Task not found: ${id}` } }));
     }
+    if (call.name === "mystra_start_task_production") {
+      const parsed = parseArguments(rpc.id, call.name, taskStartToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const { taskId, ...request } = parsed.data;
+      const result = await createTaskProductionService(db).start({
+        actor: { actorId, teamId: active.team.id },
+        taskId,
+        request,
+      });
+      return jsonRpc(rpc.id, textToolResult(taskStartResultSchema.parse(result)));
+    }
     if (call.name === "mystra_health") {
       const tasks = await db.listTasks({ teamId: active.team.id });
       return jsonRpc(rpc.id, textToolResult({
@@ -321,8 +355,22 @@ export async function POST(request: Request) {
       const message = error instanceof Error ? error.message : agentCode;
       return jsonRpc(rpc.id, textToolResult({ error: { code: agentCode, message } }));
     }
+    const productionCode = taskProductionDomainErrorCode(error);
+    if (productionCode) {
+      const message = error instanceof Error ? error.message : productionCode;
+      return jsonRpc(rpc.id, textToolResult({ error: { code: productionCode, message } }));
+    }
     return jsonRpcError(rpc.id, -32603, "Internal error", { tool: call.name });
   }
+}
+
+function taskProductionDomainErrorCode(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+  const code = String(error.code);
+  return [
+    "task_not_found", "task_not_eligible", "agent_unavailable", "runtime_unavailable",
+    "task_status_conflict", "invalid_request",
+  ].includes(code) ? code : undefined;
 }
 
 function agentDomainErrorCode(error: unknown) {

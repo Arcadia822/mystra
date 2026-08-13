@@ -7,6 +7,12 @@
 **Scenario Rationale**: 本功能首先定义平台内部业务对象与跨边界契约，使用具名操作者/调用方的技术场景比虚构消费型用户故事更准确。用户已明确确认两个核心产品决定：Session 发起使用四个正交要素；Agent 唯一影响执行效果的可配置内容是 system prompt。
 **Clarification Review**: 2026-08-08 用户明确确认 Team 是租户边界；Agent、Task、Project、Session 都是 Team 直属对象。Agent、Task、Session 均不属于 Project，Session 也不属于 Task；Project 与 Task 只是 Session 上彼此独立的 `0..1` 可选引用。该澄清已写入全部场景、要求和成功标准；其余 system prompt 长度、错误码、持久化形态与符号 blast radius 属于 plan/research 决策。
 
+> **052 supersession (2026-08-12)**: Agent 不再是每次 Session 的必选项。
+> Runtime、Provider、execution Context 仍为显式输入；`Agent Context` 是可选、
+> 低优先级的补充输入。每次 Session 无论是否选择 Agent，都必须使用 feature
+> 052 的 program-owned Standard Execution Prompt。下文所有“Agent 必选”表述均由
+> `052-standard-agent-context` 直接替换；Team ownership 与 Agent 定义本身继续有效。
+
 ## Contract Summary
 
 发起一次 Session 时，平台必须解析四个彼此独立的执行选择。Project 与 Task 不属于这四个执行选择；它们分别只是 Session 的 `0..1` 可选业务引用，且都不是 Session 父级。
