@@ -11,6 +11,7 @@
     "build": "pnpm -r --if-present build",
     "dev": "pnpm --filter @mystra/control-plane dev",
     "dev:control-plane": "pnpm --filter @mystra/control-plane dev",
+    "dev:prototype": "pnpm --filter @mystra/spec-prototype dev",
     "dev:runner": "pnpm --filter @mystra/runner-daemon dev",
     "doctor": "./scripts/doctor-local.sh",
     "deploy:dev": "bash ./scripts/deploy-dev-machine.sh",
@@ -22,6 +23,10 @@
     "db:test:postgresql": "pnpm --filter @mystra/control-plane db:test:postgresql",
     "db:test:reset": "node ./scripts/migrate-rdb.mjs reset",
     "db:validate": "pnpm --filter @mystra/control-plane db:validate",
+    "gitnexus:analyze": "gitnexus analyze --index-only --name mystra",
+    "gitnexus:doctor": "gitnexus doctor",
+    "gitnexus:rebuild": "gitnexus analyze --force --index-only --name mystra",
+    "gitnexus:status": "gitnexus status",
     "operator:cli": "node ./scripts/operator-cli.mjs",
     "agent:cli": "pnpm --filter @mystra/agent-cli build && node ./packages/agent-cli/bin/mystra-agent",
     "preview": "node ./scripts/preview-containers.mjs",
@@ -34,14 +39,18 @@
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@vitest/coverage-v8": "4.1.5",
+    "gitnexus": "1.6.9",
     "typescript": "^5.9.3",
     "typescript-language-server": "^5.2.0",
     "vitest": "^4.0.14"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@ladybugdb/core",
       "@prisma/engines",
       "better-sqlite3",
+      "gitnexus",
+      "tree-sitter",
       "prisma"
     ]
   }

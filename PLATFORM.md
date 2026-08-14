@@ -6,14 +6,23 @@
 
 ```text
 apps/control-plane    Next.js management API, MCP, Web, Prisma RDB adapters
+apps/spec-prototype   Independent UI spec review app with mock feature compositions
 apps/runner-daemon    Stable pull-based Runner service
 packages/shared       Zod schemas, Session lifecycle, result contracts
+packages/ui           Shared production/prototype theme, React primitives, icons, shell layout
 packages/agent-adapters
 plugins/mystra        MCP and Agent-facing skills
 ```
 
 The repository uses TypeScript 5.9, Node.js 24.14.0, pnpm 10.25.0, Next.js 16,
 React 19, Zod 4, Vitest 4, and `better-sqlite3`.
+
+Repository code intelligence uses the exact root dev dependency GitNexus 1.6.9.
+Its LadybugDB, GitNexus, and tree-sitter lifecycle scripts are allowlisted in
+the root pnpm configuration; global or ephemeral GitNexus versions are not part
+of the project toolchain. Upgrades follow npm's newest stable `latest` dist-tag;
+pre-release RCs require an exact stable-version blocker plus successful install,
+doctor, rebuild, CLI, and MCP compatibility checks.
 
 ## Canonical topology
 
@@ -74,13 +83,22 @@ pnpm lint
 pnpm test
 pnpm audit:task-session-terminology
 pnpm doctor
+pnpm gitnexus:doctor
+pnpm gitnexus:status
+pnpm gitnexus:analyze
+pnpm gitnexus:rebuild
 pnpm dev:control-plane
+pnpm dev:prototype
 pnpm dev:runner
 pnpm lsp:typescript
 ```
 
 ## Architectural constraints
 
+- `packages/ui` is the only implementation source for theme CSS and reusable
+  Web UI primitives shared by production and Spec Prototype. The independent
+  `apps/spec-prototype` app owns mock data and feature composition, not copied
+  components or a second design system.
 - Open Agents is a source-authoritative reference baseline, not an assumed
   packaged runtime dependency.
 - Every Project binds one IntegrationConnection plus a provider-stable remote Repository external ID and persists

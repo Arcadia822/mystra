@@ -65,7 +65,7 @@ pnpm audit:task-session-terminology
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm dlx gitnexus analyze --force
+pnpm gitnexus:rebuild
 ```
 
 Use `specs/spec-status.md` for Spec-Kit completion and

@@ -21,10 +21,11 @@ SQLite/PostgreSQL/Supabase-backed PostgreSQL RDB,
 GitHub RepoProvider plus repository-scoped IssueProvider, read-only Linear
 IssueProvider, direct Agent execution, Task-bound Harness production, and a
 single-machine sandbox path. Every Project repository is remote and
-provider-resolved. Feature 051 standardizes Task productionStatus and splits
+provider-resolved. Feature 051 introduced Task productionStatus and splits
 `mystra` Control Plane management from the attempt-scoped `mystra-agent`
-workload CLI. The latter resolves execution context and permits only allowlisted
-Task status transitions. Feature 052 makes Agent Context optional: a thin Harness
+workload CLI. Feature 054 owns the current `pending/in_progress/blocked/done/canceled`
+vocabulary, where `blocked` means Needs handoff; the workload CLI resolves
+execution context and permits only allowlisted Task status transitions. Feature 052 makes Agent Context optional: a thin Harness
 attempt freezes the selected Agent snapshot only when supplied and always starts
 exactly one goal/autopilot Session after its Task Workspace is ready. Every Session
 uses the program-owned, content-addressed Standard Execution Prompt; optional Agent
@@ -72,6 +73,37 @@ self-hosted support contract or create a general Integration catalog.
 6. Do not create feature-level PRDs, plans, task lists, or generated design artifacts directly under `docs/`; use `specs/<feature>/`.
 7. If a submodule needs durable operating knowledge, add the smallest useful local documentation near that submodule and link it from the relevant Spec-Kit artifact or 5xP file.
 
+## UI Prototype Contract
+
+UI-facing Spec-Kit work uses `apps/spec-prototype` as the independent review
+runtime. It remains separate from production routing, API calls, RBAC and
+persistence, while both apps depend on `packages/ui` for the actual theme,
+components, icons and shell layout contracts.
+
+For every UI-facing feature:
+
+1. Start from `/starter` and add `app/<feature>/page.tsx`; do not create a
+   standalone copied HTML shell.
+2. Record route, covered states, mock boundaries, and shared imports in
+   `specs/<feature>/prototype.md`.
+3. Add missing reusable primitives to `packages/ui` before using them in the
+   feature composition. Production app-local files may remain thin adapters,
+   but must not own a divergent implementation.
+4. Keep only mock data and feature-specific experimental composition in the
+   prototype app. A rule that becomes a shared token, component, icon, or
+   layout contract moves to `packages/ui`.
+5. Before handoff, typecheck `@mystra/ui`, `@mystra/control-plane`, and
+   `@mystra/spec-prototype`, then perform browser review on the feature route.
+
+Taco is the default review transport for future Spec-Kit work. Canonical files
+remain under `specs/<feature>/`; after a current feature artifact changes, use
+the installed `speckit.taco.update` command to create or refresh
+`specs/<feature>/<feature>.taco.html`. Human edits and comments return through
+`speckit.taco.review`, with a dry run first and no forced conflict resolution
+without explicit path-level authorization. Installing Taco does not require
+backfilling historical specs, and existing generated `index.html` files remain
+historical artifacts rather than the active review workflow.
+
 ## Spec-Kit Commands
 
 Codex prompt files are initialized in `.codex/prompts/`:
@@ -116,6 +148,10 @@ acceptance and reason in the feature directory.
   control path unless the requirement explicitly centers on human visual
   interaction.
 - Execute the narrowest relevant test first, then broader checks when the touched surface justifies it.
+- Use only the root-pinned GitNexus scripts. `pnpm gitnexus:rebuild` is the
+  repair path and intentionally runs in index-only mode so generated upstream
+  context cannot overwrite Mystra's project-local skills or durable `AGENTS.md`
+  rules.
 - For broad changes, run `pnpm typecheck` and `pnpm test`.
 - Before merge, run the project-local `code-review-and-quality` review gate. Treat review findings as part of delivery, not optional cleanup.
 - Do not introduce MVP-excluded behavior unless the product boundary is explicitly amended first.

@@ -7,6 +7,22 @@ persistence, or Integration implementations.
 `prewarm-project.sh` prepares disposable local caches manually. Automatic
 prewarm remains a future SandboxProvider capability.
 
+## GitNexus
+
+GitNexus is pinned in the root workspace so the CLI, LadybugDB storage reader,
+and MCP server do not drift independently. Use these repository scripts:
+
+```sh
+pnpm gitnexus:doctor
+pnpm gitnexus:status
+pnpm gitnexus:analyze
+pnpm gitnexus:rebuild
+```
+
+Both analyze commands use `--index-only`; the graph is disposable, while
+Mystra's tracked `AGENTS.md` and `.agents/skills/` are canonical. Do not use a
+global binary, `npx`, `pnpm dlx`, or `.gitnexus/run.cjs` for this repository.
+
 ## Operator CLI
 
 The Issue-to-review path is:
@@ -32,8 +48,3 @@ pnpm operator:cli -- sessions create TASK_ID --title "Reproduce" --objective "Cr
 All commands accept `--json` and `--control-plane-url`. Session polling treats
 `waiting_for_review` as a successful terminal handoff; failed, canceled, and
 timed-out Sessions return non-zero.
-
-## Spec View
-
-`render-spec-view.mjs` renders a feature review page from fixed Spec-Kit artifact
-paths using `.specify/templates/spec-view-template.html`.

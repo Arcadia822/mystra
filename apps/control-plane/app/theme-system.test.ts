@@ -4,9 +4,16 @@ import {
   APPEARANCE_STORAGE_KEY,
   buildAppearanceCssVariables,
   buildThemeBootstrapScript,
+  CONTROL_PLANE_FOUNDATION_TOKENS,
   CONTROL_PLANE_THEMES,
   getDefaultAppearancePreferences,
 } from "./theme-system";
+
+describe("foundation density tokens", () => {
+  it("keeps popup content on the compact 8px inset", () => {
+    expect(CONTROL_PLANE_FOUNDATION_TOKENS["--popup-inset"]).toBe("8px");
+  });
+});
 
 const EDGE_TOKENS = [
   "--border",

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "taco": {
+      "version": "0.3.1",
+      "source": "local",
+      "manifest_hash": "sha256:15ee832cc8a8a00601bd27dd7adba87b0f26854462ea057cdf1d444d0ada3017",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "codex": [
+          "speckit.taco.update",
+          "speckit.taco.review"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-08-14T03:28:58.934013+00:00"
+    }
+  }
+}

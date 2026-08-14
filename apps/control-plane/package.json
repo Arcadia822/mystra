@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prebuild": "pnpm --filter @mystra/shared build",
-    "predev": "pnpm --filter @mystra/shared build && pnpm run db:generate",
+    "prebuild": "pnpm --filter @mystra/shared build && pnpm --filter @mystra/ui build",
+    "predev": "pnpm --filter @mystra/shared build && pnpm --filter @mystra/ui build && pnpm run db:generate",
     "pretest": "pnpm --filter @mystra/shared build",
-    "pretypecheck": "pnpm --filter @mystra/shared build",
+    "pretypecheck": "pnpm --filter @mystra/shared build && pnpm --filter @mystra/ui build",
     "build": "next build --webpack",
     "db:generate": "prisma generate --config prisma/sqlite/prisma.config.ts && prisma generate --config prisma/postgresql/prisma.config.ts",
     "db:test:postgresql": "vitest run src/lib/db/prisma-provider.postgresql.test.ts",
@@ -20,6 +20,7 @@
   "dependencies": {
     "@fontsource/fira-code": "^5.3.0",
     "@mystra/shared": "workspace:*",
+    "@mystra/ui": "workspace:*",
     "@prisma/adapter-better-sqlite3": "7.9.1",
     "@prisma/adapter-pg": "7.9.1",
     "@prisma/client": "7.9.1",

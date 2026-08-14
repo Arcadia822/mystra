@@ -10,6 +10,12 @@
 > 必须全有或全无；不得创建 default/sentinel Agent 或保留 `/assign` alias。051 的
 > Task productionStatus、Harness、Workspace continuation、execution code 和 scoped
 > status transition 合同继续有效。
+
+> **054 status supersession (2026-08-13)**: 054 直接删除
+> `waiting_for_review`，并将其 handoff 语义并入 `blocked`。当前五态为
+> `pending/in_progress/blocked/done/canceled`，其中 `blocked` 显示为待接手；Human
+> 可将其恢复为 `in_progress` 或确认为 `done`。051 下文的六态枚举与
+> `waiting_for_review` transition 仅保留为已实现旧合同的迁移证据，不再是目标产品合同。
 **Input**: Mystra 以“工厂”为核心产品模型。第一版先为 Task 增加薄生产状态机，并提供 workload-local `mystra-agent` CLI，让被分配 Agent 用当前 attempt 的短期 execution code 获取完整执行上下文并报告生产进度。`mystra` 保留为面向 Human、外部 Agent 和操作者的 Control Plane 管理 CLI。Agent 通过宿主机已认证的 `linctl` 读取 Linear、通过 `gh` 提交 PR；Mystra 不代理或验证这些操作。一个 Harness attempt 仍只启动一个 goal/autopilot Session；完整 Harness 编排、平台验收和通用产出物延后。
 
 ## 决策摘要

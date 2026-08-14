@@ -15,7 +15,12 @@ For any task involving code understanding, debugging, impact analysis, or refact
 2. **Match your task to a skill below** and **read that skill file**
 3. **Follow the skill's workflow and checklist**
 
-> If step 1 warns the index is stale, run `npx gitnexus analyze` in the terminal first.
+> If step 1 warns the index is stale, run `pnpm gitnexus:rebuild` from the
+> repository root. Do not bypass the pinned repository CLI.
+
+For version selection, native-module repair, database-format mismatch, or MCP
+restart procedure, follow the project-local `gitnexus-cli` skill. Do not infer
+that a `Database file version` error means the source graph is corrupt.
 
 ## Skills
 

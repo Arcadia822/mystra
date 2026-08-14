@@ -31,8 +31,8 @@ import { PRIMARY_ITEMS } from "./shell-navigation";
 import { ShellRightPanelProvider } from "./shell-right-panel";
 import { MystraLogo } from "./mystra-logo";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
+import { UiRightPanelToggle, UiShellRightPanel } from "./ui-surfaces";
 import { ProjectCreateModal } from "./project-create-modal";
-import { TeamSwitcher } from "./team-switcher";
 import { VerticalNavItem } from "./vertical-nav-item";
 import {
   SidebarCountBadge,
@@ -101,6 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [systemVariant, setSystemVariant] = useState<ThemeVariant>("dark");
   const [locale, setLocale] = useState<ShellLocale>("en");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [collapsedRightPanelId, setCollapsedRightPanelId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
@@ -130,6 +131,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     setSidebarCollapsed(readBrowserPreference(SIDEBAR_STORAGE_KEY) === "true");
     setPreferencesReady(true);
   }, []);
+
+  useEffect(() => {
+    setCollapsedRightPanelId(null);
+  }, [pathname]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -217,10 +222,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <ShellRightPanelProvider>
-    {(rightPanel) => (
+    {(rightPanel) => {
+    const rightPanelCollapsed = Boolean(rightPanel && collapsedRightPanelId === rightPanel.id);
+    const rightPanelVisible = Boolean(rightPanel && !rightPanelCollapsed);
+    return (
     <ShellLocaleProvider locale={locale}>
     <ShellTasksProvider resource={tasksResource}>
-    <div className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""} ${narrowSidebarOpen ? "sidebarNarrowOpen" : ""} ${rightPanel ? "hasRightPanel" : ""}`}>
+    <div className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""} ${narrowSidebarOpen ? "sidebarNarrowOpen" : ""} ${rightPanelVisible ? "hasRightPanel" : ""}`}>
       <aside aria-hidden={sidebarHidden || undefined} className="sidebar" data-collapsed={sidebarHidden || undefined} id="primary-sidebar" inert={sidebarHidden}>
         <header className="sidebarHeader">
           <MystraLogo className="brandMark" />
@@ -358,19 +366,29 @@ export function AppShell({ children }: { children: ReactNode }) {
               </UiIconButton>
             </div>
           <strong>{shellTitle}</strong>
-          <div className="shellHeaderControls">
-            <TeamSwitcher />
-            <UiActionLink href="/account" size="compact">Account</UiActionLink>
-          </div>
+          {rightPanel && rightPanelCollapsed ? (
+            <div className="shellHeaderControls">
+              <UiRightPanelToggle
+                expanded={false}
+                label={locale === "zh-CN" ? `展开${rightPanel.ariaLabel}` : `Expand ${rightPanel.ariaLabel}`}
+                onToggle={() => setCollapsedRightPanelId(null)}
+              />
+            </div>
+          ) : null}
         </header>
         <div className="shellMainContent">{children}</div>
       </main>
 
       {rightPanel ? (
-        <aside aria-label={rightPanel.ariaLabel} className="rightPanel">
-          <header className="rightPanelHeader"><strong>{rightPanel.header}</strong></header>
-          <div className="rightPanelContent">{rightPanel.content}</div>
-        </aside>
+        <UiShellRightPanel
+          ariaLabel={rightPanel.ariaLabel}
+          collapseLabel={locale === "zh-CN" ? `收起${rightPanel.ariaLabel}` : `Collapse ${rightPanel.ariaLabel}`}
+          header={rightPanel.header}
+          hidden={!rightPanelVisible}
+          onCollapse={() => setCollapsedRightPanelId(rightPanel.id)}
+        >
+          {rightPanel.content}
+        </UiShellRightPanel>
       ) : null}
 
       {settingsOpen ? (
@@ -424,7 +442,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
     </ShellTasksProvider>
     </ShellLocaleProvider>
-    )}
+    );
+    }}
     </ShellRightPanelProvider>
   );
 }

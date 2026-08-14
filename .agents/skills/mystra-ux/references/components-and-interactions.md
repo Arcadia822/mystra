@@ -19,22 +19,30 @@ Adjacent controls share density without flattening their semantic levels. Destru
 - Reading sections own horizontal padding. Inner rows and muted panels do not add a second competing inset.
 - Header-right add/create actions use the compact ghost baseline when they only open a secondary flow.
 - Whole-row or whole-card navigation uses a real link/button with pointer and keyboard behavior; do not nest competing primary links.
-- Page, section, panel, and row insets have one owner. A modal section with 12px inline padding does not wrap another generic 12px inset unless the visual hierarchy explicitly requires a 24px reading body.
+- Page, section, panel, and row insets have one owner. The page-level layout container and ordinary modal/composer surface use the 8px baseline; children do not wrap another generic inset unless an explicit reading-body role requires it.
 - Empty states use the remaining layout space or a modest 16–32px block inset. They do not manufacture hierarchy with oversized padding.
-- Desktop actions use the Castrel role baselines: 24px compact table/action controls, 28px header/navigation controls, and 32px default actions. Standard form fields use 36px. Coarse-pointer media rules expand the hit target to 44px.
+- Default inline forms use 20px controls inside a 28px row. Header/navigation controls remain 28px; 24px compact, 32px action, and 36px stacked-field heights require an explicit component role. Coarse-pointer media rules expand the hit target to 44px.
 - Icon-only actions use one shared icon-button primitive and one icon grid. Modal close actions never supply a private glyph, font-size, padding, or stroke; Search, Add Project, Settings, and future dialogs use the same close icon anatomy and accessible label.
+
+## Layout Spacing Semantics
+
+- Page-level layout containers use 8px padding; adjacent sections use an 8px gap.
+- Inline elements belonging to one semantic group use a 4px gap. Separate actions, fields, or data groups that merely share a row use an 8px gap.
+- Default rows are 28px high, body copy is 12px, and default icons occupy a 16px slot.
+- Small headings, annotations, and medium headings remain 12px; weight and semantic color carry hierarchy. Large titles alone use 24px.
+- Consumers use shared tokens for these roles. Private margins, transforms, and font sizes are not acceptable substitutes.
 
 ## Composer
 
 - New/intake composer uses one bordered card surface and a compact 3-line input.
 - The intake logo is a standalone enlarged mark. Do not place redundant product-name copy beside it when the page already establishes Mystra identity.
-- Internal body keeps the Castrel source baseline of top 9px, right 7px, bottom 7px, left 9px, then compensates the textarea right edge and footer right/bottom by 2px so the effective visual inset around content and the 32px send action is 9px on every side.
+- The composer owns one 8px inset. Header, body, and footer slots do not add another generic inset or divider.
 - Footer stays inside the same padded body, uses transparent ghost styling, and has no separator line or separate filled strip.
 - Footer control groups use the shared 4px tight gap.
 - Attachment and Project are ghost controls at rest; border/fill appears only for hover, focus, open, selected, or disabled explanation. Project uses the shared dropdown trigger/content/item anatomy and never uses Repository as its UI label.
 - Issue selection is not a footer dropdown. After Project selection, repository-scoped Issues appear as compact selectable cards below the input; before Project selection the Issue region is absent.
 - Do not reserve a disabled Issue selector or add instructional filler such as “configure a Project before creating a Task.” Disabled dependency order is sufficient when the unavailable control is absent and the next available action is obvious.
-- Send is the single solid action, 32px circular visual target inside a larger touch affordance when needed.
+- Footer Project and commit controls use the shared 20px inline height within a 28px footer row. Send is the single solid action; a larger circular variant must be explicitly owned by the immersive intake component rather than treated as the inline default.
 - Unsupported API actions remain disabled with a concise explanation.
 
 ## Dropdown
@@ -44,6 +52,25 @@ Adjacent controls share density without flattening their semantic levels. Destru
 - Keyboard support includes Arrow Up/Down, Home/End, Escape and Tab. Opening focuses the selected or first enabled option; Escape returns focus to the trigger; outside pointer input closes the popup.
 - Page components provide option value, label and optional description but do not restyle menu internals or reproduce dropdown behavior.
 - Trigger width and menu alignment follow the owning row. Settings right-side dropdowns use the shared end-aligned menu instead of compensating with private margins or overflow hacks.
+
+## Popup and Popover
+
+- Standard popup/popover content uses exactly 8px padding on all four sides through the shared `--popup-inset` token. Consumers do not override the inset, wrap another padded body around it, or substitute panel/modal padding.
+- Popup placement, portal layer, surface, radius, outside click, Escape and focus return belong to the shared primitive. Page code supplies content and alignment only.
+
+## Checkbox
+
+- The shared checkbox visual is exactly 16×16px, matching Mystra's standard icon grid, with a 12×12px theme-stroked check glyph. Keep the native checkbox as the visually hidden semantic/form control behind that shared visual; do not rely on browser-native checkbox anatomy. Its default owning row is 28px high, and the checkbox does not expand to the row hit target.
+- Consumers use the shared checkbox primitive without private width, height, transform, browser-native appearance, glyph or padding. Checked, unchecked, disabled and focus states remain owned by the primitive.
+
+## Label
+
+- Shared Labels use standard 12px content text and a 16×16px icon slot. Keys, values and overflow-count controls inherit the same text size; consumers do not shrink individual Label fragments.
+
+## Task Status
+
+- Every Task status icon uses the same circular base and 16×16px visual slot. Pending keeps the empty ring; in progress fills one exact semicircle; handoff, completed and canceled use distinct visible arrow, check and cross marks. Resolve inner marks through a defined theme contrast token, never an undeclared CSS variable.
+- Compact workbench cards use an 8px content inset unless a feature explicitly documents another density. Card content does not inherit the 12px generic content inset by accident.
 
 ## Sidebar Sections
 
@@ -57,7 +84,7 @@ Adjacent controls share density without flattening their semantic levels. Destru
 
 - Settings uses the Castrel-derived two-column modal shell, but Mystra owns the tab taxonomy, copy, tokens, and persistence boundaries.
 - The default information architecture is `Account`, `Appearance`, `Team`, `Team members`, and `Integrations`. Account, Team, and Team members render their management surfaces inside the Settings modal; Theme and Language belong to Appearance; tenancy uses Team, never workspace.
-- `SettingGroup` is transparent and uses the shared 32px section rhythm. `SettingRow` uses a left title/description and right control/status with no private card border, fill, shadow, or extra inset.
+- `SettingGroup` is transparent and uses the shared 8px section gap. `SettingRow` uses a left title/description and right control/status with no private card border, fill, shadow, or extra inset.
 - Narrow screens stack each setting row in reading order: title, description, then control. Unsupported Account or Team mutations remain explicit read-only/unavailable states instead of simulated form controls.
 - Appearance uses shared dropdown, segmented, range, input, preview, and reset controls. It supports System/Light/Dark, separate light and dark schemes, default/high/color-high border contrast, independent light/dark code surface, contrast, UI/Chat/Code fonts, and UI/Chat sizes.
 - Resetting theme details resets contrast, fonts, and sizes for the active scheme; it does not silently reset mode, light/dark scheme selection, border mode, code surface, or language.
@@ -67,9 +94,12 @@ Adjacent controls share density without flattening their semantic levels. Destru
 
 - Dense management tables use one shared outer frame, optional header, compact toolbar, low-noise border, table body, search/filter/display/pagination, and card/list switch only when required.
 - Page-local duplicate headers, parallel card shells, or second toolbar frames are drift unless the route has a documented non-management model.
+- Every standard field definition declares a semantic render type from the shared whitelist: `text`, `datetime`, `icon`, or `labels`. `text` and `datetime` differ only in value rendering/semantics and use the same typography as the row Name; standard fields do not accept consumer typography classes. A genuinely exceptional presentation uses the explicit custom field definition and custom field component instead of extending a standard render type with page-local font, size, weight, or color.
+- Stacked table fields may opt into `equalWidth`: resolve one shared track from that field's widest natural content among currently displayed rows, then use the normal column-gap token before the next field. Recompute after filtering, visibility, refresh, or append changes; do not substitute preset pixel widths. Separate equal-width fields may resolve different widths. Icon fields default to equal width. Equal-width fields must form a continuous prefix from the left edge or a continuous suffix to the right edge in canonical field order; field visibility does not change validity, and invalid middle islands are rejected rather than silently rearranged.
+- Fields with the same semantic render type reuse one renderer contract. In particular, Updated At and Created At use the same time formatter, locale and options; a consumer does not mix hand-authored relative and absolute date strings in one list.
 - Table overflow stays inside the table viewport.
 - Empty and loading states consume remaining content space and do not add a decorative tinted card.
-- Toolbar and table rows align to a single 12px horizontal inset. Horizontal overflow belongs to the table viewport, not the page frame.
+- Toolbar and table rows align to a single 8px horizontal inset. Horizontal overflow belongs to the table viewport, not the page frame.
 
 ## Master-detail Review Queue
 

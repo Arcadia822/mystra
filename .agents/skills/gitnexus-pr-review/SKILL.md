@@ -26,7 +26,7 @@ description: "Use when the user wants to review a pull request, understand what 
 6. Summarize findings with risk assessment
 ```
 
-> If "Index is stale" → run `npx gitnexus analyze` in terminal before reviewing.
+> If "Index is stale" → run `pnpm gitnexus:rebuild` from the repository root before reviewing.
 
 ## Checklist
 

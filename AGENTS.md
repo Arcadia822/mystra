@@ -39,13 +39,70 @@ Use Spec-Kit for non-trivial features or contract changes:
 7. Implement in small, verifiable slices.
 8. Verify with relevant tests or runtime evidence.
 
-For Spec-Kit Markdown and data-model documentation, static verification is the
-default: use diff checks, targeted consistency searches, and Spec-Kit health
-checks. Do not open the in-app browser solely to reread or validate authored
-spec text. Browser verification is required only when the owner explicitly asks
-for it or when UI/interaction acceptance needs real runtime or visual evidence.
+For Spec-Kit Markdown and data-model documentation, static verification remains
+the correctness gate: use diff checks, targeted consistency searches, and
+Spec-Kit health checks. Taco is the default human review and handoff surface for
+future feature work. Updating and opening a Taco presents the canonical files
+for review; it does not replace source-level verification or count as runtime UI
+acceptance evidence.
 
 Feature-specific artifacts belong in `specs/<feature>/`. Durable project rules belong in the 5xP files.
+
+## UI Spec Prototype
+
+- Every UI-facing or experience-facing spec must use the independent
+  `apps/spec-prototype` app and record its route in
+  `specs/<feature>/prototype.md`.
+- Production Control Plane and Spec Prototype must import the same theme and
+  reusable component implementations from `packages/ui`. Recreating standard
+  component DOM, SVG icons, tokens, popup/modal behavior, or shell layout CSS in
+  a feature prototype is forbidden.
+- Keep mock data, review-only state, and feature composition in the prototype
+  app. When a missing primitive or layout contract is discovered, implement it
+  in `packages/ui` first and verify both `@mystra/control-plane` and
+  `@mystra/spec-prototype`.
+- Start a new UI spec from the `/starter` route and shared
+  `PrototypeShell`; do not begin from a blank standalone HTML file.
+- A screenshot or static artifact may supplement the interactive route, but it
+  does not replace the shared-code prototype requirement.
+
+## Taco Spec Kit authoring and review
+
+- Write new Spec Kit Markdown metadata as leading YAML frontmatter. Put the
+  document title in the `title` property between `---` delimiters. Never imitate
+  metadata with headings such as `## title: "..."` or bold prose.
+- When `speckit.specify` or another authoring command creates `spec.md`, do not
+  add an ATX or Setext H1 that repeats the YAML title. Begin the Markdown body at
+  H2 (`##`) or lower. Preserve an existing authored H1 during unrelated edits;
+  do not silently migrate legacy content.
+- Core files and known Spec Kit convention paths are routed automatically. For
+  any other Markdown file that needs an explicit Taco stage, add `taco_scope`
+  to its YAML frontmatter. Offer `spec`, `plan`, and `tasks`; preserve other
+  text values as authored, but do not treat them as valid routes or create a
+  custom stage. Do not generate the legacy `**Taco scope**: ...` form.
+
+- Keep each Spec Kit feature directory canonical. Store its review file at
+  `<feature-directory>/<feature-name>.taco.html` and update it only through the
+  installed Taco commands.
+- Do not backfill Taco files for historical specs merely because Taco is
+  installed. Create or refresh a Taco when future work creates or changes that
+  feature, or when the owner explicitly requests one.
+- After changing any feature artifact—including spec, plan, tasks, research,
+  contracts, checklists, or recorded implementation progress—invoke
+  `speckit.taco.update` before reporting the operation complete. In Codex this
+  command is `$speckit-taco-update`.
+- After a successful update, present the exact generated Taco through the Agent
+  GUI's native clickable file or artifact surface. In Codex, return a clickable
+  absolute file link and let the user's click open it in Browser; do not attempt
+  autonomous `file://` navigation. Other GUIs may open and verify it directly
+  only when they explicitly support local HTML navigation.
+- Import a saved human review through `speckit.taco.review` (in Codex,
+  `$speckit-taco-review`). Preview before writing, stop on conflicts, and never
+  use `--force` without explicit authorization for the exact paths.
+- Read every open comment and its complete history, modify canonical files to
+  address actionable feedback, then update the same Taco for the next review.
+- Treat collaboration-enabled Taco files as potentially credential-bearing;
+  do not send their contents to external services without user authorization.
 
 ## Spec-Kit Skill Routing
 
@@ -103,7 +160,30 @@ TypeScript symbol or file:
 
 ### GitNexus — Code Intelligence
 
-Use `gitnexus-guide` as the entry point. Ensure index is fresh (`pnpm dlx gitnexus analyze --force`) before use.
+Use `gitnexus-guide` as the entry point. Ensure the pinned repository toolchain
+is healthy with `pnpm gitnexus:doctor`, then refresh the index with
+`pnpm gitnexus:rebuild` before use when it is stale or structurally suspect.
+
+GitNexus version and recovery policy:
+
+- Before changing versions, run `npm view gitnexus dist-tags --json`. Select the
+  newest stable `latest` release that passes Mystra's verification gates. Use a
+  release candidate only when the stable release cannot fix the exact problem
+  and the selected RC passes install, doctor, rebuild, CLI, and MCP smoke tests.
+- Keep the repository dependency and lockfile exact. The CLI that writes the
+  index and the MCP process that reads it must resolve the same GitNexus and
+  LadybugDB generation. `Database file version: X, Current build storage version:
+  Y` means the writer and reader versions split; it is not evidence that Mystra
+  source code or graph data is intrinsically corrupt.
+- pnpm 10 must be allowed to run the `@ladybugdb/core`, `gitnexus`, and
+  `tree-sitter` lifecycle scripts. A missing `lbugjs.node` is an installation
+  failure; repair the pinned install and do not work around it with another
+  global or ephemeral CLI.
+- After a GitNexus version change, stop only the MCP process serving this
+  repository, run `pnpm install`, `pnpm gitnexus:doctor`, and
+  `pnpm gitnexus:rebuild`, then restart the MCP client and run the documented
+  CLI/MCP smoke checks. LadybugDB is embedded storage; do not overlap a rebuild
+  with another process holding the same `.gitnexus/lbug` database.
 
 - Start with the repo-local LSP (`pnpm lsp:typescript`) when you need
   TypeScript symbol-local navigation, then move to GitNexus when the question
@@ -190,9 +270,10 @@ confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is
 one sandbox provider rather than the sole execution model, and host worktree
 direct execution is the intended default execution direction. Feature 044 owns
 host Runtime enrollment; 047–050 own Task Context, Workspace and Session
-foundations; feature 051 owns Task productionStatus, the attempt-scoped
-`mystra-agent` context/status CLI, optional Agent Context, and one goal/autopilot
-Session per thin Harness attempt. `mystra` remains the Control Plane management
+foundations; feature 051 introduced Task productionStatus and the attempt-scoped
+`mystra-agent` context/status CLI; feature 054 owns the current five-state
+vocabulary and handoff semantics. Feature 052 owns optional Agent Context and one
+goal/autopilot Session per thin Harness attempt. `mystra` remains the Control Plane management
 CLI. The self-use Agent reads Linear with host-local `linctl` and creates its PR
 with host-local `gh`; Mystra does not proxy or credential those tools. PR and
 self-test text is Agent-reported and is not verified by Mystra.
@@ -215,8 +296,8 @@ idempotently starts exactly one goal/autopilot Session once that shared
 Workspace is ready. `mystra` remains the Human/external-Agent Control Plane
 management CLI. The workload-local `mystra-agent` resolves the current attempt
 through a short-lived execution code, returns its Task/Project/Issue-reference/
-Workspace context, and lets the scoped Agent report `blocked`, resume
-`in_progress`, or declare `waiting_for_review`. The Agent reads Linear with the
+Workspace context, and lets the scoped Agent report `blocked` (Needs handoff) or
+resume `in_progress`. The Agent reads Linear with the
 host user's authenticated `linctl` and creates its PR with the host user's
 authenticated `gh`; Mystra does not proxy, credential, or verify those tools.
 Human actors own `done` and `canceled`. Session state never automatically
@@ -332,17 +413,21 @@ This project is built by AI agents. Treat repository documentation as the durabl
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely. Because the shared MCP registry contains multiple repositories, always pass `repo: "mystra"`.
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+> Use only the exact repository-pinned CLI through `pnpm gitnexus:*`. Run
+> `pnpm gitnexus:status`, repair native dependencies with the normal
+> `pnpm install` flow if `pnpm gitnexus:doctor` fails, and rebuild with
+> `pnpm gitnexus:rebuild`. The rebuild is index-only so GitNexus cannot replace
+> Mystra's project-local skills or this durable context block.
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({repo: "mystra", target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes({repo: "mystra"})` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({repo: "mystra", scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- When exploring unfamiliar code, use `query({repo: "mystra", query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({repo: "mystra", name: "symbolName"})`.
 - For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
 
 ## Never Do
@@ -365,12 +450,12 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 
 | Task | Read this skill file |
 |------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Understand architecture / "How does X work?" | `.agents/skills/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.agents/skills/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.agents/skills/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.agents/skills/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.agents/skills/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.agents/skills/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
 
@@ -403,6 +488,5 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，经 `RdbProvider`；新增 Session、append-only SessionEvent 与独立 dispatch lease/event stream/head 操作表；领域合同没有 Turn，messageId 仅为消息幂等/事件关联；049 只支持 Task-bound Session 并复用 048 Workspace，非 Task 准备策略延后；Runtime capacity 不入库 (049-session-launch-framework)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16、React 19、Zod 4、Vitest 4；直接复用 049 Session/SessionEvent shared contracts (050-task-session-experience)
 - 050 不新增 Session summary/detail view 或持久化表；只增加 Task-filtered Session query、Task launch adapter 与 SessionEvent presentation (050-task-session-experience)
-
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

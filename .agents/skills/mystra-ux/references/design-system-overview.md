@@ -14,6 +14,7 @@ Mystra UX is the product UI contract for durable decisions across the control-pl
 - **State completeness:** rules must survive loading, empty, no-results, dense content, error, disabled, and permission-limited states.
 - **Input parity:** pointer, keyboard, screen-reader, and touch users receive equivalent access to primary flows.
 - **Programmable truth:** API, MCP, and CLI remain authoritative; UI behavior must not create new platform semantics.
+- **Baseline before composition:** every layout begins by mapping page padding, section gaps, rows, typography, icons, inline controls, and inline grouping to the Mandatory Layout Baseline in `SKILL.md`. Existing screens do not silently override it.
 
 ## Reference Map
 
@@ -29,7 +30,7 @@ Mystra UX is the product UI contract for durable decisions across the control-pl
 
 ## Design Inputs
 
-Collect the user goal, business goal, affected routes and objects, required states, content density, navigation depth, API availability, responsive impact, keyboard/touch requirements, localization impact, current Mystra rules, explicit user feedback, and named source implementations.
+Collect the user goal, business goal, affected routes and objects, required states, content density, navigation depth, API availability, responsive impact, keyboard/touch requirements, localization impact, current Mystra rules, explicit user feedback, and named source implementations. Before sketching, record which baseline roles apply: `300px` sidebar, `8px` page padding, `8px` section gap, `28px` rows, `12px` body/headings/annotations, `16px` icons, `20px` inline controls, `24px` large titles, and `4px` grouped versus `8px` ungrouped inline gaps.
 
 ## Page Families
 

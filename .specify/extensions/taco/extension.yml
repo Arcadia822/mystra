@@ -1,0 +1,76 @@
+schema_version: '1.0'
+
+extension:
+  id: 'taco'
+  name: 'Taco Review'
+  version: '0.3.1'
+  description: 'Installs Taco into a Spec Kit project, keeps feature review files current, and syncs human edits and comments back.'
+  category: 'integration'
+  effect: 'read-write'
+  license: 'MIT'
+
+requires:
+  speckit_version: '>=0.16.0,<1.0.0'
+  commands:
+    - 'speckit.specify'
+
+provides:
+  commands:
+    - name: 'speckit.taco.update'
+      file: 'commands/update.md'
+      description: 'Create or refresh the in-directory Taco for the active feature.'
+    - name: 'speckit.taco.review'
+      file: 'commands/review.md'
+      description: 'Sync Taco edits back to source files and process human review comments.'
+  scripts:
+    - name: 'taco-cli'
+      file: 'bin/taco.mjs'
+      description: 'Offline pack, sync, and comment inspection CLI for Taco files.'
+
+hooks:
+  after_specify:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after the feature specification is written.'
+  after_clarify:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after the specification is clarified.'
+  after_plan:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after planning artifacts change.'
+  after_checklist:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after a checklist changes.'
+  after_tasks:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after task artifacts change.'
+  after_analyze:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after cross-artifact analysis.'
+  after_implement:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after implementation progress changes feature artifacts.'
+  after_converge:
+    command: 'speckit.taco.update'
+    optional: false
+    priority: 10
+    description: 'Update Taco after convergence changes feature artifacts.'
+
+tags:
+  - 'documentation'
+  - 'review'
+  - 'spec-kit'
+  - 'human-in-the-loop'

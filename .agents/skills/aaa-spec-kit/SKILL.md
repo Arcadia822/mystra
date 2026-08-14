@@ -17,10 +17,8 @@ repository's Spec-Kit feature directory:
 
 ```text
 specs/<feature>/
-├── index.html
+├── <feature>.taco.html
 ├── spec.md
-├── features.md
-├── checklists.md
 ├── README.md
 ├── plan.md
 ├── research.md
@@ -36,14 +34,23 @@ specs/<feature>/
 Durable repository rules belong in 5xP files. Feature-specific artifacts belong
 under `specs/<feature>/`.
 
-Each feature should also expose a user-readable HTML review surface at
-`specs/<feature>/index.html` when the repository provides a Spec View template
-or renderer. Treat Markdown artifacts as the source of truth, and the HTML page
-as the owner-facing presentation layer for review and navigation.
+For future feature work, expose a user-readable Taco review surface at
+`specs/<feature>/<feature>.taco.html` through the installed Taco extension.
+Treat Markdown artifacts as the source of truth and Taco as the portable review
+and handoff layer. Do not backfill historical feature directories unless the
+owner explicitly requests it.
 
-所有面向用户、评审者或后续 agent 的 Spec-Kit 产物默认使用中文撰写，除非用户在当前任务中明确要求使用其他语言。保留必要的代码标识符、文件路径、命令、API 名称和英文产品名，但叙述、验收、计划、任务、清单、features、prototype 说明和 quickstart 文案都应使用中文。
+所有面向用户、评审者或后续 agent 的 Spec-Kit 产物默认使用中文撰写，除非用户在当前任务中明确要求使用其他语言。保留必要的代码标识符、文件路径、命令、API 名称和英文产品名，但叙述、验收、计划、任务、清单、prototype 说明和 quickstart 文案都应使用中文。
 
-凡是 UI-facing 或体验相关 spec，必须在进入 tasks 或 implementation 前制作可打开的 prototype 产物。最低要求是 `specs/<feature>/prototype.md` 指向独立 HTML 原型或截图/交互原型；如果已有 `mockups/index.html`，也要通过 `prototype.md` 明确说明原型入口、覆盖页面、使用方式和当前限制。
+凡是 UI-facing 或体验相关 spec，必须在进入 tasks 或 implementation 前使用
+`apps/spec-prototype` 制作可打开的交互 prototype，并由
+`specs/<feature>/prototype.md` 记录 route、覆盖页面、使用方式、mock 边界与
+共享依赖证据。Prototype 必须从 `/starter` 与共享 `PrototypeShell` 起步，
+并与 production Control Plane 直接消费 `packages/ui` 中同一份主题、
+components、icons 和 shell layout contracts。禁止复制 production DOM、SVG、
+tokens 或 CSS anatomy 制作独立 HTML 仿制品；缺失的通用能力先补
+`packages/ui`，再同时验证 production 与 prototype。截图或静态产物只能作为
+补充，不替代该共享代码原型。
 
 Before writing a PRD-like spec, pause for user story discussion unless user
 stories are completely unsuitable for the work. This is an intentional
@@ -96,8 +103,7 @@ When initializing Spec-Kit in a repository, create the standard project surface:
 .specify/scripts/
 .codex/prompts/
 specs/README.md
-scripts/render-spec-view.mjs
-.specify/extensions/spec-artifacts/
+.specify/extensions/taco/
 ```
 
 The constitution captures non-negotiable repository principles. Templates and
@@ -127,7 +133,7 @@ a Spec-Kit phase applies.
 |---|---|---|---|
 | Constitution | `.codex/prompts/speckit.constitution.md` | `.specify/memory/constitution.md` | constitution updates |
 | User Story Discussion | chat-first, before PRD/spec creation | `writing-userstory`, `product-requirements`, `idea-refine` | agreed user stories or explicit technical-scenario rationale |
-| Specify | `.codex/prompts/speckit.specify.md` | `.specify/scripts/*` + `.specify/templates/spec-template.md` + `speckit.spec-artifacts.generate` when available | `specs/<feature>/spec.md`, `features.md`, `checklists.md` |
+| Specify | `.codex/prompts/speckit.specify.md` | `.specify/scripts/*` + `.specify/templates/spec-template.md` | `specs/<feature>/spec.md` |
 | Clarify | `.codex/prompts/speckit.clarify.md` | active `spec.md` | clarified `spec.md` |
 | Plan | `.codex/prompts/speckit.plan.md` | `.specify/scripts/*` + `.specify/templates/plan-template.md` + GitNexus codebase evidence when relevant | `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/` |
 | Plan Review | chat-first review gate | `plan-eng-review`, `gitnexus-exploring`, `gitnexus-impact-analysis` | reviewed plan or required revisions before tasks |
@@ -135,7 +141,7 @@ a Spec-Kit phase applies.
 | Analyze | `.codex/prompts/speckit.analyze.md` | `spec.md`, `plan.md`, `tasks.md` + GitNexus evidence when current-code consistency matters | consistency report or fixes |
 | Implement | `.codex/prompts/speckit.implement.md` | `tasks.md` + GitNexus navigation/debugging/refactoring support as needed | small verified implementation slices |
 | Checklist | `.codex/prompts/speckit.checklist.md` | `.specify/templates/checklist-template.md` | `checklists/*.md` |
-| Spec View | `scripts/render-spec-view.mjs --feature <feature>` | `.specify/templates/spec-view-template.html` + current feature Markdown artifacts | `specs/<feature>/index.html` |
+| Taco Review | `$speckit-taco-update <feature-directory>` / `$speckit-taco-review <taco-path>` | `.specify/extensions/taco/` + canonical feature artifacts | `specs/<feature>/<feature>.taco.html` and conflict-safe review import |
 
 If the user asks for "PRD", "plan", "tasks", or "implementation" for a
 feature, map the request to the closest Spec-Kit phase instead of creating a
@@ -146,42 +152,24 @@ run a short user story discussion, then create or update the Spec-Kit spec from
 the agreed stories. If the work is truly not user-story-shaped, record why and
 use concrete technical scenarios with named actors instead.
 
-### Spec View Presentation
+### Taco Review Presentation
 
-When the repository has `.specify/templates/spec-view-template.html` and
-`scripts/render-spec-view.mjs`, every feature can expose a stable HTML entry
-point for owner review:
+When `.specify/extensions/taco/` is installed, every future feature change must
+refresh the exact in-directory Taco through `$speckit-taco-update`. The feature
+directory remains canonical; do not hand-edit the generated HTML shell.
 
-```sh
-node scripts/render-spec-view.mjs --feature <feature>
-```
+After a successful update, open the exact generated Taco in the Agent GUI's
+internal browser when available and verify that it is displayed. If local-file
+navigation is unavailable or blocked, provide a clickable absolute path and
+state that it was not opened. This presentation step is a human review handoff,
+not a substitute for diff checks, Spec-Kit health checks, tests, or runtime UI
+acceptance.
 
-The page should use tabs for:
-
-- `SPEC`
-- `FEATURES`
-- `CHECKLISTS`
-- `PROTOTYPE`
-- `PLAN`
-- `TASKS`
-
-`SPEC`, `FEATURES`, `CHECKLISTS`, `PROTOTYPE`, `PLAN`, and `TASKS` should load
-directly from `spec.md`, `features.md`, `checklists.md`, `prototype.md`,
-`plan.md`, and `tasks.md` when those files exist. `PROTOTYPE` may link to an
-independent HTML prototype page, typically `specs/<feature>/mockups/index.html`.
-The renderer must not parse headings or infer structure from standard Spec-Kit
-files; it reads fixed artifact paths and renders missing states when files do
-not exist.
-
-After changing Spec-Kit artifacts, default to source-level verification such as
-`git diff --check`, targeted consistency searches, and the relevant Spec-Kit
-health check. Re-render `specs/<feature>/index.html` only when the HTML review
-surface is an intended deliverable or already tracked for that feature.
-
-Do not open or refresh a browser merely to verify authored spec text. Browser
-verification is reserved for an explicit owner request or for a UI/interaction
-prototype whose acceptance criteria require runtime or visual evidence. A
-backend/data-model/doc-only spec edit should not consume browser context.
+Import a saved review through `$speckit-taco-review`. Validate the Taco before
+complete inspection, preview the sync with `--dry-run`, stop on any conflict,
+and never use `--force` without explicit authorization for the exact paths.
+Read and classify every open comment, update canonical files, then refresh the
+same Taco so its review threads are preserved.
 
 ## Feature Health Checks
 
@@ -363,10 +351,9 @@ Use this decision table after loading the required context:
 - Spec-Kit feature artifacts should be written in Chinese by default, while
   preserving code identifiers, commands, file paths, API names, and product
   names as literals.
-- If the `spec-artifacts` extension is available, `features.md` and
-  `checklists.md` are generated or refreshed in the same feature directory after
-  `spec.md` passes quality validation. These are presentation/review artifacts
-  and do not replace `spec.md` or `checklists/requirements.md`.
+- After `spec.md` passes quality validation, refresh the current feature's Taco
+  through `$speckit-taco-update`; do not create Taco files for untouched
+  historical features.
 - Check the current feature with `spec-kit-status` before or after spec updates
   when you need to confirm artifact completeness or the next Spec-Kit phase.
 - User stories were discussed with the owner before spec creation, or the spec
@@ -377,9 +364,12 @@ Use this decision table after loading the required context:
   `claude-design-prototype`, `claude-design-design-system`,
   `claude-design-frontend-direction`, or `claude-design-dev-handoff` when the
   feature needs those artifacts.
-- UI-facing specs must include a prototype artifact before moving into tasks or
-  implementation. At minimum, create `prototype.md` that links to the independent
-  HTML prototype or mockup entry and records covered surfaces and known limits.
+- UI-facing specs must include a shared-code prototype before moving into tasks
+  or implementation. Add a feature route under `apps/spec-prototype`, start
+  from `/starter` and the shared `PrototypeShell`, and record route, covered
+  surfaces, mock boundaries, known limits, and `packages/ui` reuse evidence in
+  `prototype.md`. Copied standalone HTML, component DOM, SVG, theme tokens, or
+  layout CSS does not satisfy this gate.
 - Acceptance criteria or validation scenarios are independently testable.
 - Open questions are resolved or explicitly marked for clarification.
 

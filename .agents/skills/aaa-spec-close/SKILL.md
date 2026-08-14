@@ -44,8 +44,8 @@ to invent new scope.
      or drift between landed code and feature artifacts
 
 2. **Refresh code-intelligence surfaces**
-   - Check GitNexus freshness with `pnpm dlx gitnexus status`
-   - If stale or materially changed, run `pnpm dlx gitnexus analyze --force`
+   - Check GitNexus freshness with `pnpm gitnexus:status`
+   - If stale or materially changed, run `pnpm gitnexus:rebuild`
    - Refresh repoindex-backed durable docs as needed:
      - `docs/repoindex/overview.md`
      - `docs/repoindex/architecture.md`
@@ -59,6 +59,9 @@ to invent new scope.
    - If code shipped from another branch and only docs drifted, backfill the
      minimal truthful Spec-Kit artifacts instead of pretending the feature is
      still unimplemented
+   - After any current feature artifact changes, invoke `$speckit-taco-update`
+     for that exact feature directory and report the resulting Taco path and
+     preview status; do not backfill untouched historical features
 
 4. **Handle merged branch cleanup**
    - Identify merged local and remote branches related to the feature
@@ -90,5 +93,6 @@ Return a concise closeout report covering:
 - Spec-Kit status/doctor outcome
 - whether GitNexus and repoindex were refreshed
 - any docs/status artifacts updated
+- refreshed Taco path and preview status when the current feature changed
 - any issues ready to close
 - any merged branches ready to delete, clearly marked as awaiting confirmation

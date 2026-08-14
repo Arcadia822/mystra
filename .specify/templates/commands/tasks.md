@@ -72,6 +72,9 @@ You **MUST** consider the user input before proceeding (if not empty).
    - If contracts/ exists: Map interface contracts to user stories
    - If research.md exists: Extract decisions for setup tasks
    - Generate tasks organized by user story (see Task Generation Rules below)
+   - For UI-facing work, schedule missing `packages/ui` primitives before
+     production page integration. Migrate feature composition from
+     `apps/spec-prototype`; never generate copy-DOM/SVG/token/CSS tasks.
    - Generate dependency graph showing user story completion order
    - Create parallel execution examples per user story
    - Validate task completeness (each user story has all needed tasks, independently testable)

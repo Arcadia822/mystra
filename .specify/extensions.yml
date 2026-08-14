@@ -1,9 +1,83 @@
 installed:
-  - id: status-report
-    version: "1.3.4"
-  - id: repoindex
-    version: "1.0.0"
-  - id: doctor
-    version: "1.0.0"
-  - id: spec-artifacts
-    version: "0.1.0"
+- id: doctor
+  version: 1.0.0
+- id: repoindex
+  version: 1.0.0
+- id: status-report
+  version: 1.3.4
+- taco
+hooks:
+  after_specify:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after the feature specification is written.
+    condition: null
+  after_clarify:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after the specification is clarified.
+    condition: null
+  after_plan:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after planning artifacts change.
+    condition: null
+  after_checklist:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after a checklist changes.
+    condition: null
+  after_tasks:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after task artifacts change.
+    condition: null
+  after_analyze:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after cross-artifact analysis.
+    condition: null
+  after_implement:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after implementation progress changes feature artifacts.
+    condition: null
+  after_converge:
+  - extension: taco
+    command: speckit.taco.update
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.taco.update?
+    description: Update Taco after convergence changes feature artifacts.
+    condition: null
+settings:
+  auto_execute_hooks: true

@@ -264,6 +264,9 @@ export const THEME_STORAGE_KEY = "mystra-control-plane-theme-v2";
 export const APPEARANCE_STORAGE_KEY = "mystra-control-plane-appearance-v1";
 
 export const CONTROL_PLANE_FOUNDATION_TOKENS = {
+  "--font-weight-body": "400",
+  "--font-weight-medium": "500",
+  "--font-weight-strong": "600",
   "--space-0": "0px",
   "--space-half": "2px",
   "--space-1": "4px",
@@ -296,7 +299,7 @@ export const CONTROL_PLANE_FOUNDATION_TOKENS = {
   "--reading-body-inset": "24px",
   "--reading-body-inset-narrow": "16px",
   "--modal-inset": "20px",
-  "--popup-inset": "16px",
+  "--popup-inset": "8px",
   "--layout-gap": "12px",
   "--stack-gap": "8px",
   "--tight-gap": "4px",

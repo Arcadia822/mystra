@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN" data-theme-variant="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mystra 053 · Product Overview</title>
+  <link rel="stylesheet" href="../../../apps/control-plane/app/globals.css" />
+  <style>
+    [hidden] { display: none !important; }
+    body { min-height: 100vh; overflow: hidden; }
+    button { cursor: pointer; }
+
+    .prototypeShell { height: 100vh; }
+    .prototypeSidebarHeader { flex: none; }
+    .prototypeBrand { min-width: 0; display: flex; flex: 1; align-items: center; gap: var(--space-2); }
+    .prototypeBrand .brandMark { width: 18px; height: 18px; }
+    .prototypeSidebarActions { display: flex; align-items: center; gap: var(--tight-gap); }
+    .prototypeShell .uiAction[data-icon-only] > svg,
+    .prototypeShell .collapsedHeaderAction > svg,
+    .prototypeSidebarActions .uiAction > svg { width: 16px; height: 16px; display: block; flex: none; }
+    .prototypeNavBlock { display: grid; gap: var(--tight-gap); }
+    .prototypeSidebarFooter { margin-top: auto; padding-top: var(--space-2); }
+
+    .prototypeShellHeader .mystraLogo { width: 18px; height: 18px; }
+    .prototypeCollapsedHeader { gap: var(--space-2); }
+    .prototypeCollapsedBrand { display: flex; align-items: center; gap: var(--space-2); flex: none; }
+    .prototypeCollapsedActions { display: flex; align-items: center; gap: var(--tight-gap); margin-left: var(--space-1); }
+    .prototypeHeaderTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prototypeTeam { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text2); }
+    .prototypeAvatar { width: 18px; height: 18px; display: inline-grid; place-items: center; border-radius: var(--radius-round); background: var(--surface3); color: var(--text2); font-size: 9px; }
+
+    .overviewPage { min-height: 100%; padding: 0 0 var(--page-inset-bottom); }
+    .overviewContent { width: 100%; display: grid; gap: var(--layout-gap); }
+    .overviewSection { min-width: 0; display: grid; gap: var(--tight-gap); }
+    .overviewSectionHeader { min-height: 32px; display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--content-inset); }
+    .overviewSectionHeader[data-align="end"] { justify-content: flex-end; }
+    .overviewSectionHeader h2 { color: var(--text1); font-size: 12px; font-weight: 600; }
+    .overviewSectionBody { min-width: 0; }
+    .overviewSectionBody[data-inset="content"] { padding-inline: var(--content-inset); }
+    .overviewActions { display: flex; align-items: center; gap: var(--space-1); flex: none; }
+    .overviewRange { flex-wrap: nowrap; }
+    .overviewRange .uiSegmentedOption { min-width: 44px; justify-content: center; }
+
+    .statusViewport { overflow-x: auto; }
+    .statusBoard { min-width: 650px; display: grid; grid-template-columns: repeat(5, minmax(124px, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-inset); overflow: hidden; }
+    .statusCard { min-height: 106px; display: flex; flex-direction: column; justify-content: space-between; padding: var(--space-4); border-right: 1px solid var(--border); background: transparent; }
+    .statusCard:last-child { border-right: 0; }
+    .statusCard:hover { background: var(--surface2); }
+    .statusCard span { color: var(--text2); font-size: 11px; font-weight: 500; }
+    .statusCard strong { color: var(--text1); font-size: 28px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+    .statusCard[data-status="blocked"] strong { color: var(--warning); }
+
+    .attentionCount { min-width: 18px; height: 18px; display: inline-grid; place-items: center; padding: 0 var(--space-1); border-radius: var(--radius-compact); background: var(--surface3); color: var(--text2); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .taskListViewport { min-width: 0; min-height: 0; overflow: auto; }
+    .taskStack { --task-list-column-gap: var(--space-2); min-width: 680px; padding-block: var(--space-1); }
+    .taskRow { min-height: 42px; display: flex; align-items: center; gap: var(--task-list-column-gap); padding: 0 var(--content-inset); border: 0; border-radius: var(--radius-control); color: var(--text2); cursor: pointer; }
+    .taskRow:hover { background: var(--surface2); color: var(--text1); }
+    .rowLeftColumns { display: flex; align-items: center; gap: var(--task-list-column-gap); flex: none; }
+    .rowGrow { min-width: 0; display: flex; align-items: center; gap: var(--task-list-column-gap); flex: 1 1 auto; }
+    .rowName { min-width: 0; overflow: hidden; color: var(--text1); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+    .rowSpacer { min-width: var(--space-4); flex: 1 1 auto; }
+    .rowRightColumns { display: flex; align-items: center; justify-content: flex-end; gap: var(--task-list-column-gap); flex: none; font-size: 11px; }
+    .rowMetaItem { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rowTaskId { color: var(--text3); font-family: var(--font-mono); font-size: 10px; }
+    .rowCreated { color: var(--text3); font-variant-numeric: tabular-nums; }
+    .taskLabels { display: flex; align-items: center; justify-content: flex-end; gap: var(--task-list-column-gap); }
+    .taskLabel { min-width: 0; height: 20px; display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-compact); background: var(--surface2); color: var(--text2); font-size: 10px; line-height: 1; white-space: nowrap; }
+    .taskLabel svg { width: 12px; height: 12px; flex: none; }
+    .taskLabelKey { color: var(--text3); font-size: 9px; text-transform: uppercase; }
+    .taskLabel[data-tone="warning"] { background: var(--warning-bg); color: var(--warning); }
+    .taskLabel[data-tone="danger"] { background: var(--danger-bg); color: var(--danger); }
+    .optionalField[hidden] { display: none; }
+    .statusIcon { width: 16px; height: 16px; display: inline-grid; place-items: center; flex: none; color: var(--text3); }
+    .statusIcon svg { width: 16px; height: 16px; }
+    .statusIcon[data-status="in_progress"] { color: var(--accent); }
+    .statusIcon[data-status="blocked"] { color: var(--warning); }
+    .prototypeShell .sidebarVisual[data-visual="status"][data-status="handoff"] { color: var(--warning); }
+
+    .prototypeBackdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: var(--space-4); background: var(--color-backdrop); }
+    .taskComposer { width: min(600px, calc(100vw - var(--space-8))); overflow: visible; box-shadow: 0 20px 70px rgb(0 0 0 / 34%); }
+    .taskComposerHeader { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-2); padding: var(--modal-inset) var(--modal-inset) var(--space-2); }
+    .taskTitleInput { width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text1); font-size: 18px; font-weight: 600; line-height: 1.4; }
+    .taskTitleInput::placeholder, .taskDescription::placeholder { color: var(--text3); }
+    .taskComposerBody { padding: var(--space-2) var(--modal-inset) var(--space-4) !important; }
+    .taskDescription { width: 100%; min-height: 130px; padding: 0; border: 0; outline: 0; resize: vertical; background: transparent; color: var(--text1); line-height: 1.6; }
+    .taskComposerError { min-height: 18px; margin-top: var(--space-2); color: var(--danger); }
+    .taskComposerFooter { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--modal-inset) var(--modal-inset); }
+    .taskProjectPicker { justify-content: flex-start; color: var(--text2); }
+    .taskComposerSubmit { margin-left: auto; }
+    .searchSurface { width: min(680px, calc(100vw - var(--space-8))); box-shadow: 0 20px 70px rgb(0 0 0 / 34%); }
+    .searchDialogInput { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3); border-bottom: 1px solid var(--border); }
+    .searchDialogInput input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text1); }
+    .searchResults { display: grid; gap: var(--tight-gap); padding: var(--space-2); }
+    .searchResult { justify-content: flex-start; min-height: 40px; }
+    .searchResultCopy { min-width: 0; display: grid; gap: var(--space-1); text-align: left; }
+    .searchResultCopy small { color: var(--text3); }
+    .prototypeToast { position: fixed; z-index: 50; right: var(--space-4); bottom: var(--space-4); padding: var(--space-2) var(--space-3); border: 1px solid var(--border-visible); border-radius: var(--radius-control); background: var(--surface3); opacity: 0; transform: translateY(8px); transition: 160ms ease; pointer-events: none; }
+    .prototypeToast.visible { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 720px) {
+      .appShell { grid-template-columns: 0 minmax(0, 1fr); }
+      .sidebar { width: 0; min-width: 0; padding: 0; border: 0; opacity: 0; visibility: hidden; pointer-events: none; }
+      .collapsedHeaderInset { display: flex; }
+      .prototypeTeam span:not(.prototypeAvatar) { display: none; }
+      .collapsedHeaderBrand { display: none; }
+      .overviewActions { width: 100%; }
+      .overviewRange { flex: 1; }
+      .overviewRange .uiSegmentedOption { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+    <defs><symbol id="githubMark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></symbol><symbol id="statusInProgress" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M12 12V3a9 9 0 0 1 9 9Z" fill="currentColor"></path></symbol><symbol id="statusHandoff" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor"></circle><path d="M7.5 12h8M12.5 8.5 16 12l-3.5 3.5" fill="none" stroke="var(--text1)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path></symbol></defs>
+  </svg>
+
+  <div class="appShell prototypeShell" id="appShell">
+    <aside class="sidebar" aria-label="Primary sidebar">
+      <header class="sidebarHeader prototypeSidebarHeader">
+        <div class="prototypeBrand">
+          <svg class="mystraLogo brandMark" aria-label="Mystra" role="img" viewBox="0 0 1024 1024"><rect class="mystraLogoSurface" height="1024" width="1024" rx="228"></rect><g class="mystraLogoSeams" fill="none" stroke-linecap="butt" stroke-width="48"><path d="M -64 -64 L 512 512"></path><path d="M 1088 -64 L 512 512"></path><path d="M 1088 1088 L 512 512"></path><path d="M -64 1088 L 512 512"></path></g><rect class="mystraLogoForeground" height="328" rx="80" width="328" x="348" y="348"></rect><rect class="mystraLogoSurface" height="232" rx="32" width="232" x="396" y="396"></rect></svg>
+          <span class="brandText">Mystra</span>
+        </div>
+        <div class="prototypeSidebarActions">
+          <button class="uiAction" data-tone="ghost" data-size="header" data-icon-only data-action="new" aria-label="New Task" title="New Task"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+          <button class="uiAction" data-tone="ghost" data-size="header" data-icon-only data-action="search" aria-label="Search" title="Search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg></button>
+          <button class="uiAction" data-tone="ghost" data-size="header" data-icon-only id="collapseSidebar" aria-label="Collapse sidebar" title="Collapse sidebar"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M4 4h16v16H4z"></path><path d="M9 4v16"></path><path d="m15 9-3 3 3 3"></path></svg></button>
+        </div>
+      </header>
+
+      <div class="sidebarContent">
+        <nav class="sidebarNav prototypeNavBlock" aria-label="Main navigation">
+          <button class="navItem" data-active><span class="sidebarVisual"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z"></path></svg></span><span>Overview</span></button>
+          <button class="navItem" data-nav="Inbox"><span class="sidebarVisual"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M4 4h16v14H4z"></path><path d="M4 13h4l2 3h4l2-3h4"></path></svg></span><span>Inbox</span><span class="sidebarBadge">3</span></button>
+          <button class="navItem" data-nav="Tasks"><span class="sidebarVisual"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M5 6h14M5 12h14M5 18h14"></path><circle cx="3" cy="6" r=".6" fill="currentColor"></circle><circle cx="3" cy="12" r=".6" fill="currentColor"></circle><circle cx="3" cy="18" r=".6" fill="currentColor"></circle></svg></span><span>Tasks</span></button>
+          <button class="navItem" data-nav="Runtimes"><span class="sidebarVisual"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 9h8M8 15h5"></path></svg></span><span>Runtimes</span></button>
+        </nav>
+
+        <section class="sidebarProjectSection" aria-labelledby="projectsHeading">
+          <div class="sidebarSectionHeader"><h2 id="projectsHeading">Projects</h2></div>
+          <div class="sidebarProjectList">
+            <a class="sidebarProject" href="#"><span class="sidebarMarkShape"></span><span>Mystra</span></a>
+            <a class="sidebarProject" href="#"><span class="sidebarMarkShape"></span><span>Castrel AI</span></a>
+          </div>
+        </section>
+
+        <section class="sidebarTaskSection" aria-labelledby="activeTasksHeading">
+          <div class="sidebarSectionHeader"><h2 id="activeTasksHeading">Active Tasks</h2></div>
+          <div class="sidebarTaskScroll">
+            <div class="taskProjectGroup">
+              <a class="taskProjectHeader" href="#"><span class="sidebarMarkShape"></span><span>Mystra</span></a>
+              <div class="projectTaskList">
+                <a class="sidebarTask" href="#" data-task="MYS-531"><span class="sidebarVisual" data-visual="status" data-status="active"><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#statusInProgress"></use></svg></span><span>Review task launch reliability</span></a>
+                <a class="sidebarTask" href="#" data-task="MYS-528"><span class="sidebarVisual" data-visual="status" data-status="active"><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#statusInProgress"></use></svg></span><span>Verify runner daemon enrollment</span></a>
+              </div>
+            </div>
+            <div class="taskProjectGroup">
+              <a class="taskProjectHeader" href="#"><span class="sidebarMarkShape"></span><span>Castrel AI</span></a>
+              <div class="projectTaskList"><a class="sidebarTask" href="#" data-task="CAST-1902"><span class="sidebarVisual" data-visual="status" data-status="handoff"><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#statusHandoff"></use></svg></span><span>Repository permission recovery</span></a></div>
+            </div>
+          </div>
+        </section>
+        <div class="prototypeSidebarFooter"><button class="navItem" data-nav="Settings"><span class="sidebarVisual"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3A1.7 1.7 0 0 0 14 21v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4a1.7 1.7 0 0 0 1-1.6v-.2h4v.2A1.7 1.7 0 0 0 15 4a1.7 1.7 0 0 0 1.9.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"></path></svg></span><span>Settings</span></button></div>
+      </div>
+    </aside>
+
+    <main class="shellMain">
+      <header class="shellHeader prototypeShellHeader">
+        <div class="collapsedHeaderInset prototypeCollapsedHeader">
+          <div class="prototypeCollapsedBrand"><svg class="mystraLogo brandMark" aria-hidden="true" viewBox="0 0 1024 1024"><rect class="mystraLogoSurface" height="1024" width="1024" rx="228"></rect><g class="mystraLogoSeams" fill="none" stroke-linecap="butt" stroke-width="48"><path d="M -64 -64 L 512 512"></path><path d="M 1088 -64 L 512 512"></path><path d="M 1088 1088 L 512 512"></path><path d="M -64 1088 L 512 512"></path></g><rect class="mystraLogoForeground" height="328" rx="80" width="328" x="348" y="348"></rect><rect class="mystraLogoSurface" height="232" rx="32" width="232" x="396" y="396"></rect></svg><span class="collapsedHeaderBrand">Mystra</span></div>
+          <div class="prototypeCollapsedActions">
+            <button class="uiAction collapsedHeaderAction" data-tone="ghost" data-size="header" data-icon-only data-action="new" aria-label="New Task" title="New Task"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+            <button class="uiAction collapsedHeaderAction" data-tone="ghost" data-size="header" data-icon-only data-action="search" aria-label="Search" title="Search"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg></button>
+            <button class="uiAction collapsedHeaderAction" data-tone="ghost" data-size="header" data-icon-only id="expandSidebar" aria-label="Expand sidebar" title="Expand sidebar"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M4 4h16v16H4z"></path><path d="M9 4v16"></path><path d="m13 9 3 3-3 3"></path></svg></button>
+          </div>
+        </div>
+        <strong class="prototypeHeaderTitle">Overview</strong>
+        <div class="shellHeaderControls"><div class="prototypeTeam"><span>Arcadia</span><span class="prototypeAvatar">A</span></div></div>
+      </header>
+
+      <div class="shellMainContent">
+        <section class="overviewPage" aria-label="Product overview">
+          <div class="overviewContent">
+            <section class="overviewSection" aria-label="Task 当前状态统计">
+              <header class="overviewSectionHeader" data-align="end">
+                <div class="overviewActions">
+                  <div class="uiSegmented overviewRange" role="group" aria-label="统计时间范围">
+                    <button class="uiAction uiSegmentedOption" data-tone="ghost" data-size="compact" data-window="7d" data-active aria-pressed="true">7 天</button>
+                    <button class="uiAction uiSegmentedOption" data-tone="ghost" data-size="compact" data-window="30d" aria-pressed="false">30 天</button>
+                    <button class="uiAction uiSegmentedOption" data-tone="ghost" data-size="compact" data-window="all" aria-pressed="false">全部</button>
+                  </div>
+                </div>
+              </header>
+              <div class="overviewSectionBody statusViewport" data-inset="content">
+                <div class="statusBoard">
+                  <article class="statusCard" data-status="pending"><span>未执行</span><strong>12</strong></article>
+                  <article class="statusCard" data-status="inProgress"><span>执行中</span><strong>7</strong></article>
+                  <article class="statusCard" data-status="blocked"><span>待接手</span><strong>3</strong></article>
+                  <article class="statusCard" data-status="done"><span>已完成</span><strong>31</strong></article>
+                  <article class="statusCard" data-status="canceled"><span>已取消</span><strong>4</strong></article>
+                </div>
+              </div>
+            </section>
+
+            <section class="overviewSection" aria-labelledby="attentionTitle">
+              <header class="overviewSectionHeader"><h2 id="attentionTitle">需要关注</h2><span class="attentionCount">4</span></header>
+              <div class="overviewSectionBody taskListViewport">
+                <div class="taskStack" role="list" aria-label="需要关注的 Tasks">
+                  <div class="taskRow" role="listitem" tabindex="0" data-task="MYS-531">
+                    <div class="rowLeftColumns"><span class="statusIcon" data-status="in_progress" title="执行中"><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#statusInProgress"></use></svg></span><span class="rowTaskId optionalField" data-property-value="taskid" hidden>MYS-531</span></div>
+                    <div class="rowGrow"><span class="rowName">Review task launch reliability</span><span class="rowSpacer"></span></div>
+                    <div class="rowRightColumns"><span class="taskLabel" data-property-value="project"><svg aria-hidden="true"><use href="#githubMark"></use></svg>Mystra</span><span class="taskLabel optionalField" data-property-value="issue" hidden>No issue</span><span class="taskLabels" data-property-value="labels"><span class="taskLabel" data-tone="warning"><span class="taskLabelKey">session</span>中断 1</span><span class="taskLabel" data-tone="danger"><span class="taskLabelKey">session</span>错误 1</span></span><span class="rowMetaItem rowCreated" data-property-value="created">7 分钟前</span></div>
+                  </div>
+                  <div class="taskRow" role="listitem" tabindex="0" data-task="CAST-1902">
+                    <div class="rowLeftColumns"><span class="statusIcon" data-status="blocked" title="待接手"><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#statusHandoff"></use></svg></span><span class="rowTaskId optionalField" data-property-value="taskid" hidden>CAST-1902</span></div>
+                    <div class="rowGrow"><span class="rowName">Repository permission recovery</span><span class="rowSpacer"></span></div>
+                    <div class="rowRightColumns"><span class="taskLabel" data-property-value="project"><svg aria-hidden="true"><use href="#githubMark"></use></svg>Castrel AI</span><span class="taskLabel optionalField" data-property-value="issue" hidden>No issue</span><span class="taskLabels" data-property-value="labels"><span class="taskLabel" data-tone="warning"><span class="taskLabelKey">task</span>待接手</span><span class="taskLabel"><span class="taskLabelKey">session</span>待接手 1</span></span><span class="rowMetaItem rowCreated" data-property-value="created">18 分钟前</span></div>
+                  </div>
+                  <div class="taskRow" role="listitem" tabindex="0" data-task="MYS-528">
+                    <div class="rowLeftColumns"><span class="statusIcon" data-status="in_progress" title="执行中"><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#statusInProgress"></use></svg></span><span class="rowTaskId optionalField" data-property-value="taskid" hidden>MYS-528</span></div>
+                    <div class="rowGrow"><span class="rowName">Verify runner daemon enrollment</span><span class="rowSpacer"></span></div>
+                    <div class="rowRightColumns"><span class="taskLabel" data-property-value="project"><svg aria-hidden="true"><use href="#githubMark"></use></svg>Mystra</span><span class="taskLabel optionalField" data-property-value="issue" hidden>No issue</span><span class="taskLabels" data-property-value="labels"><span class="taskLabel"><span class="taskLabelKey">session</span>待接手 1</span></span><span class="rowMetaItem rowCreated" data-property-value="created">42 分钟前</span></div>
+                  </div>
+                  <div class="taskRow" role="listitem" tabindex="0" data-task="MYS-519">
+                    <div class="rowLeftColumns"><span class="statusIcon" data-status="blocked" title="待接手"><svg aria-hidden="true" viewBox="0 0 24 24"><use href="#statusHandoff"></use></svg></span><span class="rowTaskId optionalField" data-property-value="taskid" hidden>MYS-519</span></div>
+                    <div class="rowGrow"><span class="rowName">Workspace materialization</span><span class="rowSpacer"></span></div>
+                    <div class="rowRightColumns"><span class="taskLabel" data-property-value="project"><svg aria-hidden="true"><use href="#githubMark"></use></svg>Mystra</span><span class="taskLabel optionalField" data-property-value="issue" hidden>No issue</span><span class="taskLabels" data-property-value="labels"><span class="taskLabel" data-tone="warning"><span class="taskLabelKey">task</span>待接手</span><span class="taskLabel" data-tone="danger"><span class="taskLabelKey">session</span>执行错误 1</span></span><span class="rowMetaItem rowCreated" data-property-value="created">2 小时前</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="prototypeBackdrop" id="newTaskBackdrop" hidden>
+    <section class="uiDialogSurface taskComposer" role="dialog" aria-modal="true" aria-label="New Task">
+      <header class="taskComposerHeader"><input class="taskTitleInput" id="taskTitleInput" placeholder="Task title" aria-label="Task title" /><button class="uiAction" data-tone="ghost" data-size="header" data-icon-only data-close aria-label="Close New Task"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></header>
+      <div class="uiSurfaceBody taskComposerBody"><textarea class="taskDescription" id="taskDescription" placeholder="Add a description…" aria-label="Task description"></textarea><div class="taskComposerError" id="taskComposerError" role="alert"></div></div>
+      <footer class="taskComposerFooter"><button class="uiAction taskProjectPicker" data-tone="ghost" data-size="default"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M3.5 6.5h6l2 2h9v10h-17z"></path><path d="M3.5 6.5v-2h6l2 2"></path></svg>Mystra</button><button class="uiAction taskComposerSubmit" data-tone="solid" data-size="default" id="createTaskButton">Create task</button></footer>
+    </section>
+  </div>
+
+  <div class="prototypeBackdrop" id="searchBackdrop" hidden>
+    <section class="uiDialogSurface searchSurface" role="dialog" aria-modal="true" aria-label="Search">
+      <label class="searchDialogInput"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="globalSearchInput" placeholder="Search tasks…" /><button class="uiAction" data-tone="ghost" data-size="compact" data-close>Esc</button></label>
+      <div class="searchResults"><button class="uiAction searchResult" data-tone="ghost" data-block data-task="MYS-531"><span class="statusIcon" data-status="in_progress"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M20 4v6h-6"></path></svg></span><span class="searchResultCopy"><strong>Review task launch reliability</strong><small>Mystra · In progress</small></span></button></div>
+    </section>
+  </div>
+
+  <div class="prototypeToast" id="toast" role="status"></div>
+  <script>
+    const counts = {
+      "7d":  { pending: 12, inProgress: 7,  blocked: 3, done: 31,  canceled: 4 },
+      "30d": { pending: 26, inProgress: 18, blocked: 8, done: 84,  canceled: 11 },
+      "all": { pending: 39, inProgress: 24, blocked: 14, done: 217, canceled: 26 }
+    };
+    const shell = document.getElementById('appShell');
+    const newTaskBackdrop = document.getElementById('newTaskBackdrop');
+    const searchBackdrop = document.getElementById('searchBackdrop');
+    const toast = document.getElementById('toast');
+    let toastTimer;
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.classList.add('visible');
+      toastTimer = setTimeout(() => toast.classList.remove('visible'), 1600);
+    }
+    function closeDialogs() { newTaskBackdrop.hidden = true; searchBackdrop.hidden = true; }
+
+    document.getElementById('collapseSidebar').addEventListener('click', () => shell.classList.add('sidebarCollapsed'));
+    document.getElementById('expandSidebar').addEventListener('click', () => shell.classList.remove('sidebarCollapsed'));
+    document.querySelectorAll('[data-action="new"]').forEach((button) => button.addEventListener('click', () => { closeDialogs(); newTaskBackdrop.hidden = false; requestAnimationFrame(() => document.getElementById('taskTitleInput').focus()); }));
+    document.querySelectorAll('[data-action="search"]').forEach((button) => button.addEventListener('click', () => { closeDialogs(); searchBackdrop.hidden = false; requestAnimationFrame(() => document.getElementById('globalSearchInput').focus()); }));
+    document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', closeDialogs));
+    [newTaskBackdrop, searchBackdrop].forEach((backdrop) => backdrop.addEventListener('click', (event) => { if (event.target === backdrop) closeDialogs(); }));
+
+    document.querySelectorAll('[data-window]').forEach((button) => button.addEventListener('click', () => {
+      document.querySelectorAll('[data-window]').forEach((candidate) => {
+        const active = candidate === button;
+        candidate.toggleAttribute('data-active', active);
+        candidate.setAttribute('aria-pressed', String(active));
+      });
+      const values = counts[button.dataset.window];
+      document.querySelectorAll('.statusCard').forEach((card) => { card.querySelector('strong').textContent = values[card.dataset.status]; });
+      showToast(`统计已切换为${button.textContent.trim()}；关注列表保持全 Team 范围`);
+    }));
+
+    document.getElementById('createTaskButton').addEventListener('click', () => {
+      const title = document.getElementById('taskTitleInput');
+      const error = document.getElementById('taskComposerError');
+      if (!title.value.trim()) { error.textContent = 'Enter a task title.'; title.focus(); return; }
+      error.textContent = '';
+      closeDialogs();
+      showToast(`Created “${title.value.trim()}”`);
+      title.value = '';
+      document.getElementById('taskDescription').value = '';
+    });
+
+    document.querySelectorAll('.taskRow, .sidebarTask, .searchResult').forEach((item) => item.addEventListener('click', (event) => {
+      event.preventDefault();
+      showToast(`进入 Task 详情：${item.dataset.task}`);
+    }));
+    document.querySelectorAll('[data-nav]').forEach((item) => item.addEventListener('click', () => showToast(`${item.dataset.nav} · 由对应功能页负责`)));
+    document.querySelectorAll('.sidebarProject, .taskProjectHeader').forEach((item) => item.addEventListener('click', (event) => { event.preventDefault(); showToast('进入 Project 详情'); }));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDialogs(); });
+  </script>
+</body>
+</html>

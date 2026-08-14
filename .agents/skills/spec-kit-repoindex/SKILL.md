@@ -26,7 +26,7 @@ Use the project-local repository indexing extension installed under:
 
 ## Mystra Defaults
 
-1. Refresh GitNexus first. Start with `npx gitnexus status`; if the index is stale, run `npx gitnexus analyze --force` before trusting structural claims.
+1. Refresh GitNexus first. Start with `pnpm gitnexus:status`; if the index is stale, run `pnpm gitnexus:rebuild` before trusting structural claims.
 2. Use GitNexus as the primary structure source when available:
    - `gitnexus://repo/mystra/context`
    - `gitnexus://repo/mystra/clusters`

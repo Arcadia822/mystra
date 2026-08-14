@@ -159,6 +159,9 @@ In scope:
 - Next.js control plane with canonical Task, Session, Runner, Project, Issue,
   Integration, Repository, and review-handoff contracts. Existing Session and
   Runner callers are not persistence requirements for the first Prisma schema.
+- Task production status is exactly `pending`, `in_progress`, `blocked`, `done`,
+  or `canceled`; `blocked` is displayed as Needs handoff / 待接手. Task has no
+  `waiting_for_review`, `error`, or `failed` top-level status.
 - `RdbProvider` with selectable SQLite, PostgreSQL, and Supabase-backed
   PostgreSQL deployments. Supabase reuses the PostgreSQL implementation while
   adding explicit pooled-runtime and direct-migration connection configuration.
@@ -176,9 +179,11 @@ In scope:
 - Two intentionally separate CLI surfaces: `mystra` manages Control Plane
   resources for Humans, external Agents, and automation; workload-local
   `mystra-agent` uses a short-lived, attempt-scoped execution code to return the
-  current execution context and let the scoped Agent report `blocked`, resume
-  `in_progress`, or declare `waiting_for_review`. Human actors own `done` and
-  `canceled`; Session state never automatically mutates Task production status.
+  current execution context and let the scoped Agent report `blocked` (Needs
+  handoff) or resume `in_progress`. Human actors own `done` and `canceled`, and
+  may resolve `blocked` to `in_progress` or `done`; Session state never
+  automatically mutates Task production status. Review, authorization, waiting
+  for answers or information, and other causes remain future handoff reasons.
 - In the self-use MVP, the executing Agent reads Linear through the host user's
   authenticated `linctl` and publishes a PR through the host user's
   authenticated `gh`. Mystra neither proxies those CLIs nor issues their
@@ -214,7 +219,7 @@ In scope:
   and lifecycle reporting belong to 049; capacity/slot accounting remains a
   future Runtime capability.
 - Direct Docker sandbox and Agent execution with test, build, preview, branch,
-  commit, review, and `waiting_for_review` evidence.
+  commit, review, and Agent-reported handoff evidence attached to `blocked`.
 - Thin CLI, MCP, and secondary Web clients over the canonical API.
 - Team-authorized, Session-scoped typed event history needed for execution,
   recovery and diagnosis.

@@ -1,0 +1,98 @@
+import {
+  type AnchorHTMLAttributes,
+  forwardRef,
+  type ButtonHTMLAttributes,
+} from "react";
+
+export type UiActionTone = "ghost" | "soft" | "solid" | "danger";
+export type UiActionSize = "inline" | "compact" | "header" | "default";
+
+export interface UiActionStyleProps {
+  active?: boolean;
+  block?: boolean;
+  iconOnly?: boolean;
+  size?: UiActionSize;
+  tone?: UiActionTone;
+}
+
+export function joinClassNames(...values: Array<string | false | null | undefined>): string {
+  return values.filter(Boolean).join(" ");
+}
+
+export interface UiButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement>, UiActionStyleProps {}
+
+export const UiButton = forwardRef<HTMLButtonElement, UiButtonProps>(function UiButton(
+  {
+    active = false,
+    block = false,
+    children,
+    className,
+    iconOnly = false,
+    size = "header",
+    tone = "ghost",
+    type = "button",
+    ...props
+  },
+  ref,
+) {
+  return (
+    <button
+      {...props}
+      className={joinClassNames("uiAction", className)}
+      data-active={active || undefined}
+      data-block={block || undefined}
+      data-icon-only={iconOnly || undefined}
+      data-size={size}
+      data-tone={tone}
+      ref={ref}
+      type={type}
+    >
+      {children}
+    </button>
+  );
+});
+
+export interface UiIconButtonProps extends Omit<UiButtonProps, "aria-label" | "iconOnly"> {
+  "aria-label": string;
+}
+
+export const UiIconButton = forwardRef<HTMLButtonElement, UiIconButtonProps>(
+  function UiIconButton(props, ref) {
+    return <UiButton {...props} iconOnly ref={ref} />;
+  },
+);
+
+export interface UiActionAnchorProps
+  extends AnchorHTMLAttributes<HTMLAnchorElement>, UiActionStyleProps {}
+
+export const UiActionAnchor = forwardRef<HTMLAnchorElement, UiActionAnchorProps>(
+  function UiActionAnchor(
+    {
+      active = false,
+      block = false,
+      children,
+      className,
+      iconOnly = false,
+      size = "header",
+      tone = "ghost",
+      ...props
+    },
+    ref,
+  ) {
+    return (
+      <a
+        {...props}
+        className={joinClassNames("uiAction", className)}
+        data-active={active || undefined}
+        data-block={block || undefined}
+        data-icon-only={iconOnly || undefined}
+        data-size={size}
+        data-tone={tone}
+        ref={ref}
+      >
+        {children}
+      </a>
+    );
+  },
+);

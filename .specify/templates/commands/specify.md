@@ -174,7 +174,17 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+7. **Shared-Code Prototype Gate**: For UI-facing or experience-facing work,
+   create or refresh a route in `apps/spec-prototype` from the existing
+   `/starter` and shared `PrototypeShell`. Production and prototype MUST
+   import the same theme, components, icons, and shell layout contracts from
+   `packages/ui`; copied standalone HTML/DOM/SVG/token/component CSS is not a
+   valid prototype. Record route, covered states, mock boundaries, limits, and
+   shared-import evidence in `specs/<feature>/prototype.md`.
+
+8. Report completion with branch name, spec file path, prototype path when
+   applicable, checklist results, and readiness for the next phase
+   (`/speckit.clarify` or `/speckit.plan`).
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 

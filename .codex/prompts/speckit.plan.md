@@ -38,6 +38,10 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Phase 1: Generate data-model.md, contracts/, quickstart.md
    - Phase 1: Update agent context by running the agent script
    - Re-evaluate Constitution Check post-design
+   - For UI-facing work, map the approved prototype composition to production
+     adapters and identify every shared `packages/ui` change. The plan MUST
+     preserve one implementation for theme, components, icons, and shell layout;
+     copied prototype markup/styles are a gate failure.
 
 4. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
 

@@ -33,6 +33,11 @@
 
 [Gates determined based on constitution file]
 
+For UI-facing features, explicitly record the `apps/spec-prototype` route,
+`packages/ui` imports, production adapter boundary, and browser verification
+plan. Any duplicated theme/component/icon/shell implementation is a gate
+violation, not acceptable prototype debt.
+
 ## Project Structure
 
 ### Documentation (this feature)

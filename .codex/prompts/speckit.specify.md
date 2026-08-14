@@ -176,23 +176,24 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. **Generate Spec Artifacts**: If `.specify/extensions/spec-artifacts/commands/generate.md` exists, follow that command contract for the current feature:
+7. **Prototype Requirement For UI-Facing Specs**: If the feature is UI-facing or experience-facing, create or refresh `prototype.md` before handing off to planning/tasks.
 
-   - Use the freshly validated `spec.md` as a complete source document.
-   - Use the original feature description and already-loaded repository context as supporting context.
-   - Write `features.md` and `checklists.md` beside `spec.md`, using Chinese prose by default.
-   - Do not modify `spec.md`, `plan.md`, `tasks.md`, or files under `checklists/`.
-   - Do not parse `spec.md` headings or reformat the standard Spec-Kit artifacts.
+   - Add or refresh `apps/spec-prototype/app/<feature>/page.tsx`, starting from
+     the existing `/starter` route and shared `PrototypeShell`.
+   - The independent prototype app and production Control Plane MUST directly
+     import the same theme, component, icon, and layout implementations from
+     `packages/ui`. Do not copy production DOM, SVG, tokens, component CSS, or
+     modal/dropdown/popup behavior into a standalone HTML artifact.
+   - If the design needs a missing reusable primitive, add it to
+     `packages/ui` first, then verify both production and prototype consumers.
+   - `prototype.md` must record the route, source composition, covered states,
+     mock/data boundaries, known limits, and concrete shared-import evidence.
+   - Screenshots or static exports may supplement this route but do not replace
+     it. Do not treat a written PRD/spec as the prototype.
 
-8. **Prototype Requirement For UI-Facing Specs**: If the feature is UI-facing or experience-facing, create or refresh `prototype.md` before handing off to planning/tasks.
+8. **Refresh Taco**: Invoke `$speckit-taco-update` with the exact current feature directory. Require the generated path to be `specs/<feature>/<feature>.taco.html`, a nonzero embedded file count, and the installed command's reported exclusions. Open the exact Taco in the Agent GUI's internal browser when available; otherwise report the clickable absolute path and the preview limitation. Do not backfill untouched historical features.
 
-   - `prototype.md` must link to an independent HTML prototype, screenshot set, or interactive prototype artifact.
-   - If `mockups/index.html` exists, use it as the prototype entry and document covered surfaces plus known limits.
-   - Do not treat a written PRD/spec as the prototype.
-
-9. **Refresh Spec View**: After changing the spec or synchronized artifacts, re-render `specs/<feature>/index.html` when the renderer exists, then open or refresh that `index.html` in the Codex in-app browser. Use the tab most relevant to the latest change.
-
-10. Report completion with branch name, spec file path, generated artifact paths, prototype path when applicable, checklist results, browser-opened index path, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+9. Report completion with branch name, spec file path, prototype path when applicable, checklist results, Taco path and preview status, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 

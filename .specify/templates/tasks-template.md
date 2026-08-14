@@ -48,6 +48,11 @@ description: "Task list template for feature implementation"
 
 **Purpose**: Project initialization and basic structure
 
+For UI-facing work, reuse the existing `apps/spec-prototype` route/starter and
+create missing reusable primitives in `packages/ui` before production page
+integration. Do not create standalone copied HTML or duplicate standard
+component/theme/layout code.
+
 - [ ] T001 Create project structure per implementation plan
 - [ ] T002 Initialize [language] project with [framework] dependencies
 - [ ] T003 [P] Configure linting and formatting tools

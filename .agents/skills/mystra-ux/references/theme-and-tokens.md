@@ -60,9 +60,9 @@ A token family is complete only when it defines relevant default, hover, active/
 - `codex-theme-v1` remains strict and exposes only `theme.fonts.ui` and `theme.fonts.code`. The adapter maps the imported UI primary family to both Mystra UI and content roles, and maps the imported code primary family to code. Never add `content` to the v1 JSON.
 - When a Codex font contains a family list, normalize only its first primary family for Mystra runtime use; exact parser/serializer round-trip retains the original external payload.
 - Legacy saved Graphite stacks migrate to the new Mystra role defaults. A deliberately saved single family such as `Fira Code` remains valid.
-- Default UI, sidebar labels, table cells, and compact controls: 12px.
-- Metadata, badges, section annotations: 10–11px.
-- Compact page/section headings: 14px unless the page family requires a stronger title.
+- Body text, UI labels, table cells, small headings, section annotations, metadata, badges, and medium headings use 12px.
+- Separate those 12px roles with semantic color and weight, not private font sizes: body uses weight `400`; annotations use muted/secondary color; compact small and medium headings use weight `500` and the appropriate text role. Breadcrumb current nodes, inspector titles, and section titles must not use `600` or heavier private overrides.
+- Large page titles use 24px. Do not invent intermediate display sizes to compensate for weak spacing or color hierarchy.
 - Use tabular figures for counts, ids, timestamps, capacity, and comparisons.
 - Selected navigation relies on surface and color, not heavy weight.
 - Avoid marketing-scale display typography in the operational control plane.
@@ -70,10 +70,10 @@ A token family is complete only when it defines relevant default, hover, active/
 ## Geometry and Depth
 
 - Base grid: 4px; preferred scale: 4, 8, 12, 16, 24, 32, 48, 96px.
-- Role spacing: page inline 16px desktop/12px narrow, page top 12px, page bottom 32px, panel/row inline 12px, compact row inline 8px, layout gap 12px, stack gap 8px, tight gap 4px, reading body 24px desktop/16px narrow.
+- Role spacing: page container 8px on every side, section/layout gap 8px, row/panel inline 8px, grouped inline gap 4px, unrelated inline gap 8px, reading body 24px desktop/16px narrow only as an explicitly owned inner reading role.
 - Do not accumulate outer and inner horizontal insets. The owning section supplies the inset; children align to it.
 - Radius scale: 0, 2, 4, 6px. Chips and hairline affordances use 2px; dense rows, panels, and controls use 4px or less; composers, popovers, and modals may use 6px. There is no 3px token.
-- Castrel-derived actions use 24px compact, 28px header/navigation, and 32px default role heights; standard fields use 36px; coarse-pointer hit areas reach 44px through responsive target sizing rather than desktop whitespace.
+- Default inline form controls and actions use a 20px visual height inside a 28px row. Header/navigation controls use 28px. Existing 24px compact, 32px action, and 36px stacked-field heights are explicit component roles, not the default for inline forms. Coarse-pointer hit areas reach 44px through responsive target sizing rather than desktop whitespace.
 - Page and reader content are E0 on one base plane.
 - Sticky separation is E1: a quiet hairline only when needed.
 - Popups and floating tools are E2: an elevated surface plus restrained separation.
@@ -90,7 +90,7 @@ A token family is complete only when it defines relevant default, hover, active/
 
 ## Icons and Assets
 
-- Reuse one shared brand row and one 16px shell icon grid.
+- Reuse one shared brand row and one default 16px icon grid across shell, rows, controls, labels, and status surfaces. A different icon size requires an explicitly named role.
 - Product-object icons identify stable object types; status indicators remain separate.
 - Shell/navigation/action icons are monochrome by default.
 - Keep stroke weight consistent within one surface.
