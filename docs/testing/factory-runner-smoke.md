@@ -10,4 +10,4 @@ This file was produced by a Mystra Task Harness end-to-end run.
 
 Linear issue: `MYST-2`
 
-PR URL: https://github.com/Arcadia822/mystra/pull/26
+PR URL: pending creation with `gh`
