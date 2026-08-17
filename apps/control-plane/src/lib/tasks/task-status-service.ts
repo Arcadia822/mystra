@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
-  isTaskProductionTransitionAllowed,
+  isTaskStatusTransitionAllowed,
   taskStatusTransitionRequestSchema,
-  type TaskProductionStatus,
+  type TaskStatus,
   type TaskStatusActor,
   type TaskStatusTransition,
   type TaskStatusTransitionResult,
@@ -34,11 +34,11 @@ export class TaskStatusService {
     if (!task) throw new TaskProductionFailure("task_not_found", "Task was not found");
     return {
       taskId: task.id,
-      productionStatus: task.productionStatus,
+      status: task.status,
       statusRevision: task.statusRevision,
       statusNote: task.statusNote,
       statusUpdatedAt: task.statusUpdatedAt,
-      allowedTransitions: productionTransitions(input.actorPolicy, task.productionStatus),
+      allowedTransitions: taskTransitions(input.actorPolicy, task.status),
     };
   }
 
@@ -61,7 +61,7 @@ export class TaskStatusService {
     if (!task) throw new TaskProductionFailure("task_not_found", "Task was not found");
     if (
       task.statusRevision === parsed.data.expectedRevision
-      && !isTaskProductionTransitionAllowed(input.actorPolicy, task.productionStatus, parsed.data.status)
+      && !isTaskStatusTransitionAllowed(input.actorPolicy, task.status, parsed.data.status)
     ) {
       throw new TaskProductionFailure("invalid_transition", "Task status transition is not allowed");
     }
@@ -77,7 +77,7 @@ export class TaskStatusService {
       id: this.#newId(),
       teamId: input.teamId,
       taskId: task.id,
-      fromStatus: task.productionStatus,
+      fromStatus: task.status,
       toStatus: parsed.data.status,
       revision: parsed.data.expectedRevision + 1,
       actor: input.actor,
@@ -96,7 +96,7 @@ export class TaskStatusService {
       });
       return {
         taskId: task.id,
-        productionStatus: result.transition.toStatus,
+        status: result.transition.toStatus,
         statusRevision: result.transition.revision,
         statusUpdatedAt: result.transition.occurredAt,
         transitionId: result.transition.id,
@@ -118,12 +118,12 @@ function fingerprint(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
-function productionTransitions(
+function taskTransitions(
   actor: TaskTransitionActor,
-  from: TaskProductionStatus,
-): TaskProductionStatus[] {
-  const candidates: TaskProductionStatus[] = [
-    "pending", "in_progress", "blocked", "waiting_for_review", "done", "canceled",
+  from: TaskStatus,
+): TaskStatus[] {
+  const candidates: TaskStatus[] = [
+    "pending", "in_progress", "blocked", "done", "canceled",
   ];
-  return candidates.filter((to) => isTaskProductionTransitionAllowed(actor, from, to));
+  return candidates.filter((to) => isTaskStatusTransitionAllowed(actor, from, to));
 }

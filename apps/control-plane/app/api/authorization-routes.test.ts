@@ -16,11 +16,12 @@ const userId = randomUUID();
 const teamId = randomUUID();
 const taskId = randomUUID();
 const taskStatus = {
-  productionStatus: "pending" as const,
+  status: "pending" as const,
+  metadata: {},
   statusRevision: 1,
   statusNote: null,
   statusUpdatedAt: "2026-08-07T00:00:00.000Z",
-  statusActor: { kind: "system" as const, actorId: null, agentId: null, harnessId: null, sessionId: null },
+  statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
 };
 const session = {
   id: randomUUID(),
@@ -68,7 +69,7 @@ beforeEach(() => {
       },
       role: "owner",
     })),
-    listTasks: vi.fn(async () => [{
+    listTaskPage: vi.fn(async () => ({ items: [{
       id: taskId,
       teamId,
       title: "Team Task",
@@ -78,7 +79,8 @@ beforeEach(() => {
       ...taskStatus,
       createdAt: "2026-08-07T00:00:00.000Z",
       updatedAt: "2026-08-07T00:00:00.000Z",
-    }]),
+      projectReference: null,
+    }], nextCursor: null })),
     getTask: vi.fn(async (_id: string, options?: { teamId?: string }) => (
       options?.teamId === teamId
         ? {
@@ -194,10 +196,19 @@ describe("management route authorization", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      tasks: [expect.objectContaining({ teamId })],
+      items: [expect.objectContaining({ teamId })],
+      nextCursor: null,
     });
     const db = await getDb();
-    expect(db.listTasks).toHaveBeenCalledWith({ teamId });
+    expect(db.listTaskPage).toHaveBeenCalledWith({
+      teamId,
+      cursor: null,
+      limit: 50,
+      query: null,
+      statuses: [],
+      sort: "updatedAt",
+      direction: "desc",
+    });
   });
 
   it("keeps an Issue-derived Task readable when live Issue resolution is unavailable", async () => {

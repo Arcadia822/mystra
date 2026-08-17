@@ -27,9 +27,9 @@ import {
   type Session,
   type SessionEvent,
   workspacePreparationAttemptSchema,
-  harnessSchema,
+  taskExecutionAttemptSchema,
   taskStatusTransitionSchema,
-  type Harness,
+  type TaskExecutionAttempt,
   type TaskStatusTransition,
 } from "@mystra/shared";
 
@@ -50,7 +50,7 @@ import type {
   WorkspacePreparationAttempt as PrismaWorkspacePreparationAttempt,
   Session as PrismaSession,
   SessionEvent as PrismaSessionEvent,
-  Harness as PrismaHarness,
+  TaskExecutionAttempt as PrismaTaskExecutionAttempt,
   TaskStatusTransition as PrismaTaskStatusTransition,
 } from "../../generated/prisma/sqlite/client";
 import { RdbError } from "./prisma-errors";
@@ -143,7 +143,8 @@ export function mapTask(row: PrismaTask): TaskRecord {
       externalId: row.issueExternalId,
       identifier: row.issueIdentifier,
     },
-    productionStatus: row.productionStatus,
+    status: row.status,
+    metadata: parseJsonObject(row.metadata),
     statusRevision: row.statusRevision,
     statusNote: row.statusNote,
     statusUpdatedAt: row.statusUpdatedAt,
@@ -153,8 +154,8 @@ export function mapTask(row: PrismaTask): TaskRecord {
   });
 }
 
-export function mapHarness(row: PrismaHarness): Harness {
-  return harnessSchema.parse({
+export function mapTaskExecutionAttempt(row: PrismaTaskExecutionAttempt): TaskExecutionAttempt {
+  return taskExecutionAttemptSchema.parse({
     ...row,
     taskIssue: row.taskIssue === null ? null : parseJsonObject(row.taskIssue),
   });

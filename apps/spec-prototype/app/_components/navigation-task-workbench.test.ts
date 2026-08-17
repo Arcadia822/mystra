@@ -18,7 +18,15 @@ describe("054 Kanban property rendering contract", () => {
   it("applies the same visible property state to Issue and Updated At", () => {
     expect(source).toContain('visibleProperties.has("issue") && task.issue');
     expect(kanbanSource).toContain('visibleProperties.has("updated")');
-    expect(kanbanSource).toContain('<TaskLabels task={task} visibleProperties={visibleProperties} />');
+    expect(kanbanSource).toContain('<TaskPropertyLabels task={task} visibleProperties={visibleProperties} />');
+  });
+
+  it("models Metadata inside Task and leaves display ordering to the frontend", () => {
+    expect(source).toContain("metadata: Record<string, PrototypeJsonValue>");
+    expect(source).not.toContain("labels: Array<");
+    expect(source).toContain("function taskMetadataEntries");
+    expect(source).toContain("Object.entries(task.metadata)");
+    expect(source).toContain("JSON.stringify(value)");
   });
 
   it("keeps every default field in each card", () => {
@@ -31,5 +39,12 @@ describe("054 Kanban property rendering contract", () => {
   it("opens the same Task detail route from table and Kanban", () => {
     expect(source).toContain("onClick={() => openTask(task.id)}");
     expect(kanbanSource).toContain('className="boardCardPrimaryLink"');
+  });
+
+  it("models persisted external identifiers without repository snapshots", () => {
+    expect(source).toContain("R_kgDOMystra");
+    expect(source).toContain("R_kgDOCastrel");
+    expect(source).not.toContain('project: "Mystra"');
+    expect(source).not.toContain('project: "Castrel AI"');
   });
 });

@@ -8,7 +8,7 @@ export const STANDARD_EXECUTION_PROMPT_CONTENT = [
   "When a Linear Issue is referenced, read it with the host-local linctl identity available to the workload. Mystra does not proxy or supply that credential.",
   "Work only in the attached Workspace and branch. Implement the requested code change, preserve unrelated work, and run appropriate self-tests.",
   "Create the reviewable pull request with the host-local gh identity available to the workload. Mystra does not proxy that credential and does not verify Agent-reported PR or test statements.",
-  "Report waiting_for_review through mystra-agent when the work is ready for human review. Report blocked with a concrete reason when execution cannot continue.",
+  "Report blocked with a concrete handoff reason when execution cannot continue or the work is ready for human review.",
   "Runtime, Provider, security, Workspace, and Task lifecycle constraints cannot be disabled or replaced by supplemental context.",
 ].join("\n\n");
 

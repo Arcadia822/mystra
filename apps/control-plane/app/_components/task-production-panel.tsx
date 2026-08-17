@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentPage, RuntimeView, Task, TaskProductionStatus } from "@mystra/shared";
+import type { AgentPage, RuntimeView, Task, TaskStatus } from "@mystra/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
@@ -11,13 +11,13 @@ import { UiSelect, UiTextarea } from "./ui-fields";
 
 type ProductionView = {
   task: Task;
-  harness: { id: string; agentId: string | null; agentName: string | null; agentRevision: number | null; workspaceId: string | null; sessionId: string | null; setupFailureCode: string | null; setupFailureMessage: string | null } | null;
+  attempt: { id: string; agentId: string | null; agentName: string | null; agentRevision: number | null; workspaceId: string | null; sessionId: string | null; setupFailureCode: string | null; setupFailureMessage: string | null } | null;
   transitions: Array<{
     id: string;
-    fromStatus: TaskProductionStatus;
-    toStatus: TaskProductionStatus;
+    fromStatus: TaskStatus;
+    toStatus: TaskStatus;
     revision: number;
-    actor: { kind: string; actorId: string | null; agentId: string | null; harnessId: string | null; sessionId: string | null };
+    actor: { kind: string; actorId: string | null; agentId: string | null; attemptId: string | null; sessionId: string | null };
     note: string | null;
     occurredAt: string;
   }>;
@@ -51,7 +51,7 @@ export function TaskProductionPanel({ task }: { task: Task }) {
     if (!providers.some((provider) => provider.provider === providerKey)) setProviderKey(providers[0]?.provider ?? "");
   }, [providerKey, providers]);
 
-  function transitionIdempotencyKey(status: TaskProductionStatus) {
+  function transitionIdempotencyKey(status: TaskStatus) {
     const signature = `${current.statusRevision}:${status}`;
     const existing = transitionIdempotencyKeys.current.get(signature);
     if (existing) return existing;
@@ -77,11 +77,9 @@ export function TaskProductionPanel({ task }: { task: Task }) {
     }
   }
 
-  const humanActions: TaskProductionStatus[] = current.productionStatus === "waiting_for_review"
-    ? ["in_progress", "done", "canceled"]
-    : current.productionStatus === "blocked"
-      ? ["in_progress", "canceled"]
-      : current.productionStatus === "pending" || current.productionStatus === "in_progress"
+  const humanActions: TaskStatus[] = current.status === "blocked"
+      ? ["in_progress", "done", "canceled"]
+      : current.status === "pending" || current.status === "in_progress"
         ? ["canceled"]
         : [];
 
@@ -92,13 +90,12 @@ export function TaskProductionPanel({ task }: { task: Task }) {
           <h2 id="task-production-heading">{zh ? "生产状态" : "Production"}</h2>
           <span>{zh ? "Task 业务状态与 Session 执行状态相互独立" : "Task business state is independent from Session execution state"}</span>
         </div>
-        <StatusBadge state={current.productionStatus} />
+        <StatusBadge state={current.status} />
       </div>
       <dl className="definitionList">
         <div><dt>{zh ? "状态 revision" : "Status revision"}</dt><dd className="mono">{current.statusRevision}</dd></div>
         <div><dt>{zh ? "当前 actor" : "Current actor"}</dt><dd>{current.statusActor.kind} · {current.statusActor.actorId ?? current.statusActor.agentId ?? "system"}</dd></div>
         <div><dt>{zh ? "最新 Session" : "Latest Session"}</dt><dd>{production.data?.latestSession ? `${production.data.latestSession.state} · ${production.data.latestSession.id}` : "—"}</dd></div>
-        <div><dt>Harness</dt><dd className="mono">{production.data?.harness?.id ?? "—"}</dd></div>
         <div><dt>{zh ? "标准提示词版本" : "Standard Prompt version"}</dt><dd className="mono">{production.data?.promptEvidence?.standardPrompt.version ?? "—"}</dd></div>
         <div><dt>{zh ? "可选 Agent 上下文" : "Optional Agent Context"}</dt><dd>{production.data?.promptEvidence?.agentContext ? `${production.data.promptEvidence.agentContext.name} · r${production.data.promptEvidence.agentContext.revision}` : (zh ? "无附加上下文" : "None")}</dd></div>
       </dl>
@@ -108,8 +105,8 @@ export function TaskProductionPanel({ task }: { task: Task }) {
           <p>{production.data.agentReport.text}</p>
         </div>
       ) : current.statusNote ? <p className="formNotice">{current.statusNote}</p> : null}
-      {production.data?.harness?.setupFailureMessage ? (
-        <p className="formError">{production.data.harness.setupFailureCode}: {production.data.harness.setupFailureMessage}</p>
+      {production.data?.attempt?.setupFailureMessage ? (
+        <p className="formError">{production.data.attempt.setupFailureCode}: {production.data.attempt.setupFailureMessage}</p>
       ) : null}
       {production.data?.transitions.length ? (
         <div>
@@ -129,7 +126,7 @@ export function TaskProductionPanel({ task }: { task: Task }) {
           </ol>
         </div>
       ) : null}
-      {current.productionStatus === "pending" ? (
+      {current.status === "pending" ? (
         <div className="sessionLaunchForm">
           <p className="formNotice">{zh ? "标准执行提示词始终生效；可选 Agent 上下文只补充行为偏好。" : "The Standard Execution Prompt always applies. Optional Agent Context only adds behavior preferences."}</p>
           {activeAgents.length > 0 ? <label>{zh ? "可选 Agent 上下文" : "Optional Agent Context"}

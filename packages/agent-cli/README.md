@@ -1,6 +1,6 @@
 # `mystra-agent`
 
-Attempt-scoped workload CLI for a Mystra production Harness. It is deliberately
+Attempt-scoped workload CLI for a Mystra TaskExecutionAttempt. It is deliberately
 separate from the Human and automation-facing `mystra` Control Plane CLI.
 
 The Runtime injects only:
@@ -16,11 +16,11 @@ mystra-agent context get
 mystra-agent task status get
 mystra-agent task status set blocked --expected-revision 2 --idempotency-key cmd-1 --note "linctl is unavailable"
 mystra-agent task status set in_progress --expected-revision 3 --idempotency-key cmd-2
-mystra-agent task status set waiting_for_review --expected-revision 4 --idempotency-key cmd-3 --note "PR: ...; tests: ..."
+mystra-agent task status set blocked --expected-revision 4 --idempotency-key cmd-3 --note "Ready for review: PR ...; tests: ..."
 ```
 
 The CLI never accepts a Task ID. The execution code selects the exact Team,
-Task, Harness, Session, Project, and Workspace, plus optional frozen Agent
+Task, TaskExecutionAttempt, Session, Project, and Workspace, plus optional frozen Agent
 Context. `whoami` and `context get` return `agentContext: null` when Start did
 not select an Agent; otherwise they return the frozen Agent ID, name, and
 revision. The execution code identifies the attempt independently of Agent

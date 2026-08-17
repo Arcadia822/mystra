@@ -18,7 +18,7 @@ const messageId = "00000000-0000-4000-8000-000000000007";
 function fixture() {
   const createSessionWithEvents = vi.fn(async (input: SessionLaunchPersistenceInput) => ({ session: input.session, created: true }));
   const db = {
-    getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, productionStatus: "pending", statusRevision: 1, statusNote: null, statusUpdatedAt: "2026-08-10T00:00:00.000Z", statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null }, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
+    getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, status: "pending", metadata: {}, statusRevision: 1, statusNote: null, statusUpdatedAt: "2026-08-10T00:00:00.000Z", statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null }, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
     getProjectById: vi.fn(async () => ({
       id: projectId, teamId, name: "Mystra", slug: "mystra",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000011",
@@ -60,26 +60,26 @@ function fixture() {
 }
 
 describe("SessionService.launch", () => {
-  it("launches a Harness with frozen Agent and Task input plus the standard production bootstrap", async () => {
+  it("launches a TaskExecutionAttempt with frozen Agent and Task input plus the standard production bootstrap", async () => {
     const { service, createSessionWithEvents, db } = fixture();
     db.resolveActiveAgent.mockRejectedValue(new Error("current Agent must not be resolved"));
-    const harness = {
+    const attempt = {
       id: "00000000-0000-4000-8000-000000000020", teamId, taskId, projectId, agentId, agentRevision: 2,
-      agentName: "Production Agent", agentSystemPrompt: "Frozen production Agent prompt.", taskTitle: "Frozen Harness title", taskDescription: "Frozen Harness description", taskIssue: null,
+      agentName: "Production Agent", agentSystemPrompt: "Frozen production Agent prompt.", taskTitle: "Frozen attempt title", taskDescription: "Frozen attempt description", taskIssue: null,
       runtimeId, providerKey: "codex" as const, workspaceId: "00000000-0000-4000-8000-000000000008",
       plannedSessionId: sessionId, sessionId: null, firstMessageId: messageId, assignIdempotencyKey: "assign-1",
       assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,
       createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
     };
-    await service.launchHarness({ actor: { actorId: `harness:${harness.id}`, teamId, roles: ["owner"] }, harness });
+    await service.launchAttempt({ actor: { actorId: `attempt:${attempt.id}`, teamId, roles: ["owner"] }, attempt });
     const persisted = createSessionWithEvents.mock.calls[0]![0];
     const prompt = persisted.events[1]!.payload.finalPrompt;
     expect(prompt).toContain("Frozen production Agent prompt");
     expect(prompt).toContain("mystra-agent context get");
     expect(prompt).toContain("linctl");
     expect(prompt).toContain("gh");
-    expect(prompt).not.toContain("Frozen Harness title");
-    expect(prompt).not.toContain("Frozen Harness description");
+    expect(prompt).not.toContain("Frozen attempt title");
+    expect(prompt).not.toContain("Frozen attempt description");
     expect(prompt).not.toContain("MYSTRA_EXECUTION_CODE");
     expect(db.resolveActiveAgent).not.toHaveBeenCalled();
   });

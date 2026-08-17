@@ -41,6 +41,8 @@ import {
 
 type Layout = "table" | "kanban";
 
+type PrototypeJsonValue = null | boolean | number | string | PrototypeJsonValue[] | { [key: string]: PrototypeJsonValue };
+
 interface PrototypeTask {
   id: string;
   title: string;
@@ -48,19 +50,19 @@ interface PrototypeTask {
   projectProvider?: "github";
   issue?: string;
   issueProvider?: "github" | "linear";
-  labels: Array<{ key?: string; value: string }>;
+  metadata: Record<string, PrototypeJsonValue>;
   status: TaskStatus;
   createdAt: string;
   updatedAt: string;
 }
 
 const tasks: PrototypeTask[] = [
-  { id: "MYS-118", title: "Navigation task workbench", project: "Mystra", projectProvider: "github", issue: "MYS-118", issueProvider: "linear", labels: [{ value: "frontend" }, { key: "priority", value: "high" }], status: "in_progress", createdAt: "2026-08-13T08:10:00Z", updatedAt: "2026-08-13T09:12:00Z" },
-  { id: "MYS-114", title: "Overview review and product metric handoff", project: "Mystra", projectProvider: "github", issue: "#214", issueProvider: "github", labels: [{ value: "design" }], status: "blocked", createdAt: "2026-08-12T10:00:00Z", updatedAt: "2026-08-13T06:20:00Z" },
-  { id: "CAS-62", title: "Repair provider health diagnostics", project: "Castrel AI", projectProvider: "github", labels: [{ value: "backend" }, { key: "owner", value: "platform" }], status: "blocked", createdAt: "2026-08-10T11:00:00Z", updatedAt: "2026-08-12T18:00:00Z" },
-  { id: "MYS-109", title: "Draft release notes", labels: [{ value: "docs" }], status: "pending", createdAt: "2026-08-09T05:00:00Z", updatedAt: "2026-08-09T05:00:00Z" },
-  { id: "MYS-101", title: "Unify task status icon family across every list surface", project: "Mystra", projectProvider: "github", issue: "MYS-101", issueProvider: "linear", labels: [{ value: "ui" }], status: "done", createdAt: "2026-08-06T02:00:00Z", updatedAt: "2026-08-08T08:00:00Z" },
-  { id: "CAS-55", title: "Remove obsolete integration cache spike", project: "Castrel AI", projectProvider: "github", issue: "#188", issueProvider: "github", labels: [{ value: "cleanup" }], status: "canceled", createdAt: "2026-08-04T07:30:00Z", updatedAt: "2026-08-05T13:00:00Z" },
+  { id: "MYS-118", title: "Navigation task workbench", project: "R_kgDOMystra", projectProvider: "github", issue: "MYS-118", issueProvider: "linear", metadata: { area: "frontend", priority: "high" }, status: "in_progress", createdAt: "2026-08-13T08:10:00Z", updatedAt: "2026-08-13T09:12:00Z" },
+  { id: "MYS-114", title: "Overview review and product metric handoff", project: "R_kgDOMystra", projectProvider: "github", issue: "#214", issueProvider: "github", metadata: { area: "design" }, status: "blocked", createdAt: "2026-08-12T10:00:00Z", updatedAt: "2026-08-13T06:20:00Z" },
+  { id: "CAS-62", title: "Repair provider health diagnostics", project: "R_kgDOCastrel", projectProvider: "github", metadata: { area: "backend", owner: "platform" }, status: "blocked", createdAt: "2026-08-10T11:00:00Z", updatedAt: "2026-08-12T18:00:00Z" },
+  { id: "MYS-109", title: "Draft release notes", metadata: { area: "docs" }, status: "pending", createdAt: "2026-08-09T05:00:00Z", updatedAt: "2026-08-09T05:00:00Z" },
+  { id: "MYS-101", title: "Unify task status icon family across every list surface", project: "R_kgDOMystra", projectProvider: "github", issue: "MYS-101", issueProvider: "linear", metadata: { area: "ui" }, status: "done", createdAt: "2026-08-06T02:00:00Z", updatedAt: "2026-08-08T08:00:00Z" },
+  { id: "CAS-55", title: "Remove obsolete integration cache spike", project: "R_kgDOCastrel", projectProvider: "github", issue: "#188", issueProvider: "github", metadata: { area: "cleanup" }, status: "canceled", createdAt: "2026-08-04T07:30:00Z", updatedAt: "2026-08-05T13:00:00Z" },
 ];
 
 const stackedFields: readonly StackedField[] = [
@@ -81,7 +83,13 @@ function TaskDate({ value }: { value: string }) {
   return <time dateTime={value}>{dateFormatter.format(new Date(value))}</time>;
 }
 
-function TaskLabels({ task, visibleProperties }: { task: PrototypeTask; visibleProperties: ReadonlySet<TaskProperty> }) {
+function taskMetadataEntries(task: PrototypeTask): Array<[string, string]> {
+  return Object.entries(task.metadata)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value)]);
+}
+
+function TaskPropertyLabels({ task, visibleProperties }: { task: PrototypeTask; visibleProperties: ReadonlySet<TaskProperty> }) {
   const items: UiLabelOverflowItem[] = [];
   if (visibleProperties.has("project") && task.project) {
     items.push({ content: task.project, icon: task.projectProvider ?? "github", id: `project:${task.project}` });
@@ -90,12 +98,12 @@ function TaskLabels({ task, visibleProperties }: { task: PrototypeTask; visibleP
     items.push({ content: task.issue, icon: task.issueProvider ?? "issue", id: `issue:${task.issue}` });
   }
   if (visibleProperties.has("metadata")) {
-    items.push(...task.labels.map((label) => ({
-      content: <>{label.key ? <span className="taskLabelKey">{label.key}</span> : null}{label.value}</>,
-      id: `label:${label.key ?? ""}:${label.value}`,
+    items.push(...taskMetadataEntries(task).map(([key, value]) => ({
+      content: <><span className="taskLabelKey">{key}</span>{value}</>,
+      id: `metadata:${key}`,
     })));
   }
-  return <UiLabelOverflow aria-label={`Labels for ${task.title}`} items={items} />;
+  return <UiLabelOverflow aria-label={`Properties for ${task.title}`} items={items} />;
 }
 
 export function TaskComposer({ onClose }: { onClose: () => void }) {
@@ -110,7 +118,7 @@ export function TaskComposer({ onClose }: { onClose: () => void }) {
         </UiSurfaceHeader>
         <UiSurfaceBody><UiTextarea aria-label="Task description" className="taskDescription" placeholder="Add a description…" rows={3} /></UiSurfaceBody>
         <UiSurfaceFooter className="taskComposerFooter">
-          <UiDropdown aria-label="Project" icon={<ShellIcon name="project" />} onValueChange={setProject} options={[{ value: "", label: "No project" }, { value: "mystra", label: "Mystra" }, { value: "castrel", label: "Castrel AI" }]} placeholder="No project" size="inline" value={project} variant="ghost" />
+          <UiDropdown aria-label="Project" icon={<ShellIcon name="project" />} onValueChange={setProject} options={[{ value: "", label: "No project" }, { value: "mystra", label: "R_kgDOMystra" }, { value: "castrel", label: "R_kgDOCastrel" }]} placeholder="No project" size="inline" value={project} variant="ghost" />
           <UiButton disabled={!title.trim()} onClick={onClose} size="inline" tone="solid">Create</UiButton>
         </UiSurfaceFooter>
       </UiDialogSurface>
@@ -210,7 +218,7 @@ export function NavigationTaskWorkbench() {
                   right={<>
                     {task.project ? <StackedListField field={stackedFields[3]!}><UiLabel icon="github">{task.project}</UiLabel></StackedListField> : null}
                     {visibleProperties.has("issue") && task.issue ? <StackedListField field={stackedFields[4]!}><UiLabel icon={task.issueProvider ?? "issue"}>{task.issue}</UiLabel></StackedListField> : null}
-                    <StackedListField field={stackedFields[5]!}>{task.labels.map((label) => <UiLabel key={`${label.key ?? ""}:${label.value}`}>{label.key ? <span className="taskLabelKey">{label.key}</span> : null}{label.value}</UiLabel>)}</StackedListField>
+                    <StackedListField field={stackedFields[5]!}>{taskMetadataEntries(task).map(([key, value]) => <UiLabel key={key}><span className="taskLabelKey">{key}</span>{value}</UiLabel>)}</StackedListField>
                     {visibleProperties.has("updated") ? <StackedListField field={stackedFields[6]!}><TaskDate value={task.updatedAt} /></StackedListField> : null}
                     <StackedListField field={stackedFields[7]!}><TaskDate value={task.createdAt} /></StackedListField>
                   </>}
@@ -232,7 +240,7 @@ export function NavigationTaskWorkbench() {
                           {visibleProperties.has("taskid") ? <span className="boardCardTaskId">{task.id}</span> : null}
                         </div>
                         <UiActionAnchor className="boardCardPrimaryLink" href={`/054-navigation-task-workbench/tasks/${encodeURIComponent(task.id)}`} size="compact">{task.title}</UiActionAnchor>
-                        <div className="boardCardLabels"><TaskLabels task={task} visibleProperties={visibleProperties} /></div>
+                        <div className="boardCardLabels"><TaskPropertyLabels task={task} visibleProperties={visibleProperties} /></div>
                         <div className="boardCardDates">
                           {visibleProperties.has("updated") ? <span><small>Updated</small><TaskDate value={task.updatedAt} /></span> : null}
                           <span><small>Created</small><TaskDate value={task.createdAt} /></span>

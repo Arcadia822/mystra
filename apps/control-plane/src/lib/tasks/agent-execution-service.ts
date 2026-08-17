@@ -39,9 +39,9 @@ export class AgentExecutionService {
       version: 1,
       execution: executionIdentity(execution),
       task: {
-        title: execution.harness.taskTitle,
-        description: execution.harness.taskDescription,
-        issue: execution.harness.taskIssue,
+        title: execution.attempt.taskTitle,
+        description: execution.attempt.taskDescription,
+        issue: execution.attempt.taskIssue,
       },
       project: {
         id: execution.project.id,
@@ -60,8 +60,8 @@ export class AgentExecutionService {
   async taskStatus(code: string) {
     const execution = await this.#resolve(code);
     return this.#status.get({
-      teamId: execution.harness.teamId,
-      taskId: execution.harness.taskId,
+      teamId: execution.attempt.teamId,
+      taskId: execution.attempt.taskId,
       actorPolicy: "agent",
     });
   }
@@ -77,14 +77,14 @@ export class AgentExecutionService {
       );
     }
     return this.#status.transition({
-      teamId: execution.harness.teamId,
-      taskId: execution.harness.taskId,
+      teamId: execution.attempt.teamId,
+      taskId: execution.attempt.taskId,
       actorPolicy: "agent",
       actor: {
         kind: "agent",
         actorId: null,
-        agentId: execution.harness.agentId,
-        harnessId: execution.harness.id,
+        agentId: execution.attempt.agentId,
+        attemptId: execution.attempt.id,
         sessionId: execution.session.id,
       },
       request: parsed.data,
@@ -100,20 +100,20 @@ export class AgentExecutionService {
       throw new TaskProductionFailure("capability_expired", "Execution capability is missing or expired");
     }
     if (
-      resolved.harness.sessionId !== resolved.session.id
-      || resolved.harness.workspaceId !== resolved.workspace.id
-      || resolved.harness.teamId !== resolved.session.teamId
-      || resolved.harness.taskId !== resolved.session.taskId
-      || resolved.harness.projectId !== resolved.session.projectId
-      || resolved.harness.runtimeId !== resolved.session.runtimeId
-      || resolved.harness.providerKey !== resolved.session.providerKey
-      || resolved.harness.agentId !== resolved.session.agentId
-      || resolved.harness.agentRevision !== resolved.session.agentRevision
-      || resolved.harness.taskId !== resolved.task.id
-      || resolved.harness.projectId !== resolved.project.id
-      || resolved.harness.taskId !== resolved.workspace.taskId
-      || resolved.harness.projectId !== resolved.workspace.projectId
-      || resolved.harness.runtimeId !== resolved.workspace.runtimeId
+      resolved.attempt.sessionId !== resolved.session.id
+      || resolved.attempt.workspaceId !== resolved.workspace.id
+      || resolved.attempt.teamId !== resolved.session.teamId
+      || resolved.attempt.taskId !== resolved.session.taskId
+      || resolved.attempt.projectId !== resolved.session.projectId
+      || resolved.attempt.runtimeId !== resolved.session.runtimeId
+      || resolved.attempt.providerKey !== resolved.session.providerKey
+      || resolved.attempt.agentId !== resolved.session.agentId
+      || resolved.attempt.agentRevision !== resolved.session.agentRevision
+      || resolved.attempt.taskId !== resolved.task.id
+      || resolved.attempt.projectId !== resolved.project.id
+      || resolved.attempt.taskId !== resolved.workspace.taskId
+      || resolved.attempt.projectId !== resolved.workspace.projectId
+      || resolved.attempt.runtimeId !== resolved.workspace.runtimeId
     ) {
       throw new TaskProductionFailure("scope_mismatch", "Execution capability scope no longer matches the attempt");
     }
@@ -123,14 +123,14 @@ export class AgentExecutionService {
 
 function executionIdentity(execution: ResolvedWorkloadExecution) {
   return {
-    teamId: execution.harness.teamId,
-    taskId: execution.harness.taskId,
-    harnessId: execution.harness.id,
+    teamId: execution.attempt.teamId,
+    taskId: execution.attempt.taskId,
+    attemptId: execution.attempt.id,
     sessionId: execution.session.id,
-    agentContext: execution.harness.agentId === null ? null : {
-      agentId: execution.harness.agentId,
-      name: execution.harness.agentName!,
-      revision: execution.harness.agentRevision!,
+    agentContext: execution.attempt.agentId === null ? null : {
+      agentId: execution.attempt.agentId,
+      name: execution.attempt.agentName!,
+      revision: execution.attempt.agentRevision!,
     },
     expiresAt: execution.executionCodeExpiresAt,
   };

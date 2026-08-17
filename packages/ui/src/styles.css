@@ -1047,7 +1047,16 @@ a.taskProjectHeader:hover,
 
 .shellHeader {
   gap: var(--layout-gap);
+  min-width: 0;
   padding: 0 var(--space-2);
+}
+
+.shellHeader > .uiBreadcrumb {
+  flex: 1 1 auto;
+}
+
+.shellHeader > .shellHeaderControls {
+  flex: none;
 }
 
 .shellHeader strong {

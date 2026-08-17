@@ -30,6 +30,9 @@ describe("shared compact heading typography", () => {
     expect(styles).toContain("--font-weight-body: 400;");
     expect(styles).toContain("--font-weight-strong: 500;");
     expect(rule(".shellHeader strong")).toContain("font-weight: var(--font-weight-strong);");
+    expect(rule(".shellHeader")).toContain("min-width: 0;");
+    expect(rule(".shellHeader > .uiBreadcrumb")).toContain("flex: 1 1 auto;");
+    expect(rule(".shellHeader > .shellHeaderControls")).toContain("flex: none;");
     expect(rule(".rightPanelHeader strong")).toContain("font-weight: var(--font-weight-strong);");
     expect(rule(".uiBreadcrumbLabel")).toContain("font-weight: var(--font-weight-strong);");
   });

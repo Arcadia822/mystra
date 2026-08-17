@@ -1,10 +1,10 @@
 "use client";
 
-import type { Project } from "@mystra/shared";
+import type { Project, TaskWorkbenchPage } from "@mystra/shared";
+import { TaskStatusIcon, UiBreadcrumb } from "@mystra/ui";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import type { TaskListItem } from "../_lib/types";
 import { taskTitle } from "../_lib/task-view";
 import { useResource } from "../_lib/use-resource";
 import {
@@ -21,15 +21,17 @@ import {
   type ThemeVariant,
 } from "../theme-system";
 import { SHELL_COPY, type ShellLocale } from "./shell-copy";
-import { groupTasksByProject, inboxTasks } from "./shell-model";
-import { ShellIcon, type ShellIconName } from "./shell-icons";
+import { activeTasks, groupTasksByProject, inboxTasks } from "./shell-model";
+import { ShellIcon } from "./shell-icons";
 import { ShellSearchDialog } from "./shell-search-dialog";
 import { ShellSettings, type SettingsSection } from "./shell-settings";
 import { ShellTasksProvider } from "./shell-resources";
 import { ShellLocaleProvider } from "./shell-locale";
+import { ShellMainHeaderProvider } from "./shell-main-header";
 import { PRIMARY_ITEMS } from "./shell-navigation";
 import { ShellRightPanelProvider } from "./shell-right-panel";
 import { MystraLogo } from "./mystra-logo";
+import { NewTaskDialog } from "./new-task-dialog";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
 import { UiRightPanelToggle, UiShellRightPanel } from "./ui-surfaces";
 import { ProjectCreateModal } from "./project-create-modal";
@@ -39,7 +41,6 @@ import {
   SidebarIcon,
   SidebarIconButton,
   SidebarMark,
-  SidebarStatusIcon,
 } from "./sidebar-visual";
 
 const LANGUAGE_STORAGE_KEY = "mystra-control-plane-language";
@@ -76,25 +77,18 @@ function routeTitle(pathname: string, locale: ShellLocale): string {
   if (pathname === "/inbox") return zh ? "收件箱" : "Inbox";
   if (pathname.startsWith("/projects/")) return zh ? "Project 详情" : "Project detail";
   if (pathname === "/projects") return "Projects";
-  if (pathname === "/new") return zh ? "新建" : "New";
-  return zh ? "新建" : "New";
-}
-
-function taskStatus(state?: string): { icon: ShellIconName; kind: string; label: string } {
-  if (!state || state === "pending") return { icon: "circle", kind: "idle", label: "pending" };
-  if (state === "in_progress") return { icon: "spinner", kind: "active", label: "in progress" };
-  if (state === "blocked") return { icon: "alert", kind: "error", label: "blocked" };
-  if (state === "waiting_for_review") return { icon: "review", kind: "review", label: "waiting for review" };
-  if (state === "done") return { icon: "check", kind: "success", label: "done" };
-  if (state === "canceled") return { icon: "alert", kind: "error", label: "canceled" };
-  return { icon: "circle", kind: "queued", label: state.replaceAll("_", " ") };
+  return zh ? "概览" : "Overview";
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const tasksResource = useResource<{ tasks: TaskListItem[] }>("/api/tasks", 3_000);
+  const tasksResource = useResource<TaskWorkbenchPage>("/api/tasks?limit=100", 3_000);
   const projectsResource = useResource<{ projects: Project[] }>("/api/projects", 10_000);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const sidebarNewTaskRef = useRef<HTMLButtonElement>(null);
+  const collapsedNewTaskRef = useRef<HTMLButtonElement>(null);
+  const newTaskReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const [projectCreateOpen, setProjectCreateOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("account");
   const [appearance, setAppearance] = useState<AppearancePreferences>(getDefaultAppearancePreferences);
@@ -211,16 +205,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     [projectsResource.data?.projects],
   );
 
-  const taskGroups = useMemo(() => groupTasksByProject(tasksResource.data?.tasks ?? []).map((group) => ({
+  const taskGroups = useMemo(() => groupTasksByProject(activeTasks(tasksResource.data?.items ?? [])).map((group) => ({
       project: group.projectId ? projectById.get(group.projectId) : undefined,
       ...group,
-    })), [projectById, tasksResource.data?.tasks]);
+    })), [projectById, tasksResource.data?.items]);
 
-  const inboxCount = inboxTasks(tasksResource.data?.tasks ?? []).length;
+  const inboxCount = inboxTasks(tasksResource.data?.items ?? []).length;
   const shellTitle = routeTitle(pathname, locale);
   const sidebarHidden = isNarrow ? !narrowSidebarOpen : sidebarCollapsed;
 
   return (
+    <ShellMainHeaderProvider>
+    {(mainHeader) => (
     <ShellRightPanelProvider>
     {(rightPanel) => {
     const rightPanelCollapsed = Boolean(rightPanel && collapsedRightPanelId === rightPanel.id);
@@ -233,6 +229,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sidebarHeader">
           <MystraLogo className="brandMark" />
           <span className="sidebarLabel brandText">Mystra</span>
+          <div className="sidebarHeaderActions">
+            <UiIconButton aria-label={copy.newTask} onClick={(event) => { newTaskReturnFocusRef.current = event.currentTarget; setSearchOpen(false); setNewTaskOpen(true); }} ref={sidebarNewTaskRef} title={copy.newTask}>
+              <ShellIcon name="plus" />
+            </UiIconButton>
+            <UiIconButton aria-label={copy.search} onClick={() => { setNewTaskOpen(false); setSearchOpen(true); }} title={copy.search}>
+              <ShellIcon name="search" />
+            </UiIconButton>
+          </div>
           <SidebarIconButton
             aria-controls="primary-sidebar"
             aria-label={isNarrow ? copy.collapseSidebar : sidebarCollapsed ? copy.expandSidebar : copy.collapseSidebar}
@@ -246,7 +250,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav aria-label="Primary navigation" className="sidebarNav">
           {PRIMARY_ITEMS.map((item) => {
             const label = copy[item.key];
-            const active = item.href ? isActive(pathname, item.href) : searchOpen;
+            const active = isActive(pathname, item.href);
             const content = (
               <>
                 <SidebarIcon name={item.icon} />
@@ -255,7 +259,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </>
             );
 
-            return item.href ? (
+            return (
               <VerticalNavItem
                 active={active}
                 {...(active ? { ariaCurrent: "page" as const } : {})}
@@ -265,13 +269,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.key}
                 onClick={() => setNarrowSidebarOpen(false)}
               >
-                {content}
-              </VerticalNavItem>
-            ) : (
-              <VerticalNavItem active={active} ariaLabel={label} className="navItem" key={item.key} onClick={() => {
-                setNarrowSidebarOpen(false);
-                setSearchOpen(true);
-              }}>
                 {content}
               </VerticalNavItem>
             );
@@ -302,7 +299,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <section aria-labelledby="sidebar-tasks-title" className="sidebarTaskSection">
           <div className="sidebarSectionHeader">
-            <h2 id="sidebar-tasks-title">{copy.tasks}</h2>
+            <h2 id="sidebar-tasks-title">{locale === "zh-CN" ? "活跃 Tasks" : "Active Tasks"}</h2>
           </div>
           <div className="sidebarTaskScroll">
             {taskGroups.map((group) => (
@@ -310,7 +307,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {group.project ? (
                   <UiActionLink block className="taskProjectHeader" href={`/projects/${encodeURIComponent(group.project.slug)}`}>
                     <SidebarMark />
-                    <span>{group.project.name}</span>
+                    <span>{group.project.repositoryExternalId}</span>
                   </UiActionLink>
                 ) : (
                   <div className="taskProjectHeader">
@@ -320,10 +317,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
                 <div className="projectTaskList">
                   {group.tasks.map((task) => {
-                    const status = taskStatus(task.productionStatus);
                     return (
                       <UiActionLink active={pathname === `/tasks/${task.id}`} block className="sidebarTask" href={`/tasks/${task.id}`} key={task.id}>
-                        <SidebarStatusIcon icon={status.icon} label={status.label} status={status.kind} />
+                        <span className="sidebarVisual" data-visual="status"><TaskStatusIcon status={task.status} /></span>
                         <span>{taskTitle(task)}</span>
                       </UiActionLink>
                     );
@@ -351,9 +347,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="collapsedHeaderInset">
               <MystraLogo className="brandMark" />
               <span className="collapsedHeaderBrand">Mystra</span>
-              <UiActionLink aria-label={copy.new} className="collapsedHeaderAction" href="/" iconOnly title={copy.new}>
+              <UiIconButton aria-label={copy.newTask} className="collapsedHeaderAction" onClick={(event) => { newTaskReturnFocusRef.current = event.currentTarget; setSearchOpen(false); setNewTaskOpen(true); }} ref={collapsedNewTaskRef} title={copy.newTask}>
                 <ShellIcon name="new" />
-              </UiActionLink>
+              </UiIconButton>
+              <UiIconButton aria-label={copy.search} className="collapsedHeaderAction" onClick={() => { setNewTaskOpen(false); setSearchOpen(true); }} title={copy.search}>
+                <ShellIcon name="search" />
+              </UiIconButton>
               <UiIconButton
                 aria-controls="primary-sidebar"
                 aria-label={copy.expandSidebar}
@@ -365,14 +364,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <ShellIcon name="expand" />
               </UiIconButton>
             </div>
-          <strong>{shellTitle}</strong>
-          {rightPanel && rightPanelCollapsed ? (
+          {mainHeader?.breadcrumbItems ? <UiBreadcrumb items={mainHeader.breadcrumbItems} /> : <strong>{mainHeader?.title ?? shellTitle}</strong>}
+          {mainHeader?.actions || (rightPanel && rightPanelCollapsed) ? (
             <div className="shellHeaderControls">
+              {mainHeader?.actions}
+              {rightPanel && rightPanelCollapsed ? (
               <UiRightPanelToggle
                 expanded={false}
                 label={locale === "zh-CN" ? `展开${rightPanel.ariaLabel}` : `Expand ${rightPanel.ariaLabel}`}
                 onToggle={() => setCollapsedRightPanelId(null)}
               />
+              ) : null}
             </div>
           ) : null}
         </header>
@@ -414,6 +416,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           onCreated={projectsResource.refresh}
         />
       ) : null}
+      {newTaskOpen ? (
+        <NewTaskDialog
+          locale={locale}
+          onClose={() => setNewTaskOpen(false)}
+          onCreated={tasksResource.refresh}
+          triggerRef={newTaskReturnFocusRef}
+        />
+      ) : null}
       <ShellSearchDialog
         actionsLabel={copy.actions}
         closeLabel={copy.closeSearch}
@@ -422,6 +432,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         newTaskLabel={copy.newTask}
         noTasksLabel={copy.noTasksToSearch}
         onClose={() => setSearchOpen(false)}
+        onNewTask={() => {
+          newTaskReturnFocusRef.current = sidebarHidden ? collapsedNewTaskRef.current : sidebarNewTaskRef.current;
+          setNewTaskOpen(true);
+        }}
         open={searchOpen}
         openTaskLabel={copy.openTask}
         placeholder={copy.searchPlaceholder}
@@ -429,7 +443,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         repositoryLabel="Project"
         issueLabel={copy.issues}
         showAllLabel={copy.showAll}
-        tasks={tasksResource.data?.tasks ?? []}
+        tasks={tasksResource.data?.items ?? []}
         tasksLabel={copy.tasks}
         title={copy.search}
         updatedLabel={copy.updated}
@@ -445,5 +459,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
     }}
     </ShellRightPanelProvider>
+    )}
+    </ShellMainHeaderProvider>
   );
 }

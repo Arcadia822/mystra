@@ -82,13 +82,13 @@ describe("054 Task detail prototype", () => {
   it("models the canonical manual Session launch fields in a shared dialog", () => {
     expect(dialogSource).toContain("<PrototypeDialog");
     expect(dialogSource).toContain("<UiDialogSurface");
-    expect(dialogSource).toContain("Runtime · locked");
+    expect(dialogSource).toContain("Create Session");
+    expect(dialogSource).toContain('aria-label="Prompt"');
     expect(dialogSource).toContain('aria-label="Provider"');
-    expect(dialogSource).toContain('aria-label="Optional Agent Context"');
-    expect(dialogSource).toContain('aria-label="Manual Context"');
-    expect(dialogSource).toContain("Launch Session");
-    expect(dialogSource).toContain("onLaunch");
-    expect(dialogSource).toContain("dispatchBoundaryReached");
-    expect(dialogSource).toContain('aria-live="polite"');
+    expect(dialogSource).toContain(">Create</UiButton>");
+    expect(dialogSource).not.toContain("Runtime · locked");
+    expect(dialogSource).not.toContain('aria-label="Optional Agent Context"');
+    expect(dialogSource).not.toContain('aria-label="Manual Context"');
+    expect(dialogSource).not.toContain("Launch Session");
   });
 });

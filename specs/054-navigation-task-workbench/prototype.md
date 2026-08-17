@@ -42,6 +42,8 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   brand、New Task、Search 与展开按钮保持在主 header，所有 icon 使用共享
   16px grid。
 - 主导航展示 Overview、Inbox、Tasks、Runtimes，不展示 New、Search、Issues。
+- 053 尚未可用时，Overview 入口只显示明确的无数据 placeholder；prototype 不复制
+  053 查询、指标、空态或 mock dashboard。
 - Active Tasks 保留真实前端的 Project grouping，只展示非终态快捷入口。
 - Tasks 主区域直接显示一个有主题圆角、surface 背景和外围边线的 workbench；
   主 header、toolbar 与内容之间均无 divider。
@@ -57,13 +59,17 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   内容宽度解析；Status icon 默认等宽，Task ID 是左侧等宽前缀，Updated At
   与 Created At 是右侧等宽后缀，非法中间配置会被明确拒绝。
 - 标准 stacked field 必须声明 `text`、`datetime`、`icon` 或 `labels`
-  render type。Task ID 使用 `text`，Created At 与 Updated At 使用 `datetime`，
+  render type；这里的 `labels` 只是 `UiLabel` collection renderer，不表示
+  `TaskLabel` 领域对象。Task ID 使用 `text`，Created At 与 Updated At 使用 `datetime`，
   三者的 typography 与 Name 完全一致；标准 field 不接受 consumer 私有文字
   class。真正特殊的 presentation 只能声明 `custom` 并使用共享
   `StackedListCustomField`。
-- Project、Issue、Metadata 共用 `UiLabel` 与同一个 list gap；Label key、value
-  与 `+N` 使用 12px content text，icon 使用 16×16px slot；Project 带 GitHub
-  icon，Issue 带 GitHub/Linear icon。
+- Project、Issue、Task.metadata entries 共用 `UiLabel` 与同一个 list gap；前端把
+  Metadata object 转换为可见 key/value 并决定 presentation order，持久化层不提供
+  ordinal。Label key、value 与 `+N` 使用 12px content text，icon 使用 16×16px
+  slot。Project 文案只映射
+  provider-stable `repositoryExternalId` 并带 repository provider icon；Issue 文案只映射
+  exact reference 的 `identifier` 并带 GitHub/Linear icon，不增加外部 snapshot mock。
 - Display popup 通过共享 `UiSurfaceBody` 使用标准 `popup-inset`；Properties
   使用共享前置 `UiCheckbox`，必显字段为 checked + disabled，可选字段可切换，
   不使用整行 selected navigation surface 或尾随 check icon。
@@ -77,10 +83,10 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   `<time datetime>`。
 - Kanban 只展示五个状态列；compact card 四边使用 8px inset。card 标题固定占
   两行，超过两行截断，因此卡片高度不随标题长短变化。
-- Kanban card 的 Project、Issue 与 Labels 使用共享 `UiLabelOverflow`：组件按
+- Kanban card 的 Project、Issue 与 Metadata entries 使用共享 `UiLabelOverflow`：组件按
   当前容器宽度与每个 `UiLabel` 的自然宽度保留最长完整前缀，其余内容收敛为
   同系列 `+N` control；点击或键盘激活后由共享 `UiPopover` portal 到全局
-  popup layer 并列出被折叠 Labels。`ResizeObserver` 在 card 宽度变化时重新
+  popup layer 并列出被折叠属性。`ResizeObserver` 在 card 宽度变化时重新
   解析，不通过固定数量、重叠、半截裁切或换行改变卡片高度。
 - New Task 使用共享 `UiDialogSurface` 与 Section slots；composer 只在外层
   使用一次 `space-2`（8px）inset，header/body/footer 自身无
@@ -94,7 +100,7 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   size，在 28px footer row 内保留上下各 4px 空间。
 - Task detail 从 Table row、Kanban card 与 Active Tasks 共用同一个动态 route。
   Main 直接从 Sessions helper row 与 shared stacked list 开始，不再渲染 page-local
-  title/description、Production、Harness 或 Workspace；Properties 与 Status history 通过全局
+  title/description、Production、TaskExecutionAttempt 或 Workspace；Properties 与 Status history 通过全局
   `UiShellRightPanel` 承载。Right Panel header 的共享收起按钮移除第三列并让 Main
   回收宽度；收起后共享展开按钮位于主 header controls 最右侧。两种按钮共用
   `aria-controls`/`aria-expanded`，collapse state 由 shell layout 持有。主 header
@@ -103,7 +109,7 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   不再手写 nav、分隔符或 breadcrumb CSS。全局 shell 在 320px 下按 Main 后
   Right Panel 堆叠。页面级 8px outer inset 只由 shell Main 提供，详情 feature root
   padding 为 0；section gap 与 Right Panel content padding 均为 8px，inline actions
-  为 20px，默认 rows 为 28px。Project、Issue、Labels、
+  为 20px，默认 rows 为 28px。Project、Issue、Metadata Labels、
   status、surface、actions 与 shell 均复用 `@mystra/ui`；prototype 只保留 mock
   execution data 与 detail composition。Main content 不提供 Edit、Start、Workspace
   setup 或 action header；New Session 作为当前 Task surface action 位于 shell Main
@@ -119,7 +125,7 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   Close、Escape 与 backdrop 均可退出，关闭后焦点返回 Header trigger。
 - Prompt 是 `manualContext.text` 的 UI copy，不添加 `prompt` request/domain field，也不
   声称覆盖服务端固定 `firstUserMessage`。Prototype 明确停在 API dispatch 边界，不向
-  Sessions 列表追加 mock、不改变 Task/Harness/Workspace，也不伪造成功导航。
+  Sessions 列表追加 mock、不改变 Task/TaskExecutionAttempt/Workspace，也不伪造成功导航。
 
 ## Task detail 主区域 Data Design
 
@@ -130,7 +136,7 @@ Shell、breadcrumb、Right Panel 收展、Properties、Status history 与全局 
 
 ### Composition
 
-- **Production / Harness / Workspace** 只保留 source-of-truth 映射说明；当前 Main
+- **Production / internal TaskExecutionAttempt record / Workspace** 只保留 source-of-truth 映射说明；TaskExecutionAttempt 不是用户可见产品对象；当前 Main
   不渲染这些 section/card，也不把其 facts 转写到 Session row。
 - **Sessions** 是 Main 的第一个且唯一内容集合。它复用 Tasks 页面同源的
   `StackedList` composition，并默认显示 shared helper row（当前已加载 Session count）。
@@ -153,8 +159,8 @@ Shell、breadcrumb、Right Panel 收展、Properties、Status history 与全局 
 
 Prototype 仍使用固定 mock，但字段必须忠实对应当前 public contracts：
 
-- `Task`: UUID、五态 `productionStatus`、revision/note/actor/ISO timestamps；
-- `Harness | null`: UUID references、frozen optional Agent Context、Runtime/Provider、
+- `Task`: UUID、五态 `status`、status revision/note/actor/ISO timestamps；
+- `TaskExecutionAttempt | null`（internal）: UUID references、frozen optional Agent Context、Runtime/Provider、
   nullable Workspace/Session、setup failure；不得出现 `currentAttempt` 或 sequence；
 - `TaskWorkspaceView | null`: canonical five-state Workspace enum、合法 Git branch/ref、
   40/64 hex commit、`shared-mutable` 与 public failure；
@@ -171,7 +177,7 @@ display value。`ready` 显示为“Ready · can continue”，不是 Completed�
 
 ### States and actions
 
-- Production/Harness/Workspace 状态仍彼此独立，但当前 Main 不显示。
+- Production/TaskExecutionAttempt/Workspace 状态仍彼此独立，但当前 Main 不显示。
 - Sessions: loading、request error、empty、rows、load-more，以及九种 Session state。
 - Main content 中只保留 row-level Open Session navigation；New Session 只在 shell Main
   Header 打开 Modal，不作为 Sessions section 或 empty-state action。
@@ -183,7 +189,7 @@ display value。`ready` 显示为“Ready · can continue”，不是 Completed�
 - raw Session state `Completed`；
 - Workspace repository full name、目录式 `worktrees/...`、7 位 domain commit；
 - 把 Session list row 描述成自身持有 Workspace attachment；
-- Main 中 Sessions 之前的 page-local identity、Production/Harness/Workspace cards；
+- Main 中 Sessions 之前的 page-local identity、Production/TaskExecutionAttempt/Workspace cards；
 - 本任务新增的 `UiTable` wrapper、native table anatomy、caption 与 column headers；
 - 主区域中任何非 UUID entity identity。`MYS-118` 只可作为 Issue identifier；当前
   Right Panel route fixture 仍把它用作 Task ID 的问题属于原 task，不在本次独立任务
@@ -217,7 +223,7 @@ display value。`ready` 显示为“Ready · can continue”，不是 Completed�
   真实 production API。
 - Prototype 证明的是主题、primitive、icon 与 shell geometry 的代码级复用；
   生产 `AppShell` 的数据/路由 adapter 不会被 prototype 伪造。
-- Task labels/metadata 的持久化合同、五态状态迁移以及 production Tasks
+- Task.metadata 的持久化合同、五态状态迁移以及 production Tasks
   查询仍由 054 后续实现完成。原型不是后端合同已经落地的证据。
 - Kanban 不支持拖拽；Filter 只展示入口；不提供分页器、批量状态更新、保存
   view、swimlane 或跨页面偏好。

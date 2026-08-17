@@ -13,24 +13,24 @@ requirements enter as Tasks, Providers perform flexible production under a
 program-owned Standard Execution Prompt, and reviewable results leave the
 factory. Feature 051 first standardizes the Task production lifecycle and a
 narrow Agent status CLI. Feature 052 makes Agent Context optional: one
-lightweight Harness attempt always starts one goal/autopilot Session and freezes
+lightweight TaskExecutionAttempt always starts one goal/autopilot Session and freezes
 an Agent snapshot only when the operator explicitly selects one.
 
 Mystra remains a headless execution control plane. It owns durable intent, Task
-production status, execution truth, resource boundaries, and review handoff.
+status, execution truth, resource boundaries, and review handoff.
 It does not infer business completion from Session output or verify the Agent's
 PR/self-test statements in feature 051.
 
 ## Current domain boundary
 
 - **Task** is a durable Team-scoped production task. It has Mystra-owned title,
-  description and `productionStatus`, plus immutable `0..1` Project and `0..1`
+  description and `status`, plus immutable `0..1` Project and `0..1`
   exact Issue references. Project is context, not ownership; external Issue
   status remains provider-owned and is neither copied nor mapped.
-- **Harness** is one durable production attempt for one Project-bound Task. It
+- **TaskExecutionAttempt** is one durable production attempt for one Project-bound Task. It
   freezes an optional selected Agent name/revision/system-prompt snapshot and associates exactly one long-running
-  Autopilot Session. Feature 051 does not give Harness a parallel production
-  state machine; multiple Sessions, Harness-owned heartbeat/event subscriptions
+  Autopilot Session. Feature 051 does not give TaskExecutionAttempt a parallel
+  production state machine; multiple Sessions, attempt-owned heartbeat/event subscriptions
   and automatic recovery remain follow-up work.
 - **Session** is a Team-scoped execution object and belongs to neither Task nor
   Project. It may independently reference `0..1` Task and `0..1` Project, and
@@ -38,8 +38,8 @@ PR/self-test statements in feature 051.
   serial user messages without a Turn business object. Feature 049's first
   execution slice requires a Task and consumes its ready Workspace; Project-only
   and standalone Session launch remain deferred without changing the north-star
-  optional references. A Harness-driven Session receives these four resolved
-  inputs from its Harness and MUST use the Harness-frozen optional Agent snapshot.
+  optional references. A TaskExecutionAttempt-driven Session receives these four resolved
+  inputs from its attempt and MUST use the attempt-frozen optional Agent snapshot.
 - **SessionEvent** is the typed, immutable, Session-scoped execution history.
   Team-authorized callers may page one Session's validated, bounded and redacted
   events; it is not a top-level business object, global activity feed, or log API.
@@ -71,8 +71,8 @@ Mystra platform
     -> Agent
     -> Project
       -> Issue Integration / repository binding
-    -> Task (productionStatus)
-      -> Harness attempt
+    -> Task (status)
+      -> TaskExecutionAttempt
         -> one Autopilot Session (MVP)
     -> Session
       -> project? (0..1 reference)
@@ -80,7 +80,7 @@ Mystra platform
 ```
 
 The intended experience is similar in spirit to Stripe Minion: fast intake,
-clear Agent production ownership, a flexible Harness, and reviewable output
+clear Agent production ownership, a durable execution attempt, and reviewable output
 without turning Mystra into a general-purpose workflow engine.
 
 Tools that turn ideas into code already exist. They produce prototypes. Mystra
@@ -115,15 +115,17 @@ The north-star is a hosted **Mystra platform** with an open-source core:
   such as repository name, URL, Provider default branch, visibility, and
   archive/delete state are not persisted on Project.
 - **Task** — durable Team-scoped production task with title, description,
-  Mystra-owned `productionStatus`, and immutable optional Project and exact
+  Mystra-owned `status`, and immutable optional Project and exact
   Issue references. It has no Project ownership.
 - **Agent** — Team-scoped behavior configuration with stable identity and one
   effect-related field, system prompt. It has no Project relation.
-- **Harness** — one Task production attempt identity with an optional frozen Agent snapshot
-  and exactly one Autopilot Session in the first version; it has no parallel
-  Task production state machine.
+- **TaskExecutionAttempt (internal)** — durable coordination record for one Task production
+  attempt. It freezes the optional Agent snapshot and launch inputs before a
+  Session exists, then idempotently associates exactly one Autopilot Session in
+  the first version. It is not an operator-facing product object, navigation
+  destination, or parallel Task state machine.
 - **TaskStatusTransition** — append-only record of an authorized, revision-safe
-  Task production status change.
+  Task status change.
 - **Session** — Team-scoped execution object with independent optional Task and
   Project references in the north-star model; the current 048/049/050 slice is
   Task-bound only and defers Project-only/standalone launch.
@@ -140,17 +142,17 @@ Mystra platform
   → Team
     → Agent
     → Project
-    → Task (productionStatus)
-      → Harness attempt → one Autopilot Session
+    → Task (status)
+      → TaskExecutionAttempt → one Autopilot Session
     → Session
       → Project? (0..1 reference)
       → Task? (0..1 reference)
 ```
 
-Each Team may contain multiple Projects, Tasks, Harnesses, Sessions, and Agents
+Each Team may contain multiple Projects, Tasks, TaskExecutionAttempts, Sessions, and Agents
 while sharing platform-owned execution pools. Session selects optional Agent Context independently
-of its optional Project and Task references; a Harness-driven Session is the
-narrow case where its Harness resolves and freezes the optional Agent snapshot.
+of its optional Project and Task references; a TaskExecutionAttempt-driven Session is the
+narrow case where its attempt resolves and freezes the optional Agent snapshot.
 
 ## MVP scope
 
@@ -159,7 +161,7 @@ In scope:
 - Next.js control plane with canonical Task, Session, Runner, Project, Issue,
   Integration, Repository, and review-handoff contracts. Existing Session and
   Runner callers are not persistence requirements for the first Prisma schema.
-- Task production status is exactly `pending`, `in_progress`, `blocked`, `done`,
+- Task status is exactly `pending`, `in_progress`, `blocked`, `done`,
   or `canceled`; `blocked` is displayed as Needs handoff / 待接手. Task has no
   `waiting_for_review`, `error`, or `failed` top-level status.
 - `RdbProvider` with selectable SQLite, PostgreSQL, and Supabase-backed
@@ -173,8 +175,8 @@ In scope:
 - Atomic create-or-open from an exact Project-scoped GitHub or Linear Issue to
   at most one Task; the Issue remains externally owned and read-only.
 - Start production for an eligible Project-bound Task, with optional explicit Agent Context. Start
-  atomically moves `pending` to `in_progress` and creates a thin Harness
-  attempt; after commit it prepares the Task Workspace, then idempotently starts
+  atomically moves `pending` to `in_progress` and creates a TaskExecutionAttempt;
+  after commit it prepares the Task Workspace, then idempotently starts
   exactly one goal/autopilot Session when the Workspace is ready.
 - Two intentionally separate CLI surfaces: `mystra` manages Control Plane
   resources for Humans, external Agents, and automation; workload-local
@@ -182,7 +184,7 @@ In scope:
   current execution context and let the scoped Agent report `blocked` (Needs
   handoff) or resume `in_progress`. Human actors own `done` and `canceled`, and
   may resolve `blocked` to `in_progress` or `done`; Session state never
-  automatically mutates Task production status. Review, authorization, waiting
+  automatically mutates Task status. Review, authorization, waiting
   for answers or information, and other causes remain future handoff reasons.
 - In the self-use MVP, the executing Agent reads Linear through the host user's
   authenticated `linctl` and publishes a PR through the host user's
@@ -239,11 +241,11 @@ Out of scope:
   administration, or GitLab as an enabled intake Integration.
 - A general WorkflowProvider, user-configurable workflow DSL, workflow
   marketplace, standing orders, arbitrary triggers, or orchestration outside
-  the Task-bound Harness. Future Production Recipes require explicit specs.
-- Generic Harness/Artifact CLI commands, Artifact/Delivery contracts, and
+  the Task-bound TaskExecutionAttempt. Future Production Recipes require explicit specs.
+- Generic TaskExecutionAttempt/Artifact CLI commands, Artifact/Delivery contracts, and
   non-PR output profiles. Feature 051 includes only `mystra-agent whoami`,
   `context get`, and the scoped Task status commands.
-- Harness-owned heartbeat/event subscriptions, multiple Sessions, automatic
+- Attempt-owned heartbeat/event subscriptions, multiple Sessions, automatic
   Session recovery, and configurable Production Recipes.
 
 ## Success measures
@@ -252,13 +254,13 @@ Out of scope:
   IntegrationConnection, Project, and Task CRUD behavior through `RdbProvider`.
 - Repeating the same Issue dispatch key returns one Task; conflicting ownership
   fails explicitly.
-- Repeating the same Start command with the same optional Agent intent returns one Harness and one
+- Repeating the same Start command with the same optional Agent intent returns one TaskExecutionAttempt and one
   `pending` → `in_progress` transition; replaying Workspace-ready continuation
   returns the same single Session.
 - Agent status transitions are allowlisted, revision-safe, idempotent, and
   append-only audited; Agent capabilities cannot mark Tasks done or canceled.
 - Session failure or completion does not automatically change Task
-  `productionStatus` or create a second Session.
+  `status` or create a second Session.
 - Mutable Issue and repository information is never persisted as Task or Project
   snapshots.
 - Database selection is explicit at installation time and credentials never

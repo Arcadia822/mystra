@@ -15,4 +15,4 @@ export * from "./task.js";
 export * from "./task-workspace.js";
 export * from "./auth.js";
 export * from "./agent.js";
-export * from "./harness.js";
+export * from "./task-execution-attempt.js";

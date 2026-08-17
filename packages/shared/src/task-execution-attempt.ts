@@ -5,7 +5,7 @@ import { providerNameSchema } from "./schemas.js";
 import {
   taskDescriptionSchema,
   taskIssueReferenceSchema,
-  taskProductionStatusSchema,
+  taskStatusSchema,
   taskStatusIdempotencyKeySchema,
   taskStatusNoteSchema,
   taskTitleSchema,
@@ -39,7 +39,7 @@ export const agentContextIdentitySchema = agentContextSnapshotSchema.pick({
 }).strict();
 export type AgentContextIdentity = z.infer<typeof agentContextIdentitySchema>;
 
-export const harnessSchema = z.object({
+export const taskExecutionAttemptSchema = z.object({
   id: z.string().uuid(),
   teamId: z.string().uuid(),
   taskId: z.string().uuid(),
@@ -68,10 +68,14 @@ export const harnessSchema = z.object({
   const snapshot = [value.agentId, value.agentName, value.agentRevision, value.agentSystemPrompt];
   const present = snapshot.filter((item) => item !== null).length;
   if (present !== 0 && present !== snapshot.length) {
-    context.addIssue({ code: "custom", path: ["agentId"], message: "Harness Agent Context must be wholly present or absent" });
+    context.addIssue({
+      code: "custom",
+      path: ["agentId"],
+      message: "TaskExecutionAttempt Agent Context must be wholly present or absent",
+    });
   }
 });
-export type Harness = z.infer<typeof harnessSchema>;
+export type TaskExecutionAttempt = z.infer<typeof taskExecutionAttemptSchema>;
 
 export const taskStartRequestSchema = z.object({
   agentId: z.string().uuid().nullish().transform((value) => value ?? null),
@@ -86,11 +90,11 @@ export type ParsedTaskStartRequest = z.output<typeof taskStartRequestSchema>;
 export const taskStartResultSchema = z.object({
   task: z.object({
     id: z.string().uuid(),
-    productionStatus: taskProductionStatusSchema,
+    status: taskStatusSchema,
     statusRevision: z.number().int().positive(),
   }).passthrough(),
   transition: taskStatusTransitionSchema,
-  harness: harnessSchema,
+  attempt: taskExecutionAttemptSchema,
   created: z.boolean(),
 }).strict();
 export type TaskStartResult = z.infer<typeof taskStartResultSchema>;
@@ -98,7 +102,7 @@ export type TaskStartResult = z.infer<typeof taskStartResultSchema>;
 export const workloadExecutionIdentitySchema = z.object({
   teamId: z.string().uuid(),
   taskId: z.string().uuid(),
-  harnessId: z.string().uuid(),
+  attemptId: z.string().uuid(),
   sessionId: z.string().uuid(),
   agentContext: agentContextIdentitySchema.nullable(),
   expiresAt: z.string().datetime(),
@@ -154,13 +158,13 @@ export const sessionExecutionCapabilitySchema = z.object({
 export type SessionExecutionCapability = z.infer<typeof sessionExecutionCapabilitySchema>;
 
 export const agentTaskStatusSetRequestSchema = z.object({
-  status: z.enum(["blocked", "in_progress", "waiting_for_review"]),
+  status: z.enum(["blocked", "in_progress"]),
   expectedRevision: z.number().int().positive(),
   idempotencyKey: taskStatusIdempotencyKeySchema,
   note: taskStatusNoteSchema.optional(),
 }).strict().superRefine((value, context) => {
-  if ((value.status === "blocked" || value.status === "waiting_for_review") && !value.note) {
-    context.addIssue({ code: "custom", path: ["note"], message: `${value.status} requires note` });
+  if (value.status === "blocked" && !value.note) {
+    context.addIssue({ code: "custom", path: ["note"], message: "blocked requires note" });
   }
 });
 export type AgentTaskStatusSetRequest = z.infer<typeof agentTaskStatusSetRequestSchema>;

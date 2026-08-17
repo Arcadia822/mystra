@@ -65,7 +65,7 @@ completed response releases local execution ownership; the durable Session
 remains `ready` and may receive another user message. No Runtime capacity or
 slot value is sent or persisted.
 
-Provider discovery is also the execution authority: the Session worker runs the
+Provider discovery is also the execution authority: the Session worker executes the
 exact absolute CLI path that discovery probed as available. It never resolves a
 second bare `codex` or `copilot` command from `PATH`; a missing discovered path
 fails the Session as `provider_unavailable`.

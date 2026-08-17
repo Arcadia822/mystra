@@ -1,4 +1,4 @@
-export type Feature054ProductionStatus =
+export type Feature054TaskStatus =
   | "pending"
   | "in_progress"
   | "blocked"
@@ -29,7 +29,7 @@ interface TaskMainTask {
   id: string;
   teamId: string;
   projectId: string | null;
-  productionStatus: Feature054ProductionStatus;
+  status: Feature054TaskStatus;
   statusRevision: number;
   statusNote: string | null;
   statusUpdatedAt: string;
@@ -37,12 +37,12 @@ interface TaskMainTask {
     kind: "system" | "human" | "agent";
     actorId: string | null;
     agentId: string | null;
-    harnessId: string | null;
+    attemptId: string | null;
     sessionId: string | null;
   };
 }
 
-interface TaskMainHarness {
+interface TaskMainExecutionAttempt {
   id: string;
   teamId: string;
   taskId: string;
@@ -101,7 +101,7 @@ export interface TaskMainSession {
 
 export interface TaskDetailMainFixture {
   task: TaskMainTask;
-  harness: TaskMainHarness | null;
+  attempt: TaskMainExecutionAttempt | null;
   workspace: TaskMainWorkspace | null;
   sessions: readonly TaskMainSession[];
   runtimeNames: Readonly<Record<string, string>>;
@@ -112,7 +112,7 @@ const TASK_ID = "22222222-2222-4222-8222-222222222222";
 const PROJECT_ID = "33333333-3333-4333-8333-333333333333";
 const RUNTIME_ID = "44444444-4444-4444-8444-444444444444";
 const AGENT_ID = "55555555-5555-4555-8555-555555555555";
-const HARNESS_ID = "66666666-6666-4666-8666-666666666666";
+const ATTEMPT_ID = "66666666-6666-4666-8666-666666666666";
 const WORKSPACE_ID = "77777777-7777-4777-8777-777777777777";
 const PRIMARY_SESSION_ID = "88888888-8888-4888-8888-888888888888";
 
@@ -121,7 +121,7 @@ export const TASK_DETAIL_MAIN_FIXTURE: TaskDetailMainFixture = {
     id: TASK_ID,
     teamId: TEAM_ID,
     projectId: PROJECT_ID,
-    productionStatus: "in_progress",
+    status: "in_progress",
     statusRevision: 4,
     statusNote: null,
     statusUpdatedAt: "2026-08-14T03:18:00.000Z",
@@ -129,12 +129,12 @@ export const TASK_DETAIL_MAIN_FIXTURE: TaskDetailMainFixture = {
       kind: "human",
       actorId: "arcadia",
       agentId: null,
-      harnessId: null,
+      attemptId: null,
       sessionId: null,
     },
   },
-  harness: {
-    id: HARNESS_ID,
+  attempt: {
+    id: ATTEMPT_ID,
     teamId: TEAM_ID,
     taskId: TASK_ID,
     projectId: PROJECT_ID,
@@ -230,7 +230,7 @@ export const TASK_DETAIL_MAIN_FIXTURE: TaskDetailMainFixture = {
   runtimeNames: { [RUNTIME_ID]: "Arcadia Mac" },
 };
 
-export const TASK_STATUS_LABELS: Readonly<Record<Feature054ProductionStatus, string>> = {
+export const TASK_STATUS_LABELS: Readonly<Record<Feature054TaskStatus, string>> = {
   pending: "Pending",
   in_progress: "In progress",
   blocked: "Needs handoff",

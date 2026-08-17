@@ -24,7 +24,7 @@ vi.mock("@/lib/task-workspaces/task-workspace-service-factory", () => ({ createT
 const teamId = randomUUID();
 const userId = randomUUID();
 const taskId = randomUUID();
-const harnessId = randomUUID();
+const attemptId = randomUUID();
 const sessionId = randomUUID();
 const agentId = randomUUID();
 const projectId = randomUUID();
@@ -32,8 +32,8 @@ const runtimeId = randomUUID();
 const timestamp = "2026-08-11T00:00:00.000Z";
 const task = {
   id: taskId, teamId, title: "Task", description: null, projectId, issue: null,
-  productionStatus: "in_progress" as const, statusRevision: 2, statusNote: null, statusUpdatedAt: timestamp,
-  statusActor: { kind: "human" as const, actorId: userId, agentId: null, harnessId, sessionId: null },
+  status: "in_progress" as const, metadata: {}, statusRevision: 2, statusNote: null, statusUpdatedAt: timestamp,
+  statusActor: { kind: "human" as const, actorId: userId, agentId: null, attemptId, sessionId: null },
   createdAt: timestamp, updatedAt: timestamp,
 };
 
@@ -51,16 +51,16 @@ beforeEach(() => {
   services.start.mockResolvedValue({
     task,
     transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: task.statusActor, note: null, idempotencyKey: "assign-1", requestFingerprint: "a".repeat(64), occurredAt: timestamp },
-    harness: { id: harnessId, teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: "Task", taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: sessionId, sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: timestamp, updatedAt: timestamp },
+    attempt: { id: attemptId, teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: "Task", taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: sessionId, sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: timestamp, updatedAt: timestamp },
     created: true,
   });
-  services.humanGet.mockResolvedValue({ taskId, productionStatus: "in_progress", statusRevision: 2, statusNote: null, statusUpdatedAt: timestamp, allowedTransitions: ["canceled"] });
-  services.humanSet.mockResolvedValue({ taskId, productionStatus: "canceled", statusRevision: 3, statusUpdatedAt: timestamp, transitionId: randomUUID() });
-  const execution = { teamId, taskId, harnessId, sessionId, agentContext: null, expiresAt: "2026-08-11T02:00:00.000Z" };
+  services.humanGet.mockResolvedValue({ taskId, status: "in_progress", statusRevision: 2, statusNote: null, statusUpdatedAt: timestamp, allowedTransitions: ["canceled"] });
+  services.humanSet.mockResolvedValue({ taskId, status: "canceled", statusRevision: 3, statusUpdatedAt: timestamp, transitionId: randomUUID() });
+  const execution = { teamId, taskId, attemptId, sessionId, agentContext: null, expiresAt: "2026-08-11T02:00:00.000Z" };
   services.whoami.mockResolvedValue({ version: 1, execution, capabilities: ["context:read", "task-status:read", "task-status:transition"] });
   services.context.mockResolvedValue({ version: 1, execution, task: { title: "Task", description: null, issue: null }, project: { id: projectId, repositoryConnectionId: randomUUID(), repositoryExternalId: "R_repo", repositoryBaseBranch: "main" }, workspace: { id: randomUUID(), branch: "task-branch" }, capabilities: ["context:read", "task-status:read", "task-status:transition"] });
-  services.agentGet.mockResolvedValue({ taskId, productionStatus: "in_progress", statusRevision: 2, statusNote: null, statusUpdatedAt: timestamp, allowedTransitions: ["blocked", "waiting_for_review"] });
-  services.agentSet.mockResolvedValue({ taskId, productionStatus: "blocked", statusRevision: 3, statusUpdatedAt: timestamp, transitionId: randomUUID() });
+  services.agentGet.mockResolvedValue({ taskId, status: "in_progress", statusRevision: 2, statusNote: null, statusUpdatedAt: timestamp, allowedTransitions: ["blocked"] });
+  services.agentSet.mockResolvedValue({ taskId, status: "blocked", statusRevision: 3, statusUpdatedAt: timestamp, transitionId: randomUUID() });
   services.workspaceGet.mockResolvedValue(undefined);
 });
 
@@ -92,18 +92,18 @@ describe("Task production routes", () => {
   it("presents Task and latest Session states independently and labels Agent notes as unverified", async () => {
     const reportedTask = {
       ...task,
-      productionStatus: "waiting_for_review" as const,
+      status: "blocked" as const,
       statusRevision: 3,
       statusNote: "PR: https://example.test/pull/7; tests: pass",
-      statusActor: { kind: "agent" as const, actorId: null, agentId, harnessId, sessionId },
+      statusActor: { kind: "agent" as const, actorId: null, agentId, attemptId, sessionId },
     };
-    const harness = (await services.start()).harness;
+    const attempt = (await services.start()).attempt;
     vi.mocked(getDb).mockResolvedValue({
       ...database(),
       getTask: vi.fn(async () => reportedTask),
-      getHarnessByTaskId: vi.fn(async () => harness),
+      getExecutionAttemptByTaskId: vi.fn(async () => attempt),
       listTaskStatusTransitions: vi.fn(async () => [{
-        id: randomUUID(), teamId, taskId, fromStatus: "in_progress", toStatus: "waiting_for_review", revision: 3,
+        id: randomUUID(), teamId, taskId, fromStatus: "in_progress", toStatus: "blocked", revision: 3,
         actor: reportedTask.statusActor, note: reportedTask.statusNote, idempotencyKey: "delivery-1",
         requestFingerprint: "b".repeat(64), occurredAt: timestamp,
       }]),
@@ -131,7 +131,7 @@ describe("Task production routes", () => {
     const payload = await response.json();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(payload.task.productionStatus).toBe("waiting_for_review");
+    expect(payload.task.status).toBe("blocked");
     expect(payload.latestSession.state).toBe("failed");
     expect(payload.promptEvidence).toEqual({
       standardPrompt: { version: `sha256:${"a".repeat(64)}` },

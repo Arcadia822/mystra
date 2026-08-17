@@ -6,7 +6,7 @@ import {
   sessionSchema,
   taskSessionLaunchInputSchema,
   type RuntimeView,
-  type Harness,
+  type TaskExecutionAttempt,
   type ResolvedAgentSnapshot,
   type Session,
   type SessionEvent,
@@ -22,7 +22,7 @@ import {
 import type { RdbProvider } from "../db/rdb-provider";
 import { RdbError } from "../db/prisma-errors";
 import { TaskWorkspaceFailure } from "../task-workspaces/task-workspace-errors";
-import { assembleHarnessSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
+import { assembleTaskExecutionAttemptSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
 import { SessionFailure } from "./session-errors";
 
 type SessionDb = Pick<RdbProvider,
@@ -61,7 +61,7 @@ export class SessionService {
     request: SessionLaunchRequest;
     frozenAgent?: ResolvedAgentSnapshot | null;
     frozenTask?: TaskRecord;
-    harnessBootstrap?: boolean;
+    attemptBootstrap?: boolean;
   }): Promise<{ session: Session; created: boolean }> {
     const request = sessionLaunchRequestSchema.parse(input.request);
     const [task, agent, runtime, project] = await Promise.all([
@@ -110,8 +110,8 @@ export class SessionService {
       revision: agent.revision,
       systemPrompt: agent.systemPrompt,
     } : null;
-    const prompt = input.harnessBootstrap
-      ? assembleHarnessSystemPrompt({ runtime: runtime!, providerKey: request.providerKey, agentContext })
+    const prompt = input.attemptBootstrap
+      ? assembleTaskExecutionAttemptSystemPrompt({ runtime: runtime!, providerKey: request.providerKey, agentContext })
       : assembleSystemPrompt({
           runtime: runtime!,
           providerKey: request.providerKey,
@@ -151,33 +151,33 @@ export class SessionService {
     }
   }
 
-  async launchHarness(input: {
+  async launchAttempt(input: {
     actor: SessionSubject;
-    harness: Harness;
+    attempt: TaskExecutionAttempt;
   }): Promise<{ session: Session; created: boolean }> {
     return this.launch({
       actor: input.actor,
-      harnessBootstrap: true,
-      frozenAgent: input.harness.agentId === null ? null : {
-        agentId: input.harness.agentId,
-        name: input.harness.agentName!,
-        revision: input.harness.agentRevision!,
-        systemPrompt: input.harness.agentSystemPrompt!,
+      attemptBootstrap: true,
+      frozenAgent: input.attempt.agentId === null ? null : {
+        agentId: input.attempt.agentId,
+        name: input.attempt.agentName!,
+        revision: input.attempt.agentRevision!,
+        systemPrompt: input.attempt.agentSystemPrompt!,
       },
       request: {
-        sessionId: input.harness.plannedSessionId,
-        runtimeId: input.harness.runtimeId,
-        providerKey: input.harness.providerKey,
-        agentId: input.harness.agentId,
+        sessionId: input.attempt.plannedSessionId,
+        runtimeId: input.attempt.runtimeId,
+        providerKey: input.attempt.providerKey,
+        agentId: input.attempt.agentId,
         context: {
-          taskId: input.harness.taskId,
-          projectId: input.harness.projectId,
+          taskId: input.attempt.taskId,
+          projectId: input.attempt.projectId,
         },
         firstUserMessage: {
-          messageId: input.harness.firstMessageId,
+          messageId: input.attempt.firstMessageId,
           content: [{ type: "text", text: "Complete this Task: implement the code change, self-test it, create the PR with gh, and report the Task production status." }],
         },
-        metadata: { harnessId: input.harness.id, mode: "goal-autopilot" },
+        metadata: { attemptId: input.attempt.id, mode: "goal-autopilot" },
       },
     });
   }

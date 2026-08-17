@@ -306,6 +306,10 @@ body {
   width: 560px;
 }
 
+.taskComposer {
+  padding: var(--space-2);
+}
+
 .taskComposerHeader {
   gap: var(--space-2);
 }
@@ -325,6 +329,7 @@ body {
 
 .taskComposerFooter {
   justify-content: space-between;
+  min-height: var(--control-height-header);
 }
 
 .sessionComposer {

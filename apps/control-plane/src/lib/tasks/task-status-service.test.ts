@@ -7,7 +7,7 @@ const ids = {
   team: "00000000-0000-4000-8000-000000000001",
   task: "00000000-0000-4000-8000-000000000002",
   agent: "00000000-0000-4000-8000-000000000003",
-  harness: "00000000-0000-4000-8000-000000000004",
+  attempt: "00000000-0000-4000-8000-000000000004",
   session: "00000000-0000-4000-8000-000000000005",
   transition: "00000000-0000-4000-8000-000000000006",
 };
@@ -15,9 +15,9 @@ const ids = {
 function task(status: "in_progress" | "blocked" = "in_progress", revision = 2) {
   return {
     id: ids.task, teamId: ids.team, title: "Task", description: null, projectId: null, issue: null,
-    productionStatus: status, statusRevision: revision, statusNote: null,
+    status, metadata: {}, statusRevision: revision, statusNote: null,
     statusUpdatedAt: "2026-08-11T00:00:00.000Z",
-    statusActor: { kind: "system" as const, actorId: null, agentId: null, harnessId: null, sessionId: null },
+    statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
     createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",
   };
 }
@@ -34,11 +34,11 @@ describe("TaskStatusService", () => {
       teamId: ids.team,
       taskId: ids.task,
       actorPolicy: "agent",
-      actor: { kind: "agent", actorId: null, agentId: ids.agent, harnessId: ids.harness, sessionId: ids.session },
+      actor: { kind: "agent", actorId: null, agentId: ids.agent, attemptId: ids.attempt, sessionId: ids.session },
       request: { status: "blocked", expectedRevision: 2, idempotencyKey: "cmd-1", note: "Waiting" },
     })).resolves.toEqual({
       taskId: ids.task,
-      productionStatus: "blocked",
+      status: "blocked",
       statusRevision: 3,
       statusUpdatedAt: "2026-08-11T00:01:00.000Z",
       transitionId: ids.transition,
@@ -53,7 +53,7 @@ describe("TaskStatusService", () => {
       listTaskStatusTransitions: vi.fn(),
     };
     const service = new TaskStatusService({ db });
-    const actor = { kind: "agent" as const, actorId: null, agentId: ids.agent, harnessId: ids.harness, sessionId: ids.session };
+    const actor = { kind: "agent" as const, actorId: null, agentId: ids.agent, attemptId: ids.attempt, sessionId: ids.session };
     await expect(service.transition({ teamId: ids.team, taskId: ids.task, actorPolicy: "agent", actor, request: { status: "blocked", expectedRevision: 2, idempotencyKey: "cmd-1" } }))
       .rejects.toMatchObject({ code: "missing_status_note" });
     await expect(service.transition({ teamId: ids.team, taskId: ids.task, actorPolicy: "agent", actor, request: { status: "done", expectedRevision: 2, idempotencyKey: "cmd-2" } }))

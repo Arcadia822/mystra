@@ -54,7 +54,7 @@ export function assembleSystemPrompt(input: {
   });
 }
 
-export function assembleHarnessSystemPrompt(input: {
+export function assembleTaskExecutionAttemptSystemPrompt(input: {
   runtime: RuntimeView;
   providerKey: string;
   agentContext: AgentContextSnapshot | null;
@@ -63,7 +63,7 @@ export function assembleHarnessSystemPrompt(input: {
     runtime: input.runtime,
     providerKey: input.providerKey,
     agentContext: input.agentContext,
-    executionContext: "This Session is bound to one Mystra Harness attempt. Resolve its exact Task, Project, Issue reference, Workspace, branch, and capabilities with mystra-agent context get before beginning work.",
+    executionContext: "This Session is bound to one Mystra TaskExecutionAttempt. Resolve its exact Task, Project, Issue reference, Workspace, branch, and capabilities with mystra-agent context get before beginning work.",
   });
 }
 

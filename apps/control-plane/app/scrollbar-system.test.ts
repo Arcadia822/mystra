@@ -7,7 +7,7 @@ function readAppFile(path: string): string {
 
 describe("global scrollbar system", () => {
   it("uses one theme-aware scrollbar rule for every native scroll container", () => {
-    const css = readAppFile("./globals.css");
+    const css = readAppFile("../../../packages/ui/src/styles.css");
 
     expect(css).toMatch(/\*\s*\{[\s\S]*?scrollbar-width:\s*thin;[\s\S]*?scrollbar-color:\s*transparent transparent;[\s\S]*?\}/);
     expect(css).toMatch(/\*:hover,[\s\S]*?\*:focus-within,[\s\S]*?\[data-scrolling="true"\][\s\S]*?scrollbar-color:\s*var\(--border\) transparent;/);

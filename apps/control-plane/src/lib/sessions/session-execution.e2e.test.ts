@@ -33,21 +33,21 @@ describe("Session execution SQLite/HTTP E2E", () => {
     const started = await fixture.production.start({ actor: fixture.actor, taskId: fixture.task.id, request });
     expect(started).toMatchObject({
       created: true,
-      task: { productionStatus: "in_progress", statusRevision: 2 },
-      harness: selectedAgent
+      task: { status: "in_progress", statusRevision: 2 },
+      attempt: selectedAgent
         ? { agentId: fixture.agent.id, agentName: fixture.agent.name, agentRevision: fixture.agent.revision }
         : { agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null },
     });
-    expect(started.harness.sessionId).toBe(started.harness.plannedSessionId);
+    expect(started.attempt.sessionId).toBe(started.attempt.plannedSessionId);
 
     const replay = await fixture.production.start({ actor: fixture.actor, taskId: fixture.task.id, request });
     expect(replay).toMatchObject({
       created: false,
-      harness: { id: started.harness.id, sessionId: started.harness.sessionId },
+      attempt: { id: started.attempt.id, sessionId: started.attempt.sessionId },
     });
 
     const assignment = await claim(fixture.endpoint, fixture.runtime.id, fixture.runnerId);
-    expect(assignment.session.id).toBe(started.harness.sessionId);
+    expect(assignment.session.id).toBe(started.attempt.sessionId);
     expect(assignment.systemPrompt).toContain("You are executing a Mystra production Task");
     if (selectedAgent) {
       expect(assignment.systemPrompt).toContain(fixture.agent.systemPrompt);

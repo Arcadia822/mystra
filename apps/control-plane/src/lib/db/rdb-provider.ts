@@ -22,6 +22,8 @@ import type {
   TaskIssueProvider,
   TaskUpdateRequest,
   TaskListItem,
+  TaskPageQuery,
+  TaskWorkbenchPage,
   TaskRecord,
   TeamListItem,
   TeamRole,
@@ -40,7 +42,7 @@ import type {
   SessionEventPage,
   SessionLaunchRequest,
   SessionDispatchLease,
-  Harness,
+  TaskExecutionAttempt,
   TaskStatusTransition,
   TaskTransitionActor,
 } from "@mystra/shared";
@@ -222,7 +224,7 @@ export type TaskProductionStartInput = {
   agentId: string | null;
   expectedRevision: number;
   requestFingerprint: string;
-  harness: Harness;
+  attempt: TaskExecutionAttempt;
   transition: TaskStatusTransition;
 };
 
@@ -235,7 +237,7 @@ export type TaskStatusTransitionInput = {
 };
 
 export type ResolvedWorkloadExecution = {
-  harness: Harness;
+  attempt: TaskExecutionAttempt;
   task: TaskRecord;
   project: Project;
   workspace: TaskWorkspaceTrusted;
@@ -320,11 +322,12 @@ export interface RdbProvider {
   createTaskFromIssue(input: TaskCreateFromIssue): Promise<TaskCreateResult>;
   getTask(id: string, options?: { teamId?: string }): Promise<TaskRecord | undefined>;
   listTasks(options?: { projectId?: string; teamId?: string }): Promise<TaskListItem[]>;
+  listTaskPage(input: TaskPageQuery & { teamId: string }): Promise<TaskWorkbenchPage>;
   updateTask(id: string, input: TaskUpdateRequest, options: { teamId: string }): Promise<TaskRecord | undefined>;
   findTaskIdsByIssueExternalIds(input: TaskIssueLinkQuery): Promise<Record<string, string>>;
   startTaskProduction(input: TaskProductionStartInput): Promise<{
     task: TaskRecord;
-    harness: Harness;
+    attempt: TaskExecutionAttempt;
     transition: TaskStatusTransition;
     created: boolean;
   }>;
@@ -334,16 +337,16 @@ export interface RdbProvider {
     created: boolean;
   }>;
   listTaskStatusTransitions(input: { taskId: string; teamId: string; limit?: number }): Promise<TaskStatusTransition[]>;
-  getHarnessByTaskId(taskId: string, options: { teamId: string }): Promise<Harness | undefined>;
-  getHarnessBySessionId(sessionId: string): Promise<Harness | undefined>;
-  updateHarness(input: {
-    harnessId: string;
+  getExecutionAttemptByTaskId(taskId: string, options: { teamId: string }): Promise<TaskExecutionAttempt | undefined>;
+  getExecutionAttemptBySessionId(sessionId: string): Promise<TaskExecutionAttempt | undefined>;
+  updateExecutionAttempt(input: {
+    attemptId: string;
     teamId: string;
     workspaceId?: string;
     sessionId?: string;
     setupFailureCode?: string | null;
     setupFailureMessage?: string | null;
-  }): Promise<Harness | undefined>;
+  }): Promise<TaskExecutionAttempt | undefined>;
   resolveWorkloadExecution(executionCodeHash: string): Promise<ResolvedWorkloadExecution | undefined>;
 
   createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult>;

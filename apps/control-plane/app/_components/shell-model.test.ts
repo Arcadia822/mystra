@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { TaskListItem } from "../_lib/types";
-import { filterTasks, groupTasksByProject, inboxTasks, selectedSearchTask } from "./shell-model";
+import { activeTasks, filterTasks, groupTasksByProject, inboxTasks, selectedSearchTask } from "./shell-model";
 
 function task(overrides: Partial<TaskListItem> = {}): TaskListItem {
   return {
@@ -11,11 +11,12 @@ function task(overrides: Partial<TaskListItem> = {}): TaskListItem {
     description: "Durable context",
     projectId: null,
     issue: null,
-    productionStatus: "pending",
+    status: "pending",
+    metadata: {},
     statusRevision: 1,
     statusNote: null,
     statusUpdatedAt: "2026-08-05T00:00:00.000Z",
-    statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null },
+    statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
     createdAt: "2026-08-05T00:00:00.000Z",
     updatedAt: "2026-08-05T01:00:00.000Z",
     ...overrides,
@@ -36,6 +37,17 @@ describe("shell task models", () => {
 
   it("keeps Inbox empty while Session review persistence is unavailable", () => {
     expect(inboxTasks([task()])).toEqual([]);
+  });
+
+  it("keeps only the three non-terminal Task states in Active Tasks", () => {
+    const rows = [
+      task({ status: "pending" }),
+      task({ id: "00000000-0000-4000-8000-000000000003", status: "in_progress" }),
+      task({ id: "00000000-0000-4000-8000-000000000004", status: "blocked" }),
+      task({ id: "00000000-0000-4000-8000-000000000005", status: "done" }),
+      task({ id: "00000000-0000-4000-8000-000000000006", status: "canceled" }),
+    ];
+    expect(activeTasks(rows).map((item) => item.status)).toEqual(["pending", "in_progress", "blocked"]);
   });
 
   it("groups every Task exactly once and orders No project last", () => {

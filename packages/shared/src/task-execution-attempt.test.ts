@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  harnessSchema,
+  taskExecutionAttemptSchema,
   taskStartRequestSchema,
   taskExecutionContextPayloadSchema,
   taskExecutionContextSchema,
   workloadExecutionIdentitySchema,
-} from "./harness.js";
+} from "./task-execution-attempt.js";
 
 const ids = Array.from({ length: 12 }, (_, index) => `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`);
 
-describe("Harness contracts", () => {
-  it("models an attempt without inventing a Harness lifecycle", () => {
-    const parsed = harnessSchema.parse({
+describe("TaskExecutionAttempt contracts", () => {
+  it("models an attempt without inventing a parallel lifecycle", () => {
+    const parsed = taskExecutionAttemptSchema.parse({
       id: ids[0], teamId: ids[1], taskId: ids[2], projectId: ids[3],
       agentId: ids[4], agentName: "Reviewer", agentRevision: 2, agentSystemPrompt: "Implement the change.",
       taskTitle: "Frozen title", taskDescription: null, taskIssue: null,
@@ -37,8 +37,8 @@ describe("Harness contracts", () => {
     expect(() => taskStartRequestSchema.parse({ ...base, agentId: "" })).toThrow();
   });
 
-  it("requires the optional Harness Agent snapshot to be wholly present or absent", () => {
-    const withAgent = harnessSchema.parse({
+  it("requires the optional TaskExecutionAttempt Agent snapshot to be wholly present or absent", () => {
+    const withAgent = taskExecutionAttemptSchema.parse({
       id: ids[0], teamId: ids[1], taskId: ids[2], projectId: ids[3],
       agentId: ids[4], agentName: "Reviewer", agentRevision: 2, agentSystemPrompt: "Review precisely.",
       taskTitle: "Frozen title", taskDescription: null, taskIssue: null,
@@ -49,25 +49,25 @@ describe("Harness contracts", () => {
       createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",
     });
     expect(withAgent.agentName).toBe("Reviewer");
-    expect(harnessSchema.parse({
+    expect(taskExecutionAttemptSchema.parse({
       ...withAgent,
       agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
     }).agentId).toBeNull();
-    expect(() => harnessSchema.parse({ ...withAgent, agentId: null })).toThrow();
+    expect(() => taskExecutionAttemptSchema.parse({ ...withAgent, agentId: null })).toThrow();
   });
 
   it("requires exact execution scope and bounded capabilities", () => {
     expect(workloadExecutionIdentitySchema.parse({
-      teamId: ids[1], taskId: ids[2], harnessId: ids[0], sessionId: ids[6],
+      teamId: ids[1], taskId: ids[2], attemptId: ids[0], sessionId: ids[6],
       agentContext: { agentId: ids[4], name: "Reviewer", revision: 2 },
       expiresAt: "2026-08-11T06:00:00.000Z",
     }).agentContext?.revision).toBe(2);
     expect(workloadExecutionIdentitySchema.parse({
-      teamId: ids[1], taskId: ids[2], harnessId: ids[0], sessionId: ids[6],
+      teamId: ids[1], taskId: ids[2], attemptId: ids[0], sessionId: ids[6],
       agentContext: null, expiresAt: "2026-08-11T06:00:00.000Z",
     }).agentContext).toBeNull();
     expect(() => workloadExecutionIdentitySchema.parse({
-      teamId: ids[1], taskId: ids[2], harnessId: ids[0], agentContext: null,
+      teamId: ids[1], taskId: ids[2], attemptId: ids[0], agentContext: null,
       expiresAt: "2026-08-11T06:00:00.000Z",
     })).toThrow();
   });
@@ -76,7 +76,7 @@ describe("Harness contracts", () => {
     const logical = taskExecutionContextPayloadSchema.parse({
       version: 1,
       execution: {
-        teamId: ids[1], taskId: ids[2], harnessId: ids[0], sessionId: ids[6],
+        teamId: ids[1], taskId: ids[2], attemptId: ids[0], sessionId: ids[6],
         agentContext: null, expiresAt: "2026-08-11T06:00:00.000Z",
       },
       task: { title: "Frozen title", description: null, issue: null },

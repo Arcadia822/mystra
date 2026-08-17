@@ -305,7 +305,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       title: "Standalone context",
       projectId: null,
       issue: null,
-      productionStatus: "pending",
+      status: "pending",
+      metadata: {},
       statusRevision: 1,
       statusNote: null,
       statusActor: { kind: "system" },
@@ -324,7 +325,55 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect((await db.listTasks({ projectId: parent.id })).map(({ id }) => id)).toEqual([ordinary.task.id]);
   });
 
-  it("atomically assigns one Harness and fences Task production status transitions", async () => {
+  it("pages Team Tasks with metadata round-trip and query-time case-insensitive matching", async () => {
+    const parent = await project();
+    const otherTeam = (await tenant()).initialTeam;
+    const created = [];
+    for (const [title, metadata] of [
+      ["Alpha", { Priority: "HIGH" }],
+      ["Beta", { owner: "Ada" }],
+      ["Gamma", { nested: { label: "Release" } }],
+    ] as const) {
+      created.push((await db.createTask({
+        teamId: parent.teamId,
+        projectId: parent.id,
+        title,
+        description: null,
+        metadata,
+        idempotencyKey: randomUUID(),
+      })).task);
+    }
+    await db.createTask({
+      teamId: otherTeam.id,
+      projectId: null,
+      title: "Foreign Release",
+      description: null,
+      metadata: { priority: "high" },
+      idempotencyKey: randomUUID(),
+    });
+
+    const first = await db.listTaskPage({ teamId: parent.teamId, limit: 2 });
+    expect(first.items).toHaveLength(2);
+    expect(first.nextCursor).toBeTruthy();
+    expect(first.items.every((item) => item.projectReference?.repositoryExternalId === parent.repositoryExternalId)).toBe(true);
+    const second = await db.listTaskPage({ teamId: parent.teamId, limit: 2, cursor: first.nextCursor });
+    expect(new Set([...first.items, ...second.items].map(({ id }) => id))).toEqual(new Set(created.map(({ id }) => id)));
+
+    const metadataMatch = await db.listTaskPage({ teamId: parent.teamId, query: "high", statuses: ["pending"] });
+    expect(metadataMatch.items.map(({ title }) => title)).toEqual(["Alpha"]);
+    expect(metadataMatch.items[0]?.metadata).toEqual({ Priority: "HIGH" });
+    const replaced = await db.updateTask(created[0]!.id, { metadata: { Priority: "LOW" } }, { teamId: parent.teamId });
+    expect(replaced?.metadata).toEqual({ Priority: "LOW" });
+    expect((await db.listTaskPage({ teamId: parent.teamId, query: "high" })).items).toHaveLength(0);
+    await expect(db.listTaskPage({
+      teamId: parent.teamId,
+      limit: 2,
+      cursor: first.nextCursor,
+      query: "changed",
+    })).rejects.toMatchObject({ code: "RDB_INVALID_INPUT" });
+  });
+
+  it("atomically creates one TaskExecutionAttempt and fences Task status transitions", async () => {
     const parent = await project();
     const task = (await db.createTask({
       teamId: parent.teamId,
@@ -340,10 +389,10 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     });
     const runtime = await db.registerHostRuntime(workspaceRuntimeRegistration("Production runtime"));
     const occurredAt = "2026-08-11T00:00:00.000Z";
-    const harnessId = randomUUID();
+    const attemptId = randomUUID();
     const fingerprint = "a".repeat(64);
-    const harness = {
-      id: harnessId,
+    const attempt = {
+      id: attemptId,
       teamId: parent.teamId,
       taskId: task.id,
       projectId: parent.id,
@@ -375,9 +424,9 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       fromStatus: "pending" as const,
       toStatus: "in_progress" as const,
       revision: 2,
-      actor: { kind: "human" as const, actorId: "owner-1", agentId: null, harnessId, sessionId: null },
+      actor: { kind: "human" as const, actorId: "owner-1", agentId: null, attemptId, sessionId: null },
       note: null,
-      idempotencyKey: harness.assignIdempotencyKey,
+      idempotencyKey: attempt.assignIdempotencyKey,
       requestFingerprint: fingerprint,
       occurredAt,
     };
@@ -387,14 +436,14 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       expectedRevision: 1,
       requestFingerprint: fingerprint,
       agentId: agent.id,
-      harness,
+      attempt,
       transition,
     };
     const assignments = await Promise.all(Array.from({ length: 20 }, () => db.startTaskProduction(assignmentInput)));
     expect(assignments.filter(({ created }) => created)).toHaveLength(1);
-    expect(new Set(assignments.map(({ harness: value }) => value.id))).toEqual(new Set([harnessId]));
-    expect(assignments[0]!.task).toMatchObject({ productionStatus: "in_progress", statusRevision: 2 });
-    expect(await db.getHarnessByTaskId(task.id, { teamId: parent.teamId })).toEqual(assignments[0]!.harness);
+    expect(new Set(assignments.map(({ attempt: value }) => value.id))).toEqual(new Set([attemptId]));
+    expect(assignments[0]!.task).toMatchObject({ status: "in_progress", statusRevision: 2 });
+    expect(await db.getExecutionAttemptByTaskId(task.id, { teamId: parent.teamId })).toEqual(assignments[0]!.attempt);
 
     const blocked = {
       id: randomUUID(),
@@ -403,7 +452,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       fromStatus: "in_progress" as const,
       toStatus: "blocked" as const,
       revision: 3,
-      actor: { kind: "agent" as const, actorId: null, agentId: agent.id, harnessId, sessionId: null },
+      actor: { kind: "agent" as const, actorId: null, agentId: agent.id, attemptId, sessionId: null },
       note: "Waiting for an upstream contract.",
       idempotencyKey: randomUUID(),
       requestFingerprint: "b".repeat(64),
@@ -455,7 +504,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       expectedRevision: 4,
       transition: {
         id: randomUUID(), teamId: parent.teamId, taskId: task.id,
-        fromStatus: "in_progress", toStatus: "waiting_for_review", revision: 5,
+        fromStatus: "in_progress", toStatus: "blocked", revision: 5,
         actor: blocked.actor, note: "PR: https://example.test/pr/1; tests: passed",
         idempotencyKey: randomUUID(), requestFingerprint: reviewFingerprint,
         occurredAt: "2026-08-11T00:03:00.000Z",
@@ -468,13 +517,13 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       expectedRevision: 5,
       transition: {
         id: randomUUID(), teamId: parent.teamId, taskId: task.id,
-        fromStatus: "waiting_for_review", toStatus: "done", revision: 6,
-        actor: { kind: "human", actorId: "owner-1", agentId: null, harnessId: null, sessionId: null },
+        fromStatus: "blocked", toStatus: "done", revision: 6,
+        actor: { kind: "human", actorId: "owner-1", agentId: null, attemptId: null, sessionId: null },
         note: "Accepted", idempotencyKey: randomUUID(), requestFingerprint: "e".repeat(64),
         occurredAt: "2026-08-11T00:04:00.000Z",
       },
     });
-    expect(await db.getHarnessByTaskId(task.id, { teamId: parent.teamId }))
+    expect(await db.getExecutionAttemptByTaskId(task.id, { teamId: parent.teamId }))
       .toMatchObject({ capabilityRevokedAt: "2026-08-11T00:04:00.000Z" });
   });
 
@@ -489,7 +538,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     const occurredAt = "2026-08-12T00:00:00.000Z";
 
     function command(task: TaskRecord, selectedAgentId: string | null, marker: number) {
-      const harnessId = randomUUID();
+      const attemptId = randomUUID();
       const fingerprint = marker.toString(16).padStart(64, "0");
       const idempotencyKey = `start-matrix-${marker}`;
       return {
@@ -498,8 +547,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         agentId: selectedAgentId,
         expectedRevision: 1,
         requestFingerprint: fingerprint,
-        harness: {
-          id: harnessId,
+        attempt: {
+          id: attemptId,
           teamId: parent.teamId,
           taskId: task.id,
           projectId: parent.id,
@@ -531,7 +580,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
           fromStatus: "pending" as const,
           toStatus: "in_progress" as const,
           revision: 2,
-          actor: { kind: "human" as const, actorId: "matrix-owner", agentId: null, harnessId, sessionId: null },
+          actor: { kind: "human" as const, actorId: "matrix-owner", agentId: null, attemptId, sessionId: null },
           note: null,
           idempotencyKey,
           requestFingerprint: fingerprint,
@@ -567,27 +616,27 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     }
 
     expect(noAgentResults).toHaveLength(100);
-    expect(noAgentResults.every(({ harness }) => (
-      harness.agentId === null
-      && harness.agentName === null
-      && harness.agentRevision === null
-      && harness.agentSystemPrompt === null
+    expect(noAgentResults.every(({ attempt }) => (
+      attempt.agentId === null
+      && attempt.agentName === null
+      && attempt.agentRevision === null
+      && attempt.agentSystemPrompt === null
     ))).toBe(true);
     expect(selectedResults).toHaveLength(100);
-    expect(selectedResults.every(({ harness }) => (
-      harness.agentId === agent.id
-      && harness.agentName === agent.name
-      && harness.agentRevision === agent.revision
-      && harness.agentSystemPrompt === agent.systemPrompt
+    expect(selectedResults.every(({ attempt }) => (
+      attempt.agentId === agent.id
+      && attempt.agentName === agent.name
+      && attempt.agentRevision === agent.revision
+      && attempt.agentSystemPrompt === agent.systemPrompt
     ))).toBe(true);
 
     const replay = await db.startTaskProduction(firstNoAgentCommand!);
-    expect(replay).toMatchObject({ created: false, harness: { agentId: null } });
+    expect(replay).toMatchObject({ created: false, attempt: { agentId: null } });
     const changedIntent = {
       ...firstNoAgentCommand!,
       agentId: agent.id,
       requestFingerprint: "f".repeat(64),
-      harness: { ...firstNoAgentCommand!.harness, assignRequestFingerprint: "f".repeat(64) },
+      attempt: { ...firstNoAgentCommand!.attempt, assignRequestFingerprint: "f".repeat(64) },
     };
     await expect(db.startTaskProduction(changedIntent)).rejects.toMatchObject({ code: "RDB_CONFLICT" });
 
@@ -597,7 +646,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       name: "Updated Matrix Agent",
       systemPrompt: "Updated supplemental context.",
     });
-    expect(selectedResults[0]!.harness).toMatchObject({
+    expect(selectedResults[0]!.attempt).toMatchObject({
       agentName: "Matrix Agent",
       agentRevision: 1,
       agentSystemPrompt: "Supplement the immutable standard execution contract.",
@@ -1263,7 +1312,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     const sessionId = randomUUID();
     const messageId = randomUUID();
     const timestamp = "2026-08-10T00:00:00.000Z";
-    const harnessId = randomUUID();
+    const attemptId = randomUUID();
     const assignKey = randomUUID();
     const assignFingerprint = "c".repeat(64);
     const assigned = await db.startTaskProduction({
@@ -1272,8 +1321,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       expectedRevision: 1,
       requestFingerprint: assignFingerprint,
       agentId: agent.id,
-      harness: {
-        id: harnessId, teamId: projectRecord.teamId, taskId: task.id, projectId: projectRecord.id,
+      attempt: {
+        id: attemptId, teamId: projectRecord.teamId, taskId: task.id, projectId: projectRecord.id,
         agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
         taskTitle: task.title, taskDescription: task.description, taskIssue: task.issue,
         runtimeId: runtime.id, providerKey: "codex", workspaceId: null, plannedSessionId: sessionId,
@@ -1284,11 +1333,11 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       transition: {
         id: randomUUID(), teamId: projectRecord.teamId, taskId: task.id,
         fromStatus: "pending", toStatus: "in_progress", revision: 2,
-        actor: { kind: "human", actorId: "owner", agentId: null, harnessId, sessionId: null },
+        actor: { kind: "human", actorId: "owner", agentId: null, attemptId, sessionId: null },
         note: null, idempotencyKey: assignKey, requestFingerprint: assignFingerprint, occurredAt: timestamp,
       },
     });
-    expect(assigned.task.productionStatus).toBe("in_progress");
+    expect(assigned.task.status).toBe("in_progress");
     const workspaceCreated = await db.createTaskWorkspace({
       teamId: projectRecord.teamId,
       taskId: task.id,
@@ -1322,8 +1371,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         branchName: workspaceCreated.workspace.branchName,
       },
     });
-    await db.updateHarness({
-      harnessId,
+    await db.updateExecutionAttempt({
+      attemptId,
       teamId: projectRecord.teamId,
       workspaceId: readyWorkspace.id,
     });
@@ -1381,7 +1430,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
 
     await expect(db.createSessionWithEvents({ session, launchRequest, events }))
       .resolves.toMatchObject({ created: true, session: { id: sessionId, state: "queued" } });
-    await db.updateHarness({ harnessId, teamId: projectRecord.teamId, sessionId });
+    await db.updateExecutionAttempt({ attemptId, teamId: projectRecord.teamId, sessionId });
     await expect(db.createSessionWithEvents({ session, launchRequest, events }))
       .resolves.toMatchObject({ created: false });
     const launchReplays = await Promise.all(Array.from({ length: 20 }, () => (
@@ -1430,8 +1479,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(claimed?.session.state).toBe("dispatched");
     expect(claimed?.executionCodeExpiresAt).toBe("2026-08-10T02:00:00.000Z");
     await expect(db.resolveWorkloadExecution("e".repeat(64))).resolves.toMatchObject({
-      harness: { id: harnessId, taskId: task.id, sessionId },
-      task: { productionStatus: "in_progress" },
+      attempt: { id: attemptId, taskId: task.id, sessionId },
+      task: { status: "in_progress" },
       workspace: { id: readyWorkspace.id },
       session: { id: sessionId },
     });

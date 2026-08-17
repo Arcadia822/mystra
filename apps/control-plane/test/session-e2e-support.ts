@@ -29,7 +29,7 @@ const migrationDirectories = [
   "20260808200000_task_context",
   "20260810130000_task_workspace_setup",
   "20260810160000_session_launch_framework",
-  "20260811210000_factory_task_harness",
+  "20260811210000_factory_task_execution_attempt",
   "20260812090000_standard_agent_context",
 ];
 

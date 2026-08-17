@@ -1,0 +1,683 @@
+.featureDialog {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  margin: auto;
+  max-height: calc(100vh - var(--space-4));
+  max-width: min(520px, calc(100vw - var(--space-4)));
+  padding: 0;
+  width: 100%;
+}
+
+.featureDialog[open] { display: grid; }
+.featureDialog::backdrop { background: var(--color-backdrop); }
+
+body:has(.featureDialog[open]) { overflow: hidden; }
+
+.sidebarHeaderActions {
+  align-items: center;
+  display: flex;
+  gap: var(--tight-gap);
+  margin-left: auto;
+}
+
+.sidebarHeaderActions .uiAction,
+.shellHeaderControls .uiAction {
+  height: var(--control-height-compact);
+  padding: 0;
+  width: var(--control-height-compact);
+}
+
+.sidebarHeaderActions svg,
+.shellHeaderControls svg,
+.taskToolbarActions svg {
+  display: block;
+  height: var(--space-4);
+  width: var(--space-4);
+}
+
+.sortDirectionIcon { transition: transform 120ms ease; }
+.sortDirectionIcon.isDescending { transform: rotate(180deg); }
+
+.workbenchState,
+.workbenchPager,
+.taskSessionsState,
+.taskSessionsPager {
+  align-items: center;
+  color: var(--text3);
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  min-height: var(--control-height-row);
+  padding: var(--space-2);
+}
+
+.taskWorkbench {
+  background: var(--color-surface-panel);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-panel);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.taskToolbar {
+  align-items: center;
+  border: 0;
+  display: flex;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: var(--space-control-gap) var(--content-inset);
+}
+
+.taskSearch {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text3);
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  height: var(--control-height-header);
+  min-width: 0;
+  padding: 0;
+}
+
+.taskSearch > svg {
+  flex: none;
+  height: var(--space-4);
+  width: var(--space-4);
+}
+
+.taskSearch input,
+.searchPrototypeInput {
+  background: transparent;
+  border: 0;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  outline: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.taskToolbarActions {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--tight-gap);
+}
+
+.refreshIcon.isLoading {
+  animation: spin 900ms linear infinite;
+}
+
+.taskDisplayPopup {
+  max-height: none;
+  min-width: 240px;
+  width: 240px;
+}
+
+.displayMenuSection {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.displayMenuSection + .displayMenuSection {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+}
+
+.displayMenuLabel {
+  align-items: center;
+  color: var(--text3);
+  display: flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: var(--space-2);
+  min-height: var(--control-height-compact);
+  padding: 0;
+}
+
+.displayMenuLabel svg {
+  height: var(--space-4);
+  width: var(--space-4);
+}
+
+.taskDisplayPopup .uiSegmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+}
+
+.taskDisplayPopup .uiSegmentedOption {
+  gap: var(--space-control-gap);
+  width: 100%;
+}
+
+.displayPropertyRow {
+  align-items: center;
+  color: var(--text2);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-2);
+  height: var(--control-height-compact);
+  min-height: var(--control-height-compact);
+  padding: 0;
+}
+
+.displayPropertyRow[data-disabled] {
+  cursor: default;
+}
+
+.taskListViewport,
+.boardViewport {
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+
+.taskLabelKey {
+  color: var(--text3);
+  font-size: inherit;
+  text-transform: uppercase;
+}
+
+.taskBoard {
+  align-items: start;
+  display: grid;
+  gap: var(--layout-gap);
+  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  min-width: 1160px;
+  padding: var(--content-inset);
+}
+
+.boardColumn {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.boardColumn > header {
+  align-items: center;
+  color: var(--text2);
+  display: flex;
+  gap: var(--space-2);
+  min-height: var(--control-height-header);
+  padding-inline: var(--space-1);
+}
+
+.boardColumn > header > span {
+  color: var(--text3);
+  margin-left: auto;
+}
+
+.boardCards {
+  align-content: start;
+  display: grid;
+  gap: var(--space-2);
+  grid-auto-rows: max-content;
+}
+
+.boardCard {
+  display: grid;
+  gap: var(--space-2);
+  height: max-content;
+  position: relative;
+  padding: var(--space-2);
+}
+
+.boardCardStatus {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  min-height: var(--space-4);
+}
+
+.boardCardTaskId {
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.uiAction.boardCardPrimaryLink {
+  display: -webkit-box;
+  font-size: inherit;
+  height: calc(2 * 1.45em);
+  justify-content: flex-start;
+  line-height: 1.45;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.uiAction.boardCardPrimaryLink::after {
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.boardCardLabels {
+  align-items: center;
+  display: flex;
+  gap: var(--stacked-list-gap);
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.boardCardDates {
+  align-items: center;
+  color: var(--text3);
+  display: flex;
+  font-size: 11px;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.boardCardDates > span {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.boardCardDates small {
+  color: var(--text3);
+  font: inherit;
+}
+
+.prototypeBackdrop {
+  align-items: flex-start;
+  background: var(--color-backdrop);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding-top: min(16vh, 140px);
+  position: fixed;
+  z-index: var(--layer-modal);
+}
+
+.prototypeBackdrop > [role="dialog"] {
+  max-width: calc(100vw - 32px);
+  width: 560px;
+}
+
+.taskComposer {
+  padding: var(--space-2);
+}
+
+.taskComposerHeader {
+  gap: var(--space-2);
+}
+
+.taskComposer .taskDescription {
+  background: transparent;
+  border: 0;
+  min-height: 72px;
+  padding: 0;
+  resize: none;
+  width: 100%;
+}
+
+.taskComposer .taskDescription:focus {
+  border: 0;
+}
+
+.taskComposerFooter {
+  justify-content: space-between;
+  min-height: var(--control-height-header);
+}
+
+.sessionComposer {
+  width: min(480px, calc(100vw - var(--space-8)));
+}
+
+.sessionComposerHeader {
+  justify-content: space-between;
+}
+
+.sessionComposerHeader h2 {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  margin: 0;
+}
+
+.sessionComposerPrompt {
+  background: transparent;
+  border: 0;
+  min-height: 88px;
+  padding: 0;
+  resize: none;
+  width: 100%;
+}
+
+.sessionComposerPrompt:focus {
+  border: 0;
+}
+
+.sessionComposerFooter {
+  justify-content: space-between;
+}
+
+.searchPrototype {
+  width: 100%;
+}
+
+.searchPrototype > .uiSurfaceHeader {
+  gap: var(--space-2);
+}
+
+.searchPrototype > .uiSurfaceBody {
+  display: grid;
+  gap: var(--tight-gap);
+  padding: var(--space-1);
+}
+
+.searchPrototypeResult {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--text2);
+  display: flex;
+  gap: var(--space-2);
+  min-height: 42px;
+  padding: 0 var(--space-2);
+  text-align: left;
+}
+
+.searchPrototypeResult:hover {
+  background: var(--color-surface-hover);
+}
+
+.searchPrototypeResult > span {
+  display: grid;
+}
+
+.searchPrototypeResult small {
+  color: var(--text3);
+}
+
+.taskDetailPrototype {
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+.taskDetailCanvas {
+  display: grid;
+  gap: var(--space-2);
+  margin-inline: auto;
+  max-width: 1120px;
+}
+
+.taskDetailIdentity {
+  align-items: flex-start;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  padding-bottom: var(--space-2);
+}
+
+.taskDetailIdentity > .taskStatusIcon {
+  margin-top: var(--space-1);
+}
+
+.taskDetailIdentityCopy {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.taskDetailIdentityCopy h1 {
+  font-size: 24px;
+  font-weight: var(--font-weight-medium);
+  line-height: 28px;
+}
+
+.taskDetailIdentityCopy > p {
+  color: var(--text2);
+  font-family: var(--font-content);
+  line-height: 1.55;
+  max-width: 760px;
+}
+
+.taskDetailTitleInput {
+  font-size: 24px;
+  font-weight: var(--font-weight-medium);
+}
+
+.taskDetailDescriptionInput {
+  min-height: 72px;
+  resize: none;
+}
+
+.taskDetailMain {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.taskSessionsSection {
+  display: grid;
+  min-width: 0;
+}
+
+.taskSessionsViewport {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.taskSessionsList {
+  min-width: 780px;
+}
+
+.taskSessionProvider {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.taskDetailSection > .uiSurfaceHeader {
+  align-items: flex-start;
+  gap: var(--space-2);
+  justify-content: space-between;
+  padding: var(--space-2);
+}
+
+.taskDetailSection > .uiSurfaceHeader > div {
+  display: grid;
+  gap: var(--space-half);
+}
+
+.taskDetailSection > .uiSurfaceHeader h2 {
+  font-size: var(--font-size-ui);
+  font-weight: var(--font-weight-strong);
+}
+
+.taskDetailSection > .uiSurfaceHeader p {
+  color: var(--text3);
+  font-size: var(--font-size-content);
+}
+
+.taskDetailSection > .uiSurfaceBody {
+  padding: var(--space-2);
+}
+
+.taskProductionSummary {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.taskProductionState,
+.taskPropertyStatus {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.taskProductionState > span {
+  display: grid;
+  gap: var(--space-half);
+}
+
+.taskProductionState small {
+  color: var(--text3);
+}
+
+.taskInlineFacts {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.taskInlineFacts > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.taskInlineFacts dt,
+.taskPropertyList dt,
+.taskDefinitionRows dt {
+  color: var(--text3);
+}
+
+.taskSessionList {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.taskSessionRow {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(120px, 1fr) auto auto;
+  min-height: var(--row-height-compact);
+}
+
+.taskSessionRow > small {
+  color: var(--text3);
+  font-family: var(--font-code);
+  grid-column: 1 / -1;
+  padding-left: var(--space-6);
+}
+
+.taskSessionRow > span:not(.taskSessionState) {
+  color: var(--text2);
+}
+
+.taskDefinitionRows,
+.taskPropertyList {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.taskDefinitionRows > div,
+.taskPropertyList > div {
+  align-items: start;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(88px, .35fr) minmax(0, 1fr);
+  min-height: var(--row-height-compact);
+}
+
+.taskDefinitionRows dd,
+.taskPropertyList dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.taskPropertyList > div {
+  grid-template-columns: 68px minmax(0, 1fr);
+}
+
+.taskPropertyList time {
+  color: inherit;
+  font: inherit;
+}
+
+.taskPropertyLabels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.taskDetailRightPanel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.taskStatusHistorySection {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.taskStatusHistorySection h2 {
+  color: var(--text2);
+  font-size: var(--font-size-ui);
+  font-weight: var(--font-weight-strong);
+}
+
+.taskStatusHistory {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.taskStatusHistory li {
+  align-items: flex-start;
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+}
+
+.taskStatusHistory li > span {
+  display: grid;
+  gap: var(--space-half);
+}
+
+.taskStatusHistory small {
+  color: var(--text3);
+}
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width-expanded: min(300px, 82vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .taskInlineFacts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .taskDetailIdentity {
+    grid-template-columns: var(--space-4) minmax(0, 1fr);
+  }
+
+  .taskDetailIdentity > .uiAction {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .taskSessionRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .taskSessionRow > span:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 420px) {
+  .newSessionActionLabel {
+    display: none;
+  }
+}

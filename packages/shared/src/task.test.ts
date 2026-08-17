@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  allowedTaskProductionTransitions,
-  taskProductionStatusSchema,
+  allowedTaskStatusTransitions,
+  taskStatusSchema,
   taskStatusTransitionRequestSchema,
   manualTaskCreateRequestSchema,
   taskCreateFromIssueSchema,
   taskIssueReferenceSchema,
   taskSchema,
+  taskPageQuerySchema,
+  taskWorkbenchPageSchema,
   taskUpdateRequestSchema,
 } from "./task.js";
 
@@ -33,6 +35,7 @@ describe("Task contracts", () => {
       title: "Investigate the failure",
       description: null,
       projectId: null,
+      metadata: {},
       idempotencyKey,
     });
   });
@@ -89,9 +92,12 @@ describe("Task contracts", () => {
     })).toThrow();
   });
 
-  it("allows only title and description updates and rejects an empty update", () => {
+  it("allows title, description, and full metadata replacement and rejects an empty update", () => {
     expect(taskUpdateRequestSchema.parse({ title: "  New title  " })).toEqual({ title: "New title" });
     expect(taskUpdateRequestSchema.parse({ description: null })).toEqual({ description: null });
+    expect(taskUpdateRequestSchema.parse({ metadata: { priority: "high", nested: { count: 2 } } })).toEqual({
+      metadata: { priority: "high", nested: { count: 2 } },
+    });
     expect(() => taskUpdateRequestSchema.parse({})).toThrow();
     expect(() => taskUpdateRequestSchema.parse({ projectId })).toThrow();
     expect(() => taskUpdateRequestSchema.parse({ issue })).toThrow();
@@ -115,57 +121,103 @@ describe("Task contracts", () => {
       description: null,
       projectId,
       issue,
-      productionStatus: "pending",
+      status: "pending",
+      metadata: { priority: "high", score: 2, nested: { enabled: true } },
       statusRevision: 1,
       statusNote: null,
       statusUpdatedAt: "2026-08-08T00:00:00.000Z",
-      statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null },
+      statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
       createdAt: "2026-08-08T00:00:00.000Z",
       updatedAt: "2026-08-08T00:00:00.000Z",
     });
     expect(parsed.issue?.identifier).toBe("GH-42");
-    expect("metadata" in parsed).toBe(false);
+    expect(parsed.metadata).toEqual({ priority: "high", score: 2, nested: { enabled: true } });
     expect("issueDispatchKey" in parsed).toBe(false);
-    expect(parsed.productionStatus).toBe("pending");
+    expect(parsed.status).toBe("pending");
+    expect("productionStatus" in parsed).toBe(false);
   });
 
-  it("defines the complete Task production state vocabulary", () => {
-    expect(taskProductionStatusSchema.options).toEqual([
+  it("defines the complete five-state Task vocabulary", () => {
+    expect(taskStatusSchema.options).toEqual([
       "pending",
       "in_progress",
       "blocked",
-      "waiting_for_review",
       "done",
       "canceled",
     ]);
   });
 
   it("keeps Human and Agent production transitions explicit", () => {
-    expect(allowedTaskProductionTransitions("agent", "in_progress")).toEqual(["blocked", "waiting_for_review"]);
-    expect(allowedTaskProductionTransitions("agent", "blocked")).toEqual(["in_progress"]);
-    expect(allowedTaskProductionTransitions("agent", "waiting_for_review")).toEqual([]);
-    expect(allowedTaskProductionTransitions("human", "waiting_for_review")).toEqual(["in_progress", "done", "canceled"]);
-    expect(allowedTaskProductionTransitions("assign", "pending")).toEqual(["in_progress"]);
-    expect(allowedTaskProductionTransitions("human", "pending")).toEqual(["canceled"]);
-    expect(allowedTaskProductionTransitions("human", "done")).toEqual([]);
+    expect(allowedTaskStatusTransitions("agent", "in_progress")).toEqual(["blocked"]);
+    expect(allowedTaskStatusTransitions("agent", "blocked")).toEqual(["in_progress"]);
+    expect(allowedTaskStatusTransitions("human", "blocked")).toEqual(["in_progress", "done", "canceled"]);
+    expect(allowedTaskStatusTransitions("assign", "pending")).toEqual(["in_progress"]);
+    expect(allowedTaskStatusTransitions("human", "pending")).toEqual(["canceled"]);
+    expect(allowedTaskStatusTransitions("human", "done")).toEqual([]);
   });
 
-  it("requires notes for blocked and waiting_for_review commands", () => {
+  it("requires notes for blocked commands and rejects waiting_for_review", () => {
     expect(() => taskStatusTransitionRequestSchema.parse({
       status: "blocked",
       expectedRevision: 2,
       idempotencyKey: "cmd-1",
     })).toThrow();
-    expect(taskStatusTransitionRequestSchema.parse({
+    expect(() => taskStatusTransitionRequestSchema.parse({
       status: "waiting_for_review",
       expectedRevision: 2,
       idempotencyKey: "cmd-2",
       note: " PR: https://example.test/pr/1 ",
-    }).note).toBe("PR: https://example.test/pr/1");
+    })).toThrow();
     expect(taskStatusTransitionRequestSchema.parse({
       status: "in_progress",
       expectedRevision: 3,
       idempotencyKey: "cmd-3",
     }).note).toBeUndefined();
+  });
+
+  it("parses a bounded Task page query and rejects unsupported sort/status values", () => {
+    expect(taskPageQuerySchema.parse({})).toEqual({
+      limit: 50,
+      query: null,
+      statuses: [],
+      sort: "updatedAt",
+      direction: "desc",
+      cursor: null,
+    });
+    expect(taskPageQuerySchema.parse({
+      limit: 100,
+      query: "  PRIORITY  ",
+      statuses: ["blocked", "pending"],
+      sort: "title",
+      direction: "asc",
+    }).query).toBe("PRIORITY");
+    expect(() => taskPageQuerySchema.parse({ limit: 101 })).toThrow();
+    expect(() => taskPageQuerySchema.parse({ statuses: ["waiting_for_review"] })).toThrow();
+    expect(() => taskPageQuerySchema.parse({ sort: "productionStatus" })).toThrow();
+  });
+
+  it("keeps metadata inside each Task workbench item", () => {
+    const task = taskSchema.parse({
+      id: "00000000-0000-4000-8000-000000000006",
+      teamId,
+      title: "Task",
+      description: null,
+      projectId: null,
+      issue: null,
+      status: "pending",
+      metadata: { priority: "P1" },
+      statusRevision: 1,
+      statusNote: null,
+      statusUpdatedAt: "2026-08-08T00:00:00.000Z",
+      statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
+      createdAt: "2026-08-08T00:00:00.000Z",
+      updatedAt: "2026-08-08T00:00:00.000Z",
+    });
+    const page = taskWorkbenchPageSchema.parse({
+      items: [{ ...task, projectReference: null }],
+      nextCursor: null,
+    });
+    expect(page.items[0]?.metadata).toEqual({ priority: "P1" });
+    expect("labels" in page).toBe(false);
   });
 });

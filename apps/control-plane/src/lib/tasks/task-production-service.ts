@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
-  harnessSchema,
+  taskExecutionAttemptSchema,
   taskStartRequestSchema,
   taskStatusTransitionSchema,
-  type Harness,
+  type TaskExecutionAttempt,
   type TaskStartResult,
 } from "@mystra/shared";
 
@@ -20,22 +20,22 @@ type ProductionDb = Pick<RdbProvider,
   | "getProjectById"
   | "getRuntime"
   | "startTaskProduction"
-  | "getHarnessByTaskId"
+  | "getExecutionAttemptByTaskId"
   | "listTaskStatusTransitions"
-  | "updateHarness"
+  | "updateExecutionAttempt"
 >;
 
 export class TaskProductionService {
   readonly #db: ProductionDb;
   readonly #workspace: Pick<TaskWorkspaceService, "setup" | "get">;
-  readonly #sessions: Pick<SessionService, "launchHarness">;
+  readonly #sessions: Pick<SessionService, "launchAttempt">;
   readonly #now: () => string;
   readonly #newId: () => string;
 
   constructor(input: {
     db: ProductionDb;
     workspace: Pick<TaskWorkspaceService, "setup" | "get">;
-    sessions: Pick<SessionService, "launchHarness">;
+    sessions: Pick<SessionService, "launchAttempt">;
     now?: () => string;
     newId?: () => string;
   }) {
@@ -63,8 +63,8 @@ export class TaskProductionService {
       providerKey: request.providerKey,
       expectedRevision: request.expectedRevision,
     });
-    if (!task.projectId || task.productionStatus !== "pending") {
-      const replay = await this.#db.getHarnessByTaskId(task.id, { teamId: input.actor.teamId });
+    if (!task.projectId || task.status !== "pending") {
+      const replay = await this.#db.getExecutionAttemptByTaskId(task.id, { teamId: input.actor.teamId });
       if (!replay || replay.assignIdempotencyKey !== request.idempotencyKey) {
         throw new TaskProductionFailure("task_not_eligible", "Task is not eligible for production Start");
       }
@@ -80,7 +80,7 @@ export class TaskProductionService {
       return {
         task,
         transition,
-        harness: await this.#prepareAfterCommit(input.actor.teamId, replay),
+        attempt: await this.#prepareAfterCommit(input.actor.teamId, replay),
         created: false,
       };
     }
@@ -101,9 +101,9 @@ export class TaskProductionService {
     }
 
     const occurredAt = this.#now();
-    const harnessId = this.#newId();
-    const harness = harnessSchema.parse({
-      id: harnessId,
+    const attemptId = this.#newId();
+    const attempt = taskExecutionAttemptSchema.parse({
+      id: attemptId,
       teamId: input.actor.teamId,
       taskId: task.id,
       projectId: project.id,
@@ -139,7 +139,7 @@ export class TaskProductionService {
         kind: "human",
         actorId: input.actor.actorId,
         agentId: null,
-        harnessId,
+        attemptId,
         sessionId: null,
       },
       note: null,
@@ -155,7 +155,7 @@ export class TaskProductionService {
         agentId: request.agentId,
         expectedRevision: request.expectedRevision,
         requestFingerprint,
-        harness,
+        attempt,
         transition,
       });
     } catch (error) {
@@ -168,26 +168,26 @@ export class TaskProductionService {
       throw error;
     }
 
-    const preparedHarness = await this.#prepareAfterCommit(input.actor.teamId, assigned.harness);
-    return { ...assigned, harness: preparedHarness };
+    const preparedAttempt = await this.#prepareAfterCommit(input.actor.teamId, assigned.attempt);
+    return { ...assigned, attempt: preparedAttempt };
   }
 
-  async continueAfterWorkspaceReady(input: { teamId: string; taskId: string }): Promise<Harness | undefined> {
-    const harness = await this.#db.getHarnessByTaskId(input.taskId, { teamId: input.teamId });
-    if (!harness) return undefined;
+  async continueAfterWorkspaceReady(input: { teamId: string; taskId: string }): Promise<TaskExecutionAttempt | undefined> {
+    const attempt = await this.#db.getExecutionAttemptByTaskId(input.taskId, { teamId: input.teamId });
+    if (!attempt) return undefined;
     const workspace = await this.#workspace.get({ actor: { teamId: input.teamId }, taskId: input.taskId });
-    if (!workspace || workspace.state !== "ready") return harness;
-    let current = harness.workspaceId === workspace.id
-      ? harness
-      : await this.#db.updateHarness({ harnessId: harness.id, teamId: input.teamId, workspaceId: workspace.id }) ?? harness;
+    if (!workspace || workspace.state !== "ready") return attempt;
+    let current = attempt.workspaceId === workspace.id
+      ? attempt
+      : await this.#db.updateExecutionAttempt({ attemptId: attempt.id, teamId: input.teamId, workspaceId: workspace.id }) ?? attempt;
     if (current.sessionId) return current;
     try {
-      const launched = await this.#sessions.launchHarness({
-        actor: { actorId: `harness:${current.id}`, teamId: input.teamId, roles: ["owner"] },
-        harness: current,
+      const launched = await this.#sessions.launchAttempt({
+        actor: { actorId: `attempt:${current.id}`, teamId: input.teamId, roles: ["owner"] },
+        attempt: current,
       });
-      current = await this.#db.updateHarness({
-        harnessId: current.id,
+      current = await this.#db.updateExecutionAttempt({
+        attemptId: current.id,
         teamId: input.teamId,
         workspaceId: workspace.id,
         sessionId: launched.session.id,
@@ -196,41 +196,41 @@ export class TaskProductionService {
       }) ?? current;
       return current;
     } catch {
-      return await this.#db.updateHarness({
-        harnessId: current.id,
+      return await this.#db.updateExecutionAttempt({
+        attemptId: current.id,
         teamId: input.teamId,
         workspaceId: workspace.id,
         setupFailureCode: "session_launch_failed",
-        setupFailureMessage: "Workspace is ready but the Harness Session could not be launched",
+        setupFailureMessage: "Workspace is ready but the TaskExecutionAttempt Session could not be launched",
       }) ?? current;
     }
   }
 
-  async #prepareAfterCommit(teamId: string, harness: Harness): Promise<Harness> {
+  async #prepareAfterCommit(teamId: string, attempt: TaskExecutionAttempt): Promise<TaskExecutionAttempt> {
     try {
       const setup = await this.#workspace.setup({
         actor: { teamId },
-        taskId: harness.taskId,
-        runtimeId: harness.runtimeId,
-        idempotencyKey: harness.id,
+        taskId: attempt.taskId,
+        runtimeId: attempt.runtimeId,
+        idempotencyKey: attempt.id,
       });
-      const bound = await this.#db.updateHarness({
-        harnessId: harness.id,
+      const bound = await this.#db.updateExecutionAttempt({
+        attemptId: attempt.id,
         teamId,
         workspaceId: setup.workspace.id,
         setupFailureCode: null,
         setupFailureMessage: null,
-      }) ?? harness;
+      }) ?? attempt;
       return setup.workspace.state === "ready"
-        ? await this.continueAfterWorkspaceReady({ teamId, taskId: harness.taskId }) ?? bound
+        ? await this.continueAfterWorkspaceReady({ teamId, taskId: attempt.taskId }) ?? bound
         : bound;
     } catch {
-      return await this.#db.updateHarness({
-        harnessId: harness.id,
+      return await this.#db.updateExecutionAttempt({
+        attemptId: attempt.id,
         teamId,
         setupFailureCode: "workspace_setup_failed",
         setupFailureMessage: "Task Workspace setup could not be requested",
-      }) ?? harness;
+      }) ?? attempt;
     }
   }
 }

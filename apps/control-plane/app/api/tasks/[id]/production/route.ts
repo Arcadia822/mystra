@@ -17,8 +17,8 @@ export async function GET(request: Request, context: Context) {
     const active = await requireTeamPermission(db, subject, "team.resource.access");
     const task = await db.getTask(taskId, { teamId: active.team.id });
     if (!task) throw new TaskProductionFailure("task_not_found", "Task was not found");
-    const [harness, transitions, workspace, sessions] = await Promise.all([
-      db.getHarnessByTaskId(task.id, { teamId: active.team.id }),
+    const [attempt, transitions, workspace, sessions] = await Promise.all([
+      db.getExecutionAttemptByTaskId(task.id, { teamId: active.team.id }),
       db.listTaskStatusTransitions({ taskId: task.id, teamId: active.team.id, limit: 100 }),
       createTaskWorkspaceService(db).get({ actor: { teamId: active.team.id }, taskId: task.id }),
       db.listSessions({ teamId: active.team.id, taskId: task.id, limit: 1 }),
@@ -30,7 +30,7 @@ export async function GET(request: Request, context: Context) {
     const prompt = promptEvent ? effectiveSystemPromptEvidenceSchema.safeParse(promptEvent.payload) : undefined;
     return noStore(NextResponse.json({
       task,
-      harness: harness ?? null,
+      attempt: attempt ?? null,
       transitions,
       workspace: workspace ?? null,
       latestSession: sessions[0] ?? null,

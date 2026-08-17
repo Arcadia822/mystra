@@ -1,7 +1,7 @@
 import type { TaskListItem } from "../_lib/types";
 import { taskTitle } from "../_lib/task-view";
 
-export function filterTasks(tasks: TaskListItem[], query: string): TaskListItem[] {
+export function filterTasks<T extends TaskListItem>(tasks: T[], query: string): T[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return tasks;
 
@@ -20,10 +20,14 @@ export function inboxTasks(tasks: TaskListItem[]): TaskListItem[] {
   return [];
 }
 
-export function selectedSearchTask(
-  tasks: TaskListItem[],
+export function activeTasks(tasks: TaskListItem[]): TaskListItem[] {
+  return tasks.filter((task) => task.status === "pending" || task.status === "in_progress" || task.status === "blocked");
+}
+
+export function selectedSearchTask<T extends TaskListItem>(
+  tasks: T[],
   selectedId?: string,
-): TaskListItem | undefined {
+): T | undefined {
   if (!selectedId) return undefined;
   return tasks.find((task) => task.id === selectedId);
 }

@@ -69,10 +69,9 @@ export function SessionBusinessStatePrototype() {
         </div>
 
         <p className={styles.boundaryNote}>
-          Task, Harness, Workspace, and Runtime state remain independent from this Session business state.
+          Task, TaskExecutionAttempt, Workspace, and Runtime state remain independent from this Session business state.
         </p>
       </main>
     </PrototypeShell>
   );
 }
-

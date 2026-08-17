@@ -2,10 +2,10 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 
-import type { TaskListItem } from "../_lib/types";
+import type { TaskWorkbenchPage } from "@mystra/shared";
 import type { ResourceState } from "../_lib/use-resource";
 
-export type ShellTasksResource = ResourceState<{ tasks: TaskListItem[] }>;
+export type ShellTasksResource = ResourceState<TaskWorkbenchPage>;
 
 const ShellTasksContext = createContext<ShellTasksResource | null>(null);
 

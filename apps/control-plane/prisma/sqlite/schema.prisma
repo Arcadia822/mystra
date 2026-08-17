@@ -54,7 +54,7 @@ model Project {
   issueSources           ProjectIssueSource[]
   taskWorkspaces         TaskWorkspace[]
   sessions               Session[]
-  harnesses              Harness[]
+  executionAttempts      TaskExecutionAttempt[]
   team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([teamId])
@@ -95,7 +95,8 @@ model Task {
   issueScopeExternalId String?                @map("issue_scope_external_id")
   issueExternalId      String?                @map("issue_external_id")
   issueIdentifier      String?                @map("issue_identifier")
-  productionStatus     String                 @map("production_status")
+  status               String
+  metadata             String
   statusRevision       Int                    @map("status_revision")
   statusNote           String?                @map("status_note")
   statusUpdatedAt      String                 @map("status_updated_at")
@@ -107,7 +108,7 @@ model Task {
   team                 Team                   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   workspace            TaskWorkspace?
   sessions             Session[]
-  harness              Harness?
+  executionAttempt     TaskExecutionAttempt?
   statusTransitions    TaskStatusTransition[]
 
   @@unique([teamId, idempotencyKey])
@@ -116,10 +117,13 @@ model Task {
   @@index([projectId])
   @@index([issueConnectionId])
   @@index([createdAt, id])
+  @@index([teamId, updatedAt, id])
+  @@index([teamId, status, updatedAt, id])
+  @@index([teamId, title, id])
   @@map("tasks")
 }
 
-model Harness {
+model TaskExecutionAttempt {
   id                       String         @id
   teamId                   String         @map("team_id")
   taskId                   String         @unique @map("task_id")
@@ -156,7 +160,7 @@ model Harness {
   @@index([teamId, createdAt])
   @@index([agentId])
   @@index([runtimeId])
-  @@map("harnesses")
+  @@map("task_execution_attempts")
 }
 
 model TaskStatusTransition {
@@ -214,7 +218,7 @@ model TaskWorkspace {
   issueConnection       IntegrationConnection?        @relation("TaskWorkspaceIssueConnection", fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   team                  Team                          @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   attempts              WorkspacePreparationAttempt[]
-  harness               Harness?
+  executionAttempt      TaskExecutionAttempt?
 
   @@index([teamId, state, createdAt])
   @@index([runtimeId, state, createdAt])
@@ -254,7 +258,7 @@ model Agent {
   updatedAt    String    @map("updated_at")
   team         Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   sessions     Session[]
-  harnesses    Harness[]
+  executionAttempts TaskExecutionAttempt[]
 
   @@index([teamId, status, id])
   @@index([createdAt, id])
@@ -272,7 +276,7 @@ model Runtime {
   taskWorkspaces TaskWorkspace[]
   sessions       Session[]
   sessionLeases  SessionDispatchLease[]
-  harnesses      Harness[]
+  executionAttempts TaskExecutionAttempt[]
 
   @@index([updatedAt, id])
   @@index([createdAt, id])
@@ -376,7 +380,7 @@ model Team {
   agents                 Agent[]
   taskWorkspaces         TaskWorkspace[]
   sessions               Session[]
-  harnesses              Harness[]
+  executionAttempts      TaskExecutionAttempt[]
   taskStatusTransitions  TaskStatusTransition[]
 
   @@index([status])
@@ -411,7 +415,7 @@ model Session {
   eventHead        SessionEventHead?
   eventStreams     SessionEventStream[]
   dispatchLease    SessionDispatchLease?
-  harness          Harness?
+  executionAttempt TaskExecutionAttempt?
 
   @@index([teamId, updatedAt, id])
   @@index([taskId, updatedAt, id])

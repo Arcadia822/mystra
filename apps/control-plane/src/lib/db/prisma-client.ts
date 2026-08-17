@@ -26,7 +26,7 @@ import {
   type TaskWorkspace,
   type User,
   type WorkspacePreparationAttempt,
-  type Harness,
+  type TaskExecutionAttempt,
   type TaskStatusTransition,
 } from "../../generated/prisma/sqlite/client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
@@ -49,9 +49,9 @@ type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSal
 type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
 type AgentUpdate = Partial<Pick<Agent, "name" | "systemPrompt" | "revision" | "status" | "archivedAt" | "updatedAt">>;
 type TaskUpdate = Partial<Pick<Task,
-  "title" | "description" | "productionStatus" | "statusRevision" | "statusNote" | "statusUpdatedAt" | "statusActor" | "updatedAt"
+  "title" | "description" | "status" | "metadata" | "statusRevision" | "statusNote" | "statusUpdatedAt" | "statusActor" | "updatedAt"
 >>;
-type HarnessUpdate = Partial<Pick<Harness,
+type TaskExecutionAttemptUpdate = Partial<Pick<TaskExecutionAttempt,
   "workspaceId" | "sessionId" | "capabilityRevokedAt" | "setupFailureCode" | "setupFailureMessage" | "updatedAt"
 >>;
 type TaskWorkspaceUpdate = Partial<Pick<
@@ -77,7 +77,7 @@ type TaskWhere = {
   issueConnectionId?: string;
   issueScopeExternalId?: string;
   issueExternalId?: string | { in: string[] };
-  productionStatus?: string;
+  status?: string;
   statusRevision?: number;
 };
 
@@ -160,10 +160,10 @@ export interface MystraPrismaDelegates {
     findMany(args: { where: { leaseExpiresAt: { lt: string } }; orderBy: Array<{ leaseExpiresAt: SortOrder }>; include: { session: true } }): Promise<Array<SessionDispatchLease & { session: PrismaSession }>>;
     deleteMany(args: { where: { sessionId: string } }): Promise<CountResult>;
   };
-  harness: {
-    create(args: { data: Harness }): Promise<Harness>;
-    updateMany(args: { where: { id: string; teamId?: string }; data: HarnessUpdate }): Promise<CountResult>;
-    findUnique(args: { where: { id: string } | { taskId: string } | { sessionId: string } | { plannedSessionId: string } }): Promise<Harness | null>;
+  taskExecutionAttempt: {
+    create(args: { data: TaskExecutionAttempt }): Promise<TaskExecutionAttempt>;
+    updateMany(args: { where: { id: string; teamId?: string }; data: TaskExecutionAttemptUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { taskId: string } | { sessionId: string } | { plannedSessionId: string } }): Promise<TaskExecutionAttempt | null>;
   };
   taskStatusTransition: {
     create(args: { data: TaskStatusTransition }): Promise<TaskStatusTransition>;
@@ -340,7 +340,7 @@ const modelMethods = {
   sessionEventHead: ["create", "updateMany", "findUnique"],
   sessionEventStream: ["create", "updateMany", "findUnique"],
   sessionDispatchLease: ["create", "updateMany", "findUnique", "findMany", "deleteMany"],
-  harness: ["create", "updateMany", "findUnique"],
+  taskExecutionAttempt: ["create", "updateMany", "findUnique"],
   taskStatusTransition: ["create", "findUnique", "findMany"],
   taskWorkspace: ["create", "updateMany", "findUnique", "findMany"],
   workspacePreparationAttempt: ["create", "updateMany", "findUnique", "findMany"],

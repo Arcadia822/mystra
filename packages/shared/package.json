@@ -11,6 +11,10 @@
     "./task-workspace": {
       "types": "./dist/task-workspace.d.ts",
       "import": "./dist/task-workspace.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "import": "./dist/session.js"
     }
   },
   "scripts": {

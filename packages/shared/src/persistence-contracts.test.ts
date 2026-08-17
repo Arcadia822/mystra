@@ -106,22 +106,23 @@ describe("owner-approved persistence contracts", () => {
       description: input.description,
       projectId: input.projectId,
       issue: null,
-      productionStatus: "pending",
+      status: "pending",
+      metadata: input.metadata,
       statusRevision: 1,
       statusNote: null,
       statusUpdatedAt: "2026-08-06T10:00:00.000Z",
-      statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null },
+      statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
       createdAt: "2026-08-06T10:00:00.000Z",
       updatedAt: "2026-08-06T10:00:00.000Z",
     });
 
     expect(task.issue).toBeNull();
+    expect(task.metadata).toEqual({});
     for (const removed of [
       { source: "issue" },
       { objective: "removed" },
       { dispatchKey: "legacy" },
       { issueDispatchKey: "github:repo:issue:42" },
-      { metadata: {} },
       { repository: { externalId: "repo" } },
     ]) {
       expect(() => taskRecordSchema.parse({ ...task, ...removed })).toThrow();

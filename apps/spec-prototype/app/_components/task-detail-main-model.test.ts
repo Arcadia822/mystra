@@ -36,7 +36,7 @@ describe("054 Task detail main fixture", () => {
       "failed",
     ]);
     expect(SESSION_STATE_LABELS.ready).toBe("Ready to continue");
-    expect(TASK_DETAIL_MAIN_FIXTURE.task.productionStatus).toBe("in_progress");
+    expect(TASK_DETAIL_MAIN_FIXTURE.task.status).toBe("in_progress");
     expect(TASK_DETAIL_MAIN_FIXTURE.sessions.some(({ state }) => state === "failed")).toBe(true);
   });
 
@@ -65,17 +65,17 @@ describe("054 Task detail main fixture", () => {
   });
 
   it("uses canonical identities, relations, timestamps, and public Workspace fields", () => {
-    const { harness, sessions, task, workspace } = TASK_DETAIL_MAIN_FIXTURE;
+    const { attempt, sessions, task, workspace } = TASK_DETAIL_MAIN_FIXTURE;
     expect(task.id).toMatch(uuidPattern);
     expect(task.teamId).toMatch(uuidPattern);
     expect(task.projectId).toMatch(uuidPattern);
     expect(task.statusUpdatedAt).toMatch(isoDateTimePattern);
 
-    expect(harness).not.toBeNull();
-    expect(harness?.id).toMatch(uuidPattern);
-    expect(harness?.taskId).toBe(task.id);
-    expect(harness?.workspaceId).toBe(workspace?.id);
-    expect(sessions.map(({ id }) => id)).toContain(harness?.sessionId);
+    expect(attempt).not.toBeNull();
+    expect(attempt?.id).toMatch(uuidPattern);
+    expect(attempt?.taskId).toBe(task.id);
+    expect(attempt?.workspaceId).toBe(workspace?.id);
+    expect(sessions.map(({ id }) => id)).toContain(attempt?.sessionId);
 
     expect(workspace?.taskId).toBe(task.id);
     expect(workspace?.state).toBe("ready");
@@ -97,7 +97,7 @@ describe("054 Task detail main fixture", () => {
   it("does not invent current attempt or current Session fields", () => {
     expect(TASK_DETAIL_MAIN_FIXTURE.task).not.toHaveProperty("currentAttempt");
     expect(TASK_DETAIL_MAIN_FIXTURE.task).not.toHaveProperty("currentSessionId");
-    expect(TASK_DETAIL_MAIN_FIXTURE.harness).not.toHaveProperty("status");
+    expect(TASK_DETAIL_MAIN_FIXTURE.attempt).not.toHaveProperty("status");
     expect(TASK_DETAIL_MAIN_FIXTURE.workspace).not.toHaveProperty("workspaceRef");
     expect(TASK_DETAIL_MAIN_FIXTURE.workspace).not.toHaveProperty("repositoryFullName");
     for (const session of TASK_DETAIL_MAIN_FIXTURE.sessions) expect(session).not.toHaveProperty("title");

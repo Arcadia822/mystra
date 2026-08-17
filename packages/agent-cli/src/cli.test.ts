@@ -5,7 +5,7 @@ import { runAgentCli } from "./cli.js";
 const execution = {
   teamId: "00000000-0000-4000-8000-000000000001",
   taskId: "00000000-0000-4000-8000-000000000002",
-  harnessId: "00000000-0000-4000-8000-000000000003",
+  attemptId: "00000000-0000-4000-8000-000000000003",
   sessionId: "00000000-0000-4000-8000-000000000004",
   agentContext: null,
   expiresAt: "2026-08-11T06:00:00.000Z",
@@ -56,14 +56,14 @@ describe("mystra-agent CLI", () => {
       expect(JSON.parse(String(init?.body))).toEqual({
         status: "blocked", expectedRevision: 2, idempotencyKey: "cmd-1", note: "linctl unavailable",
       });
-      return Response.json({ taskId: execution.taskId, productionStatus: "blocked", statusRevision: 3, statusUpdatedAt: "2026-08-11T00:00:00.000Z", transitionId: "00000000-0000-4000-8000-000000000009" });
+      return Response.json({ taskId: execution.taskId, status: "blocked", statusRevision: 3, statusUpdatedAt: "2026-08-11T00:00:00.000Z", transitionId: "00000000-0000-4000-8000-000000000009" });
     });
     expect(await runAgentCli({
       argv: ["task", "status", "set", "blocked", "--expected-revision", "2", "--idempotency-key", "cmd-1", "--note", "linctl unavailable"],
       env: { MYSTRA_CONTROL_PLANE_URL: "http://localhost:3000", MYSTRA_EXECUTION_CODE: "secret-code" },
       cwd: () => "/tmp/workspace", fetch: fetchMock as typeof fetch, stdout, stderr,
     })).toBe(0);
-    expect(JSON.parse(stdout.read()).productionStatus).toBe("blocked");
+    expect(JSON.parse(stdout.read()).status).toBe("blocked");
     expect(stderr.read()).toBe("");
   });
 

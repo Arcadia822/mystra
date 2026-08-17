@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { describe, expect, it, vi } from "vitest";
-import type { Harness } from "@mystra/shared";
+import type { TaskExecutionAttempt } from "@mystra/shared";
 
 import { TaskProductionService } from "./task-production-service";
 import { getHostLivenessRegistry } from "../runtime/runtime-liveness";
@@ -13,31 +13,31 @@ describe("TaskProductionService", () => {
   it("commits Start before requesting Workspace setup and freezes optional Agent Context and Task inputs", async () => {
     const task = {
       id: id("1"), teamId: id("2"), title: "Frozen title", description: "Frozen description", projectId: id("3"), issue: null,
-      productionStatus: "pending" as const, statusRevision: 1, statusNote: null, statusUpdatedAt: now,
-      statusActor: { kind: "system" as const, actorId: null, agentId: null, harnessId: null, sessionId: null },
+      status: "pending" as const, metadata: {}, statusRevision: 1, statusNote: null, statusUpdatedAt: now,
+      statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
       createdAt: now, updatedAt: now,
     };
     const calls: string[] = [];
     getHostLivenessRegistry().markSeen(id("7"), new Date());
-    const updateHarness = vi.fn(async (input) => ({ ...assignedHarness!, workspaceId: input.workspaceId ?? null }));
-    let assignedHarness: Harness | undefined;
+    const updateExecutionAttempt = vi.fn(async (input) => ({ ...assignedAttempt!, workspaceId: input.workspaceId ?? null }));
+    let assignedAttempt: TaskExecutionAttempt | undefined;
     const db = {
       getTask: vi.fn(async () => task),
       getProjectById: vi.fn(async () => ({ id: task.projectId!, teamId: task.teamId, name: "Mystra", slug: "mystra", repositoryConnectionId: id("4"), repositoryExternalId: "R_repo", repositoryBaseBranch: "main", metadata: {}, archivedAt: null, createdAt: now, updatedAt: now })),
       getRuntime: vi.fn(async () => ({ id: id("6"), name: "host", type: "host", status: "online", lastSeenAt: now, metadata: { runnerId: id("7"), platform: "darwin/arm64", workspaceMaterialization: { version: 1, kinds: ["task-repository"], sharingModes: ["shared-mutable"] } }, providers: [{ provider: "codex", discovered: true, available: true, source: "path", resolvedPath: "/usr/bin/codex", version: "1", unavailableReason: null }], createdAt: now, updatedAt: now })),
-      getHarnessByTaskId: vi.fn(),
+      getExecutionAttemptByTaskId: vi.fn(),
       startTaskProduction: vi.fn(async (input) => {
         calls.push("assigned");
-        assignedHarness = {
-          ...input.harness,
+        assignedAttempt = {
+          ...input.attempt,
           agentId: input.agentId,
           agentName: input.agentId ? "Production Agent" : null,
           agentRevision: input.agentId ? 7 : null,
           agentSystemPrompt: input.agentId ? "Frozen Agent prompt." : null,
         };
-        return { task: { ...task, productionStatus: "in_progress" as const, statusRevision: 2 }, harness: assignedHarness, transition: input.transition, created: true };
+        return { task: { ...task, status: "in_progress" as const, statusRevision: 2 }, attempt: assignedAttempt, transition: input.transition, created: true };
       }),
-      updateHarness,
+      updateExecutionAttempt,
     };
     const workspace = {
       setup: vi.fn(async () => {
@@ -49,7 +49,7 @@ describe("TaskProductionService", () => {
     const service = new TaskProductionService({
       db: db as never,
       workspace: workspace as never,
-      sessions: { launchHarness: vi.fn() },
+      sessions: { launchAttempt: vi.fn() },
       now: () => "2026-08-11T00:00:00.000Z",
       newId: vi.fn().mockReturnValueOnce(id("9")).mockReturnValueOnce(id("10")).mockReturnValueOnce(id("11")).mockReturnValueOnce(id("12")),
     });
@@ -59,33 +59,33 @@ describe("TaskProductionService", () => {
       request: { agentId: id("5"), runtimeId: id("6"), providerKey: "codex", expectedRevision: 1, idempotencyKey: "assign-1" },
     });
     expect(calls).toEqual(["assigned", "workspace"]);
-    expect(result.harness).toMatchObject({ agentName: "Production Agent", agentRevision: 7, agentSystemPrompt: "Frozen Agent prompt.", taskTitle: "Frozen title", workspaceId: id("8") });
-    expect(updateHarness).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: id("8") }));
+    expect(result.attempt).toMatchObject({ agentName: "Production Agent", agentRevision: 7, agentSystemPrompt: "Frozen Agent prompt.", taskTitle: "Frozen title", workspaceId: id("8") });
+    expect(updateExecutionAttempt).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: id("8") }));
   });
 
   it("launches the planned Session once when Workspace becomes ready", async () => {
-    const harness = {
+    const attempt = {
       id: id("1"), teamId: id("2"), taskId: id("3"), projectId: id("4"), agentId: id("5"), agentName: "Agent", agentRevision: 1,
       agentSystemPrompt: "Prompt", taskTitle: "Task", taskDescription: null, taskIssue: null, runtimeId: id("6"), providerKey: "codex" as const,
       workspaceId: null, plannedSessionId: id("7"), sessionId: null, firstMessageId: id("8"), assignIdempotencyKey: "assign-1",
       assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,
       createdAt: now, updatedAt: now,
     };
-    let current = harness;
-    const updateHarness = vi.fn(async (input) => {
+    let current = attempt;
+    const updateExecutionAttempt = vi.fn(async (input) => {
       current = { ...current, ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}), ...(input.sessionId ? { sessionId: input.sessionId } : {}) };
       return current;
     });
-    const launchHarness = vi.fn(async () => ({ session: { id: harness.plannedSessionId }, created: true }));
+    const launchAttempt = vi.fn(async () => ({ session: { id: attempt.plannedSessionId }, created: true }));
     const service = new TaskProductionService({
-      db: { getHarnessByTaskId: vi.fn(async () => current), updateHarness } as never,
+      db: { getExecutionAttemptByTaskId: vi.fn(async () => current), updateExecutionAttempt } as never,
       workspace: { get: vi.fn(async () => ({ id: id("9"), state: "ready" })), setup: vi.fn() } as never,
-      sessions: { launchHarness } as never,
+      sessions: { launchAttempt } as never,
     });
-    await service.continueAfterWorkspaceReady({ teamId: harness.teamId, taskId: harness.taskId });
-    await service.continueAfterWorkspaceReady({ teamId: harness.teamId, taskId: harness.taskId });
-    expect(launchHarness).toHaveBeenCalledTimes(1);
-    expect(current.sessionId).toBe(harness.plannedSessionId);
+    await service.continueAfterWorkspaceReady({ teamId: attempt.teamId, taskId: attempt.taskId });
+    await service.continueAfterWorkspaceReady({ teamId: attempt.teamId, taskId: attempt.taskId });
+    expect(launchAttempt).toHaveBeenCalledTimes(1);
+    expect(current.sessionId).toBe(attempt.plannedSessionId);
   });
 
   it("replays a committed assignment without revalidating mutable Agent or Runtime availability", async () => {
@@ -102,11 +102,11 @@ describe("TaskProductionService", () => {
     })).digest("hex");
     const task = {
       id: id("1"), teamId: actor.teamId, title: "Frozen title", description: null, projectId: id("3"), issue: null,
-      productionStatus: "in_progress" as const, statusRevision: 2, statusNote: null, statusUpdatedAt: now,
-      statusActor: { kind: "human" as const, actorId: actor.actorId, agentId: null, harnessId: id("9"), sessionId: null },
+      status: "in_progress" as const, metadata: {}, statusRevision: 2, statusNote: null, statusUpdatedAt: now,
+      statusActor: { kind: "human" as const, actorId: actor.actorId, agentId: null, attemptId: id("9"), sessionId: null },
       createdAt: now, updatedAt: now,
     };
-    const harness: Harness = {
+    const attempt: TaskExecutionAttempt = {
       id: id("9"), teamId: actor.teamId, taskId: task.id, projectId: task.projectId, agentId: request.agentId, agentName: "Agent", agentRevision: 1,
       agentSystemPrompt: "Frozen prompt", taskTitle: task.title, taskDescription: null, taskIssue: null,
       runtimeId: request.runtimeId, providerKey: request.providerKey, workspaceId: null, plannedSessionId: id("10"), sessionId: null,
@@ -122,19 +122,19 @@ describe("TaskProductionService", () => {
       setup: vi.fn(async () => ({ workspace: { id: id("13"), state: "queued" as const }, created: false, retried: true })),
       get: vi.fn(),
     };
-    const updateHarness = vi.fn(async (input) => ({ ...harness, workspaceId: input.workspaceId ?? null }));
+    const updateExecutionAttempt = vi.fn(async (input) => ({ ...attempt, workspaceId: input.workspaceId ?? null }));
     const service = new TaskProductionService({
       db: {
         getTask: vi.fn(async () => task),
         getProjectById: vi.fn(),
         getRuntime,
         startTaskProduction: vi.fn(),
-        getHarnessByTaskId: vi.fn(async () => harness),
+        getExecutionAttemptByTaskId: vi.fn(async () => attempt),
         listTaskStatusTransitions: vi.fn(async () => [transition]),
-        updateHarness,
+        updateExecutionAttempt,
       } as never,
       workspace: workspace as never,
-      sessions: { launchHarness: vi.fn() },
+      sessions: { launchAttempt: vi.fn() },
     });
 
     const result = await service.start({ actor, taskId: task.id, request });

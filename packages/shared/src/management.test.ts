@@ -56,11 +56,12 @@ const task = {
   description: null,
   projectId: null,
   issue: null,
-  productionStatus: "pending",
+  status: "pending",
+  metadata: {},
   statusRevision: 1,
   statusNote: null,
   statusUpdatedAt: "2026-05-15T00:00:00.000Z",
-  statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null },
+  statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
   createdAt: "2026-05-15T00:00:00.000Z",
   updatedAt: "2026-05-15T00:00:00.000Z",
 } as const;
@@ -265,7 +266,7 @@ describe("Task management views", () => {
     const detail = taskDetailResponseSchema.parse({ task });
     expect("state" in detail.task).toBe(false);
     expect("result" in detail.task).toBe(false);
-    expect(detail.task.productionStatus).toBe("pending");
+    expect(detail.task.status).toBe("pending");
     expect(taskCreateResponseSchema.parse({ task, created: true }).task.id).toBe(task.id);
   });
 

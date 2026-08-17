@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AgentContextSnapshot, Project, RuntimeView, TaskRecord } from "@mystra/shared";
 
-import { assembleHarnessSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
+import { assembleTaskExecutionAttemptSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
 import { STANDARD_EXECUTION_PROMPT, STANDARD_EXECUTION_PROMPT_CONTENT } from "./standard-execution-prompt";
 
 const teamId = "00000000-0000-4000-8000-000000000001";
@@ -60,11 +60,12 @@ function fixtures() {
       externalId: "0c7a35df-5377-49c3-9aed-1e4f1014ccf5",
       identifier: "MYST-1",
     },
-    productionStatus: "pending",
+    status: "pending",
+    metadata: {},
     statusRevision: 1,
     statusNote: null,
     statusUpdatedAt: "2026-08-10T00:00:00.000Z",
-    statusActor: { kind: "system", actorId: null, agentId: null, harnessId: null, sessionId: null },
+    statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
     createdAt: "2026-08-10T00:00:00.000Z",
     updatedAt: "2026-08-10T00:00:00.000Z",
   };
@@ -153,9 +154,9 @@ describe("assembleSystemPrompt", () => {
     expect(result.finalPrompt).not.toContain("Changed after launch");
   });
 
-  it("uses a fixed Harness bootstrap without embedding Task or Project context", () => {
+  it("uses a fixed TaskExecutionAttempt bootstrap without embedding Task or Project context", () => {
     const input = fixtures();
-    const result = assembleHarnessSystemPrompt({ runtime: input.runtime, providerKey: "codex", agentContext: input.agentContext });
+    const result = assembleTaskExecutionAttemptSystemPrompt({ runtime: input.runtime, providerKey: "codex", agentContext: input.agentContext });
 
     expect(result.finalPrompt).toContain("mystra-agent context get");
     expect(result.finalPrompt).toContain("host-local linctl");

@@ -32,7 +32,7 @@ describe("Prisma provider schema parity", () => {
       "Project",
       "ProjectIssueSource",
       "Task",
-      "Harness",
+      "TaskExecutionAttempt",
       "TaskStatusTransition",
       "TaskWorkspace",
       "WorkspacePreparationAttempt",
@@ -56,7 +56,7 @@ describe("Prisma provider schema parity", () => {
       '@@map("projects")',
       '@@map("project_issue_sources")',
       '@@map("tasks")',
-      '@@map("harnesses")',
+      '@@map("task_execution_attempts")',
       '@@map("task_status_transitions")',
       '@@map("task_workspaces")',
       '@@map("workspace_preparation_attempts")',
@@ -97,13 +97,13 @@ describe("Prisma provider schema parity", () => {
 
   it("models optional Agent snapshots without a default or sentinel relation", () => {
     const schema = modelSection(readSchema("sqlite"));
-    const harness = schema.match(/model Harness \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const attempt = schema.match(/model TaskExecutionAttempt \{[\s\S]*?\n\}/u)?.[0] ?? "";
 
-    expect(harness).toMatch(/agentId\s+String\?/u);
-    expect(harness).toMatch(/agentName\s+String\?/u);
-    expect(harness).toMatch(/agentRevision\s+Int\?/u);
-    expect(harness).toMatch(/agentSystemPrompt\s+String\?/u);
-    expect(harness).toMatch(/agent\s+Agent\?/u);
+    expect(attempt).toMatch(/agentId\s+String\?/u);
+    expect(attempt).toMatch(/agentName\s+String\?/u);
+    expect(attempt).toMatch(/agentRevision\s+Int\?/u);
+    expect(attempt).toMatch(/agentSystemPrompt\s+String\?/u);
+    expect(attempt).toMatch(/agent\s+Agent\?/u);
     expect(schema).not.toMatch(/defaultAgent|sentinelAgent/u);
   });
 
@@ -121,10 +121,13 @@ describe("Prisma provider schema parity", () => {
     expect(task).toMatch(/issueScopeExternalId\s+String\?/u);
     expect(task).toMatch(/issueExternalId\s+String\?/u);
     expect(task).toMatch(/issueIdentifier\s+String\?/u);
+    expect(task).toMatch(/status\s+String/u);
+    expect(task).toMatch(/metadata\s+String/u);
     expect(task).toMatch(/project\s+Project\?/u);
     expect(task).toMatch(/@@unique\(\[teamId, idempotencyKey\]\)/u);
     expect(task).toMatch(/@@unique\(\[issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId\]\)/u);
-    expect(task).not.toMatch(/issueDispatchKey|metadata/u);
+    expect(task).not.toMatch(/issueDispatchKey|productionStatus|production_status/u);
+    expect(schema).not.toMatch(/TaskLabel|normalizedKey|normalizedValue|ordinal/u);
   });
 
   it("models a singular Task Workspace and monotonically sequenced preparation attempts", () => {

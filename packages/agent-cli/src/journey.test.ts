@@ -30,7 +30,7 @@ describe("accepted local-tool journey", () => {
       if (url.endsWith("/context")) {
         return Response.json({
           version: 1,
-          execution: { teamId: id("1"), taskId: id("2"), harnessId: id("3"), sessionId: id("4"), agentContext: null, expiresAt: "2026-08-11T23:00:00.000Z" },
+          execution: { teamId: id("1"), taskId: id("2"), attemptId: id("3"), sessionId: id("4"), agentContext: null, expiresAt: "2026-08-11T23:00:00.000Z" },
           task: { title: "Implement fixture", description: null, issue: { provider: "linear", connectionId: id("6"), scopeExternalId: "team", externalId: "issue-1", identifier: "ENG-1" } },
           project: { id: id("7"), repositoryConnectionId: id("8"), repositoryExternalId: "R_fixture", repositoryBaseBranch: "main" },
           workspace: { id: id("9"), branch: "eng-1" },
@@ -38,12 +38,12 @@ describe("accepted local-tool journey", () => {
         });
       }
       expect(JSON.parse(String(init?.body))).toEqual({
-        status: "waiting_for_review",
+        status: "blocked",
         expectedRevision: 2,
         idempotencyKey: "delivery-1",
         note: "PR: https://github.example.test/acme/repo/pull/7; tests: fixture pass",
       });
-      return Response.json({ taskId: id("2"), productionStatus: "waiting_for_review", statusRevision: 3, statusUpdatedAt: "2026-08-11T22:00:00.000Z", transitionId: id("10") });
+      return Response.json({ taskId: id("2"), status: "blocked", statusRevision: 3, statusUpdatedAt: "2026-08-11T22:00:00.000Z", transitionId: id("10") });
     });
     const env = { MYSTRA_CONTROL_PLANE_URL: "http://control-plane.test", MYSTRA_EXECUTION_CODE: "execution-code" };
 
@@ -57,14 +57,14 @@ describe("accepted local-tool journey", () => {
 
       const statusOut = output();
       expect(await runAgentCli({
-        argv: ["task", "status", "set", "waiting_for_review", "--expected-revision", "2", "--idempotency-key", "delivery-1", "--note", `PR: ${delivery.url}; tests: fixture pass`],
+        argv: ["task", "status", "set", "blocked", "--expected-revision", "2", "--idempotency-key", "delivery-1", "--note", `PR: ${delivery.url}; tests: fixture pass`],
         env,
         cwd: () => fixtureRoot,
         fetch: fetchMock as typeof fetch,
         stdout: statusOut,
         stderr: output(),
       })).toBe(0);
-      expect(JSON.parse(statusOut.read()).productionStatus).toBe("waiting_for_review");
+      expect(JSON.parse(statusOut.read()).status).toBe("blocked");
       expect(requests).toEqual([
         "http://control-plane.test/api/agent-execution/context",
         "http://control-plane.test/api/agent-execution/task-status",

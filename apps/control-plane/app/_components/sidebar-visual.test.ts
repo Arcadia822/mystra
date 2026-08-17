@@ -28,12 +28,12 @@ describe("sidebar visual primitives", () => {
 
     expect(shell).toContain("<SidebarCountBadge count={inboxCount} />");
     expect(shell).toContain("<SidebarIconButton");
-    expect(shell).toContain("<SidebarStatusIcon");
+    expect(shell).toContain('<span className="sidebarVisual" data-visual="status"><TaskStatusIcon');
     expect(shell).not.toMatch(/className="(?:navIcon|projectMark|taskStatusIcon|sidebarSectionAction|sidebarToggle)"/);
   });
 
   it("gives every trailing visual one slot and every shell icon one style template", () => {
-    const css = readAppFile("../globals.css");
+    const css = readAppFile("../../../../packages/ui/src/styles.css");
 
     expect(css).toMatch(/\.sidebarVisual\[data-position="trailing"\]\s*\{[\s\S]*?width:\s*var\(--control-height-compact\);[\s\S]*?height:\s*var\(--control-height-compact\);/);
     expect(css).toMatch(/\.sidebarVisual svg\s*\{[\s\S]*?width:\s*var\(--space-4\);[\s\S]*?height:\s*var\(--space-4\);[\s\S]*?stroke-width:\s*var\(--shell-icon-stroke\);/);

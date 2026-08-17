@@ -27,7 +27,8 @@ describe("removed persistence surfaces", () => {
       expect(source).toMatch(/model\s+Runtime\b/u);
       expect(source).toMatch(/model\s+RuntimeProvider\b/u);
       expect(source).toMatch(/model\s+TaskWorkspace\b/u);
-      expect(source).toMatch(/model\s+Harness\b/u);
+      expect(source).toMatch(/model\s+TaskExecutionAttempt\b/u);
+      expect(source).not.toMatch(/model\s+Harness\b/u);
       expect(source).toMatch(/model\s+TaskStatusTransition\b/u);
       expect(source).toMatch(/model\s+WorkspacePreparationAttempt\b/u);
       expect(source).toMatch(/model\s+Session\b/u);

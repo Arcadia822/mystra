@@ -25,11 +25,12 @@ const task = {
   description: null,
   projectId: null,
   issue: null,
-  productionStatus: "pending" as const,
+  status: "pending" as const,
+  metadata: {},
   statusRevision: 1,
   statusNote: null,
   statusUpdatedAt: "2026-08-07T00:00:00.000Z",
-  statusActor: { kind: "system" as const, actorId: null, agentId: null, harnessId: null, sessionId: null },
+  statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
   createdAt: "2026-08-07T00:00:00.000Z",
   updatedAt: "2026-08-07T00:00:00.000Z",
 };
@@ -71,9 +72,9 @@ function toolCall(name: string, arguments_: Record<string, unknown> = {}) {
 beforeEach(() => {
   startProduction.mockReset();
   startProduction.mockResolvedValue({
-    task: { ...task, productionStatus: "in_progress", statusRevision: 2 },
-    transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: { kind: "human", actorId: userId, agentId: null, harnessId: randomUUID(), sessionId: null }, note: null, idempotencyKey: "start-mcp-1", requestFingerprint: "a".repeat(64), occurredAt: "2026-08-07T00:00:00.000Z" },
-    harness: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
+    task: { ...task, status: "in_progress", statusRevision: 2 },
+    transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: { kind: "human", actorId: userId, agentId: null, attemptId: randomUUID(), sessionId: null }, note: null, idempotencyKey: "start-mcp-1", requestFingerprint: "a".repeat(64), occurredAt: "2026-08-07T00:00:00.000Z" },
+    attempt: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
     created: true,
   });
   vi.mocked(getDb).mockResolvedValue({
@@ -269,6 +270,7 @@ describe("MCP human session authorization", () => {
       projectId,
       title: "MCP Task",
       description: null,
+      metadata: {},
       idempotencyKey: "00000000-0000-4000-8000-000000000090",
       teamId,
     });

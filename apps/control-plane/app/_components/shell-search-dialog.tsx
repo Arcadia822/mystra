@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { TaskWorkbenchItem } from "@mystra/shared";
+import { TaskStatusIcon } from "@mystra/ui";
 
 import { taskLabel } from "../_lib/format";
 import { taskTitle } from "../_lib/task-view";
-import type { TaskListItem } from "../_lib/types";
 import { filterTasks, selectedSearchTask } from "./shell-model";
 import { ShellIcon } from "./shell-icons";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
@@ -21,12 +22,13 @@ interface ShellSearchDialogProps {
   open: boolean;
   openTaskLabel: string;
   onClose: () => void;
+  onNewTask: () => void;
   placeholder: string;
   previewEmptyLabel: string;
   repositoryLabel: string;
   issueLabel: string;
   showAllLabel: string;
-  tasks: TaskListItem[];
+  tasks: TaskWorkbenchItem[];
   tasksLabel: string;
   title: string;
   updatedLabel: string;
@@ -54,6 +56,7 @@ export function ShellSearchDialog({
   open,
   openTaskLabel,
   onClose,
+  onNewTask,
   placeholder,
   previewEmptyLabel,
   repositoryLabel,
@@ -121,10 +124,10 @@ export function ShellSearchDialog({
                 <h3 id="search-actions-title">{actionsLabel}</h3>
                 <UiActionLink href="/tasks" size="compact" onClick={onClose}>{showAllLabel}</UiActionLink>
               </header>
-              <UiActionLink block className="searchAction" href="/new" onClick={onClose}>
+              <UiButton block className="searchAction" onClick={() => { onClose(); onNewTask(); }}>
                 <span className="searchResultIcon"><ShellIcon name="new" /></span>
                 <span>{newTaskLabel}</span>
-              </UiActionLink>
+              </UiButton>
             </section>
 
             <section aria-labelledby="search-results-title" className="searchResultsSection">
@@ -144,9 +147,10 @@ export function ShellSearchDialog({
                           className="searchResult"
                           onClick={() => setSelectedId(task.id)}
                         >
+                          <TaskStatusIcon status={task.status} />
                           <span className="searchResultCopy">
                             <strong>{taskTitle(task)}</strong>
-                            <small>{taskLabel(task.id, task.issue?.identifier)} · {task.projectId ?? "No project"}</small>
+                            <small>{taskLabel(task.id, task.issue?.identifier)} · {task.projectReference?.repositoryExternalId ?? "No project"}</small>
                           </span>
                           <time dateTime={task.updatedAt}>{formatSearchDate(task.updatedAt, locale)}</time>
                         </UiButton>
@@ -175,7 +179,7 @@ export function ShellSearchDialog({
                 <UiSurfaceBody className="searchPreviewBody">
                   <p>{selectedTask.description ?? selectedTask.title}</p>
                   <dl className="searchPreviewFacts">
-                    <div><dt>{repositoryLabel}</dt><dd>{selectedTask.projectId ?? "No project"}</dd></div>
+                    <div><dt>{repositoryLabel}</dt><dd>{selectedTask.projectReference?.repositoryExternalId ?? "No project"}</dd></div>
                     <div><dt>{issueLabel}</dt><dd>{selectedTask.issue?.identifier ?? "No Issue"}</dd></div>
                     <div><dt>{updatedLabel}</dt><dd><time dateTime={selectedTask.updatedAt}>{formatSearchDate(selectedTask.updatedAt, locale)}</time></dd></div>
                     <div><dt>Task ID</dt><dd>{taskLabel(selectedTask.id, selectedTask.issue?.identifier)}</dd></div>

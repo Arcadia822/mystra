@@ -19,24 +19,24 @@ The current product boundary is Open Agents source-authoritative baseline reuse
 with Mystra-owned interfaces at provider and execution seams: selectable
 SQLite/PostgreSQL/Supabase-backed PostgreSQL RDB,
 GitHub RepoProvider plus repository-scoped IssueProvider, read-only Linear
-IssueProvider, direct Agent execution, Task-bound Harness production, and a
+IssueProvider, direct Agent execution, Task-bound TaskExecutionAttempt production, and a
 single-machine sandbox path. Every Project repository is remote and
-provider-resolved. Feature 051 introduced Task productionStatus and splits
+provider-resolved. Feature 051 introduced Task status and splits
 `mystra` Control Plane management from the attempt-scoped `mystra-agent`
 workload CLI. Feature 054 owns the current `pending/in_progress/blocked/done/canceled`
 vocabulary, where `blocked` means Needs handoff; the workload CLI resolves
-execution context and permits only allowlisted Task status transitions. Feature 052 makes Agent Context optional: a thin Harness
-attempt freezes the selected Agent snapshot only when supplied and always starts
+execution context and permits only allowlisted Task status transitions. Feature 052 makes Agent Context optional: a
+TaskExecutionAttempt freezes the selected Agent snapshot only when supplied and always starts
 exactly one goal/autopilot Session after its Task Workspace is ready. Every Session
 uses the program-owned, content-addressed Standard Execution Prompt; optional Agent
 Context is lower-priority supplemental text and never replaces platform constraints.
 The self-use Agent reads Linear through host-local `linctl` and creates its PR
 through host-local `gh`; Mystra does not proxy, credential, or verify either
 operation. PR/self-test text is Agent-reported and is not verified by Mystra.
-Harness-owned heartbeat, event subscriptions, multiple Sessions, generic
+Attempt-owned heartbeat, event subscriptions, multiple Sessions, generic
 Artifact submission and verification are follow-up specifications. Product runtime MUST NOT depend on a
 general WorkflowProvider, configurable workflow blueprint, workflow node graph,
-or DSL outside that Harness.
+or DSL outside that TaskExecutionAttempt.
 The approved GitHub App connection exception is hosted-only. It uses OAuth only
 to verify that an authenticated actor may bind an installation to a Team and
 uses short-lived installation tokens for both discovery and delivery. The
@@ -66,7 +66,7 @@ self-hosted support contract or create a general Integration catalog.
      contracts and must not introduce repository resolution or provider
      branching of their own.
    - Another durable rule now in force: Mystra is a flexible software factory.
-     Task is the production order and owns productionStatus; Harness identifies
+     Task is the production order and owns status; TaskExecutionAttempt identifies
      one production attempt, Session is one execution conversation, and Agent is
      the responsible producer. Agent-reported results are not platform-verified.
 5. Keep feature-specific requirements inside Spec-Kit specs, plans, tasks, and generated design artifacts.
@@ -149,7 +149,7 @@ acceptance and reason in the feature directory.
   interaction.
 - Execute the narrowest relevant test first, then broader checks when the touched surface justifies it.
 - Use only the root-pinned GitNexus scripts. `pnpm gitnexus:rebuild` is the
-  repair path and intentionally runs in index-only mode so generated upstream
+  repair path and intentionally operates in index-only mode so generated upstream
   context cannot overwrite Mystra's project-local skills or durable `AGENTS.md`
   rules.
 - For broad changes, run `pnpm typecheck` and `pnpm test`.

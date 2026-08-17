@@ -7,7 +7,7 @@ import { AgentExecutionService } from "./agent-execution-service";
 const id = (suffix: string) => `00000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
 
 function resolved(expiresAt = "2026-08-11T03:00:00.000Z") {
-  const harness = {
+  const attempt = {
     id: id("1"), teamId: id("2"), taskId: id("3"), projectId: id("4"), agentId: id("5"), agentRevision: 2,
     agentName: "Agent", agentSystemPrompt: "Prompt", taskTitle: "Frozen task", taskDescription: "Frozen description",
     taskIssue: { provider: "linear" as const, connectionId: id("6"), scopeExternalId: "team", externalId: "issue", identifier: "ENG-1" },
@@ -16,11 +16,11 @@ function resolved(expiresAt = "2026-08-11T03:00:00.000Z") {
     setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",
   };
   return {
-    harness,
-    task: { id: harness.taskId, teamId: harness.teamId, title: "Mutable", description: null, projectId: harness.projectId, issue: null, productionStatus: "in_progress" as const, statusRevision: 2, statusNote: null, statusUpdatedAt: "2026-08-11T00:00:00.000Z", statusActor: { kind: "human" as const, actorId: "owner", agentId: null, harnessId: harness.id, sessionId: null }, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z" },
-    project: { id: harness.projectId, teamId: harness.teamId, name: "Mystra", slug: "mystra", repositoryConnectionId: id("11"), repositoryExternalId: "R_repo", repositoryBaseBranch: "main", metadata: { secret: "must-not-return" }, archivedAt: null, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z" },
-    workspace: { id: harness.workspaceId!, teamId: harness.teamId, taskId: harness.taskId, projectId: harness.projectId, runtimeId: harness.runtimeId, state: "ready" as const, sharingMode: "shared-mutable" as const, connectionId: id("11"), repositoryExternalId: "R_repo", configuredBaseBranch: "main", issueProvider: "linear" as const, issueConnectionId: id("6"), issueScopeExternalId: "team", issueExternalId: "issue", baseRef: "refs/heads/main", baseCommit: "a".repeat(40), branchName: "eng-1", branchStrategy: "linear-issue-v1" as const, workspaceRef: "host:workspace", activeAttemptSequence: 1, failureCode: null, failureMessage: null, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z", readyAt: "2026-08-11T00:00:00.000Z" },
-    session: { id: harness.sessionId!, teamId: harness.teamId, taskId: harness.taskId, projectId: harness.projectId, runtimeId: harness.runtimeId, providerKey: "codex" as const, agentId: harness.agentId, agentRevision: 2, state: "dispatched" as const, activeMessageId: harness.firstMessageId, lastMessageId: null, interruptKind: null, continuationMode: null, failureCode: null, metadata: {}, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z" },
+    attempt,
+    task: { id: attempt.taskId, teamId: attempt.teamId, title: "Mutable", description: null, projectId: attempt.projectId, issue: null, status: "in_progress" as const, metadata: {}, statusRevision: 2, statusNote: null, statusUpdatedAt: "2026-08-11T00:00:00.000Z", statusActor: { kind: "human" as const, actorId: "owner", agentId: null, attemptId: attempt.id, sessionId: null }, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z" },
+    project: { id: attempt.projectId, teamId: attempt.teamId, name: "Mystra", slug: "mystra", repositoryConnectionId: id("11"), repositoryExternalId: "R_repo", repositoryBaseBranch: "main", metadata: { secret: "must-not-return" }, archivedAt: null, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z" },
+    workspace: { id: attempt.workspaceId!, teamId: attempt.teamId, taskId: attempt.taskId, projectId: attempt.projectId, runtimeId: attempt.runtimeId, state: "ready" as const, sharingMode: "shared-mutable" as const, connectionId: id("11"), repositoryExternalId: "R_repo", configuredBaseBranch: "main", issueProvider: "linear" as const, issueConnectionId: id("6"), issueScopeExternalId: "team", issueExternalId: "issue", baseRef: "refs/heads/main", baseCommit: "a".repeat(40), branchName: "eng-1", branchStrategy: "linear-issue-v1" as const, workspaceRef: "host:workspace", activeAttemptSequence: 1, failureCode: null, failureMessage: null, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z", readyAt: "2026-08-11T00:00:00.000Z" },
+    session: { id: attempt.sessionId!, teamId: attempt.teamId, taskId: attempt.taskId, projectId: attempt.projectId, runtimeId: attempt.runtimeId, providerKey: "codex" as const, agentId: attempt.agentId, agentRevision: 2, state: "dispatched" as const, activeMessageId: attempt.firstMessageId, lastMessageId: null, interruptKind: null, continuationMode: null, failureCode: null, metadata: {}, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z" },
     executionCodeExpiresAt: expiresAt,
   };
 }
@@ -44,7 +44,7 @@ describe("AgentExecutionService", () => {
     const base = resolved();
     const execution = {
       ...base,
-      harness: { ...base.harness, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null },
+      attempt: { ...base.attempt, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null },
       session: { ...base.session, agentId: null, agentRevision: null },
     };
     const service = new AgentExecutionService({
@@ -66,7 +66,7 @@ describe("AgentExecutionService", () => {
     await expect(expired.whoami("expired")).rejects.toMatchObject({ code: "capability_expired" });
   });
 
-  it("fails closed when persisted Harness, Session, or Workspace scope no longer matches", async () => {
+  it("fails closed when persisted TaskExecutionAttempt, Session, or Workspace scope no longer matches", async () => {
     const mismatch = resolved();
     mismatch.session.runtimeId = id("99");
     const service = new AgentExecutionService({

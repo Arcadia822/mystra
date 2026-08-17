@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { manualTaskCreateRequestSchema, taskCreateResponseSchema, taskListResponseSchema } from "@mystra/shared";
+import { manualTaskCreateRequestSchema, taskCreateResponseSchema, taskPageQuerySchema, taskWorkbenchPageSchema } from "@mystra/shared";
 
 import { getDb } from "@/lib/db";
 import { managementException } from "@/lib/management-http";
@@ -14,11 +14,27 @@ export async function GET(request: Request) {
     const db = await getDb();
     const subject = await requireHumanSession(db, request, "task-list");
     const active = await requireTeamPermission(db, subject, "team.resource.access");
-    return NextResponse.json(taskListResponseSchema.parse({
-      tasks: await db.listTasks({ teamId: active.team.id }),
-    }));
+    const search = new URL(request.url).searchParams;
+    const queryInput: Record<string, unknown> = Object.fromEntries(search);
+    delete queryInput.status;
+    Object.assign(queryInput, {
+      cursor: search.get("cursor"),
+      limit: search.has("limit") ? Number(search.get("limit")) : undefined,
+      query: search.get("query"),
+      statuses: search.getAll("status"),
+      sort: search.get("sort") ?? undefined,
+      direction: search.get("direction") ?? undefined,
+    });
+    const query = taskPageQuerySchema.parse(queryInput);
+    return NextResponse.json(taskWorkbenchPageSchema.parse(
+      await db.listTaskPage({ ...query, teamId: active.team.id }),
+    ));
   } catch (error) {
-    return authorizationErrorResponse(error);
+    try {
+      return authorizationErrorResponse(error);
+    } catch {
+      return managementException(error, "INVALID_TASK");
+    }
   }
 }
 

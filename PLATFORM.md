@@ -36,8 +36,8 @@ Mystra platform
   -> Team
     -> Agent
     -> Project
-    -> Task (productionStatus)
-      -> Harness attempt
+    -> Task (status)
+      -> TaskExecutionAttempt
         -> one Autopilot Session (MVP)
     -> Session
       -> project? (0..1 reference)
@@ -47,14 +47,14 @@ Mystra platform
 ```
 
 Task is Team-scoped and persists Mystra-owned title/description,
-productionStatus and immutable optional Project context/exact Issue references.
+status and immutable optional Project context/exact Issue references.
 Project is not Task ownership, and current external Issue information and status
 remain provider-resolved rather than copied or mapped.
 Session is independently Team-scoped, owns all execution choices and lifecycle,
 and may separately reference `0..1` Project and `0..1` Task. Runner is a stable
 host service；Session capacity/slot accounting is not implemented by 048. A
-Harness-driven Session still stores the resolved execution inputs, but the
-Harness freezes optional Agent Context and coordinates when the Session is created or
+TaskExecutionAttempt-driven Session still stores the resolved execution inputs, but the
+attempt freezes optional Agent Context and coordinates when the Session is created or
 continued.
 Workspace is the unified execution working-directory and context-delivery
 surface; it is never a tenancy term. The current 048/049/050 slice supports
@@ -66,10 +66,10 @@ inputs, composes the system prompt and first user message, then starts the
 selected Provider. Project-only and standalone Sessions are deferred; a future
 preparation policy must reuse this Workspace/attachment contract instead of
 creating a parallel type.
-Harness is the Task-bound attempt identity introduced by feature 051. It freezes
+TaskExecutionAttempt is the Task-bound attempt identity introduced by feature 051. It freezes
 an optional Agent name/revision/system-prompt snapshot and associates exactly one goal/autopilot Session in the
 first version. Task owns the production state machine; Session owns execution
-state. Harness does not introduce a third synchronized lifecycle. Heartbeat,
+state. TaskExecutionAttempt does not introduce a third synchronized lifecycle. Heartbeat,
 event subscriptions, multiple Session coordination and generic
 Artifact/Delivery profiles are deferred.
 
@@ -109,19 +109,20 @@ pnpm lsp:typescript
   persistence and requires a separate Repo Info retrieval/cache specification. Local paths and caller-supplied clone
   URLs are invalid inputs.
 - Task belongs to exactly one Team and not to Project. It persists title,
-  description, productionStatus, status revision/note/actor projection, an
+  description, status, status revision/note/actor projection, an
   immutable optional Project context reference, and an immutable optional exact
   Issue reference. An Issue reference requires Project context.
 - One exact Project-scoped Issue maps to at most one Task. Current external Issue
   state remains provider-resolved; Task stores no Issue snapshot or write-back
   state.
-- Task creation initializes productionStatus to `pending` and has no execution
+- Task creation initializes status to `pending` and has no execution
   side effect. Start atomically transitions it to `in_progress`, creates
-  one idempotent Harness attempt, and launches its Session. Later status
+  one internal idempotent TaskExecutionAttempt, and launches its Session.
+  TaskExecutionAttempt is not an operator-facing product object. Later status
   transitions never implicitly start, stop or retry Session execution.
 - Task status transitions use a dedicated allowlisted service, expectedRevision,
   idempotency identity and append-only TaskStatusTransition history. The Agent
-  CLI capability is bound to the exact Team/Task/Harness/Session and optional frozen Agent identity
+  CLI capability is bound to the exact Team/Task/TaskExecutionAttempt/Session and optional frozen Agent identity
   and cannot edit Task requirement fields.
 - Every Session belongs to exactly one Team and belongs to neither Task nor
   Project. It may independently reference at most one Task and at most one
@@ -160,8 +161,8 @@ pnpm lsp:typescript
   follow-up boundaries.
 - Runtime secrets are injected through environment variables or read-only files.
 - Caches are disposable performance hints and must fall back to cold setup.
-- Core production is direct and Task-bound: Start, optionally with Agent Context, creates a thin Harness
-  attempt and exactly one first-version Autopilot Session. Agent reports Task
+- Core production is direct and Task-bound: Start, optionally with Agent Context, creates a
+  TaskExecutionAttempt and exactly one first-version Autopilot Session. Agent reports Task
   status through a narrow CLI; PR/test notes remain unverified. There is no
   general WorkflowProvider, workflow node graph or DSL.
 - Shared-nothing is a future scaling direction, not permission to discard
@@ -246,7 +247,7 @@ GitHub App path.
 Project creation keeps execution choices out of repository onboarding. Project
 does not own, default or persist Agent selection; `MYSTRA_DEFAULT_AGENT` remains
 an obsolete Project field or fallback. Optional Agent Context belongs to an eligible
-Task Start request. Start creates the Harness attempt, which resolves Runtime, Provider,
+Task Start request. Start creates the TaskExecutionAttempt, which resolves Runtime, Provider,
 an optional frozen Team-scoped Agent snapshot and Context for its Session without moving
 those concerns into Project onboarding.
 
@@ -273,19 +274,19 @@ by Projects and Team-scoped Tasks. `/new` creates a Task manually; Project is
 optional and Issue selection is deliberately absent. Existing Task, Session,
 Runner, and Project object routes remain directly reachable. `/automations` is
 directly addressable as a Coming soon placeholder and adds no general workflow
-runtime or persistence contract. Task assignment and production status remain
+runtime or persistence contract. Task assignment and Task status remain
 Task product surfaces rather than an Automations catalog.
 
 Feature 051 splits the clients by actor and authority. `mystra` is the
 Control Plane management CLI for Humans, external Agents, and automation.
 `mystra-agent` is the workload-local CLI for one execution attempt; Runtime
 injects `MYSTRA_CONTROL_PLANE_URL` and a short-lived, revocable
-`MYSTRA_EXECUTION_CODE` bound to Team, Task, Harness, Session, and optional frozen Agent
+`MYSTRA_EXECUTION_CODE` bound to Team, Task, TaskExecutionAttempt, Session, and optional frozen Agent
 identity. It exposes `whoami`, schema-versioned `context get`, and Task status
 get/set over the dedicated TaskStatusService without accepting an arbitrary
 Task ID. Context contains the minimum Task/Project/Issue-reference/Workspace
 inputs and no external Issue body, Integration credential, or secret. Generic
-Harness CLI commands, heartbeat/event subscriptions, multiple Session
+TaskExecutionAttempt CLI commands, heartbeat/event subscriptions, multiple Session
 orchestration, Artifact contracts, non-PR outputs and PR/self-test verification
 are deferred to explicit follow-up specifications.
 

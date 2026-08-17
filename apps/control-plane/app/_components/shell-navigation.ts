@@ -1,13 +1,12 @@
 import type { ShellIconName } from "./shell-icons";
 
 export const PRIMARY_ITEMS: Array<{
-  key: "new" | "search" | "inbox" | "issues" | "runtimes";
+  key: "overview" | "inbox" | "tasks" | "runtimes";
   icon: ShellIconName;
-  href?: string;
+  href: string;
 }> = [
-  { key: "new", icon: "new", href: "/new" },
-  { key: "search", icon: "search" },
+  { key: "overview", icon: "overview", href: "/" },
   { key: "inbox", icon: "inbox", href: "/inbox" },
-  { key: "issues", icon: "issue", href: "/issues" },
+  { key: "tasks", icon: "list", href: "/tasks" },
   { key: "runtimes", icon: "repository", href: "/runners" },
 ];

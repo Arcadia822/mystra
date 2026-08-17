@@ -11,8 +11,8 @@ export default function InboxPage() {
   const resource = useShellTasks();
   const [query, setQuery] = useState("");
   const rows = useMemo(
-    () => filterTasks(inboxTasks(resource.data?.tasks ?? []), query),
-    [query, resource.data?.tasks],
+    () => filterTasks(inboxTasks(resource.data?.items ?? []), query),
+    [query, resource.data?.items],
   );
 
   return (

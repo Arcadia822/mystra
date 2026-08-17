@@ -262,7 +262,7 @@ SDK surfaces where upstream does not provide reusable package contracts. The
 current provider set is selectable SQLite, PostgreSQL, or Supabase-backed
 PostgreSQL behind `RdbProvider`, GitHub Integration with
 remote `RepoProvider` plus repository-scoped `IssueProvider`, read-only Linear
-`IssueProvider`, direct Agent execution, Task-bound Harness production, and Runtime as a first-class execution
+`IssueProvider`, direct Agent execution, Task-bound production coordinated by an internal TaskExecutionAttempt record, and Runtime as a first-class execution
 backend that advertises its Provider (agent CLI) capabilities source-agnostically.
 A host-bound Runtime enrolled by the TypeScript `mystra-runner` — registration
 (endpoint-configured, no MVP pairing), Provider discovery plus availability
@@ -270,10 +270,10 @@ confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is
 one sandbox provider rather than the sole execution model, and host worktree
 direct execution is the intended default execution direction. Feature 044 owns
 host Runtime enrollment; 047–050 own Task Context, Workspace and Session
-foundations; feature 051 introduced Task productionStatus and the attempt-scoped
+foundations; feature 051 introduced Task status and the attempt-scoped
 `mystra-agent` context/status CLI; feature 054 owns the current five-state
 vocabulary and handoff semantics. Feature 052 owns optional Agent Context and one
-goal/autopilot Session per thin Harness attempt. `mystra` remains the Control Plane management
+goal/autopilot Session per TaskExecutionAttempt. `mystra` remains the Control Plane management
 CLI. The self-use Agent reads Linear with host-local `linctl` and creates its PR
 with host-local `gh`; Mystra does not proxy or credential those tools. PR and
 self-test text is Agent-reported and is not verified by Mystra.
@@ -283,15 +283,15 @@ not a Provider default-branch observation. Remote branch enumeration, symbolic `
 resolution use standard Git protocol rather than Integration-specific RepoProvider methods. Mutable repository names,
 URLs, Provider default-branch observations, visibility, and archive/delete state are not Project persistence; their
 retrieval and caching require a separate specification. Task persists its own
-title, description and productionStatus plus immutable optional Project context and exact Issue references; it does not copy current
+title, description and status plus immutable optional Project context and exact Issue references; it does not copy current
 Issue/Repository snapshots. Future Integration cache design owns current external information. Local paths and
 caller-supplied clone URLs are not Project repository inputs.
 
 The near-term MVP goal is self-use: let an operator or another Agent select a
 GitHub or Linear Issue and dispatch it through canonical API, thin CLI, remote
 MCP, or the secondary Web client. Assigning an Agent to the resulting
-Project-bound Task atomically moves `pending` to `in_progress`, creates a thin
-Harness attempt, requests Task Workspace preparation after commit, and
+Project-bound Task atomically moves `pending` to `in_progress`, creates one
+TaskExecutionAttempt, requests Task Workspace preparation after commit, and
 idempotently starts exactly one goal/autopilot Session once that shared
 Workspace is ready. `mystra` remains the Human/external-Agent Control Plane
 management CLI. The workload-local `mystra-agent` resolves the current attempt
@@ -302,26 +302,26 @@ host user's authenticated `linctl` and creates its PR with the host user's
 authenticated `gh`; Mystra does not proxy, credential, or verify those tools.
 Human actors own `done` and `canceled`. Session state never automatically
 mutates Task status, and Mystra does not verify Agent-reported PR or self-test statements.
-Harness-owned heartbeat/event subscriptions, multiple Sessions, generic
+Attempt-owned heartbeat/event subscriptions, multiple Sessions, generic
 Artifact submission and non-PR outputs are follow-up specifications.
 
 The active MVP demo UI uses a Castrel-inspired primary menu: New, Search,
 Inbox, and Issues, followed by Projects and a Team-scoped Tasks section.
-Task icons reflect Task productionStatus. Existing Task, Session, Runner, and
+Task icons reflect Task status. Existing Task, Session, Runner, and
 Project object routes remain directly reachable even when they are not primary
 menu items. `/automations` remains directly reachable as a Coming soon
 placeholder, but it is not a primary menu entry and does not introduce a
-general automation catalog. Task Harness controls remain Task surfaces. The first Prisma schema does not preserve
+general automation catalog. Task production controls remain Task surfaces; internal TaskExecutionAttempt records have no navigation or independent management surface. The first Prisma schema does not preserve
 Session-, Runner-, or ContextBundle-derived views as persistence requirements;
 resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
 and CLI.
 
-Task is a durable Team-scoped production task with Mystra-owned title, description and productionStatus plus immutable
+Task is a durable Team-scoped production task with Mystra-owned title, description and status plus immutable
 `0..1` Project context and `0..1` exact Issue references; it does not belong to Project. One exact Issue maps to at
 most one Task, and current external requirement state remains provider-owned rather than copied or written back.
 Task creation initializes `pending` and never launches a Session. Start on an eligible Task, optionally with explicit Agent Context, atomically enters
-`in_progress`, creates one Harness attempt and drives Workspace preparation plus exactly one first-version Autopilot Session.
-Harness freezes the selected Agent name/revision/system-prompt snapshot when present and otherwise records no Agent; it does not own a parallel production state machine.
+`in_progress`, creates one TaskExecutionAttempt and drives Workspace preparation plus exactly one first-version Autopilot Session.
+TaskExecutionAttempt freezes the selected Agent name/revision/system-prompt snapshot when present and otherwise records no Agent; it is not an operator-facing product object and does not own a parallel production state machine.
 Task status updates use a dedicated allowlisted transition service with expected revision, idempotency and append-only history.
 One Session is the attempt's multi-turn execution conversation. Session is a Team-scoped execution object that belongs to neither Task nor
 Project; it may independently reference `0..1` Task and `0..1` Project. Canonical launch atomically persists the Session,
@@ -338,13 +338,13 @@ cross-Session activity timelines, and arbitrary stdout/stderr persistence remain
 Runtime capability; an idle ready Session does not reserve capacity.
 
 The north-star model is a hosted **Mystra platform** serving many independent
-**Teams**. Each Team may contain multiple Projects, Tasks, Harnesses, Sessions, and Agents
+**Teams**. Each Team may contain multiple Projects, Tasks, TaskExecutionAttempts, Sessions, and Agents
 while sharing platform-owned provider pools such as sandbox capacity. Agent,
-Task, Project, Harness, and Session are Team-scoped: Agent and Task do not belong
+Task, Project, TaskExecutionAttempt, and Session are Team-scoped: Agent and Task do not belong
 to Project, and Session belongs to neither Task nor Project. Session may
 independently reference `0..1` of each and selects Runtime, Provider, optional Agent Context, and
-Context as four independent execution inputs. A Harness-driven Session receives
-those resolved inputs from its Harness and must use the Harness-frozen optional Agent snapshot. Every Session receives the program-owned, content-addressed Standard Execution Prompt; Agent Context is supplemental and lower priority.
+Context as four independent execution inputs. A TaskExecutionAttempt-driven Session receives
+those resolved inputs from its attempt and must use the attempt-frozen optional Agent snapshot. Every Session receives the program-owned, content-addressed Standard Execution Prompt; Agent Context is supplemental and lower priority.
 Use this as the architectural direction when designing extensible interfaces,
 even though the current MVP proves one private, single-node deployment path.
 
@@ -391,7 +391,7 @@ RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
 PostgreSQL remain approved deployment targets. Hosted platform persistence
 management remains a separate phase. GitLab is not an enabled/default
 Integration, standing orders, general WorkflowProvider/DSL, arbitrary triggers,
-and orchestration outside the Task-bound Harness remain excluded. GitLab may remain as a
+and orchestration outside the Task-bound TaskExecutionAttempt remain excluded. GitLab may remain as a
 runner-side `RepoDeliveryProvider`; that does not make it an active Project
 repository Integration. PostgreSQL and Supabase-backed PostgreSQL are approved
 deployment targets; the `RdbProvider` interface must not leak database dialect,
@@ -488,5 +488,7 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，经 `RdbProvider`；新增 Session、append-only SessionEvent 与独立 dispatch lease/event stream/head 操作表；领域合同没有 Turn，messageId 仅为消息幂等/事件关联；049 只支持 Task-bound Session 并复用 048 Workspace，非 Task 准备策略延后；Runtime capacity 不入库 (049-session-launch-framework)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16、React 19、Zod 4、Vitest 4；直接复用 049 Session/SessionEvent shared contracts (050-task-session-experience)
 - 050 不新增 Session summary/detail view 或持久化表；只增加 Task-filtered Session query、Task launch adapter 与 SessionEvent presentation (050-task-session-experience)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16、React 19、Zod 4、Prisma 7.9.1、Vitest 4、`@mystra/ui` (054-navigation-task-workbench)
+- SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider`；在两套 Task row 增加单一 Metadata JSON payload，不新增关系表或 normalized columns (054-navigation-task-workbench)
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider
