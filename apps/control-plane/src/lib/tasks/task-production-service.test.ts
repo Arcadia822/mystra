@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { describe, expect, it, vi } from "vitest";
-import type { TaskExecutionAttempt } from "@mystra/shared";
+import type { TaskExecutionContext } from "@mystra/shared";
 
 import { TaskProductionService } from "./task-production-service";
 import { getHostLivenessRegistry } from "../runtime/runtime-liveness";
@@ -14,30 +14,30 @@ describe("TaskProductionService", () => {
     const task = {
       id: id("1"), teamId: id("2"), title: "Frozen title", description: "Frozen description", projectId: id("3"), issue: null,
       status: "pending" as const, metadata: {}, statusRevision: 1, statusNote: null, statusUpdatedAt: now,
-      statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
+      statusActor: { kind: "system" as const, actorId: null, agentId: null, executionContextId: null, sessionId: null },
       createdAt: now, updatedAt: now,
     };
     const calls: string[] = [];
     getHostLivenessRegistry().markSeen(id("7"), new Date());
-    const updateExecutionAttempt = vi.fn(async (input) => ({ ...assignedAttempt!, workspaceId: input.workspaceId ?? null }));
-    let assignedAttempt: TaskExecutionAttempt | undefined;
+    const updateExecutionContext = vi.fn(async (input) => ({ ...assignedExecutionContext!, workspaceId: input.workspaceId ?? null }));
+    let assignedExecutionContext: TaskExecutionContext | undefined;
     const db = {
       getTask: vi.fn(async () => task),
       getProjectById: vi.fn(async () => ({ id: task.projectId!, teamId: task.teamId, name: "Mystra", slug: "mystra", repositoryConnectionId: id("4"), repositoryExternalId: "R_repo", repositoryBaseBranch: "main", metadata: {}, archivedAt: null, createdAt: now, updatedAt: now })),
       getRuntime: vi.fn(async () => ({ id: id("6"), name: "host", type: "host", status: "online", lastSeenAt: now, metadata: { runnerId: id("7"), platform: "darwin/arm64", workspaceMaterialization: { version: 1, kinds: ["task-repository"], sharingModes: ["shared-mutable"] } }, providers: [{ provider: "codex", discovered: true, available: true, source: "path", resolvedPath: "/usr/bin/codex", version: "1", unavailableReason: null }], createdAt: now, updatedAt: now })),
-      getExecutionAttemptByTaskId: vi.fn(),
+      getExecutionContextByTaskId: vi.fn(),
       startTaskProduction: vi.fn(async (input) => {
         calls.push("assigned");
-        assignedAttempt = {
-          ...input.attempt,
+        assignedExecutionContext = {
+          ...input.executionContext,
           agentId: input.agentId,
           agentName: input.agentId ? "Production Agent" : null,
           agentRevision: input.agentId ? 7 : null,
           agentSystemPrompt: input.agentId ? "Frozen Agent prompt." : null,
         };
-        return { task: { ...task, status: "in_progress" as const, statusRevision: 2 }, attempt: assignedAttempt, transition: input.transition, created: true };
+        return { task: { ...task, status: "in_progress" as const, statusRevision: 2 }, executionContext: assignedExecutionContext, transition: input.transition, created: true };
       }),
-      updateExecutionAttempt,
+      updateExecutionContext,
     };
     const workspace = {
       setup: vi.fn(async () => {
@@ -49,7 +49,7 @@ describe("TaskProductionService", () => {
     const service = new TaskProductionService({
       db: db as never,
       workspace: workspace as never,
-      sessions: { launchAttempt: vi.fn() },
+      sessions: { launchExecutionContext: vi.fn() },
       now: () => "2026-08-11T00:00:00.000Z",
       newId: vi.fn().mockReturnValueOnce(id("9")).mockReturnValueOnce(id("10")).mockReturnValueOnce(id("11")).mockReturnValueOnce(id("12")),
     });
@@ -60,34 +60,34 @@ describe("TaskProductionService", () => {
       launch: { sessionId: id("20"), manualContextText: "Inspect the regression" },
     });
     expect(calls).toEqual(["assigned", "workspace"]);
-    expect(result.attempt).toMatchObject({ agentName: "Production Agent", agentRevision: 7, agentSystemPrompt: "Frozen Agent prompt.", taskTitle: "Frozen title", workspaceId: id("8") });
-    expect(result.attempt).toMatchObject({ plannedSessionId: id("20"), manualContextText: "Inspect the regression" });
-    expect(updateExecutionAttempt).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: id("8") }));
+    expect(result.executionContext).toMatchObject({ agentName: "Production Agent", agentRevision: 7, agentSystemPrompt: "Frozen Agent prompt.", taskTitle: "Frozen title", workspaceId: id("8") });
+    expect(result.executionContext).toMatchObject({ plannedSessionId: id("20"), manualContextText: "Inspect the regression" });
+    expect(updateExecutionContext).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: id("8") }));
   });
 
   it("launches the planned Session once when Workspace becomes ready", async () => {
-    const attempt = {
+    const executionContext = {
       id: id("1"), teamId: id("2"), taskId: id("3"), projectId: id("4"), agentId: id("5"), agentName: "Agent", agentRevision: 1,
       agentSystemPrompt: "Prompt", taskTitle: "Task", taskDescription: null, taskIssue: null, manualContextText: null, runtimeId: id("6"), providerKey: "codex" as const,
       workspaceId: null, plannedSessionId: id("7"), sessionId: null, firstMessageId: id("8"), assignIdempotencyKey: "assign-1",
       assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,
       createdAt: now, updatedAt: now,
     };
-    let current = attempt;
-    const updateExecutionAttempt = vi.fn(async (input) => {
+    let current = executionContext;
+    const updateExecutionContext = vi.fn(async (input) => {
       current = { ...current, ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}), ...(input.sessionId ? { sessionId: input.sessionId } : {}) };
       return current;
     });
-    const launchAttempt = vi.fn(async () => ({ session: { id: attempt.plannedSessionId }, created: true }));
+    const launchExecutionContext = vi.fn(async () => ({ session: { id: executionContext.plannedSessionId }, created: true }));
     const service = new TaskProductionService({
-      db: { getExecutionAttemptByTaskId: vi.fn(async () => current), updateExecutionAttempt } as never,
+      db: { getExecutionContextByTaskId: vi.fn(async () => current), updateExecutionContext } as never,
       workspace: { get: vi.fn(async () => ({ id: id("9"), state: "ready" })), setup: vi.fn() } as never,
-      sessions: { launchAttempt } as never,
+      sessions: { launchExecutionContext } as never,
     });
-    await service.continueAfterWorkspaceReady({ teamId: attempt.teamId, taskId: attempt.taskId });
-    await service.continueAfterWorkspaceReady({ teamId: attempt.teamId, taskId: attempt.taskId });
-    expect(launchAttempt).toHaveBeenCalledTimes(1);
-    expect(current.sessionId).toBe(attempt.plannedSessionId);
+    await service.continueAfterWorkspaceReady({ teamId: executionContext.teamId, taskId: executionContext.taskId });
+    await service.continueAfterWorkspaceReady({ teamId: executionContext.teamId, taskId: executionContext.taskId });
+    expect(launchExecutionContext).toHaveBeenCalledTimes(1);
+    expect(current.sessionId).toBe(executionContext.plannedSessionId);
   });
 
   it("replays a committed assignment without revalidating mutable Agent or Runtime availability", async () => {
@@ -107,10 +107,10 @@ describe("TaskProductionService", () => {
     const task = {
       id: id("1"), teamId: actor.teamId, title: "Frozen title", description: null, projectId: id("3"), issue: null,
       status: "in_progress" as const, metadata: {}, statusRevision: 2, statusNote: null, statusUpdatedAt: now,
-      statusActor: { kind: "human" as const, actorId: actor.actorId, agentId: null, attemptId: id("9"), sessionId: null },
+      statusActor: { kind: "human" as const, actorId: actor.actorId, agentId: null, executionContextId: id("9"), sessionId: null },
       createdAt: now, updatedAt: now,
     };
-    const attempt: TaskExecutionAttempt = {
+    const executionContext: TaskExecutionContext = {
       id: id("9"), teamId: actor.teamId, taskId: task.id, projectId: task.projectId, agentId: request.agentId, agentName: "Agent", agentRevision: 1,
       agentSystemPrompt: "Frozen prompt", taskTitle: task.title, taskDescription: null, taskIssue: null, manualContextText: null,
       runtimeId: request.runtimeId, providerKey: request.providerKey, workspaceId: null, plannedSessionId: id("10"), sessionId: null,
@@ -126,19 +126,19 @@ describe("TaskProductionService", () => {
       setup: vi.fn(async () => ({ workspace: { id: id("13"), state: "queued" as const }, created: false, retried: true })),
       get: vi.fn(),
     };
-    const updateExecutionAttempt = vi.fn(async (input) => ({ ...attempt, workspaceId: input.workspaceId ?? null }));
+    const updateExecutionContext = vi.fn(async (input) => ({ ...executionContext, workspaceId: input.workspaceId ?? null }));
     const service = new TaskProductionService({
       db: {
         getTask: vi.fn(async () => task),
         getProjectById: vi.fn(),
         getRuntime,
         startTaskProduction: vi.fn(),
-        getExecutionAttemptByTaskId: vi.fn(async () => attempt),
+        getExecutionContextByTaskId: vi.fn(async () => executionContext),
         listTaskStatusTransitions: vi.fn(async () => [transition]),
-        updateExecutionAttempt,
+        updateExecutionContext,
       } as never,
       workspace: workspace as never,
-      sessions: { launchAttempt: vi.fn() },
+      sessions: { launchExecutionContext: vi.fn() },
     });
 
     const result = await service.start({ actor, taskId: task.id, request });

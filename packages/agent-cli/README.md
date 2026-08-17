@@ -1,6 +1,6 @@
 # `mystra-agent`
 
-Attempt-scoped workload CLI for a Mystra TaskExecutionAttempt. It is deliberately
+Task-scoped workload CLI for a Mystra TaskExecutionContext. It is deliberately
 separate from the Human and automation-facing `mystra` Control Plane CLI.
 
 The Runtime injects only:
@@ -20,10 +20,10 @@ mystra-agent task status set blocked --expected-revision 4 --idempotency-key cmd
 ```
 
 The CLI never accepts a Task ID. The execution code selects the exact Team,
-Task, TaskExecutionAttempt, Session, Project, and Workspace, plus optional frozen Agent
+Task, TaskExecutionContext, Session, Project, and Workspace, plus optional frozen Agent
 Context. `whoami` and `context get` return `agentContext: null` when Start did
 not select an Agent; otherwise they return the frozen Agent ID, name, and
-revision. The execution code identifies the attempt independently of Agent
+revision. The execution code identifies the execution context independently of Agent
 Context. `context get` adds `workspace.root` from the process working directory;
 the Control Plane does not persist a host filesystem path.
 

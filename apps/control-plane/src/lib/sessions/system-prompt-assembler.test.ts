@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AgentContextSnapshot, Project, RuntimeView, TaskRecord } from "@mystra/shared";
 
-import { assembleTaskExecutionAttemptSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
+import { assembleTaskExecutionContextSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
 import { STANDARD_EXECUTION_PROMPT, STANDARD_EXECUTION_PROMPT_CONTENT } from "./standard-execution-prompt";
 
 const teamId = "00000000-0000-4000-8000-000000000001";
@@ -66,7 +66,7 @@ function fixtures() {
     statusRevision: 1,
     statusNote: null,
     statusUpdatedAt: "2026-08-10T00:00:00.000Z",
-    statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
+    statusActor: { kind: "system", actorId: null, agentId: null, executionContextId: null, sessionId: null },
     createdAt: "2026-08-10T00:00:00.000Z",
     updatedAt: "2026-08-10T00:00:00.000Z",
   };
@@ -122,14 +122,13 @@ describe("assembleSystemPrompt", () => {
     expect(result.finalPrompt.indexOf("<agent_context>")).toBeLessThan(result.finalPrompt.indexOf("<execution_context>"));
   });
 
-  it("uses embedded authoritative context when an independent Task Session has no execution capability", () => {
+  it("requires a TaskExecutionContext capability for a later independent Task Session", () => {
     const input = fixtures();
     const result = assembleSystemPrompt({ ...input, providerKey: "codex" });
 
-    expect(result.finalPrompt).toContain("If it identifies this Session as bound to a TaskExecutionAttempt, run mystra-agent context get");
-    expect(result.finalPrompt).toContain("If it identifies an independent Task Session, use its embedded execution context");
-    expect(result.finalPrompt).toContain("This independent Task Session is not bound to a TaskExecutionAttempt capability");
-    expect(result.finalPrompt).not.toContain("Run mystra-agent context get before reading or changing the Task");
+    expect(result.finalPrompt).toContain("Run mystra-agent context get before reading or changing the Task");
+    expect(result.finalPrompt).toContain("This Session receives the Task's current TaskExecutionContext capability");
+    expect(result.finalPrompt).toContain("use them to override capability-scoped facts");
     expect(result.finalPrompt).not.toContain("MYSTRA_EXECUTION_CODE");
   });
 
@@ -166,9 +165,9 @@ describe("assembleSystemPrompt", () => {
     expect(result.finalPrompt).not.toContain("Changed after launch");
   });
 
-  it("uses a fixed TaskExecutionAttempt bootstrap without embedding Task or Project context", () => {
+  it("uses a fixed TaskExecutionContext bootstrap without embedding Task or Project context", () => {
     const input = fixtures();
-    const result = assembleTaskExecutionAttemptSystemPrompt({ runtime: input.runtime, providerKey: "codex", agentContext: input.agentContext });
+    const result = assembleTaskExecutionContextSystemPrompt({ runtime: input.runtime, providerKey: "codex", agentContext: input.agentContext });
 
     expect(result.finalPrompt).toContain("mystra-agent context get");
     expect(result.finalPrompt).toContain("host-local linctl");

@@ -32,7 +32,7 @@ describe("Prisma provider schema parity", () => {
       "Project",
       "ProjectIssueSource",
       "Task",
-      "TaskExecutionAttempt",
+      "TaskExecutionContext",
       "TaskStatusTransition",
       "TaskWorkspace",
       "WorkspacePreparationAttempt",
@@ -56,7 +56,7 @@ describe("Prisma provider schema parity", () => {
       '@@map("projects")',
       '@@map("project_issue_sources")',
       '@@map("tasks")',
-      '@@map("task_execution_attempts")',
+      '@@map("task_execution_contexts")',
       '@@map("task_status_transitions")',
       '@@map("task_workspaces")',
       '@@map("workspace_preparation_attempts")',
@@ -97,7 +97,7 @@ describe("Prisma provider schema parity", () => {
 
   it("models optional Agent snapshots without a default or sentinel relation", () => {
     const schema = modelSection(readSchema("sqlite"));
-    const attempt = schema.match(/model TaskExecutionAttempt \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const attempt = schema.match(/model TaskExecutionContext \{[\s\S]*?\n\}/u)?.[0] ?? "";
 
     expect(attempt).toMatch(/agentId\s+String\?/u);
     expect(attempt).toMatch(/agentName\s+String\?/u);

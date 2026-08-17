@@ -13,7 +13,7 @@ requirements enter as Tasks, Providers perform flexible production under a
 program-owned Standard Execution Prompt, and reviewable results leave the
 factory. Feature 051 first standardizes the Task production lifecycle and a
 narrow Agent status CLI. Feature 052 makes Agent Context optional: one
-lightweight TaskExecutionAttempt always starts one goal/autopilot Session and freezes
+lightweight TaskExecutionContext always starts one goal/autopilot Session and freezes
 an Agent snapshot only when the operator explicitly selects one.
 
 Mystra remains a headless execution control plane. It owns durable intent, Task
@@ -27,19 +27,19 @@ PR/self-test statements in feature 051.
   description and `status`, plus immutable `0..1` Project and `0..1`
   exact Issue references. Project is context, not ownership; external Issue
   status remains provider-owned and is neither copied nor mapped.
-- **TaskExecutionAttempt** is one durable production attempt for one Project-bound Task. It
-  freezes an optional selected Agent name/revision/system-prompt snapshot and associates exactly one long-running
-  Autopilot Session. Feature 051 does not give TaskExecutionAttempt a parallel
-  production state machine; multiple Sessions, attempt-owned heartbeat/event subscriptions
-  and automatic recovery remain follow-up work.
+- **TaskExecutionContext** is the single durable execution context for one Project-bound Task. It
+  freezes an optional selected Agent name/revision/system-prompt snapshot, associates the first
+  Autopilot Session, and supplies Task-scoped capability facts to every Task Session through a
+  separate short-lived code per dispatch. It has no parallel production state machine;
+  multi-Session coordination, heartbeat/event subscriptions and automatic recovery remain follow-up work.
 - **Session** is a Team-scoped execution object and belongs to neither Task nor
   Project. It may independently reference `0..1` Task and `0..1` Project, and
   selects Runtime, Provider, optional Agent Context and execution Context independently. It supports
   serial user messages without a Turn business object. Feature 049's first
   execution slice requires a Task and consumes its ready Workspace; Project-only
   and standalone Session launch remain deferred without changing the north-star
-  optional references. A TaskExecutionAttempt-driven Session receives these four resolved
-  inputs from its attempt and MUST use the attempt-frozen optional Agent snapshot.
+  optional references. A TaskExecutionContext-driven Session receives Task-scoped facts from
+  the Context while retaining its own Runtime-bound Provider and optional Agent selection.
 - **SessionEvent** is the typed, immutable, Session-scoped execution history.
   Team-authorized callers may page one Session's validated, bounded and redacted
   events; it is not a top-level business object, global activity feed, or log API.
@@ -73,7 +73,7 @@ Mystra platform
     -> Project
       -> Issue Integration / repository binding
     -> Task (status)
-      -> TaskExecutionAttempt
+      -> TaskExecutionContext
         -> one Autopilot Session (MVP)
     -> Session
       -> project? (0..1 reference)
@@ -81,7 +81,7 @@ Mystra platform
 ```
 
 The intended experience is similar in spirit to Stripe Minion: fast intake,
-clear Agent production ownership, a durable execution attempt, and reviewable output
+clear Agent production ownership, a durable execution context, and reviewable output
 without turning Mystra into a general-purpose workflow engine.
 
 Tools that turn ideas into code already exist. They produce prototypes. Mystra
@@ -120,7 +120,7 @@ The north-star is a hosted **Mystra platform** with an open-source core:
   Issue references. It has no Project ownership.
 - **Agent** — Team-scoped behavior configuration with stable identity and one
   effect-related field, system prompt. It has no Project relation.
-- **TaskExecutionAttempt (internal)** — durable coordination record for one Task production
+- **TaskExecutionContext (internal)** — durable coordination record for one Task production
   attempt. It freezes the optional Agent snapshot and launch inputs before a
   Session exists, then idempotently associates exactly one Autopilot Session in
   the first version. It is not an operator-facing product object, navigation
@@ -144,16 +144,16 @@ Mystra platform
     → Agent
     → Project
     → Task (status)
-      → TaskExecutionAttempt → one Autopilot Session
+      → TaskExecutionContext → one Autopilot Session
     → Session
       → Project? (0..1 reference)
       → Task? (0..1 reference)
 ```
 
-Each Team may contain multiple Projects, Tasks, TaskExecutionAttempts, Sessions, and Agents
+Each Team may contain multiple Projects, Tasks, TaskExecutionContexts, Sessions, and Agents
 while sharing platform-owned execution pools. Session selects optional Agent Context independently
-of its optional Project and Task references; a TaskExecutionAttempt-driven Session is the
-narrow case where its attempt resolves and freezes the optional Agent snapshot.
+of its optional Project and Task references; a TaskExecutionContext-driven Session is the
+narrow case where its TaskExecutionContext resolves and freezes the optional Agent snapshot.
 
 ## MVP scope
 
@@ -176,12 +176,12 @@ In scope:
 - Atomic create-or-open from an exact Project-scoped GitHub or Linear Issue to
   at most one Task; the Issue remains externally owned and read-only.
 - Start production for an eligible Project-bound Task, with optional explicit Agent Context. Start
-  atomically moves `pending` to `in_progress` and creates a TaskExecutionAttempt;
+  atomically moves `pending` to `in_progress` and creates a TaskExecutionContext;
   after commit it prepares the Task Workspace, then idempotently starts
   exactly one goal/autopilot Session when the Workspace is ready.
 - Two intentionally separate CLI surfaces: `mystra` manages Control Plane
   resources for Humans, external Agents, and automation; workload-local
-  `mystra-agent` uses a short-lived, attempt-scoped execution code to return the
+  `mystra-agent` uses a short-lived, Task-scoped execution code to return the
   current execution context and let the scoped Agent report `blocked` (Needs
   handoff) or resume `in_progress`. Human actors own `done` and `canceled`, and
   may resolve `blocked` to `in_progress` or `done`; Session state never
@@ -242,8 +242,8 @@ Out of scope:
   administration, or GitLab as an enabled intake Integration.
 - A general WorkflowProvider, user-configurable workflow DSL, workflow
   marketplace, standing orders, arbitrary triggers, or orchestration outside
-  the Task-bound TaskExecutionAttempt. Future Production Recipes require explicit specs.
-- Generic TaskExecutionAttempt/Artifact CLI commands, Artifact/Delivery contracts, and
+  the Task-bound TaskExecutionContext. Future Production Recipes require explicit specs.
+- Generic TaskExecutionContext/Artifact CLI commands, Artifact/Delivery contracts, and
   non-PR output profiles. Feature 051 includes only `mystra-agent whoami`,
   `context get`, and the scoped Task status commands.
 - Attempt-owned heartbeat/event subscriptions, multiple Sessions, automatic
@@ -255,7 +255,7 @@ Out of scope:
   IntegrationConnection, Project, and Task CRUD behavior through `RdbProvider`.
 - Repeating the same Issue dispatch key returns one Task; conflicting ownership
   fails explicitly.
-- Repeating the same Start command with the same optional Agent intent returns one TaskExecutionAttempt and one
+- Repeating the same Start command with the same optional Agent intent returns one TaskExecutionContext and one
   `pending` → `in_progress` transition; replaying Workspace-ready continuation
   returns the same single Session.
 - Agent status transitions are allowlisted, revision-safe, idempotent, and

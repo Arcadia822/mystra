@@ -33,7 +33,7 @@ function db(role: "owner" | "admin" | "member" = "member") {
         statusRevision: 1,
         statusNote: null,
         statusUpdatedAt: "2026-08-08T00:00:00.000Z",
-        statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
+        statusActor: { kind: "system", actorId: null, agentId: null, executionContextId: null, sessionId: null },
         createdAt: "2026-08-08T00:00:00.000Z",
         updatedAt: "2026-08-08T00:00:00.000Z",
       },
@@ -99,7 +99,7 @@ describe("Project Issue Task route", () => {
         issue: { provider: "linear", connectionId: "00000000-0000-4000-8000-000000000012", scopeExternalId: "linear-team-1", externalId: "linear-issue-7", identifier: "ENG-7" },
         status: "pending", metadata: {}, statusRevision: 1, statusNote: null,
         statusUpdatedAt: "2026-08-08T00:00:00.000Z",
-        statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
+        statusActor: { kind: "system", actorId: null, agentId: null, executionContextId: null, sessionId: null },
         createdAt: "2026-08-08T00:00:00.000Z", updatedAt: "2026-08-08T00:00:00.000Z",
       },
     });

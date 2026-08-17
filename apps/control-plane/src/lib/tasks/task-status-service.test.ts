@@ -17,7 +17,7 @@ function task(status: "in_progress" | "blocked" = "in_progress", revision = 2) {
     id: ids.task, teamId: ids.team, title: "Task", description: null, projectId: null, issue: null,
     status, metadata: {}, runtimeId: null, statusRevision: revision, statusNote: null,
     statusUpdatedAt: "2026-08-11T00:00:00.000Z",
-    statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
+    statusActor: { kind: "system" as const, actorId: null, agentId: null, executionContextId: null, sessionId: null },
     createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",
   };
 }
@@ -34,7 +34,7 @@ describe("TaskStatusService", () => {
       teamId: ids.team,
       taskId: ids.task,
       actorPolicy: "agent",
-      actor: { kind: "agent", actorId: null, agentId: ids.agent, attemptId: ids.attempt, sessionId: ids.session },
+      actor: { kind: "agent", actorId: null, agentId: ids.agent, executionContextId: ids.attempt, sessionId: ids.session },
       request: { status: "blocked", expectedRevision: 2, idempotencyKey: "cmd-1", note: "Waiting" },
     })).resolves.toEqual({
       taskId: ids.task,
@@ -53,7 +53,7 @@ describe("TaskStatusService", () => {
       listTaskStatusTransitions: vi.fn(),
     };
     const service = new TaskStatusService({ db });
-    const actor = { kind: "agent" as const, actorId: null, agentId: ids.agent, attemptId: ids.attempt, sessionId: ids.session };
+    const actor = { kind: "agent" as const, actorId: null, agentId: ids.agent, executionContextId: ids.attempt, sessionId: ids.session };
     await expect(service.transition({ teamId: ids.team, taskId: ids.task, actorPolicy: "agent", actor, request: { status: "blocked", expectedRevision: 2, idempotencyKey: "cmd-1" } }))
       .rejects.toMatchObject({ code: "missing_status_note" });
     await expect(service.transition({ teamId: ids.team, taskId: ids.task, actorPolicy: "agent", actor, request: { status: "done", expectedRevision: 2, idempotencyKey: "cmd-2" } }))

@@ -51,11 +51,11 @@ taco_scope: plan
 **Rationale**: 现有 `packages/ui` 已含 shell、icons、stacked list、label overflow、dialog/dropdown primitives。
 **Alternatives considered**: 复制 prototype DOM/CSS（constitution gate failure）；在 production 保留第二份 components（DRY/视觉漂移）。
 
-## Decision 9：TaskExecutionAttempt 是内部协调记录，不是用户产品对象
+## Decision 9：TaskExecutionContext 是内部协调记录，不是用户产品对象
 
-**Decision**: 保留 `Task 1 -- 0..1 TaskExecutionAttempt` 持久化约束，并在 054 中将旧 `Harness` 合同直接重命名为 `TaskExecutionAttempt`。它在 Start 后、Session 创建前冻结 Agent/Task/Runtime/Provider 输入、承载 assignment idempotency 与 execution capability identity，并在 Workspace ready 后幂等关联首个 Autopilot Session。它不进入导航、TaskWorkbenchItem、独立页面或用户创建/编辑表面。
-**Rationale**: 当前实现需要一个可早于 Session 存在的 durable identity，才能跨事务提交后的 Workspace preparation 与 Session launch continuation 保持幂等；`TaskExecutionAttempt` 准确描述这个边界，同时避免把内部机制伪装成用户需要认识的 Harness 产品概念。
-**Alternatives considered**: 保留 Harness（owner 否决，产品语义不清）；命名 InitHarnessSnapshot（记录会在初始化后继续关联 Workspace/Session 与失败事实，snapshot 语义不实）；直接折叠进 Session（Session 创建前无法承载 attempt identity/冻结输入，且会混淆手动 Session）。
+**Decision**: 保留 `Task 1 -- 0..1 TaskExecutionContext` 持久化约束，并在 054 中将旧 `TaskExecutionAttempt` 合同直接重命名为 `TaskExecutionContext`。它在 Start 后、Session 创建前冻结 Agent/Task/Runtime/Provider 输入、承载 assignment idempotency 与 Task 级 execution capability identity，并在 Workspace ready 后幂等关联首个 Autopilot Session。每个后续 Task Session 获得独立短期 execution code，解析同一 TaskExecutionContext；`sessionId` 只记录首个 Autopilot Session。它不进入导航、TaskWorkbenchItem、独立页面或用户创建/编辑表面。
+**Rationale**: 当前实现需要一个可早于 Session 存在、并被同一 Task 多个 Session 共享的 durable identity，才能跨事务保持 Workspace preparation、Session launch continuation 与 workload capability 幂等；`Attempt` 会错误暗示每个 Session 或每次运行各有一份记录，`TaskExecutionContext` 才准确描述 Task 级边界。
+**Alternatives considered**: 保留 Harness（owner 否决，产品语义不清）；命名 InitHarnessSnapshot（记录会在初始化后继续关联 Workspace/Session 与失败事实，snapshot 语义不实）；保留 TaskExecutionAttempt（与 1:1 Task、跨 Session 共享的实际语义冲突）；直接折叠进 Session（Session 创建前无法承载 Task 级 identity/冻结输入，也无法供后续 Session 共享）。
 
 ## Decision 10：Workspace identity 是 `<Task, Runtime>`，launch 内部拥有 setup
 

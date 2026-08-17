@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
-  taskExecutionAttemptSchema,
+  taskExecutionContextSchema,
   taskStartRequestSchema,
   taskStatusTransitionSchema,
-  type TaskExecutionAttempt,
+  type TaskExecutionContext,
   type TaskStartResult,
 } from "@mystra/shared";
 
@@ -20,22 +20,22 @@ type ProductionDb = Pick<RdbProvider,
   | "getProjectById"
   | "getRuntime"
   | "startTaskProduction"
-  | "getExecutionAttemptByTaskId"
+  | "getExecutionContextByTaskId"
   | "listTaskStatusTransitions"
-  | "updateExecutionAttempt"
+  | "updateExecutionContext"
 >;
 
 export class TaskProductionService {
   readonly #db: ProductionDb;
   readonly #workspace: Pick<TaskWorkspaceService, "setup" | "get">;
-  readonly #sessions: Pick<SessionService, "launchAttempt">;
+  readonly #sessions: Pick<SessionService, "launchExecutionContext">;
   readonly #now: () => string;
   readonly #newId: () => string;
 
   constructor(input: {
     db: ProductionDb;
     workspace: Pick<TaskWorkspaceService, "setup" | "get">;
-    sessions: Pick<SessionService, "launchAttempt">;
+    sessions: Pick<SessionService, "launchExecutionContext">;
     now?: () => string;
     newId?: () => string;
   }) {
@@ -67,7 +67,7 @@ export class TaskProductionService {
       manualContextText: input.launch?.manualContextText ?? null,
     });
     if (!task.projectId || task.status !== "pending") {
-      const replay = await this.#db.getExecutionAttemptByTaskId(task.id, { teamId: input.actor.teamId });
+      const replay = await this.#db.getExecutionContextByTaskId(task.id, { teamId: input.actor.teamId });
       if (!replay || replay.assignIdempotencyKey !== request.idempotencyKey) {
         throw new TaskProductionFailure("task_not_eligible", "Task is not eligible for production Start");
       }
@@ -83,7 +83,7 @@ export class TaskProductionService {
       return {
         task,
         transition,
-        attempt: await this.#prepareAfterCommit(input.actor.teamId, replay),
+        executionContext: await this.#prepareAfterCommit(input.actor.teamId, replay),
         created: false,
       };
     }
@@ -104,9 +104,9 @@ export class TaskProductionService {
     }
 
     const occurredAt = this.#now();
-    const attemptId = this.#newId();
-    const attempt = taskExecutionAttemptSchema.parse({
-      id: attemptId,
+    const executionContextId = this.#newId();
+    const executionContext = taskExecutionContextSchema.parse({
+      id: executionContextId,
       teamId: input.actor.teamId,
       taskId: task.id,
       projectId: project.id,
@@ -143,7 +143,7 @@ export class TaskProductionService {
         kind: "human",
         actorId: input.actor.actorId,
         agentId: null,
-        attemptId,
+        executionContextId,
         sessionId: null,
       },
       note: null,
@@ -159,7 +159,7 @@ export class TaskProductionService {
         agentId: request.agentId,
         expectedRevision: request.expectedRevision,
         requestFingerprint,
-        attempt,
+        executionContext,
         transition,
       });
     } catch (error) {
@@ -172,30 +172,30 @@ export class TaskProductionService {
       throw error;
     }
 
-    const preparedAttempt = await this.#prepareAfterCommit(input.actor.teamId, assigned.attempt);
-    return { ...assigned, attempt: preparedAttempt };
+    const preparedExecutionContext = await this.#prepareAfterCommit(input.actor.teamId, assigned.executionContext);
+    return { ...assigned, executionContext: preparedExecutionContext };
   }
 
-  async continueAfterWorkspaceReady(input: { teamId: string; taskId: string }): Promise<TaskExecutionAttempt | undefined> {
-    const attempt = await this.#db.getExecutionAttemptByTaskId(input.taskId, { teamId: input.teamId });
-    if (!attempt) return undefined;
+  async continueAfterWorkspaceReady(input: { teamId: string; taskId: string }): Promise<TaskExecutionContext | undefined> {
+    const executionContext = await this.#db.getExecutionContextByTaskId(input.taskId, { teamId: input.teamId });
+    if (!executionContext) return undefined;
     const workspace = await this.#workspace.get({
       actor: { teamId: input.teamId },
       taskId: input.taskId,
-      runtimeId: attempt.runtimeId,
+      runtimeId: executionContext.runtimeId,
     });
-    if (!workspace || workspace.state !== "ready") return attempt;
-    let current = attempt.workspaceId === workspace.id
-      ? attempt
-      : await this.#db.updateExecutionAttempt({ attemptId: attempt.id, teamId: input.teamId, workspaceId: workspace.id }) ?? attempt;
+    if (!workspace || workspace.state !== "ready") return executionContext;
+    let current = executionContext.workspaceId === workspace.id
+      ? executionContext
+      : await this.#db.updateExecutionContext({ executionContextId: executionContext.id, teamId: input.teamId, workspaceId: workspace.id }) ?? executionContext;
     if (current.sessionId) return current;
     try {
-      const launched = await this.#sessions.launchAttempt({
-        actor: { actorId: `attempt:${current.id}`, teamId: input.teamId, roles: ["owner"] },
-        attempt: current,
+      const launched = await this.#sessions.launchExecutionContext({
+        actor: { actorId: `executionContext:${current.id}`, teamId: input.teamId, roles: ["owner"] },
+        executionContext: current,
       });
-      current = await this.#db.updateExecutionAttempt({
-        attemptId: current.id,
+      current = await this.#db.updateExecutionContext({
+        executionContextId: current.id,
         teamId: input.teamId,
         workspaceId: workspace.id,
         sessionId: launched.session.id,
@@ -204,41 +204,41 @@ export class TaskProductionService {
       }) ?? current;
       return current;
     } catch {
-      return await this.#db.updateExecutionAttempt({
-        attemptId: current.id,
+      return await this.#db.updateExecutionContext({
+        executionContextId: current.id,
         teamId: input.teamId,
         workspaceId: workspace.id,
         setupFailureCode: "session_launch_failed",
-        setupFailureMessage: "Workspace is ready but the TaskExecutionAttempt Session could not be launched",
+        setupFailureMessage: "Workspace is ready but the TaskExecutionContext Session could not be launched",
       }) ?? current;
     }
   }
 
-  async #prepareAfterCommit(teamId: string, attempt: TaskExecutionAttempt): Promise<TaskExecutionAttempt> {
+  async #prepareAfterCommit(teamId: string, executionContext: TaskExecutionContext): Promise<TaskExecutionContext> {
     try {
       const setup = await this.#workspace.setup({
         actor: { teamId },
-        taskId: attempt.taskId,
-        runtimeId: attempt.runtimeId,
-        idempotencyKey: attempt.id,
+        taskId: executionContext.taskId,
+        runtimeId: executionContext.runtimeId,
+        idempotencyKey: executionContext.id,
       });
-      const bound = await this.#db.updateExecutionAttempt({
-        attemptId: attempt.id,
+      const bound = await this.#db.updateExecutionContext({
+        executionContextId: executionContext.id,
         teamId,
         workspaceId: setup.workspace.id,
         setupFailureCode: null,
         setupFailureMessage: null,
-      }) ?? attempt;
+      }) ?? executionContext;
       return setup.workspace.state === "ready"
-        ? await this.continueAfterWorkspaceReady({ teamId, taskId: attempt.taskId }) ?? bound
+        ? await this.continueAfterWorkspaceReady({ teamId, taskId: executionContext.taskId }) ?? bound
         : bound;
     } catch {
-      return await this.#db.updateExecutionAttempt({
-        attemptId: attempt.id,
+      return await this.#db.updateExecutionContext({
+        executionContextId: executionContext.id,
         teamId,
         setupFailureCode: "workspace_setup_failed",
         setupFailureMessage: "Task Workspace setup could not be requested",
-      }) ?? attempt;
+      }) ?? executionContext;
     }
   }
 }

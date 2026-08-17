@@ -30,7 +30,7 @@ const task = {
   statusRevision: 1,
   statusNote: null,
   statusUpdatedAt: "2026-08-07T00:00:00.000Z",
-  statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
+  statusActor: { kind: "system" as const, actorId: null, agentId: null, executionContextId: null, sessionId: null },
   createdAt: "2026-08-07T00:00:00.000Z",
   updatedAt: "2026-08-07T00:00:00.000Z",
 };
@@ -73,8 +73,8 @@ beforeEach(() => {
   startProduction.mockReset();
   startProduction.mockResolvedValue({
     task: { ...task, status: "in_progress", statusRevision: 2 },
-    transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: { kind: "human", actorId: userId, agentId: null, attemptId: randomUUID(), sessionId: null }, note: null, idempotencyKey: "start-mcp-1", requestFingerprint: "a".repeat(64), occurredAt: "2026-08-07T00:00:00.000Z" },
-    attempt: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
+    transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: { kind: "human", actorId: userId, agentId: null, executionContextId: randomUUID(), sessionId: null }, note: null, idempotencyKey: "start-mcp-1", requestFingerprint: "a".repeat(64), occurredAt: "2026-08-07T00:00:00.000Z" },
+    executionContext: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
     created: true,
   });
   vi.mocked(getDb).mockResolvedValue({

@@ -37,7 +37,7 @@ Mystra platform
     -> Agent
     -> Project
     -> Task (status)
-      -> TaskExecutionAttempt
+      -> TaskExecutionContext
         -> one Autopilot Session (MVP)
     -> Session
       -> project? (0..1 reference)
@@ -53,9 +53,9 @@ remain provider-resolved rather than copied or mapped.
 Session is independently Team-scoped, owns all execution choices and lifecycle,
 and may separately reference `0..1` Project and `0..1` Task. Runner is a stable
 host service；Session capacity/slot accounting is not implemented by 048. A
-TaskExecutionAttempt-driven Session still stores the resolved execution inputs, but the
-attempt freezes optional Agent Context and coordinates when the Session is created or
-continued.
+TaskExecutionContext-driven Session still stores its resolved execution inputs, while the
+Task-level Context freezes initial production facts and authorizes every Task Session through
+an independently issued short-lived per-Session execution code.
 Workspace is the unified execution working-directory and context-delivery
 surface; it is never a tenancy term. Feature 054 supersedes the original 048
 cardinality: Task-bound Sessions resolve one shared-mutable Workspace per
@@ -67,11 +67,12 @@ Cross-Runtime Workspace synchronization, Task Runtime migration and failover are
 Project-only and standalone Sessions remain deferred; future
 preparation must reuse this Workspace/attachment type instead of creating a
 parallel type.
-TaskExecutionAttempt is the Task-bound attempt identity introduced by feature 051. It freezes
-an optional Agent name/revision/system-prompt snapshot and associates exactly one goal/autopilot Session in the
-first version. Task owns the production state machine; Session owns execution
-state. TaskExecutionAttempt does not introduce a third synchronized lifecycle. Heartbeat,
-event subscriptions, multiple Session coordination and generic
+TaskExecutionContext is the Task-bound execution identity introduced by feature 051 and renamed
+in feature 054. It freezes an optional initial Agent name/revision/system-prompt snapshot,
+associates the first goal/autopilot Session, and resolves capability facts for all Sessions on
+the same Task. Task owns the production state machine; Session owns execution state.
+TaskExecutionContext does not introduce a third synchronized lifecycle. Heartbeat,
+event subscriptions, multi-Session coordination and generic
 Artifact/Delivery profiles are deferred.
 
 ## Commands
@@ -118,12 +119,12 @@ pnpm lsp:typescript
   state.
 - Task creation initializes status to `pending` and has no execution
   side effect. Start atomically transitions it to `in_progress`, creates
-  one internal idempotent TaskExecutionAttempt, and launches its Session.
-  TaskExecutionAttempt is not an operator-facing product object. Later status
+  one internal idempotent TaskExecutionContext, and launches its Session.
+  TaskExecutionContext is not an operator-facing product object. Later status
   transitions never implicitly start, stop or retry Session execution.
 - Task status transitions use a dedicated allowlisted service, expectedRevision,
   idempotency identity and append-only TaskStatusTransition history. The Agent
-  CLI capability is bound to the exact Team/Task/TaskExecutionAttempt/Session and optional frozen Agent identity
+  CLI capability is bound to the exact Team/Task/TaskExecutionContext/Session and optional frozen Agent identity
   and cannot edit Task requirement fields.
 - Every Session belongs to exactly one Team and belongs to neither Task nor
   Project. It may independently reference at most one Task and at most one
@@ -163,7 +164,7 @@ pnpm lsp:typescript
 - Runtime secrets are injected through environment variables or read-only files.
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core production is direct and Task-bound: Start, optionally with Agent Context, creates a
-  TaskExecutionAttempt and exactly one first-version Autopilot Session. Agent reports Task
+  TaskExecutionContext and exactly one first-version Autopilot Session. Agent reports Task
   status through a narrow CLI; PR/test notes remain unverified. There is no
   general WorkflowProvider, workflow node graph or DSL.
 - Shared-nothing is a future scaling direction, not permission to discard
@@ -248,7 +249,7 @@ GitHub App path.
 Project creation keeps execution choices out of repository onboarding. Project
 does not own, default or persist Agent selection; `MYSTRA_DEFAULT_AGENT` remains
 an obsolete Project field or fallback. Optional Agent Context belongs to an eligible
-Task Start request. Start creates the TaskExecutionAttempt, which resolves Runtime, Provider,
+Task Start request. Start creates the TaskExecutionContext, which resolves Runtime, Provider,
 an optional frozen Team-scoped Agent snapshot and Context for its Session without moving
 those concerns into Project onboarding.
 
@@ -280,14 +281,14 @@ Task product surfaces rather than an Automations catalog.
 
 Feature 051 splits the clients by actor and authority. `mystra` is the
 Control Plane management CLI for Humans, external Agents, and automation.
-`mystra-agent` is the workload-local CLI for one execution attempt; Runtime
+`mystra-agent` is the workload-local CLI for one execution context; Runtime
 injects `MYSTRA_CONTROL_PLANE_URL` and a short-lived, revocable
-`MYSTRA_EXECUTION_CODE` bound to Team, Task, TaskExecutionAttempt, Session, and optional frozen Agent
+`MYSTRA_EXECUTION_CODE` bound to Team, Task, TaskExecutionContext, Session, and optional frozen Agent
 identity. It exposes `whoami`, schema-versioned `context get`, and Task status
 get/set over the dedicated TaskStatusService without accepting an arbitrary
 Task ID. Context contains the minimum Task/Project/Issue-reference/Workspace
 inputs and no external Issue body, Integration credential, or secret. Generic
-TaskExecutionAttempt CLI commands, heartbeat/event subscriptions, multiple Session
+TaskExecutionContext CLI commands, heartbeat/event subscriptions, multiple Session
 orchestration, Artifact contracts, non-PR outputs and PR/self-test verification
 are deferred to explicit follow-up specifications.
 

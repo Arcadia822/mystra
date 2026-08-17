@@ -37,7 +37,7 @@ interface TaskMainTask {
     kind: "system" | "human" | "agent";
     actorId: string | null;
     agentId: string | null;
-    attemptId: string | null;
+    executionContextId: string | null;
     sessionId: string | null;
   };
 }
@@ -129,7 +129,7 @@ export const TASK_DETAIL_MAIN_FIXTURE: TaskDetailMainFixture = {
       kind: "human",
       actorId: "arcadia",
       agentId: null,
-      attemptId: null,
+      executionContextId: null,
       sessionId: null,
     },
   },

@@ -28,7 +28,7 @@ import {
   effectiveSystemPromptEvidenceSchema,
   agentContextSnapshotSchema,
   applySessionEventProjection,
-  taskExecutionAttemptSchema,
+  taskExecutionContextSchema,
   isTaskStatusTransitionAllowed,
   taskStatusTransitionSchema,
   type IntegrationCapabilities,
@@ -59,7 +59,7 @@ import {
   type ParsedTaskPageQuery,
   type TaskPageQuery,
   type TaskWorkbenchPage,
-  type TaskExecutionAttempt,
+  type TaskExecutionContext,
   type TaskStatusTransition,
   type Session,
   type SessionEvent,
@@ -80,7 +80,7 @@ import {
   mapAuthSession,
   mapHostRuntimeMetadata,
   mapIntegrationConnectionRecord,
-  mapTaskExecutionAttempt,
+  mapTaskExecutionContext,
   mapProviderCapability,
   mapProject,
   mapProjectIssueSource,
@@ -201,7 +201,7 @@ export class PrismaRdbProvider implements RdbProvider {
             orderBy: [{ provider: "asc" }],
           }),
           transaction.taskWorkspace.findUnique({ where: { id: attachment.taskWorkspaceId } }),
-          transaction.taskExecutionAttempt.findUnique({ where: { plannedSessionId: requestedSession.id } }),
+          transaction.taskExecutionContext.findUnique({ where: { plannedSessionId: requestedSession.id } }),
         ]);
         const expectedAgentContext = attemptSnapshot
           ? attemptSnapshot.agentId === null
@@ -472,22 +472,21 @@ export class PrismaRdbProvider implements RdbProvider {
       }
       const head = await transaction.sessionEventHead.findUnique({ where: { sessionId: row.id } });
       if (!head) throw new RdbError("RDB_UNAVAILABLE", "Session event ledger is incomplete");
-      const attempt = await transaction.taskExecutionAttempt.findUnique({ where: { sessionId: row.id } });
-      const attemptTask = attempt
-        ? await transaction.task.findUnique({ where: { id: attempt.taskId } })
+      const executionContext = await transaction.taskExecutionContext.findUnique({ where: { taskId: row.taskId } });
+      const contextTask = executionContext
+        ? await transaction.task.findUnique({ where: { id: executionContext.taskId } })
         : null;
-      const executionCodeHash = attempt
-        && attempt.capabilityRevokedAt === null
-        && attempt.teamId === row.teamId
-        && attempt.taskId === row.taskId
-        && attempt.projectId === row.projectId
-        && attempt.runtimeId === row.runtimeId
-        && attempt.providerKey === row.providerKey
-        && attempt.agentId === row.agentId
-        && attempt.agentRevision === row.agentRevision
-        && attemptTask
-        && attemptTask.status !== "done"
-        && attemptTask.status !== "canceled"
+      const executionCodeHash = executionContext
+        && executionContext.capabilityRevokedAt === null
+        && executionContext.sessionId !== null
+        && executionContext.workspaceId !== null
+        && executionContext.teamId === row.teamId
+        && executionContext.taskId === row.taskId
+        && executionContext.projectId === row.projectId
+        && executionContext.runtimeId === row.runtimeId
+        && contextTask
+        && contextTask.status !== "done"
+        && contextTask.status !== "canceled"
         ? input.lease.executionCodeHash ?? null
         : null;
       const executionCodeExpiresAt = executionCodeHash
@@ -1211,21 +1210,21 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async startTaskProduction(input: TaskProductionStartInput): Promise<{
     task: TaskRecord;
-    attempt: TaskExecutionAttempt;
+    executionContext: TaskExecutionContext;
     transition: TaskStatusTransition;
     created: boolean;
   }> {
-    const requestedAttempt = taskExecutionAttemptSchema.parse(input.attempt);
+    const requestedExecutionContext = taskExecutionContextSchema.parse(input.executionContext);
     if (
-      requestedAttempt.agentId !== null
-      || requestedAttempt.agentName !== null
-      || requestedAttempt.agentRevision !== null
-      || requestedAttempt.agentSystemPrompt !== null
+      requestedExecutionContext.agentId !== null
+      || requestedExecutionContext.agentName !== null
+      || requestedExecutionContext.agentRevision !== null
+      || requestedExecutionContext.agentSystemPrompt !== null
     ) {
       throw new RdbError("RDB_CONFLICT", "Agent Context must be resolved inside the Start transaction");
     }
     const requestedTransition = taskStatusTransitionSchema.parse(input.transition);
-    const replay = await this.#findAssignmentReplay(input.taskId, requestedAttempt);
+    const replay = await this.#findAssignmentReplay(input.taskId, requestedExecutionContext);
     if (replay) return replay;
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -1236,8 +1235,8 @@ export class PrismaRdbProvider implements RdbProvider {
             input.agentId === null
               ? Promise.resolve(null)
               : transaction.agent.findUnique({ where: { id: input.agentId } }),
-            transaction.project.findUnique({ where: { id: requestedAttempt.projectId } }),
-            transaction.runtime.findUnique({ where: { id: requestedAttempt.runtimeId } }),
+            transaction.project.findUnique({ where: { id: requestedExecutionContext.projectId } }),
+            transaction.runtime.findUnique({ where: { id: requestedExecutionContext.runtimeId } }),
           ]);
           if (!task || task.teamId !== input.teamId) {
             throw new RdbError("RDB_NOT_FOUND", "Task does not exist");
@@ -1251,26 +1250,26 @@ export class PrismaRdbProvider implements RdbProvider {
           ) {
             throw new RdbError("RDB_RELATION_CONFLICT", "Production Start dependencies are unavailable");
           }
-          const resolvedAttempt = taskExecutionAttemptSchema.parse({
-            ...requestedAttempt,
+          const resolvedExecutionContext = taskExecutionContextSchema.parse({
+            ...requestedExecutionContext,
             agentId: agent?.id ?? null,
             agentName: agent?.name ?? null,
             agentRevision: agent?.revision ?? null,
             agentSystemPrompt: agent?.systemPrompt ?? null,
           });
           if (
-            task.projectId !== requestedAttempt.projectId
-            || (task.runtimeId !== null && task.runtimeId !== requestedAttempt.runtimeId)
-            || requestedAttempt.teamId !== input.teamId
-            || requestedAttempt.taskId !== task.id
+            task.projectId !== requestedExecutionContext.projectId
+            || (task.runtimeId !== null && task.runtimeId !== requestedExecutionContext.runtimeId)
+            || requestedExecutionContext.teamId !== input.teamId
+            || requestedExecutionContext.taskId !== task.id
             || requestedTransition.teamId !== input.teamId
             || requestedTransition.taskId !== task.id
             || requestedTransition.fromStatus !== task.status
             || requestedTransition.toStatus !== "in_progress"
             || requestedTransition.revision !== input.expectedRevision + 1
-            || requestedTransition.idempotencyKey !== requestedAttempt.assignIdempotencyKey
+            || requestedTransition.idempotencyKey !== requestedExecutionContext.assignIdempotencyKey
             || requestedTransition.requestFingerprint !== input.requestFingerprint
-            || requestedAttempt.assignRequestFingerprint !== input.requestFingerprint
+            || requestedExecutionContext.assignRequestFingerprint !== input.requestFingerprint
           ) {
             throw new RdbError("RDB_CONFLICT", "Production Start facts are inconsistent");
           }
@@ -1289,7 +1288,7 @@ export class PrismaRdbProvider implements RdbProvider {
               runtimeId: task.runtimeId,
             },
             data: {
-              runtimeId: requestedAttempt.runtimeId,
+              runtimeId: requestedExecutionContext.runtimeId,
               status: "in_progress",
               statusRevision: requestedTransition.revision,
               statusNote: requestedTransition.note,
@@ -1301,8 +1300,8 @@ export class PrismaRdbProvider implements RdbProvider {
           if (updated.count !== 1) {
             throw new RdbError("RDB_CONFLICT", "Task production Start lost a race");
           }
-          const attemptRecord = await transaction.taskExecutionAttempt.create({
-            data: taskExecutionAttemptWriteData(resolvedAttempt),
+          const executionContextRecord = await transaction.taskExecutionContext.create({
+            data: taskExecutionContextWriteData(resolvedExecutionContext),
           });
           const transition = await transaction.taskStatusTransition.create({
             data: taskStatusTransitionWriteData(requestedTransition),
@@ -1310,7 +1309,7 @@ export class PrismaRdbProvider implements RdbProvider {
           return {
             task: mapTask({
               ...task,
-              runtimeId: requestedAttempt.runtimeId,
+              runtimeId: requestedExecutionContext.runtimeId,
               status: "in_progress",
               statusRevision: requestedTransition.revision,
               statusNote: requestedTransition.note,
@@ -1318,14 +1317,14 @@ export class PrismaRdbProvider implements RdbProvider {
               statusActor: serializeJson(requestedTransition.actor),
               updatedAt: requestedTransition.occurredAt,
             }),
-            attempt: mapTaskExecutionAttempt(attemptRecord),
+            executionContext: mapTaskExecutionContext(executionContextRecord),
             transition: mapTaskStatusTransition(transition),
             created: true,
           };
         });
       } catch (error) {
         if (isDatabaseErrorCode(error, "P2034") && attempt < 2) continue;
-        const replayAfterRace = await this.#findAssignmentReplay(input.taskId, requestedAttempt);
+        const replayAfterRace = await this.#findAssignmentReplay(input.taskId, requestedExecutionContext);
         if (replayAfterRace) return replayAfterRace;
         throw normalizeDatabaseError(error, {
           conflictCode: "RDB_CONFLICT",
@@ -1390,14 +1389,14 @@ export class PrismaRdbProvider implements RdbProvider {
             data: taskStatusTransitionWriteData(requested),
           });
           if (requested.toStatus === "done" || requested.toStatus === "canceled") {
-            await transaction.taskExecutionAttempt.updateMany({
-              where: { id: requested.actor.attemptId ?? "00000000-0000-0000-0000-000000000000", teamId: input.teamId },
+            await transaction.taskExecutionContext.updateMany({
+              where: { id: requested.actor.executionContextId ?? "00000000-0000-0000-0000-000000000000", teamId: input.teamId },
               data: { capabilityRevokedAt: requested.occurredAt, updatedAt: requested.occurredAt },
             });
-            const taskAttempt = await transaction.taskExecutionAttempt.findUnique({ where: { taskId: task.id } });
-            if (taskAttempt && taskAttempt.capabilityRevokedAt === null) {
-              await transaction.taskExecutionAttempt.updateMany({
-                where: { id: taskAttempt.id, teamId: input.teamId },
+            const taskExecutionContext = await transaction.taskExecutionContext.findUnique({ where: { taskId: task.id } });
+            if (taskExecutionContext && taskExecutionContext.capabilityRevokedAt === null) {
+              await transaction.taskExecutionContext.updateMany({
+                where: { id: taskExecutionContext.id, teamId: input.teamId },
                 data: { capabilityRevokedAt: requested.occurredAt, updatedAt: requested.occurredAt },
               });
             }
@@ -1442,27 +1441,29 @@ export class PrismaRdbProvider implements RdbProvider {
     return rows.map(mapTaskStatusTransition);
   }
 
-  async getExecutionAttemptByTaskId(taskId: string, options: { teamId: string }): Promise<TaskExecutionAttempt | undefined> {
-    const row = await this.#client.taskExecutionAttempt.findUnique({ where: { taskId } });
-    return row?.teamId === options.teamId ? mapTaskExecutionAttempt(row) : undefined;
+  async getExecutionContextByTaskId(taskId: string, options: { teamId: string }): Promise<TaskExecutionContext | undefined> {
+    const row = await this.#client.taskExecutionContext.findUnique({ where: { taskId } });
+    return row?.teamId === options.teamId ? mapTaskExecutionContext(row) : undefined;
   }
 
-  async getExecutionAttemptBySessionId(sessionId: string): Promise<TaskExecutionAttempt | undefined> {
-    const row = await this.#client.taskExecutionAttempt.findUnique({ where: { sessionId } });
-    return row ? mapTaskExecutionAttempt(row) : undefined;
+  async getExecutionContextBySessionId(sessionId: string): Promise<TaskExecutionContext | undefined> {
+    const session = await this.#client.session.findUnique({ where: { id: sessionId } });
+    if (!session) return undefined;
+    const row = await this.#client.taskExecutionContext.findUnique({ where: { taskId: session.taskId } });
+    return row ? mapTaskExecutionContext(row) : undefined;
   }
 
-  async updateExecutionAttempt(input: {
-    attemptId: string;
+  async updateExecutionContext(input: {
+    executionContextId: string;
     teamId: string;
     workspaceId?: string;
     sessionId?: string;
     setupFailureCode?: string | null;
     setupFailureMessage?: string | null;
-  }): Promise<TaskExecutionAttempt | undefined> {
+  }): Promise<TaskExecutionContext | undefined> {
     const updatedAt = this.#now();
-    const result = await this.#client.taskExecutionAttempt.updateMany({
-      where: { id: input.attemptId, teamId: input.teamId },
+    const result = await this.#client.taskExecutionContext.updateMany({
+      where: { id: input.executionContextId, teamId: input.teamId },
       data: {
         ...(input.workspaceId !== undefined ? { workspaceId: input.workspaceId } : {}),
         ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
@@ -1472,33 +1473,37 @@ export class PrismaRdbProvider implements RdbProvider {
       },
     });
     if (result.count !== 1) return undefined;
-    const row = await this.#client.taskExecutionAttempt.findUnique({ where: { id: input.attemptId } });
-    return row ? mapTaskExecutionAttempt(row) : undefined;
+    const row = await this.#client.taskExecutionContext.findUnique({ where: { id: input.executionContextId } });
+    return row ? mapTaskExecutionContext(row) : undefined;
   }
 
   async resolveWorkloadExecution(executionCodeHash: string): Promise<import("./rdb-provider").ResolvedWorkloadExecution | undefined> {
     const lease = await this.#client.sessionDispatchLease.findUnique({ where: { executionCodeHash } });
     if (!lease?.executionCodeExpiresAt) return undefined;
-    const attempt = await this.#client.taskExecutionAttempt.findUnique({ where: { sessionId: lease.sessionId } });
-    if (!attempt || attempt.capabilityRevokedAt !== null || !attempt.workspaceId || !attempt.sessionId) return undefined;
-    const [task, project, workspace, session] = await Promise.all([
-      this.#client.task.findUnique({ where: { id: attempt.taskId } }),
-      this.#client.project.findUnique({ where: { id: attempt.projectId } }),
-      this.#client.taskWorkspace.findUnique({ where: { id: attempt.workspaceId } }),
-      this.#client.session.findUnique({ where: { id: attempt.sessionId } }),
+    const leasedSession = await this.#client.session.findUnique({ where: { id: lease.sessionId } });
+    if (!leasedSession) return undefined;
+    const executionContext = await this.#client.taskExecutionContext.findUnique({ where: { taskId: leasedSession.taskId } });
+    if (!executionContext || executionContext.capabilityRevokedAt !== null || !executionContext.workspaceId || !executionContext.sessionId) return undefined;
+    const [task, project, workspace] = await Promise.all([
+      this.#client.task.findUnique({ where: { id: executionContext.taskId } }),
+      this.#client.project.findUnique({ where: { id: executionContext.projectId } }),
+      this.#client.taskWorkspace.findUnique({ where: { id: executionContext.workspaceId } }),
     ]);
     if (
-      !task || !project || !workspace || !session
-      || task.teamId !== attempt.teamId || project.teamId !== attempt.teamId
-      || workspace.teamId !== attempt.teamId || session.teamId !== attempt.teamId
+      !task || !project || !workspace
+      || task.teamId !== executionContext.teamId || project.teamId !== executionContext.teamId
+      || workspace.teamId !== executionContext.teamId || leasedSession.teamId !== executionContext.teamId
+      || leasedSession.taskId !== executionContext.taskId
+      || leasedSession.projectId !== executionContext.projectId
+      || leasedSession.runtimeId !== executionContext.runtimeId
       || task.status === "done" || task.status === "canceled"
     ) return undefined;
     return {
-      attempt: mapTaskExecutionAttempt(attempt),
+      executionContext: mapTaskExecutionContext(executionContext),
       task: mapTask(task),
       project: mapProject(project),
       workspace: mapTaskWorkspace(workspace),
-      session: mapSession(session),
+      session: mapSession(leasedSession),
       executionCodeExpiresAt: lease.executionCodeExpiresAt,
     };
   }
@@ -2807,18 +2812,18 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async #findAssignmentReplay(
     taskId: string,
-    requestedAttempt: TaskExecutionAttempt,
+    requestedExecutionContext: TaskExecutionContext,
   ): Promise<{
     task: TaskRecord;
-    attempt: TaskExecutionAttempt;
+    executionContext: TaskExecutionContext;
     transition: TaskStatusTransition;
     created: false;
   } | undefined> {
-    const attemptRow = await this.#client.taskExecutionAttempt.findUnique({ where: { taskId } });
+    const attemptRow = await this.#client.taskExecutionContext.findUnique({ where: { taskId } });
     if (!attemptRow) return undefined;
     if (
-      attemptRow.assignIdempotencyKey !== requestedAttempt.assignIdempotencyKey
-      || attemptRow.assignRequestFingerprint !== requestedAttempt.assignRequestFingerprint
+      attemptRow.assignIdempotencyKey !== requestedExecutionContext.assignIdempotencyKey
+      || attemptRow.assignRequestFingerprint !== requestedExecutionContext.assignRequestFingerprint
     ) {
       throw new RdbError("RDB_CONFLICT", "Task already has a different production assignment");
     }
@@ -2828,7 +2833,7 @@ export class PrismaRdbProvider implements RdbProvider {
         where: {
           taskId_idempotencyKey: {
             taskId,
-            idempotencyKey: requestedAttempt.assignIdempotencyKey,
+            idempotencyKey: requestedExecutionContext.assignIdempotencyKey,
           },
         },
       }),
@@ -2838,7 +2843,7 @@ export class PrismaRdbProvider implements RdbProvider {
     }
     return {
       task: mapTask(taskRow),
-      attempt: mapTaskExecutionAttempt(attemptRow),
+      executionContext: mapTaskExecutionContext(attemptRow),
       transition: mapTaskStatusTransition(transitionRow),
       created: false,
     };
@@ -2891,7 +2896,7 @@ export class PrismaRdbProvider implements RdbProvider {
             kind: "system",
             actorId: null,
             agentId: null,
-            attemptId: null,
+            executionContextId: null,
             sessionId: null,
           }),
           createdAt: timestamp,
@@ -3098,10 +3103,10 @@ function requireTeamId(teamId: string | undefined): string {
   return teamId;
 }
 
-function taskExecutionAttemptWriteData(attempt: TaskExecutionAttempt) {
+function taskExecutionContextWriteData(executionContext: TaskExecutionContext) {
   return {
-    ...attempt,
-    taskIssue: attempt.taskIssue === null ? null : serializeJson(attempt.taskIssue),
+    ...executionContext,
+    taskIssue: executionContext.taskIssue === null ? null : serializeJson(executionContext.taskIssue),
   };
 }
 

@@ -6,7 +6,7 @@ import {
   sessionSchema,
   taskSessionLaunchInputSchema,
   type RuntimeView,
-  type TaskExecutionAttempt,
+  type TaskExecutionContext,
   type ResolvedAgentSnapshot,
   type Session,
   type SessionEvent,
@@ -22,7 +22,7 @@ import {
 import type { RdbProvider } from "../db/rdb-provider";
 import { RdbError } from "../db/prisma-errors";
 import { TaskWorkspaceFailure } from "../task-workspaces/task-workspace-errors";
-import { assembleTaskExecutionAttemptSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
+import { assembleTaskExecutionContextSystemPrompt, assembleSystemPrompt } from "./system-prompt-assembler";
 import { SessionFailure } from "./session-errors";
 
 type SessionDb = Pick<RdbProvider,
@@ -61,7 +61,7 @@ export class SessionService {
     request: SessionLaunchRequest;
     frozenAgent?: ResolvedAgentSnapshot | null;
     frozenTask?: TaskRecord;
-    attemptBootstrap?: boolean;
+    executionContextBootstrap?: boolean;
   }): Promise<{ session: Session; created: boolean }> {
     const request = sessionLaunchRequestSchema.parse(input.request);
     const [task, agent, runtime, project] = await Promise.all([
@@ -110,8 +110,8 @@ export class SessionService {
       revision: agent.revision,
       systemPrompt: agent.systemPrompt,
     } : null;
-    const prompt = input.attemptBootstrap
-      ? assembleTaskExecutionAttemptSystemPrompt({ runtime: runtime!, providerKey: request.providerKey, agentContext })
+    const prompt = input.executionContextBootstrap
+      ? assembleTaskExecutionContextSystemPrompt({ runtime: runtime!, providerKey: request.providerKey, agentContext })
       : assembleSystemPrompt({
           runtime: runtime!,
           providerKey: request.providerKey,
@@ -151,36 +151,36 @@ export class SessionService {
     }
   }
 
-  async launchAttempt(input: {
+  async launchExecutionContext(input: {
     actor: SessionSubject;
-    attempt: TaskExecutionAttempt;
+    executionContext: TaskExecutionContext;
   }): Promise<{ session: Session; created: boolean }> {
     return this.launch({
       actor: input.actor,
-      attemptBootstrap: true,
-      frozenAgent: input.attempt.agentId === null ? null : {
-        agentId: input.attempt.agentId,
-        name: input.attempt.agentName!,
-        revision: input.attempt.agentRevision!,
-        systemPrompt: input.attempt.agentSystemPrompt!,
+      executionContextBootstrap: true,
+      frozenAgent: input.executionContext.agentId === null ? null : {
+        agentId: input.executionContext.agentId,
+        name: input.executionContext.agentName!,
+        revision: input.executionContext.agentRevision!,
+        systemPrompt: input.executionContext.agentSystemPrompt!,
       },
       request: {
-        sessionId: input.attempt.plannedSessionId,
-        runtimeId: input.attempt.runtimeId,
-        providerKey: input.attempt.providerKey,
-        agentId: input.attempt.agentId,
+        sessionId: input.executionContext.plannedSessionId,
+        runtimeId: input.executionContext.runtimeId,
+        providerKey: input.executionContext.providerKey,
+        agentId: input.executionContext.agentId,
         context: {
-          taskId: input.attempt.taskId,
-          projectId: input.attempt.projectId,
-          ...(input.attempt.manualContextText
-            ? { manual: { text: input.attempt.manualContextText } }
+          taskId: input.executionContext.taskId,
+          projectId: input.executionContext.projectId,
+          ...(input.executionContext.manualContextText
+            ? { manual: { text: input.executionContext.manualContextText } }
             : {}),
         },
         firstUserMessage: {
-          messageId: input.attempt.firstMessageId,
+          messageId: input.executionContext.firstMessageId,
           content: [{ type: "text", text: "Complete this Task: implement the code change, self-test it, create the PR with gh, and report the Task production status." }],
         },
-        metadata: { attemptId: input.attempt.id, mode: "goal-autopilot" },
+        metadata: { executionContextId: input.executionContext.id, mode: "goal-autopilot" },
       },
     });
   }

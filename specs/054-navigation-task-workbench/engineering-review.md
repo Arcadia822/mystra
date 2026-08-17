@@ -25,7 +25,7 @@ taco_scope: plan
 
 1. **Runtime lock 与 Workspace cardinality/persistence replacement**，P1：Task 增加 nullable、首次写入后不可变的 `runtimeId`，且 `taskId @unique` 改为 `(taskId, runtimeId) unique`，会影响双 Prisma schema、RdbProvider、production transaction、preparation claim 与 Session attachment。Gate：SQLite/PostgreSQL parity、20-way concurrent first launch 只有一个 Runtime winner、后续写入拒绝、同 pair 20-way race、同 Runtime 不同 Provider 复用；不同 Runtime Workspace 仅做 provider-contract seam 验证。
 2. **Long-running launch semantics**，P1：Workspace materialization 不能跨 HTTP/RDB 事务等待。Gate：短事务持久化稳定 launch identity，返回 `202 preparing`，runner ready callback 与 client poll 均幂等续接；不得用同步阻塞伪装自动化。
-3. **Task production ownership**，P1：pending Task 的首个 Session launch 必须复用 TaskExecutionAttempt/status audit，不得并行保留一个需要用户先点 Start 的入口。Gate：route/service E2E 证明一次 Human command 原子进入 `in_progress`，最终一个 Session；后续 Session 不覆盖 attempt 首 Session。
+3. **Task production ownership**，P1：pending Task 的首个 Session launch 必须复用 TaskExecutionContext/status audit，不得并行保留一个需要用户先点 Start 的入口。Gate：route/service E2E 证明一次 Human command 原子进入 `in_progress`，最终一个 Session；后续 Session 不覆盖 TaskExecutionContext 的首个 Session。
 
 ### NOT in scope
 
@@ -170,7 +170,7 @@ Silent unhandled failures: 0.
 
 - `mapTask` impact 为 HIGH（9 direct / 19 total），通过 shared strict schema、双 Prisma parity、RDB route/full suites 与浏览器 projection gate 收口；其余 launch/workspace/UI symbols 为 LOW。
 - 20-way first Start race 只有一个 Runtime winner；Task row conditional update 包含当前 nullable Runtime，lost race 返回 conflict，不做 last-writer-wins。
-- Session HTTP 不跨 Workspace materialization 长事务：`202 preparing` 暴露稳定 `sessionId`，poll/callback 都复用 TaskExecutionAttempt continuation。`setupFailureCode` 被转为稳定失败，避免无限 preparing。
+- Session HTTP 不跨 Workspace materialization 长事务：`202 preparing` 暴露稳定 `sessionId`，poll/callback 都复用 TaskExecutionContext continuation。`setupFailureCode` 被转为稳定失败，避免无限 preparing。
 - UI 完全移除 Workspace-ready precondition。Runtime 只作为 Task property 显示，不成为表单输入；Provider 列表在首启前来自 eligible Runtime，锁定后受 Task Runtime 约束。
 
 ### Verification conclusion

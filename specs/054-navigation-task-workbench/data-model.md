@@ -36,7 +36,7 @@ Team 1 ── * Task
                 ├── metadata JSON object (Task-owned field)
                 ├── 0..1 Project reference
                 ├── 0..1 exact Issue reference
-                ├── 0..1 TaskExecutionAttempt (internal production-attempt coordination record)
+                ├── 0..1 TaskExecutionContext (internal Task execution-context record)
                 ├── 0..1 locked Runtime context (Task.runtimeId, immutable after first write)
                 ├── 0..* TaskWorkspace (unique by taskId + runtimeId; secondary copies reserved for future sync)
                 └── 0..* Session
@@ -44,7 +44,7 @@ Team 1 ── * Task
 
 `(taskId, runtimeId)` 唯一。首次 Session launch 根据 Provider availability 解析 Runtime 并锁定 `Task.runtimeId`；后续 Session 只复用该 Runtime 的 Workspace，同一 Runtime 上不同 Provider 不创建第二个 Workspace。另一 Runtime 的 Workspace 只能由未来同步能力或内部 fixture 建立，不能被 054 的 Session launch 用来切换 Runtime。Runtime 不由 Session 表单提交。Workspace absent/failed/queued/preparing/ready 的处理全部属于 Session launch orchestration，不是用户操作。不同 Runtime Workspace 的未来同步可能性被保留，但同步、复制、冲突解决与 Session failover 不属于 054。
 
-TaskExecutionAttempt 不是 054 的用户可见产品实体、导航资源或 TaskWorkbenchItem 字段；这里仅记录 Session launch 自动 Workspace 初始化与首个 Session 续接的内部持久化约束。不存在 TaskLabel 资源或子表。Project/Issue mutable snapshot 不是 TaskWorkbenchItem 的输入。
+TaskExecutionContext 不是 054 的用户可见产品实体、导航资源或 TaskWorkbenchItem 字段；这里仅记录 Session launch 自动 Workspace 初始化与首个 Session 续接与所有 Task Session 的 capability resolution的内部持久化约束。不存在 TaskLabel 资源或子表。Project/Issue mutable snapshot 不是 TaskWorkbenchItem 的输入。
 
 ## State Transition Table
 

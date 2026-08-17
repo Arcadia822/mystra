@@ -47,7 +47,7 @@ taco_scope: tasks
 - [x] T025 [US2] 在 `apps/control-plane/app/api/tasks/route.ts` 接入 strict cursor page contracts 与 active Team scope
 - [x] T026 [US2] 将批准的 composition 从 `apps/spec-prototype/app/_components/navigation-task-workbench.tsx` 迁移为 production `apps/control-plane/app/_components/task-workbench.tsx`，只接 production adapters
 - [x] T027 [US2] 在 `apps/control-plane/app/tasks/page.tsx` 接入 paged query、search/filter/sort/layout state 与 async append
-- [x] T028 [US2] 在 production workbench 只用 Task 内 `metadata`、Project `repositoryExternalId` 与 Issue `identifier`，删除 Task 外 labels、TaskExecutionAttempt projection 和 project-name/provider snapshot join；Metadata presentation order 只由前端处理
+- [x] T028 [US2] 在 production workbench 只用 Task 内 `metadata`、Project `repositoryExternalId` 与 Issue `identifier`，删除 Task 外 labels、TaskExecutionContext projection 和 project-name/provider snapshot join；Metadata presentation order 只由前端处理
 - [x] T029 [US2] 按 `specs/054-navigation-task-workbench/quickstart.md` 浏览器验证 0/1/50/101/10k Tasks、五态 columns、Table/Kanban ID parity、load-more anchor 与 p95 < 500ms evidence
 
 ## Phase 5: User Story 3 - New Task Modal (P1)
@@ -73,18 +73,18 @@ taco_scope: tasks
 
 **Independent Test**: Table/Kanban/Active 三入口进入同一 `/tasks/:id`；Main 只有 Sessions，Right Panel external IDs/Task Metadata/status history 正确。
 
-- [x] T039 [P] [US5] 在 `apps/control-plane/app/_components/task-detail-main-model.test.ts` 写 canonical Session-only mapping、Task.metadata 直接投影，以及禁止 TaskExecutionAttempt UI/snapshot/derived-current fields tests
+- [x] T039 [P] [US5] 在 `apps/control-plane/app/_components/task-detail-main-model.test.ts` 写 canonical Session-only mapping、Task.metadata 直接投影，以及禁止 TaskExecutionContext UI/snapshot/derived-current fields tests
 - [x] T040 [P] [US5] 在 `apps/control-plane/app/_lib/task-view.test.ts` 写 repositoryExternalId/Issue identifier projection 与 provider-unavailable tests
-- [x] T041 [US5] 在 `apps/control-plane/app/tasks/[id]/page.tsx` 接入 shared breadcrumb/Right Panel/Sessions composition，不复制 shell anatomy，也不暴露 internal TaskExecutionAttempt record
+- [x] T041 [US5] 在 `apps/control-plane/app/tasks/[id]/page.tsx` 接入 shared breadcrumb/Right Panel/Sessions composition，不复制 shell anatomy，也不暴露 internal TaskExecutionContext record
 - [x] T042 [US5] 在 `apps/control-plane/app/_components/task-detail-panel.tsx` 只显示 persisted external identifiers、Task.metadata 与 status history；Metadata 顺序由前端 renderer 决定
 - [x] T043 [US5] 按 `specs/054-navigation-task-workbench/quickstart.md` 浏览器验证 1440/1024/768/320px、panel collapse/reopen、full Session UUID 与 page overflow=0
 
 ## Phase 8: User Story 6 - Manual New Session (P1)
 
-**Independent Test**: ready+provider success/precondition/error/close；只提交 providerKey/manualContext，Task/TaskExecutionAttempt 无副作用。
+**Independent Test**: ready+provider success/precondition/error/close；只提交 providerKey/manualContext，Task/TaskExecutionContext 无副作用。
 
 - [x] T044 [P] [US6] 在 `apps/control-plane/app/_components/create-session-dialog.test.tsx` 先写 exact fields/copy/focus/precondition/error tests
-- [x] T045 [P] [US6] 在 `apps/control-plane/app/api/task-session-routes.test.ts` 写 runtime server-resolution、agent null、Task/TaskExecutionAttempt no-write regressions
+- [x] T045 [P] [US6] 在 `apps/control-plane/app/api/task-session-routes.test.ts` 写 runtime server-resolution、agent null、Task/TaskExecutionContext no-write regressions
 - [x] T046 [US6] 在 `apps/control-plane/app/_components/create-session-dialog.tsx` 接入 existing Task Session launch API 与 returned Session navigation
 - [x] T047 [US6] 在 `apps/control-plane/app/tasks/[id]/page.tsx` 的 Main Header 接入唯一 New Session action 与 Right Panel recovery ordering
 - [x] T048 [US6] 按 `specs/054-navigation-task-workbench/quickstart.md` 浏览器验证 success/workspace-not-ready/no-provider/API-error/Escape/backdrop/Close journeys
@@ -95,7 +95,7 @@ taco_scope: tasks
 - [x] T050 更新 `apps/control-plane/src/lib/tasks/task-status-service.ts`、status routes 与 production panels，统一读写 `Task.status`，直接删除 `productionStatus` 与 `waiting_for_review`
 - [x] T051 [P] 更新 `packages/agent-cli` schemas/commands/tests，将所有 Task JSON 输出收敛为 `status`，并将 agent review handoff 改为 `blocked` + note
 - [x] T052 [P] 更新 `apps/control-plane/src/lib/sessions/standard-execution-prompt.ts` 与 prompt tests，删除旧状态指令
-- [x] T053 [P] 将 `packages/shared/src/harness.ts` 直接替换为 `task-execution-attempt.ts`，更新 `packages/shared/src/result.ts` 及 tests 中所有 Task-level `productionStatus`/旧状态消费，不误改 Session `state` vocabulary，也不保留 Harness alias
+- [x] T053 [P] 将 `packages/shared/src/harness.ts` 直接替换为 `task-execution-context.ts`，更新 `packages/shared/src/result.ts` 及 tests 中所有 Task-level `productionStatus`/旧状态消费，不误改 Session `state` vocabulary，也不保留 Harness alias
 - [x] T054 更新 current specs/docs/fixtures 的 Task `status` five-state terminology，运行 `pnpm audit:task-session-terminology`，并以 targeted search 证明 current code 中 Task `productionStatus`/`production_status`/`TaskProductionStatus`/`taskProductionStatusSchema` 为 0
 
 ## Phase 10: Final Verification And Review Handoff
@@ -111,16 +111,24 @@ taco_scope: tasks
 - [x] T060 [US6] 更新 shared Task/Workspace/launch schemas 与 SQLite/PostgreSQL schema：Task 增加 nullable `runtimeId`，public create/PATCH 不可写；`TaskWorkspace` 以 `(taskId, runtimeId)` 唯一并保留 provider-neutral Runtime attachment
 - [x] T061 [US6] 更新 RdbProvider、Prisma mapper/provider 与 provider contract tests，覆盖首次 `Task.runtimeId` conditional write、20-way 并发唯一赢家、首次写入后不可变、相同 Task/Runtime pair 并发去重与 dialect parity
 - [x] T062 [US6] 将 `POST /api/tasks/:id/sessions` 收敛为 Provider-driven orchestration：首次自动解析并锁定 Runtime，后续只验证 Provider 在锁定 Runtime available；自动查找/setup/retry Workspace、以 202 表达 preparing、ready 后幂等创建 Session
-- [x] T063 [US6] 将 pending Task 的首个 Session launch 与 `pending -> in_progress`/TaskExecutionAttempt 原子链路整合；移除 Human 必须先 Start 或 Setup Workspace 的前置操作
+- [x] T063 [US6] 将 pending Task 的首个 Session launch 与 `pending -> in_progress`/TaskExecutionContext 原子链路整合；移除 Human 必须先 Start 或 Setup Workspace 的前置操作
 - [x] T064 [US6] 更新 Task detail/Create Session UI 与 prototype：不读取 Workspace 作为可用性 gate，不显示 not-ready/setup/retry，accepted 时显示 Session starting 并自动轮询/导航
 - [x] T065 [US6] 添加 shared/service/route/component/browser regression tests，覆盖 absent、queued/preparing、ready、failed retry、provider unavailable、idempotent replay、并发首次 Runtime lock、后续 Session 不切换 Runtime、同 Runtime两 Provider 一个 Workspace；用内部 provider contract fixture 验证不同 Runtime Workspace composite identity，不把它作为 Session failover
 - [x] T066 运行双 schema generate/validate、focused/full tests、typecheck/lint/build、GitNexus detect_changes、browser journey、Spec-Kit status/doctor，并刷新 Taco
 
-## Phase 12: Independent Session execution-context correction
+## Phase 12: Independent Session execution-context correction (superseded)
 
-- [x] T067 [US6] 复现后续独立 Session 因未绑定首个 `TaskExecutionAttempt` 而缺少 execution code、却被 Standard Execution Prompt 强制调用 `mystra-agent context get` 的合同冲突
-- [x] T068 [US6] 在 Standard Execution Prompt 与两类 `execution_context` 中显式区分 attempt-bound capability bootstrap 和 independent embedded-context bootstrap；不得把首个 attempt capability 复用给后续 Session
-- [x] T069 [US6] 运行 prompt/session focused regressions，确认独立 Session 不再把缺少 attempt capability 当作 blocker，且首个 Autopilot Session 仍强制执行 `mystra-agent context get`
+- [x] T067 [US6] 复现后续独立 Session 因未绑定首个 `TaskExecutionContext` 而缺少 execution code、却被 Standard Execution Prompt 强制调用 `mystra-agent context get` 的合同冲突
+- [x] T068 [US6] 曾按首个 Session capability 与后续 embedded context 区分 bootstrap；该方案已被 owner 的 Task 级 capability 决策替换
+- [x] T069 [US6] 保留真实故障与 focused regression 证据，作为 Phase 13 的 RED 基线
+
+## Phase 13: Task-scoped execution context capability
+
+- [x] T070 [US6] 将 `TaskExecutionAttempt` 及 persistence/API/domain symbols 直接替换为 `TaskExecutionContext`，不保留 pre-0.1 alias 或迁移兼容层
+- [x] T071 [US6] 将 dispatch capability lookup 改为 `Session.taskId -> TaskExecutionContext`；每个 Task Session 签发独立短期 code，scope fence 固定 Team/Task/Project/Runtime/Workspace
+- [x] T072 [US6] 保持 `TaskExecutionContext.sessionId` 仅关联首个 Autopilot Session；后续 Session 可选择不同 Provider/Agent，但不得切换 Task Runtime 或覆盖该字段
+- [x] T073 [US6] 更新 Standard Execution Prompt、Agent CLI identity、Task status actor、production projection、Prisma 双 schema 与回归合同
+- [x] T074 运行完整 tests/typecheck/lint/build、双 Prisma validate、术语审计、GitNexus detect_changes、重置本地 pre-0.1 数据并刷新 Taco
 
 ## Dependencies And Parallel Lanes
 

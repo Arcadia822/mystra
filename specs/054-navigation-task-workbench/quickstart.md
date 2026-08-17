@@ -41,7 +41,7 @@ pnpm audit:task-session-terminology
 - SQLite/PostgreSQL schema parity 与 RdbProvider contracts 全绿。
 - `Task.metadata` 在 shared Task、双 Prisma schema、create/update/list/detail API 和前端 Task model 中保持同一 JSON-object 合同；Task 外 `labels` 与 TaskLabel/ordinal/normalized columns 为 0。
 - Task object、shared schema/type、API、RDB、双 Prisma schema、CLI 与 UI 统一使用 `status`；current code 中 Task `productionStatus`、`production_status`、`TaskProductionStatus`、`taskProductionStatusSchema` 及兼容 alias 为 0。
-- TaskExecutionAttempt 仅作为 Start/Workspace/首个 Autopilot Session 链路的 internal coordination record；主导航、Tasks workbench、Task detail UI、TaskWorkbenchItem 与用户 create/update contract 中 TaskExecutionAttempt 暴露数量为 0。
+- TaskExecutionContext 仅作为 Start/Workspace/首个 Autopilot Session 链路的 internal coordination record；主导航、Tasks workbench、Task detail UI、TaskWorkbenchItem 与用户 create/update contract 中 TaskExecutionContext 暴露数量为 0。
 - Metadata presentation order 只由前端处理；query-time case-insensitive match 在 SQLite/PostgreSQL parity fixtures 中通过。
 - `waiting_for_review` 在 Task contract/CLI/prompt/UI/tests/docs 的 current surface 中为 0。
 - production/prototype 都只从 `@mystra/ui` 消费标准 components/styles。
@@ -80,7 +80,7 @@ pnpm audit:task-session-terminology
 
 - Shared Task response 增加 `runtimeId: UUID | null`；create/PATCH strict schemas 拒绝 caller 写入。SQLite/PostgreSQL Task schema 对等，`TaskWorkspace` 唯一键为 `(taskId, runtimeId)`。
 - RDB 20-way concurrent first Start contract 只有一个成功 Runtime winner；Task conditional update 与后续 mismatch rejection 保证 first non-null write immutable。
-- `POST /api/tasks/:id/sessions` 现在返回 `202 preparing` 或 `ready` result；pending Task 首次 launch 原子进入 `in_progress`、冻结 TaskExecutionAttempt launch input，并自动 setup/continue Workspace。终态准备失败返回稳定错误，不会让 UI 无限轮询。
+- `POST /api/tasks/:id/sessions` 现在返回 `202 preparing` 或 `ready` result；pending Task 首次 launch 原子进入 `in_progress`、冻结 TaskExecutionContext launch input，并自动 setup/continue Workspace。终态准备失败返回稳定错误，不会让 UI 无限轮询。
 - Create Session 不读取 Workspace API 作为 gate。Task 无 Runtime 时聚合 eligible Runtime 的 available Providers；锁定后只显示该 Runtime 的 Providers。相同 `sessionId` 自动轮询，ready 后进入 canonical Session URL；Right Panel 只读显示 Task Runtime。
 - 2026-08-17 最终 root gates：typecheck、lint、build、双 Prisma validate、术语审计均通过；137 个 test files 通过、1 个 file 跳过，653 tests 通过、22 tests 跳过。其中 Control Plane 387/387、Shared 153/153、UI 30/30、Spec Prototype 37/37、Agent adapters 9/9、Agent CLI 5/5、Runner daemon 32/32。
 - Session replay 回归覆盖 Runtime 在 Session 已持久化后离线的情况：相同 `sessionId` 仍返回 canonical Session，不让当前 liveness 改写幂等历史。
@@ -91,6 +91,8 @@ pnpm audit:task-session-terminology
 ### Independent Session execution-context correction — 2026-08-17
 
 - 真实 Session `43b54f0d-4f2f-474c-b894-934c9d2f61e4` 已被 Runner 正常领取并完成 Provider response；事件序列包含 `runtime_dispatched`、`provider_started`、`response_started` 与 `response_completed`，排除 Runner 未领取与网络阻塞。
-- 该 Session 是同一 Task 的后续独立 Session；唯一 `TaskExecutionAttempt` 仍正确绑定首个 Session `c7f00b8f-f4f0-435c-94a7-7fbc083a7ddc`，因此后续 Session dispatch lease 按合同不含 execution code。旧 Standard Execution Prompt 却无条件要求 `mystra-agent context get`，Agent 因 `MYSTRA_EXECUTION_CODE` 缺失报告 blocker。
-- 修复不扩大 capability：attempt-bound 首 Session 继续使用 `mystra-agent context get`；后续独立 Session 使用创建时已冻结的 embedded Task/Project/Issue facts 与独立 Workspace attachment，并明确 capability 缺失不是 blocker。
-- TDD 证据：新增回归在旧实现上失败；修复后 `system-prompt-assembler.test.ts` 与 `session-service.test.ts` 共 17/17 tests 通过。
+- 该 Session 是同一 Task 的后续独立 Session；唯一 `TaskExecutionContext` 的 `sessionId` 正确保留首个 Session `c7f00b8f-f4f0-435c-94a7-7fbc083a7ddc`，但旧 dispatch 错误地只按该字段查 capability，导致后续 Session 没有 execution code。Agent 因 `MYSTRA_EXECUTION_CODE` 缺失报告 blocker。
+- 修复将 capability lookup 改为 `leased Session -> taskId -> TaskExecutionContext`：所有 Task Session 各自获得短期 execution code，共享 Task 级 Context 与 Workspace；后续 Session 不覆盖首个 Autopilot Session 关联。
+- TDD 证据：新增 AgentExecutionService 与 SQLite RDB contract 回归在旧实现上分别以 `scope_mismatch` 和缺少 `executionCodeExpiresAt` 失败；修复后 prompt/session/RDB focused tests 48/48 通过。
+- 最终门禁：双 Prisma schema validate、术语审计、root typecheck/lint/build 全部通过；137 个 test files 通过、1 个 file 跳过，657 tests 通过、22 tests 跳过。GitNexus 对 71 个文件的直接合同替换报告 HIGH scope（139 changed symbols、15 affected processes），其风险来自跨层重命名范围；对应 shared、RDB、route、Session、Runner 与 UI contracts 均已由全量门禁覆盖。
+- 本地 pre-0.1 SQLite 已按 owner 授权无备份 reset，并应用 `20260811210000_factory_task_execution_context`；Control Plane `/login` 返回 HTTP 200/title `Mystra`，Runner 已重新注册。

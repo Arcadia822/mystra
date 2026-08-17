@@ -39,7 +39,7 @@ export const agentContextIdentitySchema = agentContextSnapshotSchema.pick({
 }).strict();
 export type AgentContextIdentity = z.infer<typeof agentContextIdentitySchema>;
 
-export const taskExecutionAttemptSchema = z.object({
+export const taskExecutionContextSchema = z.object({
   id: z.string().uuid(),
   teamId: z.string().uuid(),
   taskId: z.string().uuid(),
@@ -72,11 +72,11 @@ export const taskExecutionAttemptSchema = z.object({
     context.addIssue({
       code: "custom",
       path: ["agentId"],
-      message: "TaskExecutionAttempt Agent Context must be wholly present or absent",
+      message: "TaskExecutionContext Agent Context must be wholly present or absent",
     });
   }
 });
-export type TaskExecutionAttempt = z.infer<typeof taskExecutionAttemptSchema>;
+export type TaskExecutionContext = z.infer<typeof taskExecutionContextSchema>;
 
 export const taskStartRequestSchema = z.object({
   agentId: z.string().uuid().nullish().transform((value) => value ?? null),
@@ -95,7 +95,7 @@ export const taskStartResultSchema = z.object({
     statusRevision: z.number().int().positive(),
   }).passthrough(),
   transition: taskStatusTransitionSchema,
-  attempt: taskExecutionAttemptSchema,
+  executionContext: taskExecutionContextSchema,
   created: z.boolean(),
 }).strict();
 export type TaskStartResult = z.infer<typeof taskStartResultSchema>;
@@ -103,7 +103,7 @@ export type TaskStartResult = z.infer<typeof taskStartResultSchema>;
 export const workloadExecutionIdentitySchema = z.object({
   teamId: z.string().uuid(),
   taskId: z.string().uuid(),
-  attemptId: z.string().uuid(),
+  executionContextId: z.string().uuid(),
   sessionId: z.string().uuid(),
   agentContext: agentContextIdentitySchema.nullable(),
   expiresAt: z.string().datetime(),
@@ -142,14 +142,14 @@ export const taskExecutionContextPayloadSchema = taskExecutionContextBaseSchema.
 }).strict();
 export type TaskExecutionContextPayload = z.infer<typeof taskExecutionContextPayloadSchema>;
 
-export const taskExecutionContextSchema = taskExecutionContextBaseSchema.extend({
+export const workloadExecutionContextSchema = taskExecutionContextBaseSchema.extend({
   workspace: z.object({
     id: z.string().uuid(),
     root: z.string().trim().min(1).max(4_096),
     branch: z.string().trim().min(1).max(500),
   }).strict(),
 }).strict();
-export type TaskExecutionContext = z.infer<typeof taskExecutionContextSchema>;
+export type WorkloadExecutionContext = z.infer<typeof workloadExecutionContextSchema>;
 
 export const sessionExecutionCapabilitySchema = z.object({
   code: z.string().min(32).max(1_024),

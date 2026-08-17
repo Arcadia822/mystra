@@ -34,20 +34,20 @@ describe("Session execution SQLite/HTTP E2E", () => {
     expect(started).toMatchObject({
       created: true,
       task: { status: "in_progress", statusRevision: 2 },
-      attempt: selectedAgent
+      executionContext: selectedAgent
         ? { agentId: fixture.agent.id, agentName: fixture.agent.name, agentRevision: fixture.agent.revision }
         : { agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null },
     });
-    expect(started.attempt.sessionId).toBe(started.attempt.plannedSessionId);
+    expect(started.executionContext.sessionId).toBe(started.executionContext.plannedSessionId);
 
     const replay = await fixture.production.start({ actor: fixture.actor, taskId: fixture.task.id, request });
     expect(replay).toMatchObject({
       created: false,
-      attempt: { id: started.attempt.id, sessionId: started.attempt.sessionId },
+      executionContext: { id: started.executionContext.id, sessionId: started.executionContext.sessionId },
     });
 
     const assignment = await claim(fixture.endpoint, fixture.runtime.id, fixture.runnerId);
-    expect(assignment.session.id).toBe(started.attempt.sessionId);
+    expect(assignment.session.id).toBe(started.executionContext.sessionId);
     expect(assignment.systemPrompt).toContain("You are executing a Mystra production Task");
     if (selectedAgent) {
       expect(assignment.systemPrompt).toContain(fixture.agent.systemPrompt);

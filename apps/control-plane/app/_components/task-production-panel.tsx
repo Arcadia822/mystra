@@ -11,13 +11,13 @@ import { UiSelect, UiTextarea } from "./ui-fields";
 
 type ProductionView = {
   task: Task;
-  attempt: { id: string; agentId: string | null; agentName: string | null; agentRevision: number | null; workspaceId: string | null; sessionId: string | null; setupFailureCode: string | null; setupFailureMessage: string | null } | null;
+  executionContext: { id: string; agentId: string | null; agentName: string | null; agentRevision: number | null; workspaceId: string | null; sessionId: string | null; setupFailureCode: string | null; setupFailureMessage: string | null } | null;
   transitions: Array<{
     id: string;
     fromStatus: TaskStatus;
     toStatus: TaskStatus;
     revision: number;
-    actor: { kind: string; actorId: string | null; agentId: string | null; attemptId: string | null; sessionId: string | null };
+    actor: { kind: string; actorId: string | null; agentId: string | null; executionContextId: string | null; sessionId: string | null };
     note: string | null;
     occurredAt: string;
   }>;
@@ -105,8 +105,8 @@ export function TaskProductionPanel({ task }: { task: Task }) {
           <p>{production.data.agentReport.text}</p>
         </div>
       ) : current.statusNote ? <p className="formNotice">{current.statusNote}</p> : null}
-      {production.data?.attempt?.setupFailureMessage ? (
-        <p className="formError">{production.data.attempt.setupFailureCode}: {production.data.attempt.setupFailureMessage}</p>
+      {production.data?.executionContext?.setupFailureMessage ? (
+        <p className="formError">{production.data.executionContext.setupFailureCode}: {production.data.executionContext.setupFailureMessage}</p>
       ) : null}
       {production.data?.transitions.length ? (
         <div>

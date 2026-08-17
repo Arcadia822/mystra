@@ -10,7 +10,7 @@ describe("054 production composition", () => {
     expect(source).toContain("Object.entries(task.metadata)");
     expect(source).toContain("task.projectReference.repositoryExternalId");
     expect(source).toContain("task.issue.identifier");
-    expect(source).not.toContain("TaskExecutionAttempt");
+    expect(source).not.toContain("TaskExecutionContext");
     expect(source).not.toContain("productionStatus");
   });
 
@@ -20,7 +20,7 @@ describe("054 production composition", () => {
     expect(page).toContain("<TaskSessionsPanel task={task} />");
     expect(page).not.toContain("TaskProductionPanel");
     expect(page).not.toContain("TaskWorkspacePanel");
-    expect(page).not.toContain("TaskExecutionAttempt");
+    expect(page).not.toContain("TaskExecutionContext");
     expect(panel).toContain("current.metadata");
     expect(panel).toContain("current.issue.identifier");
   });

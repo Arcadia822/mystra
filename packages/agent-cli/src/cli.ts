@@ -1,6 +1,6 @@
 import {
   agentTaskStatusSetRequestSchema,
-  taskExecutionContextSchema,
+  workloadExecutionContextSchema,
   type AgentTaskStatusSetRequest,
 } from "@mystra/shared";
 
@@ -28,7 +28,7 @@ export async function runAgentCli(input: {
       result = await client.whoami();
     } else if (first === "context" && second === "get" && third === undefined) {
       const context = await client.context();
-      result = taskExecutionContextSchema.parse({
+      result = workloadExecutionContextSchema.parse({
         ...context,
         workspace: { ...context.workspace, root: input.cwd() },
       });

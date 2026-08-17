@@ -129,7 +129,7 @@ describe("Task contracts", () => {
       statusRevision: 1,
       statusNote: null,
       statusUpdatedAt: "2026-08-08T00:00:00.000Z",
-      statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
+      statusActor: { kind: "system", actorId: null, agentId: null, executionContextId: null, sessionId: null },
       createdAt: "2026-08-08T00:00:00.000Z",
       updatedAt: "2026-08-08T00:00:00.000Z",
     });
@@ -214,7 +214,7 @@ describe("Task contracts", () => {
       statusRevision: 1,
       statusNote: null,
       statusUpdatedAt: "2026-08-08T00:00:00.000Z",
-      statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null },
+      statusActor: { kind: "system", actorId: null, agentId: null, executionContextId: null, sessionId: null },
       createdAt: "2026-08-08T00:00:00.000Z",
       updatedAt: "2026-08-08T00:00:00.000Z",
     });

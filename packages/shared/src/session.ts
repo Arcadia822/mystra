@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   agentContextSnapshotSchema,
   sessionExecutionCapabilitySchema,
-} from "./task-execution-attempt.js";
+} from "./task-execution-context.js";
 
 import { sessionWorkspaceAttachmentSchema } from "./task-workspace.js";
 

@@ -31,7 +31,7 @@ export async function POST(request: Request, context: Context) {
       teamId: active.team.id,
       taskId,
       actorPolicy: "human",
-      actor: { kind: "human", actorId: subject.user.id, agentId: null, attemptId: null, sessionId: null },
+      actor: { kind: "human", actorId: subject.user.id, agentId: null, executionContextId: null, sessionId: null },
       request: await request.json(),
     });
     return noStore(NextResponse.json(taskStatusTransitionResultSchema.parse(result)));

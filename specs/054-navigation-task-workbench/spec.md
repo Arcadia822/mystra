@@ -89,12 +89,12 @@
 
 **Why this priority**: 列表只能帮助操作者定位对象；Task detail 才是监督单个生产意图、查看执行上下文和进入 Session 的稳定入口。详情页若继续把可编辑字段、状态、Workspace 与 Sessions 平铺成同权重 cards，重要性会退化为边框数量。
 
-**Independent Test**: 从 Table row、Kanban card 与 Active Tasks 分别打开同一个 fixture，验证 route 与 Task ID 一致；在 1440px、1024px 与 768px 宽度下验证 shell 主内容与全局 Right Panel，在 320px 下验证全局窄屏顺序；确认 header breadcrumb、New Session、New Task/Search、Project/Issue/Metadata Labels 与 Sessions 均使用共享组件并保持键盘可达，且 Main 在 Sessions 之前没有 page-local identity、Production、TaskExecutionAttempt 或 Workspace 内容。
+**Independent Test**: 从 Table row、Kanban card 与 Active Tasks 分别打开同一个 fixture，验证 route 与 Task ID 一致；在 1440px、1024px 与 768px 宽度下验证 shell 主内容与全局 Right Panel，在 320px 下验证全局窄屏顺序；确认 header breadcrumb、New Session、New Task/Search、Project/Issue/Metadata Labels 与 Sessions 均使用共享组件并保持键盘可达，且 Main 在 Sessions 之前没有 page-local identity、Production、TaskExecutionContext 或 Workspace 内容。
 
 **Acceptance Scenarios**:
 
 1. **Given** 同一个 Task 同时出现在 Table、Kanban 与 Active Tasks，**When** 操作者从任一入口打开它，**Then** 系统进入相同 Task detail route，且 shell 主标题栏中的 arrow-separated breadcrumb 使用 Task name，Task ID、title 与 status 仍对应同一个对象。
-2. **Given** Task detail 已加载，**When** 操作者扫描首屏，**Then** shell header 负责 Task name，Main 直接从共享 Sessions stacked list 开始；Main 不重复 title、description、`status`、Production、TaskExecutionAttempt 或 Workspace，Project、Issue、Metadata、Task ID、时间与 Status history 仍位于全局 Right Panel。
+2. **Given** Task detail 已加载，**When** 操作者扫描首屏，**Then** shell header 负责 Task name，Main 直接从共享 Sessions stacked list 开始；Main 不重复 title、description、`status`、Production、TaskExecutionContext 或 Workspace，Project、Issue、Metadata、Task ID、时间与 Status history 仍位于全局 Right Panel。
 3. **Given** Task detail Main 已渲染，**When** 操作者从顶部开始键盘或视觉扫描，**Then** 第一个内容集合就是 Sessions rows，且不存在 page-local Edit、Start、Workspace setup 或 action header；New Session 只出现于 shell Main Header 右侧。
 4. **Given** viewport 无法容纳 shell 主内容与 Right Panel，**When** 全局 shell contract 响应式收窄，**Then** 主执行内容先于 Right Panel 顺序堆叠，不出现横向页面溢出，也不隐藏全局 New Task/Search。
 5. **Given** Task 有 Project、Issue 与 Metadata，**When** 属性侧栏呈现这些值，**Then** Project 使用持久化的 provider-stable repository external ID，Issue 使用持久化的 exact `identifier`，Metadata 使用 Task 对象内部的原始 key/value，并由前端决定展示顺序；三者复用共享 `UiLabel`，Project/Issue 使用 provider icon。不得为显示目的保存 repository/Issue snapshot。日期语义使用 `<time>`，但继承属性值的标准 typography。
@@ -117,9 +117,9 @@
 4. **Given** 精确 `<Task, Runtime>` Workspace 尚未 ready，**When** launch 被接受，**Then** API 返回可轮询的 accepted launch，而不是 `workspace_missing`/`workspace_not_ready` 用户错误；UI 显示 Session 正在启动并轮询同一个幂等 launch，ready 后自动进入服务端返回的 Session detail。
 5. **Given** Provider 无法解析到支持 Task repository materialization 的 online Runtime，或自动 setup/retry 最终失败，**When** launch 无法继续，**Then** Modal 保留输入并只展示 Provider/Session 启动失败；不得要求用户准备、重试或理解 Workspace。
 6. **Given** Modal 已打开，**When** 操作者按 Escape、点击 header Close 或点击 backdrop，**Then** Modal 关闭且焦点回到 New Session action，Task route 与已填写持久状态均不改变；footer 不渲染重复的 Cancel action。
-7. **Given** launch API 返回错误，**When** Modal 呈现失败，**Then** Modal 保持打开、保留当前输入并显示可理解错误；Sessions 列表、Task 状态与 TaskExecutionAttempt 均不被本地乐观伪造。
+7. **Given** launch API 返回错误，**When** Modal 呈现失败，**Then** Modal 保持打开、保留当前输入并显示可理解错误；Sessions 列表、Task 状态与 TaskExecutionContext 均不被本地乐观伪造。
 8. **Given** Task 已有不可变 `runtimeId`，**When** 操作者发起后续 Session，**Then** 服务端不得重新选择或改写 Runtime，只能验证所选 Provider 在该 Runtime 上 available 并复用该 Runtime 的 Task Workspace；Provider 不可用时返回稳定失败，不能静默切换到另一 Runtime。
-9. **Given** Task 已有首个 `TaskExecutionAttempt` 及其 Autopilot Session，**When** 操作者发起后续独立 Session，**Then** 新 Session 必须使用 launch 时冻结进 system prompt 的 Task、Project、Issue reference 与独立的 Workspace attachment；不得要求、复用或冒充首个 attempt 的 execution capability，也不得因 `MYSTRA_EXECUTION_CODE` 未注入而自行报告阻塞。首个 attempt-bound Session 仍必须通过 `mystra-agent context get` 解析其 capability-scoped 权威上下文。
+9. **Given** Task 已有 `TaskExecutionContext` 及首个 Autopilot Session，**When** 操作者发起后续独立 Session，**Then** Runner 必须为该 Session 签发独立的短期 execution code，并让它通过 `mystra-agent context get` 解析同一 TaskExecutionContext 下的权威 Task、Project、Issue reference 与共享 Workspace；不得复用其他 Session 的 code，也不得把 `TaskExecutionContext.sessionId` 改写为后续 Session。
 
 ### Task 详情主区域 UX/Data Design
 
@@ -130,7 +130,7 @@ Right Panel 收展、Right Panel Properties、Status history 与全局 typograph
 
 #### 信息架构与 composition
 
-1. Main 不再拥有 page-local identity、Production、TaskExecutionAttempt 或 Workspace composition。
+1. Main 不再拥有 page-local identity、Production、TaskExecutionContext 或 Workspace composition。
    `taskDetailPrototype` 根节点保持 `padding: 0`，由 shell Main 唯一提供页面级 `8px`
    outer inset；Main 的第一个且唯一内容集合是 Task 关联的 Sessions。
 2. Sessions 直接使用 `packages/ui` 已有 `StackedList`、`StackedListRow`、
@@ -156,9 +156,9 @@ Right Panel 收展、Right Panel Properties、Status history 与全局 typograph
 | Section / card | 权威实体与关系 | Canonical query / projection | 可显示字段 | 明确禁止 |
 | --- | --- | --- | --- | --- |
 | Production / Task state | `Task 1`；`status` 是 Task business state；`runtimeId` 是 nullable、首次 Session launch 原子写入后不可变的 Task Runtime Context | `GET /api/tasks/:id/production` 的 `task`；基础身份可来自 `GET /api/tasks/:id` | Right Panel 可只读显示已锁定 Runtime；当前 Main 不渲染 | client create/PATCH 设置 `runtimeId`；后续 launch 改写 Runtime；在 Sessions row 推断、同步或复制 Task 状态；Task `failed/error` |
-| Internal production attempt | `Task 1 -- 0..1 TaskExecutionAttempt`；当前 v1 `TaskExecutionAttempt.taskId` unique；`TaskExecutionAttempt 1 -- 0..1 Session`。它是 Start 后、Session 创建前保存冻结输入与幂等关联的内部协调记录，不是操作者管理的产品对象 | production projection 的 `attempt`、`latestSession`、`promptEvidence` | 当前 Main 不渲染；不把 TaskExecutionAttempt facts 塞进 Session row | 导航入口、用户创建/编辑、`currentAttempt`、attempt sequence、attempt status、把 latest Session 当作 current Session |
+| Internal execution context | `Task 1 -- 0..1 TaskExecutionContext`；当前 v1 `TaskExecutionContext.taskId` unique；它可关联首个 Autopilot `Session`，但其 capability scope 覆盖同 Task 的全部 Session。它是 Start 后、Session 创建前保存冻结输入、幂等与 capability identity 的内部协调记录，不是操作者管理的产品对象 | production projection 的 `executionContext`、`latestSession`、`promptEvidence` | 当前 Main 不渲染；不把 TaskExecutionContext facts 塞进 Session row | 导航入口、用户创建/编辑、`currentAttempt`、sequence、独立 status、把 latest Session 当作 current Session |
 | Workspace | `Task 1 -- 0..N TaskWorkspace`，`(taskId, runtimeId)` 唯一；Workspace `1 -- 0..N WorkspacePreparationAttempt`，attempt 不是顶级业务对象；当前 Session 路径只使用 Task `runtimeId` 对应的 Workspace；其他 Runtime 副本仅为未来同步保留 | 首次 launch 内部按 Provider 解析并锁定 Runtime；后续 launch 直接使用 Task `runtimeId`，再按 `<Task, Runtime>` 解析 Workspace；Workspace API 仅供内部/诊断调用 | 当前 Main 不渲染；不把 Workspace facts 塞进 Session row | 用户可见 setup/retry、后续 Session 切换 Runtime、host absolute path、opaque `workspaceRef`、credential、虚构 repository full name、把 Workspace state 当 Session state |
-| Sessions | `Task 1 -- 0..N Session`；每个 Session 独立保存 Runtime、Provider、optional Agent Context reference 与 execution state；TaskExecutionAttempt 最多只引用其中 `0..1` | `GET /api/tasks/:id/sessions?limit=50&cursor=...` 原样返回 `Session[]`；Runtime 显示名可由既有资源查询解析，缺失时回退稳定 ID | helper count；左 `state` icon label（等宽）、`providerKey` provider icon、完整 `Session.id` name；右 Runtime `UiLabel`（默认 hidden）、`updatedAt`；row navigation 到 Session detail | 截短 Session ID、`SessionSummary`/`TaskSession` DTO、mock `title`、objective label、completedAt、terminal summary、Workspace path、根据数组位置虚构 current/latest badge |
+| Sessions | `Task 1 -- 0..N Session`；每个 Session 独立保存 Runtime、Provider、optional Agent Context reference 与 execution state；TaskExecutionContext 最多只引用其中 `0..1` | `GET /api/tasks/:id/sessions?limit=50&cursor=...` 原样返回 `Session[]`；Runtime 显示名可由既有资源查询解析，缺失时回退稳定 ID | helper count；左 `state` icon label（等宽）、`providerKey` provider icon、完整 `Session.id` name；右 Runtime `UiLabel`（默认 hidden）、`updatedAt`；row navigation 到 Session detail | 截短 Session ID、`SessionSummary`/`TaskSession` DTO、mock `title`、objective label、completedAt、terminal summary、Workspace path、根据数组位置虚构 current/latest badge |
 
 `latestSession` 只是 production API 按既有 Session 排序取得的最新一条读取投影，
 不建立 `Task.currentSessionId` 或 `Task.currentAttempt` 字段。Sessions 列表的稳定 identity
@@ -166,7 +166,7 @@ Right Panel 收展、Right Panel Properties、Status history 与全局 typograph
 
 #### 状态与空态
 
-- **Production / Task、internal TaskExecutionAttempt record、Workspace**：合同仍按上述边界独立存在，但当前 Main
+- **Production / Task、internal TaskExecutionContext record、Workspace**：合同仍按上述边界独立存在，但当前 Main
   不渲染其状态、空态或 action，也不得把这些事实转写成 Session badge/copy。
 - **Sessions**：逐字采用 `queued | dispatched | message_pending | running | ready |
   interrupted | waiting_for_handoff | closed | failed`。`ready` 表示当前 response 已结束、
@@ -174,18 +174,18 @@ Right Panel 收展、Right Panel Properties、Status history 与全局 typograph
 - **Sessions empty**：查询成功且数组为空时显示“No sessions yet”。New Session 保持在
   shell Main Header，不复制到 empty state 或 Sessions section。Loading、empty、filtered
   no-results 与 request error 必须是不同状态。
-- **独立失败**：Session failed 不得自动改变或暗示 Task、TaskExecutionAttempt、Workspace 状态；
+- **独立失败**：Session failed 不得自动改变或暗示 Task、TaskExecutionContext、Workspace 状态；
   后三者未在 Main 呈现不等于它们不存在或已成功。
 
 #### Actions 与 actor ownership
 
 | Action | 条件 | Actor / owner | 状态副作用 |
 | --- | --- | --- | --- |
-| Start production | Task=`pending`，Project/Runtime/Provider 前置条件满足 | Human；canonical Task production command | 原子 `pending -> in_progress` 并创建唯一 TaskExecutionAttempt；提交后请求 Workspace preparation，ready 后幂等创建 attempt 的 `0..1` Session |
-| Report Needs handoff / resume | `in_progress -> blocked` 或 `blocked -> in_progress` | 当前 attempt 的 Agent capability | 只改变 Task business state；不隐式控制 Session |
+| Start production | Task=`pending`，Project/Runtime/Provider 前置条件满足 | Human；canonical Task production command | 原子 `pending -> in_progress` 并创建唯一 TaskExecutionContext；提交后请求 Workspace preparation，ready 后幂等创建首个 Autopilot Session |
+| Report Needs handoff / resume | `in_progress -> blocked` 或 `blocked -> in_progress` | 当前 TaskExecutionContext 的 Agent capability | 只改变 Task business state；不隐式控制 Session |
 | Resume / Mark completed / Cancel | blocked 时 Human 可 resume 或 mark completed；任意非终态 Human 可 cancel | Human | 仅执行 FR-040 allowlist；`done/canceled` 终态 |
 | Setup / Retry Workspace | 精确 `<Task, Runtime>` Workspace absent 或 `failed` | Session launch orchestration；不是 Human action | 自动创建/重试内部 Workspace，不单独改变 Task business state |
-| New Session | Task 有 Project，选择 available Provider；首次 Runtime 与 Workspace 由服务端解析，后续 Runtime 来自 Task lock | Human Task Session action | 首次原子写入不可变 `Task.runtimeId`，自动解析或初始化 `<Task, Runtime>` Workspace，ready 后创建 Task-bound Session；pending Task 同一命令原子进入 `in_progress` 并建立 TaskExecutionAttempt；后续 Session 不得切换 Runtime；Workspace 过程不暴露给用户 |
+| New Session | Task 有 Project，选择 available Provider；首次 Runtime 与 Workspace 由服务端解析，后续 Runtime 来自 Task lock | Human Task Session action | 首次原子写入不可变 `Task.runtimeId`，自动解析或初始化 `<Task, Runtime>` Workspace，ready 后创建 Task-bound Session；pending Task 同一命令原子进入 `in_progress` 并建立 TaskExecutionContext；后续 Session 不得切换 Runtime；Workspace 过程不暴露给用户 |
 | Open Session | Session row 存在 | Human navigation | 无 mutation；共享 row 进入 `/sessions/:id` |
 
 Prototype 没有真实 mutation/API：New Session Modal 可完整演示字段选择、关闭与焦点返回，
@@ -195,10 +195,10 @@ Session。真实 success/error journey 由 production API、component 与 browse
 #### 当前 prototype 必须移除的 datamodel 不一致表达
 
 - 删除 “current execution attempt” 与 “current Session”；当前合同只有 singular
-  `0..1 TaskExecutionAttempt`、`0..N Sessions` 和可选 `attempt.sessionId`，没有 current 字段。
+  `0..1 TaskExecutionContext`、`0..N Sessions` 和可选 `executionContext.sessionId`，没有 current 字段。
 - 删除 “Agent is working in the current Session”；Task=`in_progress` 不能证明任一
   Session=`running`。
-- 删除 `attempt 01`；TaskExecutionAttempt 没有 sequence 或展示编号，必须使用 attempt UUID。
+- 删除 `attempt 01`；TaskExecutionContext 没有 sequence 或展示编号，内部关联必须使用 execution context UUID。
 - 删除 Session raw state `Completed`；fixture 改用 canonical `ready` 或 `closed`，并
   让 UI 明确区分二者。
 - Sessions 文案不得声称列表记录本身“attached to shared Workspace”；列表 API 只
@@ -206,10 +206,10 @@ Session。真实 success/error journey 由 production API、component 与 browse
 - Workspace 删除虚构的 repository full name、目录式 `worktrees/...` 和 7 位 mock
   commit；改用 `TaskWorkspaceView` 的 `configuredBaseBranch`、合法 40/64 hex
   `baseCommit` 与 `branchName`，且只把 commit 缩写作为 renderer 结果。
-- 主区域 fixture 的 Task/TaskExecutionAttempt/Workspace/Runtime/Session identity 必须使用 UUID；
+- 主区域 fixture 的 Task/TaskExecutionContext/Workspace/Runtime/Session identity 必须使用 UUID；
   `MYS-118` 只能作为 Issue identifier。Right Panel 现有 route fixture 的 ID 表达不在
   本独立任务修改范围，必须作为原 task 的待办而不是在主区域复制。
-- 删除 Main 中 Sessions 之前的 page-local Task identity、Production/TaskExecutionAttempt 卡和
+- 删除 Main 中 Sessions 之前的 page-local Task identity、Production/TaskExecutionContext 卡和
   Workspace 卡；这些内容既不迁移到 Sessions row，也不由本任务改写 Right Panel。
 - 删除本任务新增的 `UiTable` wrapper、native table anatomy、caption 与 column header；
   Sessions 必须复用现有 shared stacked-list composition。
@@ -275,7 +275,7 @@ Session。真实 success/error journey 由 production API、component 与 browse
 - **FR-037**: 展开 sidebar、收起 sidebar 与 320px–1440px 宽度 MUST 保持一致的信息层级；布局压缩不得移除 Mystra logo、New Task、Search、Overview 或 Tasks 基础入口。
 - **FR-038**: 基础表格的 stacked field definition MUST 提供布尔属性 `equalWidth`。启用后，该 field MUST 以当前实际展示 rows 中该 field 的最大自然内容宽度解析自身的 shared track width，并把该宽度应用到当前展示集合的所有同 field cells；field 与下一 field 之间仍只使用基础表格的标准 column-gap token，resolved width 不得包含或重复该 gap。不同 `equalWidth` fields 之间不要求具有相同数值，也不得用预设像素常量代替内容测量。搜索、筛选、字段显隐、数据刷新或异步追加改变展示集合后 MUST 重新解析。`renderType: icon` 的 field MUST 默认 `equalWidth: true`，其他 field 默认 false。显式或默认启用后的等宽字段，在完整 canonical field order 中只能组成 left group 从最左边缘开始的连续前缀，或 right group 到最右边缘结束的连续后缀：左侧字段之前或右侧字段之后一旦出现非等宽字段，该方向不得重新出现等宽字段。Display 的字段显隐 MUST NOT 改变该校验结果；不满足连续性约束的 field configuration MUST 被组件明确拒绝，而不是静默降级或重排。
 - **FR-039**: 054 MUST 直接采用五态 Task `status` 合同：`pending`（未执行）、`in_progress`（执行中）、`blocked`（待接手）、`done`（已完成）、`canceled`（已取消）。现有 `productionStatus` field、`production_status` column、`taskProductionStatusSchema`、`TaskProductionStatus` 与同义复合命名 MUST 分别替换为 `status`、`status`、`taskStatusSchema`、`TaskStatus` 和简洁的 Task-status 命名；Task/API/RDB/CLI/UI MUST 使用同一字段名。`waiting_for_review` MUST 从 Task 状态枚举、迁移合同和所有 Task UI 中移除。作为 pre-0.1 直接替换，不得保留 `productionStatus` alias、双读、双写或展示层映射；原有 review handoff 语义并入 `blocked`。`blocked` MUST 表示“执行权需要 handoff 给 Human”，而不是 error 或单一阻塞原因，并继续要求非空 note。Review、授权、等待回答、等待信息等细分原因属于后续结构化 handoff reason，不得在 054 中重新扩展顶层状态。
-- **FR-040**: 五态迁移 MUST 延续 actor ownership：Assign/Start 只执行 `pending -> in_progress`；Agent 可执行 `in_progress -> blocked` 与 `blocked -> in_progress`；Human 可执行 `blocked -> in_progress|done`，并可将任意非终态 `pending|in_progress|blocked` 置为 `canceled`；`done` 与 `canceled` 为终态。Task MUST NOT 提供 `error` 或 `failed` 状态，Session/TaskExecutionAttempt 的执行失败事实不得自动改变 Task `status`。
+- **FR-040**: 五态迁移 MUST 延续 actor ownership：Assign/Start 只执行 `pending -> in_progress`；Agent 可执行 `in_progress -> blocked` 与 `blocked -> in_progress`；Human 可执行 `blocked -> in_progress|done`，并可将任意非终态 `pending|in_progress|blocked` 置为 `canceled`；`done` 与 `canceled` 为终态。Task MUST NOT 提供 `error` 或 `failed` 状态，Session/TaskExecutionContext 的执行失败事实不得自动改变 Task `status`。
 - **FR-041**: 054 interactive prototype MUST 运行于独立 Spec Prototype app，但 MUST 与生产 Control Plane 直接依赖同一个 Mystra UI package 和 theme stylesheet。标准 action、field、surface、dialog、dropdown、popover、segmented control、icon、logo、Label、stacked list 与 shell layout class contract MUST NOT 在 prototype 中复制实现；缺失的共享能力 MUST 先加入共享 package，再由 production 与 prototype 同时消费。Prototype 只允许保留 mock data、feature composition 与尚未成为通用合同的局部布局。
 - **FR-042**: 基础表格的标准 field definition MUST 要求显式 `renderType`，第一版标准白名单固定为 `text`、`datetime`、`icon`、`labels`。`labels` 在这里仅表示 `UiLabel` 集合的 presentation renderer，不是 `TaskLabel` 领域类型。`text` 与 `datetime` 只允许在 value renderer、语义元素和格式化行为上不同，最终文字 MUST 与 Name 共用相同的 font family、font size、font weight、line height 与 text color；Task ID、Created At、Updated At 或其他 consumer MUST NOT 通过 standard field 的 `className`、私有 selector 或 render type variant 改变这些 typography properties。`icon` 与 `labels` 由各自共享 primitive 持有非文字 anatomy。确需特殊 presentation 时 MUST 使用显式 `renderType: custom` 与独立 `StackedListCustomField`，不得向标准 render type 添加页面级样式逃生口。
 - **FR-043**: Task detail MUST 由 Table row、Kanban card 与 sidebar Active Tasks 使用真实 link/button 导航到同一 Task object route；不得只通过手输 URL、不可聚焦 card click handler 或复制出的 review-only route 才能到达。Prototype route MUST 为 `/054-navigation-task-workbench/tasks/:taskId`，生产迁移目标仍为既有 `/tasks/:id`。
@@ -284,19 +284,19 @@ Session。真实 success/error journey 由 production API、component 与 browse
 - **FR-046**: Task detail MUST 复用 `PrototypeShell`/生产 shell contract、`UiBreadcrumb`、`UiSurface` section slots、`UiAction`、standard fields、`TaskStatusIcon`、`UiLabel`、provider icons 与语义 tokens。页面级 8px outer inset MUST 只由 shell Main layout 提供，详情 feature root MUST 为 `padding: 0`，不得重复 8px 形成 16px gutter；详情内部 section gap 和无关行内元素 gap MUST 为 8px，成组行内元素 gap MUST 为 4px，默认 row MUST 为 28px，inline controls MUST 为 20px。054 不得通过详情设计新增任意 status transition：actor ownership 与五态转换继续遵循 FR-039/FR-040；Prototype 中不可用的 mutation 必须 disabled 或只读，不得伪造成功。
 - **FR-047**: `@mystra/ui` MUST 提供 arrow-separated `UiBreadcrumb`，shell 主标题栏布局 MUST 以内置可选 `breadcrumbItems` contract 消费该组件。页面只能声明 breadcrumb items；不得手写 `<nav>`、separator icon 或 breadcrumb CSS。页面不传 `breadcrumbItems` 时 shell MUST 隐藏 breadcrumb 并允许普通 title 或空标题状态。
 - **FR-048**: breadcrumb 当前节点、Right Panel `Properties`、Task detail 的 Production/Sessions/Workspace section title 与 Status history title MUST 共用 12px compact heading token，其标准 weight MUST 为 500（正文为 400）。层级主要由 primary/secondary semantic color 与该一级 weight 差表达；这些标题不得使用 600 或更重的局部覆盖。
-- **FR-049**: Task detail Main MUST 直接从 Sessions shared stacked list 开始；Sessions 之前和之外不得渲染 page-local identity、title/description editor、Production、TaskExecutionAttempt、Workspace、概览卡或 action header。New Session 只属于 shell Main Header 右侧，不形成 Main content action header。TaskExecutionAttempt MUST 只作为 Start/Workspace/Autopilot Session 链路的内部持久化协调记录，不得成为用户可见产品对象、导航资源、独立页面、创建/编辑入口或 TaskWorkbenchItem 字段。Production/TaskExecutionAttempt/Workspace 数据合同仍保留为 source-of-truth 约束，但本 composition 不显示、复制或迁移它们。054 MUST NOT 修改 breadcrumb、Right Panel 收展、Right Panel Properties、Status history 或全局 typography；FR-048 的 heading token 仅约束实际存在的 shared headings，不要求为 Sessions 新增 heading。
-- **FR-050**: Task `status` MUST 继续被定义为 Task business state；internal attempt facts MUST 继续只来自 `attempt | null`、`latestSession | null`、prompt evidence 与 Runtime display resolution。TaskExecutionAttempt 只负责冻结可变启动输入、承载 assignment idempotency/capability identity，并在 Workspace ready 后幂等关联首个 Autopilot Session；它不拥有用户可见状态或生命周期。当前 Main 不渲染这些 facts，也不得把它们压入 Session row。任何实现 MUST NOT 引入、模拟或命名 `currentAttempt`/`currentSession` 字段，也不得从 Task `status` 推断 Session state。
+- **FR-049**: Task detail Main MUST 直接从 Sessions shared stacked list 开始；Sessions 之前和之外不得渲染 page-local identity、title/description editor、Production、TaskExecutionContext、Workspace、概览卡或 action header。New Session 只属于 shell Main Header 右侧，不形成 Main content action header。TaskExecutionContext MUST 只作为 Start/Workspace/Autopilot Session 链路的内部持久化协调记录，不得成为用户可见产品对象、导航资源、独立页面、创建/编辑入口或 TaskWorkbenchItem 字段。Production/TaskExecutionContext/Workspace 数据合同仍保留为 source-of-truth 约束，但本 composition 不显示、复制或迁移它们。054 MUST NOT 修改 breadcrumb、Right Panel 收展、Right Panel Properties、Status history 或全局 typography；FR-048 的 heading token 仅约束实际存在的 shared headings，不要求为 Sessions 新增 heading。
+- **FR-050**: Task `status` MUST 继续被定义为 Task business state；internal execution facts MUST 继续只来自 `executionContext | null`、`latestSession | null`、prompt evidence 与 Runtime display resolution。TaskExecutionContext 只负责冻结 Task 级启动输入、承载 assignment idempotency/capability identity，并在 Workspace ready 后幂等关联首个 Autopilot Session；它不拥有用户可见状态或生命周期。当前 Main 不渲染这些 facts，也不得把它们压入 Session row。任何实现 MUST NOT 引入、模拟或命名 `currentAttempt`/`currentSession` 字段，也不得从 Task `status` 推断 Session state。
 - **FR-051**: Workspace MUST 继续逐字段服从 `TaskWorkspaceView` 及其 absent、queued、preparing、ready、failed、unavailable 与 transport loading/error 合同；当前 Main 不渲染 Workspace，也不得把 Workspace state/path/ref 复制到 Session row。Workspace/attempt failure 不得改变或被展示为 Task/Session state。
 - **FR-052**: Sessions MUST 直接复用 `packages/ui` 既有 `StackedList` composition 与 shared helper row 呈现 `Session[]`，不得新建 table wrapper、复制 native table anatomy、伪造 caption/column header 或用 page-local grid 重写 row。默认 field order MUST 为左侧 Session state（带 icon 的 label，`equalWidth`）、Provider（provider icon）、name；右侧 Runtime（label，默认 hidden）、Updated（datetime）。helper row MUST 显示当前已加载 Session count。每个 row MUST 以 Session UUID 作为 stable key、完整 name 文本和可聚焦导航进入 Session detail；不得截短 UUID 或添加虚构标题前缀。当前 `Session` 无 title，MUST NOT 在 fixture/DTO 增加 Session title、SessionSummary/TaskSession view、objective、completedAt 或 terminal summary。
-- **FR-053**: Sessions state copy MUST 覆盖 049 的九态，明确 `ready` 可继续而非 completed，`closed|failed` 才是终态。列表必须区分 loading、request error、empty、rows 与 next-cursor loading；Session/Workspace/TaskExecutionAttempt failure 与 Task status 必须独立并列。
+- **FR-053**: Sessions state copy MUST 覆盖 049 的九态，明确 `ready` 可继续而非 completed，`closed|failed` 才是终态。列表必须区分 loading、request error、empty、rows 与 next-cursor loading；Session/Workspace/TaskExecutionContext failure 与 Task status 必须独立并列。
 - **FR-054**: Main content 内唯一 action 是 Open Session navigation。Start、Human Task transition 与 Workspace setup/retry 均不得在 Main content 出现。New Session MUST 位于 shell Main Header 右侧，打开 FR-059 Modal；不得与其他 action 互相冒充副作用或用本地 state 伪造成功。
-- **FR-055**: Main-area prototype mock MUST 使用与 `Task`、`TaskExecutionAttempt`、`TaskWorkspaceView`、`RuntimeView`、`Session` 同名字段、canonical enum literal、UUID identity、ISO datetime、合法 Git branch/ref 与 40/64 hex commit。展示名、短 commit、状态文案和相对时间必须是 renderer 派生值，不得回写成 mock domain fields。
+- **FR-055**: Main-area prototype mock MUST 使用与 `Task`、`TaskExecutionContext`、`TaskWorkspaceView`、`RuntimeView`、`Session` 同名字段、canonical enum literal、UUID identity、ISO datetime、合法 Git branch/ref 与 40/64 hex commit。展示名、短 commit、状态文案和相对时间必须是 renderer 派生值，不得回写成 mock domain fields。
 - **FR-056**: 主区域 feature root MUST 保持 `padding: 0`，页面级 `8px` outer inset 只由 shell Main 提供；Sessions MUST 原样采用 shared stacked-list 的 `42px` row density、`16px` icon 与既有 8px/4px internal gap，不得为满足通用 `28px` compact-row baseline 而在 feature 中覆盖该共享 component。054 不得新增 table primitive，不得改变全局 typography role、font family、font size scale 或 Right Panel density。
 - **FR-057**: shell Main Header 右侧 MUST NOT 展示 username、avatar、TeamSwitcher 或 Account navigation。该区域只允许当前 surface action 与 shell-owned recovery control；Task detail MUST 显示 New Session，Right Panel 收起时其共享恢复按钮 MUST 排在 New Session 之后并保持 controls group 最后一项。
 - **FR-058**: shared `StackedList` stacked-mode geometry MUST 让左侧最后一个 field/name slot 使用 `flex-grow` 消耗剩余宽度；其后的 spacer 仅保留 tokenized minimum gap，不得继续成为主要 grow track。该合同由 `packages/ui` 统一持有，Tasks 与 Sessions consumer 均不得用 feature-local CSS 覆盖。Provider icon MUST 按 canonical `providerNameSchema` 的 `codex|copilot` 映射到共享、可访问的品牌 glyph；`copilot` 不得回退为 generic automation icon。GitHub 自 2025 年起弃用旧 standalone Copilot logo，prototype 使用现行 Copilot product icon，不把旧 logo 或 mascot 当 provider mark。
 - **FR-059**: New Session Modal MUST 复用 shared `UiDialogSurface` compact-row composition、`UiSurfaceHeader/Body/Footer`、`UiDropdown`、`UiTextarea`、`UiButton` 与统一 close control。Surface 只拥有一次 8px inset 与 8px section gap；header/footer MUST 是无独立 padding/divider 的 28px rows，不得表现为额外 padded container。Header 标题 MUST 逐字为 `Create Session`，且 Close glyph 是唯一 header action。Body MUST 只有一个 aria-label=`Prompt`、最多 `SESSION_TEXT_MAX_LENGTH` 的文字输入；该 input MUST 无边框、透明背景、不可 resize，并保留 placeholder `Session-only context, constraints, or a specific focus`。Footer MUST 左对齐必选 available Provider dropdown、右对齐文案逐字为 `Create` 的 solid inline action；两者为 20px controls。Runtime row、Runtime selector、Agent Context、intro/notice、Cancel 与 `Launch Session` 的出现次数 MUST 为 0。Modal MUST 支持 backdrop、Escape 与 Close，关闭后焦点返回 trigger；窄屏不得产生 page-level overflow。
 - **FR-060**: Production launch MUST 使用当前 Task ID 调用 canonical Task Session API，生成/提交 UUID launch/session identity、必选 `providerKey`、省略/null `agentId` 与可选 trimmed `manualContext.text`。UI 的 `Prompt` 只是 `manualContext.text` 的 presentation copy，不得新增 `prompt` request/domain field。`runtimeId` 与 Workspace ID MUST NOT 由表单提交。Task MUST 新增 `runtimeId: UUID | null` 作为 Task Runtime Context；create/PATCH input MUST NOT 接受该字段。首次 launch MUST 按 Provider 从支持 Task repository materialization 的 online eligible Runtimes 中按稳定 Runtime ID 确定性选择，并在短事务内以 `runtimeId IS NULL` 条件原子写入；并发首发必须收敛到一个 Runtime。该字段首次写入后 MUST 不可变。后续 launch MUST 仅使用 Task 已锁定 Runtime，并验证所选 Provider 在该 Runtime available；不得重新选择、改写或静默 fail over 到其他 Runtime。服务端 MUST 按 `(taskId, runtimeId)` 查找 Workspace：absent 自动 setup，failed 自动 retry，queued/preparing 返回幂等 accepted，ready 幂等创建 Session。同一 Runtime 上不同 Provider MUST 复用同一个 Task Workspace。`TaskWorkspace` 继续允许不同 Runtime 的独立副本，为未来同步保留数据模型，但 054 的 Session path 不使用其他 Runtime；跨 Runtime 同步明确 deferred。成功 MUST 进入返回的 Session detail；等待期间 UI 只表达 Session 正在启动，不得显示 Workspace 状态或 setup/retry action。Provider/自动初始化/API 最终失败 MUST 保留 Modal 输入并显示可理解错误。Prototype MUST 停在 dispatch 边界，不得追加 mock Session 或伪造成功。
-- **FR-061**: Standard Execution Prompt MUST 按 Session bootstrap 类型区分权威上下文来源。`TaskExecutionAttempt` 绑定的首个 Autopilot Session MUST 执行 `mystra-agent context get` 并使用 execution capability 返回的事实；后续 Human 发起的独立 Task Session MUST 使用创建时冻结进 prompt 的 Task、Project、Issue reference 与独立的 Workspace attachment，不得签发或复用首个 attempt 的 capability，也不得把缺少该 capability 当作阻塞。两类 Session 均继续接收同一份 content-addressed Standard Execution Prompt，具体 bootstrap 指令由其 `execution_context` component 明确。
+- **FR-061**: 每个 Task-bound Session MUST 在 dispatch 时获得自己独立、短期、可撤销的 execution code，并在执行前通过 `mystra-agent context get` 解析该 Task 唯一 TaskExecutionContext 下的权威 Task、Project、Issue reference、共享 Workspace 与 capability facts。后续 Session MUST NOT 复用首个 Session 的 code，也不得覆盖 `TaskExecutionContext.sessionId` 保存的首个 Autopilot Session 关联。所有 Task-bound Session 均接收同一份 content-addressed Standard Execution Prompt。
 
 ### Key Entities
 
@@ -314,7 +314,7 @@ Session。真实 success/error journey 由 production API、component 与 browse
 
 - Feature 054 可以先于 053 落地，并在根入口提供无数据的 Overview placeholder；054 只拥有根入口、placeholder 与导航重排，真实 Overview 内容仍由 053 独占。
 - “活跃 Task”固定表示 `pending`、`in_progress`、`blocked`；它不引入新的状态或派生持久化字段。
-- 054 以 pre-0.1 直接替换方式收敛 051 的六态 Task 合同：删除 `waiting_for_review`，将其 handoff 语义并入 `blocked`，不创建兼容 alias、迁移 shim 或双写路径。技术计划必须同步 shared Task/TaskExecutionAttempt schema、迁移白名单、TaskStatusService、`mystra-agent`、标准执行 prompt、API/UI、RDB fixtures 与 tests。
+- 054 以 pre-0.1 直接替换方式收敛 051 的六态 Task 合同：删除 `waiting_for_review`，将其 handoff 语义并入 `blocked`，不创建兼容 alias、迁移 shim 或双写路径。技术计划必须同步 shared Task/TaskExecutionContext schema、迁移白名单、TaskStatusService、`mystra-agent`、标准执行 prompt、API/UI、RDB fixtures 与 tests。
 - Tasks 是 Team-scoped 全局对象，Project 只是可选上下文；Table/Kanban 不得按 Project 所有权裁剪数据。
 - 第一版不提供 Kanban 拖拽、状态快捷修改、批量状态更新、swimlane、保存/共享自定义视图或服务端视图偏好。
 - 第一版建立 Mystra 基础表格并迁移 Tasks consumer；其他现有表格页面的批量迁移属于后续工作。
@@ -352,10 +352,10 @@ Session。真实 success/error journey 由 production API、component 与 browse
 - **SC-022**: Task detail 在 1440px 下呈现 sidebar、Main、全局 Right Panel 三列，在 1024px/768px 下呈现 Main 与全局 Right Panel，在 320px 下按 Main 后 Right Panel 堆叠；四个 viewport 的 page-level horizontal overflow 均为 0，title、New Task、Search 与 New Session 均保持可见可达。Shell Main 是唯一 page-level 8px inset owner，Task detail feature root computed padding 为 0px，section computed gap 与 Right Panel content computed padding 为 8px；主要 title 为 24px，section title/description/body 为 12px，Open Session row navigation 保持 shared row density，Header New Session 高度为 28px。
 - **SC-023**: Task detail 静态依赖审计确认 shell、`UiBreadcrumb`、surface sections、actions、status icons、Project/Issue/Metadata Labels 均来自 `@mystra/ui`，feature component 中手写 `<nav>`、breadcrumb separator、局部 `taskDetailAside`、SVG、复制 standard component DOM anatomy 或 page-local raw color 的数量均为 0。
 - **SC-024**: 展开 Right Panel 时，其 header collapse button 的 `aria-expanded=true`；收起后 shell 不再保留第三列，Main computed width 增加，主 header 最后一个 control 的 `aria-expanded=false` 且可恢复同一 panel。两种状态中重复 Right Panel DOM anatomy 和 page-owned collapse state 的数量均为 0；breadcrumb 当前节点等于 Task name，Task ID 只在 Properties 出现；指定 compact headings 的 computed font-size/weight 均为 `12px/500`。
-- **SC-025**: Task detail Main 在 1440px、768px 与 320px 的第一个且唯一内容集合均为 Sessions shared stacked list；Sessions 之前的 page-local identity、Production、TaskExecutionAttempt、Workspace、概览卡、caption、column header 与 action header 数量均为 0。列表只在自身 viewport 内横向溢出，page-level horizontal overflow 为 0。
-- **SC-026**: fixture 静态 schema 审计中 Task/TaskExecutionAttempt/Workspace/Runtime/Session ID 的 UUID 合格率为 100%，ISO datetime、Git ref/branch 与 40/64 hex commit 合格率为 100%；主区域不存在 `currentAttempt`、`currentSession`、`attempt 01`、raw `Completed`、host absolute path、workspaceRef 或虚构 repository full name。
+- **SC-025**: Task detail Main 在 1440px、768px 与 320px 的第一个且唯一内容集合均为 Sessions shared stacked list；Sessions 之前的 page-local identity、Production、TaskExecutionContext、Workspace、概览卡、caption、column header 与 action header 数量均为 0。列表只在自身 viewport 内横向溢出，page-level horizontal overflow 为 0。
+- **SC-026**: fixture 静态 schema 审计中 Task/TaskExecutionContext/Workspace/Runtime/Session ID 的 UUID 合格率为 100%，ISO datetime、Git ref/branch 与 40/64 hex commit 合格率为 100%；主区域不存在 `currentAttempt`、`currentSession`、`attempt 01`、raw `Completed`、host absolute path、workspaceRef 或虚构 repository full name。
 - **SC-027**: Sessions 100% 使用共享 `StackedList` composition 与 helper row；page-local `UiTable`、`<table>/<caption>/<thead>/<tbody>/<th>/<td>` anatomy 与 copied row grid 数量均为 0。helper count 等于当前 rows 数；field order/visibility 为左 state icon label（跨 rows 等宽）、provider icon、完整 Session UUID name，右 Runtime label hidden、Updated datetime visible。每个 row key/navigation target/name 使用同一 Session UUID；fixture 的 `title` 字段数量为 0，`ready` 文案明确可继续，`closed/failed` 文案明确终态。
-- **SC-028**: 用 Task.status=`in_progress`+Session.state=`failed`、Task.status=`blocked`+Session.state=`ready`、Workspace.state=`failed`+Task.status=`in_progress` 三组 fixture 验收 presentation mapping 时，Sessions 只显示自身 state，不从未渲染的 Task/Workspace/TaskExecutionAttempt facts 自动映射 badge 或 copy；Task UI 中 `failed/error` status 出现次数为 0。
+- **SC-028**: 用 Task.status=`in_progress`+Session.state=`failed`、Task.status=`blocked`+Session.state=`ready`、Workspace.state=`failed`+Task.status=`in_progress` 三组 fixture 验收 presentation mapping 时，Sessions 只显示自身 state，不从未渲染的 Task/Workspace/TaskExecutionContext facts 自动映射 badge 或 copy；Task UI 中 `failed/error` status 出现次数为 0。
 - **SC-029**: 主区域 CSS/组件审计确认 feature root padding 为 0、shared stacked-list row 保持其既有 42px minimum height、helper row 为 28px compact height、内部 gap 为既有 8px/4px token、icon 为 16px，并且新增 table primitive、全局 typography 与 Right Panel selector 的 diff 均为 0。
 - **SC-030**: production AppShell 与 PrototypeShell 的 Main Header 中 username、avatar、TeamSwitcher 和 Account link 出现次数均为 0；Task detail Right Panel 展开时 Header right controls 只包含 New Session，收起时包含 New Session 与恰好 1 个共享 reopen control，且 reopen 始终位于最后。
 - **SC-031**: shared CSS contract 审计确认 `.uiStackedListName` 的 grow factor 为 1、`.uiStackedListSpacer` 的 grow factor 为 0 且保留标准 minimum gap；Tasks 与 Sessions feature CSS 对这两个 selector 的覆盖数量均为 0。三条 Session row 的 state label computed width 差值为 0px，`codex` 与 `copilot` 均输出其共享 provider glyph，generic automation glyph 数量为 0，且 Session UUID 可见文本与 fixture 完整 ID 的匹配率为 100%。
@@ -367,6 +367,6 @@ Session。真实 success/error journey 由 production API、component 与 browse
 
 - Castrel source reference: `/Users/arcadia/Documents/castrel-ai/frontend/components/castrel/table/`，重点关注 `CastrelTable.tsx`、`types/table.ts`、filter/display controls、grouping、selection 与 table/card state sharing。
 - Mystra shared UI baseline: `packages/ui` 是生产 Control Plane 与独立 Spec Prototype 的共同 theme/component source；`apps/control-plane/app/_components/app-shell.tsx` 保留生产数据/路由 adapter，`apps/spec-prototype` 只拥有 mock data 和 feature composition。
-- Current lifecycle evidence: `packages/shared/src/task.ts` 与旧 `packages/shared/src/harness.ts` 仍包含 `waiting_for_review`；`apps/control-plane/src/lib/tasks/task-status-service.ts`、`packages/agent-cli`、标准执行 prompt、API/UI 与 tests 均消费该旧合同。054 必须一次性替换这些调用面并将 shared file/schema/type 收敛到 `task-execution-attempt.ts` / `taskExecutionAttemptSchema` / `TaskExecutionAttempt`；原型不是兼容层。
-- Task detail main-area source evidence: `packages/shared/src/{task,task-execution-attempt,session,task-workspace}.ts`、SQLite/PostgreSQL Prisma schemas、`RdbProvider`、`GET /api/tasks/:id/production`、`GET /api/tasks/:id/sessions`、`GET /api/tasks/:id/workspace` 与 production Task detail panels。048/049/050/051/052 分别拥有 Workspace、Session、Task Session UX、TaskExecutionAttempt/Task status 与 optional Agent Context 边界；prototype mock 与旧 UI 均不拥有领域合同。
+- Current lifecycle evidence: `packages/shared/src/task.ts` 与旧 `packages/shared/src/harness.ts` 仍包含 `waiting_for_review`；`apps/control-plane/src/lib/tasks/task-status-service.ts`、`packages/agent-cli`、标准执行 prompt、API/UI 与 tests 均消费该旧合同。054 必须一次性替换这些调用面并将 shared file/schema/type 收敛到 `task-execution-context.ts` / `taskExecutionContextSchema` / `TaskExecutionContext`；原型不是兼容层。
+- Task detail main-area source evidence: `packages/shared/src/{task,task-execution-context,session,task-workspace}.ts`、SQLite/PostgreSQL Prisma schemas、`RdbProvider`、`GET /api/tasks/:id/production`、`GET /api/tasks/:id/sessions`、`GET /api/tasks/:id/workspace` 与 production Task detail panels。048/049/050/051/052 分别拥有 Workspace、Session、Task Session UX、TaskExecutionContext/Task status 与 optional Agent Context 边界；prototype mock 与旧 UI 均不拥有领域合同。
 - Linear 官方 issue views 将 layout、grouping、ordering、filter 与 display properties 分离；054 采用这种信息层级，但明确去掉第一版拖拽写入和保存共享视图。

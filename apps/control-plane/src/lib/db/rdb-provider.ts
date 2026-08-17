@@ -42,7 +42,7 @@ import type {
   SessionEventPage,
   SessionLaunchRequest,
   SessionDispatchLease,
-  TaskExecutionAttempt,
+  TaskExecutionContext,
   TaskStatusTransition,
   TaskTransitionActor,
 } from "@mystra/shared";
@@ -224,7 +224,7 @@ export type TaskProductionStartInput = {
   agentId: string | null;
   expectedRevision: number;
   requestFingerprint: string;
-  attempt: TaskExecutionAttempt;
+  executionContext: TaskExecutionContext;
   transition: TaskStatusTransition;
 };
 
@@ -237,7 +237,7 @@ export type TaskStatusTransitionInput = {
 };
 
 export type ResolvedWorkloadExecution = {
-  attempt: TaskExecutionAttempt;
+  executionContext: TaskExecutionContext;
   task: TaskRecord;
   project: Project;
   workspace: TaskWorkspaceTrusted;
@@ -327,7 +327,7 @@ export interface RdbProvider {
   findTaskIdsByIssueExternalIds(input: TaskIssueLinkQuery): Promise<Record<string, string>>;
   startTaskProduction(input: TaskProductionStartInput): Promise<{
     task: TaskRecord;
-    attempt: TaskExecutionAttempt;
+    executionContext: TaskExecutionContext;
     transition: TaskStatusTransition;
     created: boolean;
   }>;
@@ -337,16 +337,16 @@ export interface RdbProvider {
     created: boolean;
   }>;
   listTaskStatusTransitions(input: { taskId: string; teamId: string; limit?: number }): Promise<TaskStatusTransition[]>;
-  getExecutionAttemptByTaskId(taskId: string, options: { teamId: string }): Promise<TaskExecutionAttempt | undefined>;
-  getExecutionAttemptBySessionId(sessionId: string): Promise<TaskExecutionAttempt | undefined>;
-  updateExecutionAttempt(input: {
-    attemptId: string;
+  getExecutionContextByTaskId(taskId: string, options: { teamId: string }): Promise<TaskExecutionContext | undefined>;
+  getExecutionContextBySessionId(sessionId: string): Promise<TaskExecutionContext | undefined>;
+  updateExecutionContext(input: {
+    executionContextId: string;
     teamId: string;
     workspaceId?: string;
     sessionId?: string;
     setupFailureCode?: string | null;
     setupFailureMessage?: string | null;
-  }): Promise<TaskExecutionAttempt | undefined>;
+  }): Promise<TaskExecutionContext | undefined>;
   resolveWorkloadExecution(executionCodeHash: string): Promise<ResolvedWorkloadExecution | undefined>;
 
   createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult>;

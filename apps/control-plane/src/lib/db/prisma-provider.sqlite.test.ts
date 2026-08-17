@@ -21,7 +21,7 @@ const migrations = [
   "20260808200000_task_context",
   "20260810130000_task_workspace_setup",
   "20260810160000_session_launch_framework",
-  "20260811210000_factory_task_execution_attempt",
+  "20260811210000_factory_task_execution_context",
   "20260812090000_standard_agent_context",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
@@ -71,7 +71,7 @@ describe("PrismaRdbProvider Task workbench performance", () => {
           index % 5 === 0 ? "blocked" : "pending",
           JSON.stringify(searchable ? { Area: "FrontEnd" } : {}),
           timestamp,
-          JSON.stringify({ kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null }),
+          JSON.stringify({ kind: "system", actorId: null, agentId: null, executionContextId: null, sessionId: null }),
           timestamp,
           timestamp,
         );

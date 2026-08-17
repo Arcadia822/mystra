@@ -24,7 +24,7 @@ const task = {
   statusRevision: 2,
   statusNote: "Ready for review",
   statusUpdatedAt: timestamp,
-  statusActor: { kind: "agent" as const, actorId: null, agentId: randomUUID(), attemptId: randomUUID(), sessionId: randomUUID() },
+  statusActor: { kind: "agent" as const, actorId: null, agentId: randomUUID(), executionContextId: randomUUID(), sessionId: randomUUID() },
   createdAt: timestamp,
   updatedAt: timestamp,
 };

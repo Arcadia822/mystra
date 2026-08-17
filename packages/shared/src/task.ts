@@ -24,7 +24,7 @@ export const taskStatusActorSchema = z.object({
   kind: taskStatusActorKindSchema,
   actorId: z.string().trim().min(1).max(500).nullable(),
   agentId: z.string().uuid().nullable(),
-  attemptId: z.string().uuid().nullable(),
+  executionContextId: z.string().uuid().nullable(),
   sessionId: z.string().uuid().nullable(),
 }).strict();
 export type TaskStatusActor = z.infer<typeof taskStatusActorSchema>;

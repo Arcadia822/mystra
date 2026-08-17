@@ -100,7 +100,7 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   size，在 28px footer row 内保留上下各 4px 空间。
 - Task detail 从 Table row、Kanban card 与 Active Tasks 共用同一个动态 route。
   Main 直接从 Sessions helper row 与 shared stacked list 开始，不再渲染 page-local
-  title/description、Production、TaskExecutionAttempt 或 Workspace；Properties 与 Status history 通过全局
+  title/description、Production、TaskExecutionContext 或 Workspace；Properties 与 Status history 通过全局
   `UiShellRightPanel` 承载。Right Panel header 的共享收起按钮移除第三列并让 Main
   回收宽度；收起后共享展开按钮位于主 header controls 最右侧。两种按钮共用
   `aria-controls`/`aria-expanded`，collapse state 由 shell layout 持有。主 header
@@ -125,7 +125,7 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   Close、Escape 与 backdrop 均可退出，关闭后焦点返回 Header trigger。
 - Prompt 是 `manualContext.text` 的 UI copy，不添加 `prompt` request/domain field，也不
   声称覆盖服务端固定 `firstUserMessage`。Prototype 明确停在 API dispatch 边界，不向
-  Sessions 列表追加 mock、不改变 Task/TaskExecutionAttempt/Workspace，也不伪造成功导航。
+  Sessions 列表追加 mock、不改变 Task/TaskExecutionContext/Workspace，也不伪造成功导航。
 
 ## Task detail 主区域 Data Design
 
@@ -136,7 +136,7 @@ Shell、breadcrumb、Right Panel 收展、Properties、Status history 与全局 
 
 ### Composition
 
-- **Production / internal TaskExecutionAttempt record / Workspace** 只保留 source-of-truth 映射说明；TaskExecutionAttempt 不是用户可见产品对象；当前 Main
+- **Production / internal TaskExecutionContext record / Workspace** 只保留 source-of-truth 映射说明；TaskExecutionContext 不是用户可见产品对象；当前 Main
   不渲染这些 section/card，也不把其 facts 转写到 Session row。
 - **Sessions** 是 Main 的第一个且唯一内容集合。它复用 Tasks 页面同源的
   `StackedList` composition，并默认显示 shared helper row（当前已加载 Session count）。
@@ -160,7 +160,7 @@ Shell、breadcrumb、Right Panel 收展、Properties、Status history 与全局 
 Prototype 仍使用固定 mock，但字段必须忠实对应当前 public contracts：
 
 - `Task`: UUID、五态 `status`、status revision/note/actor/ISO timestamps；
-- `TaskExecutionAttempt | null`（internal）: UUID references、frozen optional Agent Context、Runtime/Provider、
+- `TaskExecutionContext | null`（internal）: UUID references、frozen optional Agent Context、Runtime/Provider、
   nullable Workspace/Session、setup failure；不得出现 `currentAttempt` 或 sequence；
 - `TaskWorkspaceView | null`: canonical five-state Workspace enum、合法 Git branch/ref、
   40/64 hex commit、`shared-mutable` 与 public failure；
@@ -177,7 +177,7 @@ display value。`ready` 显示为“Ready · can continue”，不是 Completed�
 
 ### States and actions
 
-- Production/TaskExecutionAttempt/Workspace 状态仍彼此独立，但当前 Main 不显示。
+- Production/TaskExecutionContext/Workspace 状态仍彼此独立，但当前 Main 不显示。
 - Sessions: loading、request error、empty、rows、load-more，以及九种 Session state。
 - Main content 中只保留 row-level Open Session navigation；New Session 只在 shell Main
   Header 打开 Modal，不作为 Sessions section 或 empty-state action。
@@ -189,7 +189,7 @@ display value。`ready` 显示为“Ready · can continue”，不是 Completed�
 - raw Session state `Completed`；
 - Workspace repository full name、目录式 `worktrees/...`、7 位 domain commit；
 - 把 Session list row 描述成自身持有 Workspace attachment；
-- Main 中 Sessions 之前的 page-local identity、Production/TaskExecutionAttempt/Workspace cards；
+- Main 中 Sessions 之前的 page-local identity、Production/TaskExecutionContext/Workspace cards；
 - 本任务新增的 `UiTable` wrapper、native table anatomy、caption 与 column headers；
 - 主区域中任何非 UUID entity identity。`MYS-118` 只可作为 Issue identifier；当前
   Right Panel route fixture 仍把它用作 Task ID 的问题属于原 task，不在本次独立任务

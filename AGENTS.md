@@ -262,7 +262,7 @@ SDK surfaces where upstream does not provide reusable package contracts. The
 current provider set is selectable SQLite, PostgreSQL, or Supabase-backed
 PostgreSQL behind `RdbProvider`, GitHub Integration with
 remote `RepoProvider` plus repository-scoped `IssueProvider`, read-only Linear
-`IssueProvider`, direct Agent execution, Task-bound production coordinated by an internal TaskExecutionAttempt record, and Runtime as a first-class execution
+`IssueProvider`, direct Agent execution, Task-bound production coordinated by an internal TaskExecutionContext record, and Runtime as a first-class execution
 backend that advertises its Provider (agent CLI) capabilities source-agnostically.
 A host-bound Runtime enrolled by the TypeScript `mystra-runner` — registration
 (endpoint-configured, no MVP pairing), Provider discovery plus availability
@@ -270,10 +270,10 @@ confirmation, and heartbeat/status — is in MVP scope; single-machine Docker is
 one sandbox provider rather than the sole execution model, and host worktree
 direct execution is the intended default execution direction. Feature 044 owns
 host Runtime enrollment; 047–050 own Task Context, Workspace and Session
-foundations; feature 051 introduced Task status and the attempt-scoped
+foundations; feature 051 introduced Task status and the Task-scoped
 `mystra-agent` context/status CLI; feature 054 owns the current five-state
 vocabulary and handoff semantics. Feature 052 owns optional Agent Context and one
-goal/autopilot Session per TaskExecutionAttempt. `mystra` remains the Control Plane management
+goal/autopilot Session per TaskExecutionContext. `mystra` remains the Control Plane management
 CLI. The self-use Agent reads Linear with host-local `linctl` and creates its PR
 with host-local `gh`; Mystra does not proxy or credential those tools. PR and
 self-test text is Agent-reported and is not verified by Mystra.
@@ -291,11 +291,11 @@ The near-term MVP goal is self-use: let an operator or another Agent select a
 GitHub or Linear Issue and dispatch it through canonical API, thin CLI, remote
 MCP, or the secondary Web client. Assigning an Agent to the resulting
 Project-bound Task atomically moves `pending` to `in_progress`, creates one
-TaskExecutionAttempt, requests Task Workspace preparation after commit, and
+TaskExecutionContext, requests Task Workspace preparation after commit, and
 idempotently starts exactly one goal/autopilot Session once that shared
 Workspace is ready. `mystra` remains the Human/external-Agent Control Plane
-management CLI. The workload-local `mystra-agent` resolves the current attempt
-through a short-lived execution code, returns its Task/Project/Issue-reference/
+management CLI. The workload-local `mystra-agent` resolves the current TaskExecutionContext
+through a short-lived per-Session execution code, returns its Task/Project/Issue-reference/
 Workspace context, and lets the scoped Agent report `blocked` (Needs handoff) or
 resume `in_progress`. The Agent reads Linear with the
 host user's authenticated `linctl` and creates its PR with the host user's
@@ -311,7 +311,7 @@ Task icons reflect Task status. Existing Task, Session, Runner, and
 Project object routes remain directly reachable even when they are not primary
 menu items. `/automations` remains directly reachable as a Coming soon
 placeholder, but it is not a primary menu entry and does not introduce a
-general automation catalog. Task production controls remain Task surfaces; internal TaskExecutionAttempt records have no navigation or independent management surface. The first Prisma schema does not preserve
+general automation catalog. Task production controls remain Task surfaces; internal TaskExecutionContext records have no navigation or independent management surface. The first Prisma schema does not preserve
 Session-, Runner-, or ContextBundle-derived views as persistence requirements;
 resulting upper-layer failures are deferred. Web remains secondary to API, MCP,
 and CLI.
@@ -320,10 +320,10 @@ Task is a durable Team-scoped production task with Mystra-owned title, descripti
 `0..1` Project context and `0..1` exact Issue references; it does not belong to Project. One exact Issue maps to at
 most one Task, and current external requirement state remains provider-owned rather than copied or written back.
 Task creation initializes `pending` and never launches a Session. Start on an eligible Task, optionally with explicit Agent Context, atomically enters
-`in_progress`, creates one TaskExecutionAttempt and drives Workspace preparation plus exactly one first-version Autopilot Session.
-TaskExecutionAttempt freezes the selected Agent name/revision/system-prompt snapshot when present and otherwise records no Agent; it is not an operator-facing product object and does not own a parallel production state machine.
+`in_progress`, creates one TaskExecutionContext and drives Workspace preparation plus exactly one first-version Autopilot Session.
+TaskExecutionContext freezes the selected Agent name/revision/system-prompt snapshot when present and otherwise records no Agent; it is not an operator-facing product object and does not own a parallel production state machine.
 Task status updates use a dedicated allowlisted transition service with expected revision, idempotency and append-only history.
-One Session is the attempt's multi-turn execution conversation. Session is a Team-scoped execution object that belongs to neither Task nor
+One Session is the Task's multi-turn execution conversation. Session is a Team-scoped execution object that belongs to neither Task nor
 Project; it may independently reference `0..1` Task and `0..1` Project. Canonical launch atomically persists the Session,
 frozen system prompt, and first user message, then Runtime/Provider execution begins after commit. Mystra has no Turn business
 object; message identity is only command idempotency and SessionEvent correlation.
@@ -338,13 +338,13 @@ cross-Session activity timelines, and arbitrary stdout/stderr persistence remain
 Runtime capability; an idle ready Session does not reserve capacity.
 
 The north-star model is a hosted **Mystra platform** serving many independent
-**Teams**. Each Team may contain multiple Projects, Tasks, TaskExecutionAttempts, Sessions, and Agents
+**Teams**. Each Team may contain multiple Projects, Tasks, TaskExecutionContexts, Sessions, and Agents
 while sharing platform-owned provider pools such as sandbox capacity. Agent,
-Task, Project, TaskExecutionAttempt, and Session are Team-scoped: Agent and Task do not belong
+Task, Project, TaskExecutionContext, and Session are Team-scoped: Agent and Task do not belong
 to Project, and Session belongs to neither Task nor Project. Session may
 independently reference `0..1` of each and selects Runtime, Provider, optional Agent Context, and
-Context as four independent execution inputs. A TaskExecutionAttempt-driven Session receives
-those resolved inputs from its attempt and must use the attempt-frozen optional Agent snapshot. Every Session receives the program-owned, content-addressed Standard Execution Prompt; Agent Context is supplemental and lower priority.
+Context as four independent execution inputs. A TaskExecutionContext-driven Session receives
+Task-scoped facts from its TaskExecutionContext and must use its Session-resolved optional Agent snapshot. Every Session receives the program-owned, content-addressed Standard Execution Prompt; Agent Context is supplemental and lower priority.
 Use this as the architectural direction when designing extensible interfaces,
 even though the current MVP proves one private, single-node deployment path.
 
@@ -394,7 +394,7 @@ RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
 PostgreSQL remain approved deployment targets. Hosted platform persistence
 management remains a separate phase. GitLab is not an enabled/default
 Integration, standing orders, general WorkflowProvider/DSL, arbitrary triggers,
-and orchestration outside the Task-bound TaskExecutionAttempt remain excluded. GitLab may remain as a
+and orchestration outside the Task-bound TaskExecutionContext remain excluded. GitLab may remain as a
 runner-side `RepoDeliveryProvider`; that does not make it an active Project
 repository Integration. PostgreSQL and Supabase-backed PostgreSQL are approved
 deployment targets; the `RdbProvider` interface must not leak database dialect,

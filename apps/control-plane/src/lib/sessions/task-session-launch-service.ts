@@ -16,7 +16,7 @@ import type { SessionService } from "./session-service";
 
 type LaunchDb = Pick<
   RdbProvider,
-  "getTask" | "listRuntimes" | "getExecutionAttemptByTaskId" | "getSession"
+  "getTask" | "listRuntimes" | "getExecutionContextByTaskId" | "getSession"
 >;
 
 export class TaskSessionLaunchService {
@@ -52,25 +52,25 @@ export class TaskSessionLaunchService {
       throw new SessionFailure("task_not_eligible", "Task is not eligible for a new Session");
     }
 
-    const attempt = await this.#db.getExecutionAttemptByTaskId(task.id, { teamId: input.actor.teamId });
+    const executionContext = await this.#db.getExecutionContextByTaskId(task.id, { teamId: input.actor.teamId });
 
-    if (attempt?.plannedSessionId === request.sessionId) {
+    if (executionContext?.plannedSessionId === request.sessionId) {
       if (
-        task.runtimeId !== attempt.runtimeId
-        || attempt.providerKey !== request.providerKey
-        || attempt.agentId !== request.agentId
-        || attempt.manualContextText !== (request.manualContext?.text ?? null)
+        task.runtimeId !== executionContext.runtimeId
+        || executionContext.providerKey !== request.providerKey
+        || executionContext.agentId !== request.agentId
+        || executionContext.manualContextText !== (request.manualContext?.text ?? null)
       ) {
         throw new SessionFailure("session_conflict", "sessionId was reused with different launch inputs");
       }
-      if (attempt.sessionId) return this.#ready(attempt.sessionId, input.actor.teamId, false);
+      if (executionContext.sessionId) return this.#ready(executionContext.sessionId, input.actor.teamId, false);
       const runtimes = (await this.#db.listRuntimes()).map((candidate) => this.#deriveRuntime(candidate));
-      this.#requireRuntime(runtimes, attempt.runtimeId, request.providerKey);
+      this.#requireRuntime(runtimes, executionContext.runtimeId, request.providerKey);
       const continued = await this.#production.continueAfterWorkspaceReady({
         teamId: input.actor.teamId,
         taskId: task.id,
       });
-      return this.#resolveAttempt(continued, request.sessionId, input.actor.teamId, false);
+      return this.#resolveExecutionContext(continued, request.sessionId, input.actor.teamId, false);
     }
 
     const runtimes = (await this.#db.listRuntimes()).map((candidate) => this.#deriveRuntime(candidate));
@@ -94,7 +94,7 @@ export class TaskSessionLaunchService {
           manualContextText: request.manualContext?.text ?? null,
         },
       });
-      return this.#resolveAttempt(started.attempt, request.sessionId, input.actor.teamId, started.created);
+      return this.#resolveExecutionContext(started.executionContext, request.sessionId, input.actor.teamId, started.created);
     }
 
     if (!task.runtimeId) {
@@ -167,17 +167,17 @@ export class TaskSessionLaunchService {
     return { state: "ready", session, created };
   }
 
-  #resolveAttempt(
-    attempt: { sessionId: string | null; setupFailureCode: string | null } | null | undefined,
+  #resolveExecutionContext(
+    executionContext: { sessionId: string | null; setupFailureCode: string | null } | null | undefined,
     plannedSessionId: string,
     teamId: string,
     created: boolean,
   ): Promise<TaskSessionLaunchResponse> | TaskSessionLaunchResponse {
-    if (attempt?.setupFailureCode) {
+    if (executionContext?.setupFailureCode) {
       throw new SessionFailure("workspace_unavailable", "Task Workspace or Session preparation failed");
     }
-    return attempt?.sessionId
-      ? this.#ready(attempt.sessionId, teamId, created)
+    return executionContext?.sessionId
+      ? this.#ready(executionContext.sessionId, teamId, created)
       : { state: "preparing", sessionId: plannedSessionId };
   }
 }

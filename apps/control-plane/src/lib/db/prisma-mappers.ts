@@ -27,9 +27,9 @@ import {
   type Session,
   type SessionEvent,
   workspacePreparationAttemptSchema,
-  taskExecutionAttemptSchema,
+  taskExecutionContextSchema,
   taskStatusTransitionSchema,
-  type TaskExecutionAttempt,
+  type TaskExecutionContext,
   type TaskStatusTransition,
 } from "@mystra/shared";
 
@@ -50,7 +50,7 @@ import type {
   WorkspacePreparationAttempt as PrismaWorkspacePreparationAttempt,
   Session as PrismaSession,
   SessionEvent as PrismaSessionEvent,
-  TaskExecutionAttempt as PrismaTaskExecutionAttempt,
+  TaskExecutionContext as PrismaTaskExecutionContext,
   TaskStatusTransition as PrismaTaskStatusTransition,
 } from "../../generated/prisma/sqlite/client";
 import { RdbError } from "./prisma-errors";
@@ -155,8 +155,8 @@ export function mapTask(row: PrismaTask): TaskRecord {
   });
 }
 
-export function mapTaskExecutionAttempt(row: PrismaTaskExecutionAttempt): TaskExecutionAttempt {
-  return taskExecutionAttemptSchema.parse({
+export function mapTaskExecutionContext(row: PrismaTaskExecutionContext): TaskExecutionContext {
+  return taskExecutionContextSchema.parse({
     ...row,
     taskIssue: row.taskIssue === null ? null : parseJsonObject(row.taskIssue),
   });

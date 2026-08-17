@@ -38,7 +38,7 @@ Manual create input 可携带 `metadata?: Record<string, JsonValue>`，省略时
 
 Human 提交 `providerKey`、幂等 launch/session identity 与可选 `manualContext.text`；不得提交 `runtimeId`、Workspace ID 或 Workspace action。若 `Task.runtimeId=null`，服务端按 Provider 解析同时 available 且支持 Task repository materialization 的 online Runtime，按稳定 Runtime ID 确定性选择，并以 null 条件原子锁定 Task；并发首发读取数据库最终赢家。若 Task 已锁定 Runtime，服务端只验证所选 Provider 在该 Runtime available，不重新选择或 fail over。随后按 `(taskId, runtimeId)` 查找 Workspace：absent 自动 setup，failed 自动 retry，queued/preparing 返回 `202` accepted，ready 幂等创建 Session。accepted response 返回稳定 launch identity 与 `state: "preparing"`；客户端轮询同一资源/命令，ready 后返回 `session`。Workspace missing/not-ready 不得作为用户可操作的 4xx 前置条件。同一 Runtime 上不同 Provider 复用 Workspace；其他 Runtime Workspace 只为未来同步保留，跨 Runtime 同步与 Session 切换均 deferred。
 
-若 Task 为 `pending`，同一 launch command 原子执行 `pending -> in_progress` 并创建内部 TaskExecutionAttempt；不得要求调用方先执行独立 Start。若 Task 已为 `in_progress`，创建独立 Session 且不替换首次 attempt 已绑定的 Session。`blocked/done/canceled` 拒绝新 launch；blocked Task 必须先通过既有 Human transition 明确恢复为 `in_progress`。
+若 Task 为 `pending`，同一 launch command 原子执行 `pending -> in_progress` 并创建内部 TaskExecutionContext；不得要求调用方先执行独立 Start。若 Task 已为 `in_progress`，创建独立 Session 且不替换TaskExecutionContext 已绑定的首个 Session。`blocked/done/canceled` 拒绝新 launch；blocked Task 必须先通过既有 Human transition 明确恢复为 `in_progress`。
 
 ## Root Overview Placeholder
 

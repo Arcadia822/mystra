@@ -5,7 +5,7 @@ import { runAgentCli } from "./cli.js";
 const execution = {
   teamId: "00000000-0000-4000-8000-000000000001",
   taskId: "00000000-0000-4000-8000-000000000002",
-  attemptId: "00000000-0000-4000-8000-000000000003",
+  executionContextId: "00000000-0000-4000-8000-000000000003",
   sessionId: "00000000-0000-4000-8000-000000000004",
   agentContext: null,
   expiresAt: "2026-08-11T06:00:00.000Z",

@@ -54,7 +54,7 @@ model Project {
   issueSources           ProjectIssueSource[]
   taskWorkspaces         TaskWorkspace[]
   sessions               Session[]
-  executionAttempts      TaskExecutionAttempt[]
+  executionContexts      TaskExecutionContext[]
   team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([teamId])
@@ -110,7 +110,7 @@ model Task {
   team                 Team                   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   workspaces           TaskWorkspace[]
   sessions             Session[]
-  executionAttempt     TaskExecutionAttempt?
+  executionContext     TaskExecutionContext?
   statusTransitions    TaskStatusTransition[]
 
   @@unique([teamId, idempotencyKey])
@@ -125,7 +125,7 @@ model Task {
   @@map("tasks")
 }
 
-model TaskExecutionAttempt {
+model TaskExecutionContext {
   id                       String         @id
   teamId                   String         @map("team_id")
   taskId                   String         @unique @map("task_id")
@@ -163,7 +163,7 @@ model TaskExecutionAttempt {
   @@index([teamId, createdAt])
   @@index([agentId])
   @@index([runtimeId])
-  @@map("task_execution_attempts")
+  @@map("task_execution_contexts")
 }
 
 model TaskStatusTransition {
@@ -221,7 +221,7 @@ model TaskWorkspace {
   issueConnection       IntegrationConnection?        @relation("TaskWorkspaceIssueConnection", fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   team                  Team                          @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   attempts              WorkspacePreparationAttempt[]
-  executionAttempt      TaskExecutionAttempt?
+  executionContext      TaskExecutionContext?
 
   @@unique([taskId, runtimeId])
   @@index([teamId, state, createdAt])
@@ -262,7 +262,7 @@ model Agent {
   updatedAt    String    @map("updated_at")
   team         Team      @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   sessions     Session[]
-  executionAttempts TaskExecutionAttempt[]
+  executionContexts TaskExecutionContext[]
 
   @@index([teamId, status, id])
   @@index([createdAt, id])
@@ -280,7 +280,7 @@ model Runtime {
   taskWorkspaces TaskWorkspace[]
   sessions       Session[]
   sessionLeases  SessionDispatchLease[]
-  executionAttempts TaskExecutionAttempt[]
+  executionContexts TaskExecutionContext[]
   tasks          Task[]
 
   @@index([updatedAt, id])
@@ -385,7 +385,7 @@ model Team {
   agents                 Agent[]
   taskWorkspaces         TaskWorkspace[]
   sessions               Session[]
-  executionAttempts      TaskExecutionAttempt[]
+  executionContexts      TaskExecutionContext[]
   taskStatusTransitions  TaskStatusTransition[]
 
   @@index([status])
@@ -420,7 +420,7 @@ model Session {
   eventHead        SessionEventHead?
   eventStreams     SessionEventStream[]
   dispatchLease    SessionDispatchLease?
-  executionAttempt TaskExecutionAttempt?
+  executionContext TaskExecutionContext?
 
   @@index([teamId, updatedAt, id])
   @@index([taskId, updatedAt, id])

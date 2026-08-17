@@ -50,14 +50,14 @@
 - [x] 明确五种 Task 状态使用同尺寸圆形基底及共享 glyph mapping
 - [x] 明确 In Progress 使用绿色，Done 使用蓝色，并以圆内图案提供非颜色区分
 - [x] 明确 `waiting_for_review` 并入 `blocked`，且 `blocked` 的界面语义为待接手/Needs handoff，不是 error
-- [x] 明确 Task 不提供 `error`/`failed`，执行失败继续属于 Session/TaskExecutionAttempt 事实
+- [x] 明确 Task 不提供 `error`/`failed`，执行失败继续属于 Session/TaskExecutionContext 事实
 - [x] 明确 New Task 使用 `UiDialogSurface` + 053 Section slots 的标准几何、不可缩放 description、标准 Project dropdown 与 `Create` action
 - [x] 明确 stacked field `equalWidth` 的跨行统一宽度、icon 默认值、左右边缘连续性与 Tasks 字段映射
 - [x] 明确 Updated At 与 Created At 复用同一个 time renderer、locale 与 format options
 - [x] 明确 Task detail Header 恢复 New Session，并通过独立 User Story 覆盖完整 Human launch journey
 - [x] 明确 Modal 只显示 Prompt 与 available Provider；Runtime 由服务端解析，Agent Context 在本 UI 中省略/null
 - [x] 明确 Prompt copy 映射 canonical `manualContext.text`，不虚构 `prompt` field 或覆盖固定 `firstUserMessage`
-- [x] 明确 Workspace/Provider 前置失败、API error、关闭与焦点返回，以及 Task/TaskExecutionAttempt 无副作用边界
+- [x] 明确 Workspace/Provider 前置失败、API error、关闭与焦点返回，以及 Task/TaskExecutionContext 无副作用边界
 
 ## Product Requirements Review
 
@@ -82,8 +82,8 @@ Notes:
 - Owner 的后续 modal 反馈已冻结标准 Section/Dialog/Dropdown/Button 组件复用，054 不再维护私有 header/body/footer padding。
 - Owner 已冻结 stacked `equalWidth` 为基础表格 field 合同：按完整字段顺序校验边缘连续性，不随 Display 显隐变化。
 - Owner 已冻结五态 Task 合同：`pending`、`in_progress`、`blocked`、`done`、`canceled`；review、授权、等待回答/信息等属于未来 handoff reason，不是顶层状态。
-- Owner 已冻结 Task detail Main 为 Sessions-only shared stacked list；TaskExecutionAttempt/Workspace/Production 仍是 source-of-truth 合同，但不进入当前 Main，禁止 `currentAttempt/currentSession` 等衍生合同。
-- Owner 已恢复 Task detail Header 的手动 New Session 入口，并将 Modal 收敛为唯一 Prompt input、footer 左 Provider 与右 Create；Runtime/Agent Context/Cancel 不进入 UI，入口不回到 Sessions content header，也不扩大 Task/TaskExecutionAttempt 状态副作用。
+- Owner 已冻结 Task detail Main 为 Sessions-only shared stacked list；TaskExecutionContext/Workspace/Production 仍是 source-of-truth 合同，但不进入当前 Main，禁止 `currentAttempt/currentSession` 等衍生合同。
+- Owner 已恢复 Task detail Header 的手动 New Session 入口，并将 Modal 收敛为唯一 Prompt input、footer 左 Provider 与右 Create；Runtime/Agent Context/Cancel 不进入 UI，入口不回到 Sessions content header，也不扩大 Task/TaskExecutionContext 状态副作用。
 - 当前 Task shared schema 与 Prisma models 没有 `metadata`；054 按 owner 决策把 `metadata: Record<string, JsonValue>` 加入 Task 本体，并覆盖 SQLite/PostgreSQL parity、shared schema、create/update、list/detail response、前端 Task model 与回归 fixtures。
 - Owner 已明确否决 `TaskLabel`、`ordinal`、`normalizedKey`、`normalizedValue` 与写入时规范化；Metadata 展示顺序由前端处理，搜索在 query execution 时做大小写不敏感匹配。剩余 2 分仅来自其他表格页面迁移顺序留给后续 feature。
 - Owner 已明确要求减少无意义的复合命名；054 将 Task `productionStatus`、Prisma/DB `production_status`、相关 schema/type 和所有 response 直接收敛为 `status` / `taskStatusSchema` / `TaskStatus`，不保留 alias、双读或双写。外部 Issue status 与 Session state 由对象边界区分。
@@ -175,7 +175,7 @@ Notes:
 - [x] 将 Task 顶层状态收敛为 `pending`、`in_progress`、`blocked`、`done`、`canceled` 五态。
 - [x] 删除独立 `waiting_for_review`；其 review handoff 语义并入 `blocked`，未来再为 review、授权、等待回答与等待信息设计结构化 handoff reason。
 - [x] 将 `blocked` 的界面文案改为待接手 / Needs handoff，并用 warning 色圆形 handoff glyph 取代 error 红色感叹号。
-- [x] 明确 Task 不提供 `error`/`failed` 状态；Session/TaskExecutionAttempt 错误不得自动改变 Task。
+- [x] 明确 Task 不提供 `error`/`failed` 状态；Session/TaskExecutionContext 错误不得自动改变 Task。
 - [x] 将 Active Tasks 收敛为三种非终态，并将 Kanban 从六列收敛为五列。
 - [x] 记录 pre-0.1 直接合同替换范围；正式实现不得保留 `waiting_for_review` alias、shim 或双写。
 
@@ -185,7 +185,7 @@ Notes:
 - [x] 新增独立 User Story，覆盖打开 Modal、字段选择、成功导航、前置失败、API error 与关闭/焦点返回。
 - [x] Modal 字段直接映射既有 Task Session launch contract：locked Runtime、available Provider、optional Agent Context 与 optional Manual Context。（已由 Iteration 14 的 owner 决策取代。）
 - [x] 保持 Main content 从 Sessions shared stacked list 开始，不新增 page-local action header 或 empty-state duplicate action。
-- [x] Prototype 停在 API dispatch 边界，不向列表追加 mock Session，不改变 Task、TaskExecutionAttempt 或 Workspace，也不伪造成功。
+- [x] Prototype 停在 API dispatch 边界，不向列表追加 mock Session，不改变 Task、TaskExecutionContext 或 Workspace，也不伪造成功。
 
 ### Iteration 14 — 2026-08-14
 
@@ -221,9 +221,9 @@ Notes:
 ### Iteration 18 — 2026-08-17
 
 - [x] 核对 051 规格、shared Harness schema、Prisma relation 与 TaskProductionService，确认该记录是 Start 到首个 Autopilot Session 之间的内部持久化协调记录。
-- [x] 明确 TaskExecutionAttempt 冻结可变启动输入、承载 assignment idempotency/capability identity，并允许 Workspace ready continuation 幂等创建一次 Session。
-- [x] 明确 TaskExecutionAttempt 不是用户可见产品对象、导航资源、TaskWorkbenchItem、独立页面或用户创建/编辑表面，也不拥有平行状态机。
-- [x] Owner 于 2026-08-17 批准将 Harness 跨 shared/RDB/API/CLI/tests 直接重命名为 `TaskExecutionAttempt`；054 不保留旧名 alias。
+- [x] 明确 TaskExecutionContext 冻结可变启动输入、承载 assignment idempotency/capability identity，并允许 Workspace ready continuation 幂等创建一次 Session。
+- [x] 明确 TaskExecutionContext 不是用户可见产品对象、导航资源、TaskWorkbenchItem、独立页面或用户创建/编辑表面，也不拥有平行状态机。
+- [x] Owner 于 2026-08-17 批准将 Harness 跨 shared/RDB/API/CLI/tests 直接重命名为 `TaskExecutionContext`；054 不保留旧名 alias。
 
 ## Notes
 
@@ -233,7 +233,7 @@ Notes:
 ### Iteration 19 — 2026-08-17
 
 - [x] Shared/API/RDB/SQLite/PostgreSQL/CLI/UI 已统一为 Task `status` 五态与 Task 内 `metadata`；TaskLabel、normalized fields、Task 外 labels 与旧字段 alias 为 0。
-- [x] Harness 已直接替换为 internal `TaskExecutionAttempt`；Tasks workbench、Task detail 与用户 create/update contract 均不暴露该记录。
+- [x] Harness 已直接替换为 internal `TaskExecutionContext`；Tasks workbench、Task detail 与用户 create/update contract 均不暴露该记录。
 - [x] Production Tasks Table/Kanban、global modal actions、Active Tasks、Task detail Sessions-only Main、Right Panel 与手动 New Session 已融合到 shared shell/UI primitives。
 - [x] Root typecheck/lint/test/build、terminology audit、schema parity、RdbProvider contracts、10k performance gate 与 targeted consistency searches 通过。
 - [x] 浏览器完成 1440/1024/768/320px、101-row pagination/five-state parity、dialog focus、Task detail panel 与 New Session no-attempt-side-effect 验收。

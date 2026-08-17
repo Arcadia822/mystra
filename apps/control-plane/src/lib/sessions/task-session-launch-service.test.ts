@@ -10,7 +10,7 @@ function task(overrides: Record<string, unknown> = {}) {
     id: id("1"), teamId: id("2"), title: "Task", description: null, projectId: id("3"), issue: null,
     status: "pending" as const, metadata: {}, runtimeId: null, statusRevision: 1, statusNote: null,
     statusUpdatedAt: now,
-    statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
+    statusActor: { kind: "system" as const, actorId: null, agentId: null, executionContextId: null, sessionId: null },
     createdAt: now, updatedAt: now, ...overrides,
   };
 }
@@ -23,9 +23,9 @@ const runtime = {
 };
 
 describe("TaskSessionLaunchService", () => {
-  it("resolves and locks the first Runtime, returning preparing until the attempt Session exists", async () => {
+  it("resolves and locks the first Runtime, returning preparing until the executionContext Session exists", async () => {
     const pending = task();
-    const attempt = {
+    const executionContext = {
       id: id("6"), teamId: pending.teamId, taskId: pending.id, projectId: pending.projectId!,
       agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
       taskTitle: pending.title, taskDescription: null, taskIssue: null, manualContextText: "Inspect first",
@@ -34,9 +34,9 @@ describe("TaskSessionLaunchService", () => {
       assignIdempotencyKey: id("8"), assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null,
       setupFailureCode: null, setupFailureMessage: null, createdAt: now, updatedAt: now,
     };
-    const production = { start: vi.fn(async () => ({ task: { ...pending, status: "in_progress", runtimeId: runtime.id }, attempt, transition: {}, created: true })), continueAfterWorkspaceReady: vi.fn() };
+    const production = { start: vi.fn(async () => ({ task: { ...pending, status: "in_progress", runtimeId: runtime.id }, executionContext, transition: {}, created: true })), continueAfterWorkspaceReady: vi.fn() };
     const service = new TaskSessionLaunchService({
-      db: { getTask: vi.fn(async () => pending), listRuntimes: vi.fn(async () => [runtime]), getExecutionAttemptByTaskId: vi.fn(), getSession: vi.fn() } as never,
+      db: { getTask: vi.fn(async () => pending), listRuntimes: vi.fn(async () => [runtime]), getExecutionContextByTaskId: vi.fn(), getSession: vi.fn() } as never,
       workspace: { setup: vi.fn() } as never,
       sessions: { launchForTask: vi.fn() } as never,
       production: production as never,
@@ -58,7 +58,7 @@ describe("TaskSessionLaunchService", () => {
     const db = {
       getTask: vi.fn(async () => locked),
       listRuntimes: vi.fn(async () => [{ ...runtime, id: id("10"), providers: [{ ...runtime.providers[0]!, provider: "copilot" }] }, runtime]),
-      getExecutionAttemptByTaskId: vi.fn(async () => undefined),
+      getExecutionContextByTaskId: vi.fn(async () => undefined),
       getSession: vi.fn(),
     };
     const service = new TaskSessionLaunchService({
@@ -82,7 +82,7 @@ describe("TaskSessionLaunchService", () => {
     const workspace = { setup: vi.fn(async () => ({ workspace: { id: id("13"), state: "ready" }, created: false, retried: false })) };
     const sessions = { launchForTask: vi.fn(async () => ({ session, created: true })) };
     const service = new TaskSessionLaunchService({
-      db: { getTask: vi.fn(async () => locked), listRuntimes: vi.fn(async () => [runtime]), getExecutionAttemptByTaskId: vi.fn(async () => undefined), getSession: vi.fn() } as never,
+      db: { getTask: vi.fn(async () => locked), listRuntimes: vi.fn(async () => [runtime]), getExecutionContextByTaskId: vi.fn(async () => undefined), getSession: vi.fn() } as never,
       workspace: workspace as never,
       sessions: sessions as never,
       production: { start: vi.fn(), continueAfterWorkspaceReady: vi.fn() } as never,
@@ -98,7 +98,7 @@ describe("TaskSessionLaunchService", () => {
 
   it("surfaces a terminal preparation failure instead of polling forever", async () => {
     const pending = task();
-    const failedAttempt = {
+    const failedExecutionContext = {
       id: id("14"), teamId: pending.teamId, taskId: pending.id, projectId: pending.projectId!,
       agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
       taskTitle: pending.title, taskDescription: null, taskIssue: null, manualContextText: null,
@@ -109,10 +109,10 @@ describe("TaskSessionLaunchService", () => {
       createdAt: now, updatedAt: now,
     };
     const service = new TaskSessionLaunchService({
-      db: { getTask: vi.fn(async () => pending), listRuntimes: vi.fn(async () => [runtime]), getExecutionAttemptByTaskId: vi.fn(), getSession: vi.fn() } as never,
+      db: { getTask: vi.fn(async () => pending), listRuntimes: vi.fn(async () => [runtime]), getExecutionContextByTaskId: vi.fn(), getSession: vi.fn() } as never,
       workspace: { setup: vi.fn() } as never,
       sessions: { launchForTask: vi.fn() } as never,
-      production: { start: vi.fn(async () => ({ task: pending, attempt: failedAttempt, transition: {}, created: true })), continueAfterWorkspaceReady: vi.fn() } as never,
+      production: { start: vi.fn(async () => ({ task: pending, executionContext: failedExecutionContext, transition: {}, created: true })), continueAfterWorkspaceReady: vi.fn() } as never,
       deriveRuntime: (candidate) => candidate,
     });
 
@@ -125,7 +125,7 @@ describe("TaskSessionLaunchService", () => {
   it("replays an already-created Session even when its locked Runtime is now offline", async () => {
     const sessionId = id("17");
     const locked = task({ status: "in_progress", runtimeId: runtime.id, statusRevision: 2 });
-    const attempt = {
+    const executionContext = {
       id: id("18"), teamId: locked.teamId, taskId: locked.id, projectId: locked.projectId!,
       agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
       taskTitle: locked.title, taskDescription: null, taskIssue: null, manualContextText: null,
@@ -139,7 +139,7 @@ describe("TaskSessionLaunchService", () => {
       db: {
         getTask: vi.fn(async () => locked),
         listRuntimes: vi.fn(async () => [{ ...runtime, status: "offline" as const }]),
-        getExecutionAttemptByTaskId: vi.fn(async () => attempt),
+        getExecutionContextByTaskId: vi.fn(async () => executionContext),
         getSession: vi.fn(async () => session),
       } as never,
       workspace: { setup: vi.fn() } as never,

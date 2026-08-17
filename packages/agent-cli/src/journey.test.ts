@@ -30,7 +30,7 @@ describe("accepted local-tool journey", () => {
       if (url.endsWith("/context")) {
         return Response.json({
           version: 1,
-          execution: { teamId: id("1"), taskId: id("2"), attemptId: id("3"), sessionId: id("4"), agentContext: null, expiresAt: "2026-08-11T23:00:00.000Z" },
+          execution: { teamId: id("1"), taskId: id("2"), executionContextId: id("3"), sessionId: id("4"), agentContext: null, expiresAt: "2026-08-11T23:00:00.000Z" },
           task: { title: "Implement fixture", description: null, issue: { provider: "linear", connectionId: id("6"), scopeExternalId: "team", externalId: "issue-1", identifier: "ENG-1" } },
           project: { id: id("7"), repositoryConnectionId: id("8"), repositoryExternalId: "R_fixture", repositoryBaseBranch: "main" },
           workspace: { id: id("9"), branch: "eng-1" },

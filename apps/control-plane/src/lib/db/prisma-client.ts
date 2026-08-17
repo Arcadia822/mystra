@@ -26,7 +26,7 @@ import {
   type TaskWorkspace,
   type User,
   type WorkspacePreparationAttempt,
-  type TaskExecutionAttempt,
+  type TaskExecutionContext,
   type TaskStatusTransition,
 } from "../../generated/prisma/sqlite/client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
@@ -51,7 +51,7 @@ type AgentUpdate = Partial<Pick<Agent, "name" | "systemPrompt" | "revision" | "s
 type TaskUpdate = Partial<Pick<Task,
   "title" | "description" | "status" | "metadata" | "runtimeId" | "statusRevision" | "statusNote" | "statusUpdatedAt" | "statusActor" | "updatedAt"
 >>;
-type TaskExecutionAttemptUpdate = Partial<Pick<TaskExecutionAttempt,
+type TaskExecutionContextUpdate = Partial<Pick<TaskExecutionContext,
   "workspaceId" | "sessionId" | "capabilityRevokedAt" | "setupFailureCode" | "setupFailureMessage" | "updatedAt"
 >>;
 type TaskWorkspaceUpdate = Partial<Pick<
@@ -161,10 +161,10 @@ export interface MystraPrismaDelegates {
     findMany(args: { where: { leaseExpiresAt: { lt: string } }; orderBy: Array<{ leaseExpiresAt: SortOrder }>; include: { session: true } }): Promise<Array<SessionDispatchLease & { session: PrismaSession }>>;
     deleteMany(args: { where: { sessionId: string } }): Promise<CountResult>;
   };
-  taskExecutionAttempt: {
-    create(args: { data: TaskExecutionAttempt }): Promise<TaskExecutionAttempt>;
-    updateMany(args: { where: { id: string; teamId?: string }; data: TaskExecutionAttemptUpdate }): Promise<CountResult>;
-    findUnique(args: { where: { id: string } | { taskId: string } | { sessionId: string } | { plannedSessionId: string } }): Promise<TaskExecutionAttempt | null>;
+  taskExecutionContext: {
+    create(args: { data: TaskExecutionContext }): Promise<TaskExecutionContext>;
+    updateMany(args: { where: { id: string; teamId?: string }; data: TaskExecutionContextUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { taskId: string } | { sessionId: string } | { plannedSessionId: string } }): Promise<TaskExecutionContext | null>;
   };
   taskStatusTransition: {
     create(args: { data: TaskStatusTransition }): Promise<TaskStatusTransition>;
@@ -343,7 +343,7 @@ const modelMethods = {
   sessionEventHead: ["create", "updateMany", "findUnique"],
   sessionEventStream: ["create", "updateMany", "findUnique"],
   sessionDispatchLease: ["create", "updateMany", "findUnique", "findMany", "deleteMany"],
-  taskExecutionAttempt: ["create", "updateMany", "findUnique"],
+  taskExecutionContext: ["create", "updateMany", "findUnique"],
   taskStatusTransition: ["create", "findUnique", "findMany"],
   taskWorkspace: ["create", "updateMany", "findUnique", "findMany"],
   workspacePreparationAttempt: ["create", "updateMany", "findUnique", "findMany"],

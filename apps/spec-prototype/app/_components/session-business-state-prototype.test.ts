@@ -22,6 +22,6 @@ describe("055 Session business state prototype composition", () => {
 
   it("announces state changes and preserves independent object boundaries", () => {
     expect(source).toContain('aria-live="polite"');
-    expect(source).toContain("Task, TaskExecutionAttempt, Workspace, and Runtime state remain independent");
+    expect(source).toContain("Task, TaskExecutionContext, Workspace, and Runtime state remain independent");
   });
 });
