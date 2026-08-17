@@ -18,7 +18,7 @@ const messageId = "00000000-0000-4000-8000-000000000007";
 function fixture() {
   const createSessionWithEvents = vi.fn(async (input: SessionLaunchPersistenceInput) => ({ session: input.session, created: true }));
   const db = {
-    getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, status: "pending", metadata: {}, statusRevision: 1, statusNote: null, statusUpdatedAt: "2026-08-10T00:00:00.000Z", statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null }, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
+    getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, status: "in_progress", metadata: {}, runtimeId, statusRevision: 2, statusNote: null, statusUpdatedAt: "2026-08-10T00:00:00.000Z", statusActor: { kind: "system", actorId: null, agentId: null, attemptId: null, sessionId: null }, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
     getProjectById: vi.fn(async () => ({
       id: projectId, teamId, name: "Mystra", slug: "mystra",
       repositoryConnectionId: "00000000-0000-4000-8000-000000000011",
@@ -65,7 +65,7 @@ describe("SessionService.launch", () => {
     db.resolveActiveAgent.mockRejectedValue(new Error("current Agent must not be resolved"));
     const attempt = {
       id: "00000000-0000-4000-8000-000000000020", teamId, taskId, projectId, agentId, agentRevision: 2,
-      agentName: "Production Agent", agentSystemPrompt: "Frozen production Agent prompt.", taskTitle: "Frozen attempt title", taskDescription: "Frozen attempt description", taskIssue: null,
+      agentName: "Production Agent", agentSystemPrompt: "Frozen production Agent prompt.", taskTitle: "Frozen attempt title", taskDescription: "Frozen attempt description", taskIssue: null, manualContextText: null,
       runtimeId, providerKey: "codex" as const, workspaceId: "00000000-0000-4000-8000-000000000008",
       plannedSessionId: sessionId, sessionId: null, firstMessageId: messageId, assignIdempotencyKey: "assign-1",
       assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,

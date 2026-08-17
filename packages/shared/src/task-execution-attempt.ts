@@ -51,6 +51,7 @@ export const taskExecutionAttemptSchema = z.object({
   taskTitle: taskTitleSchema,
   taskDescription: taskDescriptionSchema,
   taskIssue: taskIssueReferenceSchema.nullable(),
+  manualContextText: z.string().trim().min(1).max(64 * 1024).nullable().default(null),
   runtimeId: z.string().uuid(),
   providerKey: providerNameSchema,
   workspaceId: z.string().uuid().nullable(),

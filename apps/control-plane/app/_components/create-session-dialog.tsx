@@ -1,6 +1,6 @@
 "use client";
 
-import type { RuntimeView, Session, Task, TaskWorkspaceView } from "@mystra/shared";
+import type { RuntimeView, Task, TaskSessionLaunchResponse } from "@mystra/shared";
 import { SESSION_TEXT_MAX_LENGTH } from "@mystra/shared/session";
 import {
   UiButton,
@@ -25,30 +25,61 @@ function responseError(payload: unknown, status: number): string {
   return `Session creation failed (${status})`;
 }
 
-export function CreateSessionDialog({ onClose, task, triggerRef, workspace }: {
+function supportsTaskWorkspace(runtime: RuntimeView): boolean {
+  const capability = runtime.metadata.workspaceMaterialization;
+  return Boolean(capability?.kinds.includes("task-repository") && capability.sharingModes.includes("shared-mutable"));
+}
+
+function waitForPreparation(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Session launch canceled", "AbortError"));
+      return;
+    }
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      reject(new DOMException("Session launch canceled", "AbortError"));
+    };
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, 1_000);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+export function CreateSessionDialog({ onClose, task, triggerRef }: {
   onClose: () => void;
   task: Task;
   triggerRef: RefObject<HTMLButtonElement | null>;
-  workspace: TaskWorkspaceView | null;
 }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const runtimes = useResource<{ runtimes: RuntimeView[] }>("/api/runtimes", 5_000);
   const [prompt, setPrompt] = useState("");
   const [providerKey, setProviderKey] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const runtime = useMemo(() => runtimes.data?.runtimes.find((item) => item.id === workspace?.runtimeId), [runtimes.data?.runtimes, workspace?.runtimeId]);
-  const providers = useMemo(() => runtime?.providers.filter((provider) => provider.available) ?? [], [runtime]);
-  const unavailable = workspace?.state !== "ready"
-    ? "Task Workspace is not ready."
-    : !runtimes.isLoading && providers.length === 0
-      ? "No Provider is available on the Task Workspace Runtime."
-      : null;
+  const runtime = useMemo(() => task.runtimeId
+    ? runtimes.data?.runtimes.find((item) => item.id === task.runtimeId)
+    : null, [runtimes.data?.runtimes, task.runtimeId]);
+  const providers = useMemo(() => {
+    const candidates = task.runtimeId
+      ? runtime && runtime.status === "online" && supportsTaskWorkspace(runtime) ? [runtime] : []
+      : (runtimes.data?.runtimes ?? []).filter((item) => item.status === "online" && supportsTaskWorkspace(item));
+    return Array.from(new Map(candidates.flatMap((item) => item.providers)
+      .filter((provider) => provider.available)
+      .map((provider) => [provider.provider, provider])).values());
+  }, [runtime, runtimes.data?.runtimes, task.runtimeId]);
+  const unavailable = !runtimes.isLoading && providers.length === 0
+    ? task.runtimeId ? "No Provider is available on this Task Runtime." : "No eligible Runtime provides a Provider."
+    : null;
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
+    return () => abortRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -56,6 +87,7 @@ export function CreateSessionDialog({ onClose, task, triggerRef, workspace }: {
   }, [providerKey, providers]);
 
   function close() {
+    abortRef.current?.abort();
     onClose();
     window.requestAnimationFrame(() => triggerRef.current?.focus());
   }
@@ -64,21 +96,35 @@ export function CreateSessionDialog({ onClose, task, triggerRef, workspace }: {
     if (submitting || unavailable || !providerKey) return;
     setSubmitting(true);
     setError(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const sessionId = crypto.randomUUID();
+    const body = JSON.stringify({
+      sessionId,
+      providerKey,
+      ...(prompt.trim() ? { manualContext: { text: prompt.trim() } } : {}),
+    });
     try {
-      const response = await fetch(`/api/tasks/${encodeURIComponent(task.id)}/sessions`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          sessionId: crypto.randomUUID(),
-          providerKey,
-          ...(prompt.trim() ? { manualContext: { text: prompt.trim() } } : {}),
-        }),
-      });
-      const payload = await response.json() as { session?: Session; error?: unknown };
-      if (!response.ok || !payload.session) throw new Error(responseError(payload, response.status));
-      onClose();
-      router.push(`/sessions/${encodeURIComponent(payload.session.id)}`);
+      while (!controller.signal.aborted) {
+        const response = await fetch(`/api/tasks/${encodeURIComponent(task.id)}/sessions`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body,
+          signal: controller.signal,
+        });
+        const payload = await response.json() as TaskSessionLaunchResponse | { error?: unknown };
+        if (!response.ok || !("state" in payload)) throw new Error(responseError(payload, response.status));
+        if (payload.state === "ready") {
+          abortRef.current = null;
+          onClose();
+          router.push(`/sessions/${encodeURIComponent(payload.session.id)}`);
+          router.refresh();
+          return;
+        }
+        await waitForPreparation(controller.signal);
+      }
     } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") return;
       setError(caught instanceof Error ? caught.message : String(caught));
       setSubmitting(false);
     }
@@ -127,7 +173,7 @@ export function CreateSessionDialog({ onClose, task, triggerRef, workspace }: {
             value={providerKey}
             variant="ghost"
           />
-          <UiButton disabled={submitting || Boolean(unavailable) || !providerKey} onClick={() => void create()} size="inline" tone="solid">{submitting ? "Creating…" : "Create"}</UiButton>
+          <UiButton disabled={submitting || Boolean(unavailable) || !providerKey} onClick={() => void create()} size="inline" tone="solid">{submitting ? "Preparing…" : "Create"}</UiButton>
         </UiSurfaceFooter>
       </UiDialogSurface>
     </dialog>

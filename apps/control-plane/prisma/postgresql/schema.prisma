@@ -89,6 +89,7 @@ model Task {
   title                String
   description          String?
   projectId            String?                @map("project_id")
+  runtimeId            String?                @map("runtime_id")
   idempotencyKey       String?                @map("idempotency_key")
   issueProvider        String?                @map("issue_provider")
   issueConnectionId    String?                @map("issue_connection_id")
@@ -105,8 +106,9 @@ model Task {
   updatedAt            String                 @map("updated_at")
   issueConnection      IntegrationConnection? @relation(fields: [issueConnectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   project              Project?               @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  runtime              Runtime?               @relation(fields: [runtimeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   team                 Team                   @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  workspace            TaskWorkspace?
+  workspaces           TaskWorkspace[]
   sessions             Session[]
   executionAttempt     TaskExecutionAttempt?
   statusTransitions    TaskStatusTransition[]
@@ -135,6 +137,7 @@ model TaskExecutionAttempt {
   taskTitle                String         @map("task_title")
   taskDescription          String?        @map("task_description")
   taskIssue                String?        @map("task_issue")
+  manualContextText        String?        @map("manual_context_text")
   runtimeId                String         @map("runtime_id")
   providerKey              String         @map("provider_key")
   workspaceId              String?        @unique @map("workspace_id")
@@ -188,7 +191,7 @@ model TaskStatusTransition {
 model TaskWorkspace {
   id                    String                        @id
   teamId                String                        @map("team_id")
-  taskId                String                        @unique @map("task_id")
+  taskId                String                        @map("task_id")
   projectId             String                        @map("project_id")
   runtimeId             String                        @map("runtime_id")
   state                 String
@@ -220,6 +223,7 @@ model TaskWorkspace {
   attempts              WorkspacePreparationAttempt[]
   executionAttempt      TaskExecutionAttempt?
 
+  @@unique([taskId, runtimeId])
   @@index([teamId, state, createdAt])
   @@index([runtimeId, state, createdAt])
   @@index([connectionId])
@@ -277,6 +281,7 @@ model Runtime {
   sessions       Session[]
   sessionLeases  SessionDispatchLease[]
   executionAttempts TaskExecutionAttempt[]
+  tasks          Task[]
 
   @@index([updatedAt, id])
   @@index([createdAt, id])

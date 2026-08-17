@@ -349,11 +349,14 @@ Use this as the architectural direction when designing extensible interfaces,
 even though the current MVP proves one private, single-node deployment path.
 
 Reserve **workspace** for the unified execution working-directory and
-execution-context delivery surface, not for tenancy. Feature 048 currently
-prepares one Runtime-affine Workspace per eligible Task, and every Task-bound
-Session attaches that same shared-mutable Workspace. Future preparation for the
-deferred Session modes must reuse the same Workspace/attachment contract; do not
-add a parallel Workspace type.
+execution-context delivery surface, not for tenancy. Feature 054 supersedes
+048's Task-global cardinality: a Task may have one shared-mutable Workspace per
+Runtime, uniquely identified by `(taskId, runtimeId)`. First Session launch uses the
+selected Provider to resolve an eligible Runtime and atomically locks nullable
+`Task.runtimeId`; all later Sessions must use that Runtime. Launch automatically
+prepares or reuses its exact Workspace; setup is not a Human-facing prerequisite.
+Cross-Runtime Workspace synchronization, Task Runtime migration and failover are deferred. Future Session modes must reuse the same Workspace/attachment type;
+do not add a parallel Workspace type.
 
 The intended long-term experience is similar in spirit to **Stripe Minion**:
 fast task intake, clear Agent execution ownership, reviewable outputs, and

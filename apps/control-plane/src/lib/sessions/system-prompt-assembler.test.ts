@@ -62,6 +62,7 @@ function fixtures() {
     },
     status: "pending",
     metadata: {},
+    runtimeId,
     statusRevision: 1,
     statusNote: null,
     statusUpdatedAt: "2026-08-10T00:00:00.000Z",

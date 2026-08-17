@@ -31,7 +31,7 @@ type SessionDb = Pick<RdbProvider,
 >;
 
 type WorkspaceResolver = {
-  get(input: { actor: { teamId: string }; taskId: string }): Promise<TaskWorkspaceView | undefined>;
+  get(input: { actor: { teamId: string }; taskId: string; runtimeId: string }): Promise<TaskWorkspaceView | undefined>;
   resolveSessionAttachment(input: { teamId: string; taskId: string; requestedRuntimeId: string }): Promise<SessionWorkspaceAttachment>;
 };
 
@@ -172,6 +172,9 @@ export class SessionService {
         context: {
           taskId: input.attempt.taskId,
           projectId: input.attempt.projectId,
+          ...(input.attempt.manualContextText
+            ? { manual: { text: input.attempt.manualContextText } }
+            : {}),
         },
         firstUserMessage: {
           messageId: input.attempt.firstMessageId,
@@ -190,7 +193,14 @@ export class SessionService {
     const request = taskSessionLaunchInputSchema.parse(input.request);
     const task = await this.#db.getTask(input.taskId, { teamId: input.actor.teamId });
     if (!task) throw new SessionFailure("task_not_found", "Task was not found");
-    const workspace = await this.#workspace.get({ actor: { teamId: input.actor.teamId }, taskId: task.id });
+    if (!task.runtimeId) {
+      throw new SessionFailure("workspace_missing", "Task Runtime Context is not initialized");
+    }
+    const workspace = await this.#workspace.get({
+      actor: { teamId: input.actor.teamId },
+      taskId: task.id,
+      runtimeId: task.runtimeId,
+    });
     if (!workspace || workspace.state === "unavailable") {
       throw new SessionFailure("workspace_missing", "Task Workspace has not been set up");
     }

@@ -36,6 +36,7 @@ export function TaskDetailPanel({ projectExternalId, task }: { projectExternalId
         <dl className="taskPropertyList">
           <div><dt>Status</dt><dd><span className="taskPropertyStatus"><TaskStatusIcon status={current.status} />{TASK_STATUS_LABELS[current.status]}</span></dd></div>
           <div><dt>Task ID</dt><dd className="mono">{current.id}</dd></div>
+          <div><dt>Runtime</dt><dd className="mono">{current.runtimeId ?? "—"}</dd></div>
           <div><dt>Project</dt><dd>{projectExternalId ? <UiLabel icon="github">{projectExternalId}</UiLabel> : "—"}</dd></div>
           <div><dt>Issue</dt><dd>{current.issue ? <UiLabel icon={current.issue.provider}>{current.issue.identifier}</UiLabel> : "—"}</dd></div>
           <div><dt>Metadata</dt><dd className="taskPropertyLabels">{metadata.length > 0 ? metadata.map(([key, value]) => <UiLabel key={key}><span className="taskLabelKey">{key}</span>{typeof value === "string" ? value : JSON.stringify(value)}</UiLabel>) : "—"}</dd></div>

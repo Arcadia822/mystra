@@ -17,6 +17,7 @@ import { PrismaRdbProvider } from "../src/lib/db/prisma-provider";
 import { getHostLivenessRegistry } from "../src/lib/runtime/runtime-liveness";
 import { RuntimeSessionService } from "../src/lib/sessions/runtime-session-service";
 import { SessionService } from "../src/lib/sessions/session-service";
+import { TaskSessionLaunchService } from "../src/lib/sessions/task-session-launch-service";
 import { TaskProductionService } from "../src/lib/tasks/task-production-service";
 
 const migrationDirectories = [
@@ -169,8 +170,11 @@ export async function createSessionE2eFixture() {
   });
 
   const workspaceService = {
-      get: async (input: { actor: { teamId: string }; taskId: string }) => {
-        const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.actor.teamId });
+      get: async (input: { actor: { teamId: string }; taskId: string; runtimeId: string }) => {
+        const ready = await db.getTaskWorkspace(input.taskId, {
+          teamId: input.actor.teamId,
+          runtimeId: input.runtimeId,
+        });
         return ready ? taskWorkspaceViewSchema.parse({
           id: ready.id,
           taskId: ready.taskId,
@@ -190,7 +194,10 @@ export async function createSessionE2eFixture() {
         }) : undefined;
       },
       setup: async (input: { actor: { teamId: string }; taskId: string; runtimeId: string }) => {
-        const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.actor.teamId });
+        const ready = await db.getTaskWorkspace(input.taskId, {
+          teamId: input.actor.teamId,
+          runtimeId: input.runtimeId,
+        });
         if (!ready || ready.runtimeId !== input.runtimeId) throw new Error("Ready E2E Workspace is unavailable");
         return {
           workspace: taskWorkspaceViewSchema.parse({
@@ -215,7 +222,10 @@ export async function createSessionE2eFixture() {
         };
       },
       resolveSessionAttachment: async (input: { teamId: string; taskId: string; requestedRuntimeId: string }) => {
-        const ready = await db.getTaskWorkspaceByTaskId(input.taskId, { teamId: input.teamId });
+        const ready = await db.getTaskWorkspace(input.taskId, {
+          teamId: input.teamId,
+          runtimeId: input.requestedRuntimeId,
+        });
         return sessionWorkspaceAttachmentSchema.parse({
           kind: "task",
           taskWorkspaceId: ready!.id,
@@ -232,6 +242,12 @@ export async function createSessionE2eFixture() {
     now,
   });
   const production = new TaskProductionService({ db, workspace: workspaceService, sessions, now });
+  const taskSessionLaunches = new TaskSessionLaunchService({
+    db,
+    workspace: workspaceService,
+    sessions,
+    production,
+  });
   let tokenSequence = 0;
   const runtimeSessions = new RuntimeSessionService({
     db,
@@ -244,6 +260,7 @@ export async function createSessionE2eFixture() {
     db,
     sessions,
     production,
+    taskSessionLaunches,
     runtimeSessions,
     endpoint: server.endpoint,
     actor: { actorId: registration.user.id, teamId, roles: ["owner" as const] },

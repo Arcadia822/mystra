@@ -57,6 +57,13 @@ taco_scope: plan
 **Rationale**: 当前实现需要一个可早于 Session 存在的 durable identity，才能跨事务提交后的 Workspace preparation 与 Session launch continuation 保持幂等；`TaskExecutionAttempt` 准确描述这个边界，同时避免把内部机制伪装成用户需要认识的 Harness 产品概念。
 **Alternatives considered**: 保留 Harness（owner 否决，产品语义不清）；命名 InitHarnessSnapshot（记录会在初始化后继续关联 Workspace/Session 与失败事实，snapshot 语义不实）；直接折叠进 Session（Session 创建前无法承载 attempt identity/冻结输入，且会混淆手动 Session）。
 
+## Decision 10：Workspace identity 是 `<Task, Runtime>`，launch 内部拥有 setup
+
+**Decision**: `TaskWorkspace` 由 `(taskId, runtimeId)` 唯一标识。Human 发起 Session 时只选择 Provider。首次 launch 用 Provider availability 解析 Runtime，并将其原子写入 nullable `Task.runtimeId`；该 Task Runtime Context 首次写入后不可变。后续 launch 只验证 Provider 在锁定 Runtime available，查找该 Runtime 的精确 Workspace，absent 自动 setup、failed 自动 retry、queued/preparing 幂等续接，ready 后创建 Session。同一 Runtime 上不同 Provider 复用 Workspace。
+**Rationale**: Workspace 是 Runtime 上的实际执行工作目录，不应错误归属于 Provider，也不应成为 Human 需要提前创建或理解的产品步骤。Task Runtime Context 防止同一 Task 的多个 Session 静默落在不同主机上，避免尚未定义同步协议时出现分叉工作目录；composite Workspace identity 仍为未来跨 Runtime 同步保留副本表达能力。
+**Deferred**: 不同 Runtime Workspace 之间的内容同步、复制、合并、冲突解决和一致性协议，以及解锁、迁移或 failover Task Runtime Context 均不属于 054；不得为未来同步预置双写、后台复制或抽象 Workflow。
+**Alternatives considered**: Task 全局唯一 Workspace（无法表达多 Runtime）；`(Task, Provider)` Workspace（owner 更正，Provider 不是物理 Workspace owner）；每 Session Workspace（破坏同一 Task/Runtime 的共享工作目录）；要求 Human 先 Setup Workspace（暴露内部编排并造成当前 UX 故障）。
+
 ## GitNexus Evidence
 
 - `AppShell`: LOW，2 total upstream impacts。

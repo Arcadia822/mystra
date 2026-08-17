@@ -350,9 +350,9 @@ export interface RdbProvider {
   resolveWorkloadExecution(executionCodeHash: string): Promise<ResolvedWorkloadExecution | undefined>;
 
   createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult>;
-  getTaskWorkspaceByTaskId(
+  getTaskWorkspace(
     taskId: string,
-    options: { teamId: string },
+    options: { teamId: string; runtimeId: string },
   ): Promise<TaskWorkspaceTrusted | undefined>;
   getTaskWorkspaceById(
     workspaceId: string,

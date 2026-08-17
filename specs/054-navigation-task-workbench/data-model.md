@@ -5,9 +5,11 @@ taco_scope: plan
 
 ## Task
 
-沿用现有字段；现有 `productionStatus` 直接重命名为 `status` 并收敛为 `pending | in_progress | blocked | done | canceled`；新增 `metadata: Record<string, JsonValue>`，默认 `{}`。Metadata 是 Task 对象内部字段，不新增 `error/failed/waiting_for_review`，不保存外部 snapshot。
+沿用现有字段；现有 `productionStatus` 直接重命名为 `status` 并收敛为 `pending | in_progress | blocked | done | canceled`；新增 `metadata: Record<string, JsonValue>`，默认 `{}`；新增 `runtimeId: UUID | null` 作为 Task Runtime Context。Metadata 与 Runtime Context 都是 Task 对象内部字段，不新增 `error/failed/waiting_for_review`，不保存外部 snapshot。
 
 Task object、shared schema、create/read/update API、RDB contract、SQLite/PostgreSQL Prisma field 与底层 column 统一使用 `status`。对应 schema/type 使用 `taskStatusSchema` / `TaskStatus`；不保留 `productionStatus`、`production_status`、`taskProductionStatusSchema`、`TaskProductionStatus` alias、双读或双写。`statusRevision`、`statusNote`、`statusUpdatedAt`、`statusActor` 保留，因为这些后缀区分状态投影的不同属性，而不是重复 Task ownership。
+
+`runtimeId` 在 Task create 时固定为 null，不进入 public create/PATCH input。首次 Session launch 在短 RDB 事务内解析 Runtime 并以 null 条件原子写入；并发首发只有一个 Runtime 可胜出。首次非 null 写入后不可变，后续 Session 只能使用该 Runtime，Provider 必须在该 Runtime available。Task list/detail/create/update responses 均返回 nullable `runtimeId`；Right Panel 可只读显示，不能编辑。
 
 ## Task.metadata
 
@@ -35,10 +37,14 @@ Team 1 ── * Task
                 ├── 0..1 Project reference
                 ├── 0..1 exact Issue reference
                 ├── 0..1 TaskExecutionAttempt (internal production-attempt coordination record)
+                ├── 0..1 locked Runtime context (Task.runtimeId, immutable after first write)
+                ├── 0..* TaskWorkspace (unique by taskId + runtimeId; secondary copies reserved for future sync)
                 └── 0..* Session
 ```
 
-TaskExecutionAttempt 不是 054 的用户可见产品实体、导航资源或 TaskWorkbenchItem 字段；这里仅记录现有 Start/Workspace/Autopilot Session 链路的持久化约束。不存在 TaskLabel 资源或子表。Project/Issue mutable snapshot 不是 TaskWorkbenchItem 的输入。
+`(taskId, runtimeId)` 唯一。首次 Session launch 根据 Provider availability 解析 Runtime 并锁定 `Task.runtimeId`；后续 Session 只复用该 Runtime 的 Workspace，同一 Runtime 上不同 Provider 不创建第二个 Workspace。另一 Runtime 的 Workspace 只能由未来同步能力或内部 fixture 建立，不能被 054 的 Session launch 用来切换 Runtime。Runtime 不由 Session 表单提交。Workspace absent/failed/queued/preparing/ready 的处理全部属于 Session launch orchestration，不是用户操作。不同 Runtime Workspace 的未来同步可能性被保留，但同步、复制、冲突解决与 Session failover 不属于 054。
+
+TaskExecutionAttempt 不是 054 的用户可见产品实体、导航资源或 TaskWorkbenchItem 字段；这里仅记录 Session launch 自动 Workspace 初始化与首个 Session 续接的内部持久化约束。不存在 TaskLabel 资源或子表。Project/Issue mutable snapshot 不是 TaskWorkbenchItem 的输入。
 
 ## State Transition Table
 

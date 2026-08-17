@@ -49,7 +49,7 @@ type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSal
 type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
 type AgentUpdate = Partial<Pick<Agent, "name" | "systemPrompt" | "revision" | "status" | "archivedAt" | "updatedAt">>;
 type TaskUpdate = Partial<Pick<Task,
-  "title" | "description" | "status" | "metadata" | "statusRevision" | "statusNote" | "statusUpdatedAt" | "statusActor" | "updatedAt"
+  "title" | "description" | "status" | "metadata" | "runtimeId" | "statusRevision" | "statusNote" | "statusUpdatedAt" | "statusActor" | "updatedAt"
 >>;
 type TaskExecutionAttemptUpdate = Partial<Pick<TaskExecutionAttempt,
   "workspaceId" | "sessionId" | "capabilityRevokedAt" | "setupFailureCode" | "setupFailureMessage" | "updatedAt"
@@ -78,6 +78,7 @@ type TaskWhere = {
   issueScopeExternalId?: string;
   issueExternalId?: string | { in: string[] };
   status?: string;
+  runtimeId?: string | null;
   statusRevision?: number;
 };
 
@@ -176,7 +177,9 @@ export interface MystraPrismaDelegates {
       where: { id?: string; teamId?: string; runtimeId?: string; state?: string; activeAttemptSequence?: number };
       data: TaskWorkspaceUpdate;
     }): Promise<CountResult>;
-    findUnique(args: { where: { id: string } | { taskId: string } }): Promise<TaskWorkspace | null>;
+    findUnique(args: {
+      where: { id: string } | { taskId_runtimeId: Pick<TaskWorkspace, "taskId" | "runtimeId"> };
+    }): Promise<TaskWorkspace | null>;
     findMany(args: {
       where?: { teamId?: string; runtimeId?: string; state?: string };
       orderBy: OrderBy;

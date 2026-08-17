@@ -192,7 +192,7 @@ Notes:
 - [x] 将 Create Session Modal 收敛为 28px header/footer rows；标题为 `Create Session`，header Close 是唯一取消入口。
 - [x] Body 只保留一个 Prompt input；footer 左侧为 Provider dropdown，右侧为 `Create`，删除 Cancel 与 `Launch Session`。
 - [x] Prompt input 保留既有 placeholder，并使用共享 textarea 的无边框、透明背景、不可 resize composition。
-- [x] Runtime 继续由服务端从 ready Workspace 解析，不在表单显示/提交；Agent Context 在本 UI 中省略/null。
+- [x] 首次 Runtime 由服务端根据 Provider 解析并原子锁定为不可变 `Task.runtimeId`，后续 Session 只能使用该 Runtime；Workspace 按 `<Task, Runtime>` 自动查找/setup/retry。Runtime/Workspace 均不在表单显示或提交，Agent Context 在本 UI 中省略/null。
 - [x] Prompt UI copy 映射既有 `manualContext.text`，不新增 `prompt` domain/request field，也不覆盖固定 `firstUserMessage`。
 
 ### Iteration 15 — 2026-08-14

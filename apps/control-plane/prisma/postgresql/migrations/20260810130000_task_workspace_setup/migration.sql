@@ -45,7 +45,7 @@ CREATE TABLE "task_workspaces" (
     CONSTRAINT "task_workspaces_attempt_sequence_check" CHECK ("active_attempt_sequence" > 0)
 );
 
-CREATE UNIQUE INDEX "task_workspaces_task_id_key" ON "task_workspaces"("task_id");
+CREATE UNIQUE INDEX "task_workspaces_task_id_runtime_id_key" ON "task_workspaces"("task_id", "runtime_id");
 CREATE INDEX "task_workspaces_team_id_state_created_at_idx" ON "task_workspaces"("team_id", "state", "created_at");
 CREATE INDEX "task_workspaces_runtime_id_state_created_at_idx" ON "task_workspaces"("runtime_id", "state", "created_at");
 CREATE INDEX "task_workspaces_connection_id_idx" ON "task_workspaces"("connection_id");

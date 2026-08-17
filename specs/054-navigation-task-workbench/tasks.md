@@ -106,13 +106,23 @@ taco_scope: tasks
 - [x] T058 运行 Spec-Kit status/doctor 与 targeted consistency searches，并把结果记录到 `specs/054-navigation-task-workbench/checklists/requirements.md`
 - [x] T059 刷新 `specs/054-navigation-task-workbench/054-navigation-task-workbench.taco.html`，保留 review threads并交 owner review
 
+## Phase 11: Automatic `<Task, Runtime>` Workspace launch correction
+
+- [x] T060 [US6] 更新 shared Task/Workspace/launch schemas 与 SQLite/PostgreSQL schema：Task 增加 nullable `runtimeId`，public create/PATCH 不可写；`TaskWorkspace` 以 `(taskId, runtimeId)` 唯一并保留 provider-neutral Runtime attachment
+- [x] T061 [US6] 更新 RdbProvider、Prisma mapper/provider 与 provider contract tests，覆盖首次 `Task.runtimeId` conditional write、20-way 并发唯一赢家、首次写入后不可变、相同 Task/Runtime pair 并发去重与 dialect parity
+- [x] T062 [US6] 将 `POST /api/tasks/:id/sessions` 收敛为 Provider-driven orchestration：首次自动解析并锁定 Runtime，后续只验证 Provider 在锁定 Runtime available；自动查找/setup/retry Workspace、以 202 表达 preparing、ready 后幂等创建 Session
+- [x] T063 [US6] 将 pending Task 的首个 Session launch 与 `pending -> in_progress`/TaskExecutionAttempt 原子链路整合；移除 Human 必须先 Start 或 Setup Workspace 的前置操作
+- [x] T064 [US6] 更新 Task detail/Create Session UI 与 prototype：不读取 Workspace 作为可用性 gate，不显示 not-ready/setup/retry，accepted 时显示 Session starting 并自动轮询/导航
+- [x] T065 [US6] 添加 shared/service/route/component/browser regression tests，覆盖 absent、queued/preparing、ready、failed retry、provider unavailable、idempotent replay、并发首次 Runtime lock、后续 Session 不切换 Runtime、同 Runtime两 Provider 一个 Workspace；用内部 provider contract fixture 验证不同 Runtime Workspace composite identity，不把它作为 Session failover
+- [x] T066 运行双 schema generate/validate、focused/full tests、typecheck/lint/build、GitNexus detect_changes、browser journey、Spec-Kit status/doctor，并刷新 Taco
+
 ## Dependencies And Parallel Lanes
 
 - T001–T006 后才能进入 persistence/status/UI consumers。
 - Lane A：T007–T015；Lane B：T016–T024 中纯 UI tests/shared primitives可并行。
 - T025–T048 依赖 A+B；US3/US4/US5/US6 在 shared contracts稳定后可分 worktree，但共享 `AppShell` 的任务必须串行合并。
 - T049–T054 依赖 T004，必须在 final verification 前完成。
-- T055–T059 最后串行执行。
+- T055–T059 是原实现证据；T060–T066 作为 owner correction 在其后串行替换旧 New Session precondition。
 
 ## Implementation Gate
 

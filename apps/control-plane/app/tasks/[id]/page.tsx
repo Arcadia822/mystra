@@ -1,6 +1,6 @@
 "use client";
 
-import type { Project, TaskDetailResponse, TaskWorkspaceView } from "@mystra/shared";
+import type { Project, TaskDetailResponse } from "@mystra/shared";
 import { ShellIcon, UiButton } from "@mystra/ui";
 import { useParams } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
@@ -16,7 +16,6 @@ export default function TaskDetailPage() {
   const id = useParams<{ id: string }>().id;
   const detail = useResource<TaskDetailResponse>(`/api/tasks/${encodeURIComponent(id)}`, 0);
   const projects = useResource<{ projects: Project[] }>("/api/projects", 10_000);
-  const workspace = useResource<{ workspace: TaskWorkspaceView }>(`/api/tasks/${encodeURIComponent(id)}/workspace`, 3_000);
   const [createSessionOpen, setCreateSessionOpen] = useState(false);
   const newSessionRef = useRef<HTMLButtonElement>(null);
   const task = detail.data?.task;
@@ -55,7 +54,6 @@ export default function TaskDetailPage() {
           onClose={() => setCreateSessionOpen(false)}
           task={task}
           triggerRef={newSessionRef}
-          workspace={workspace.data?.workspace ?? null}
         />
       ) : null}
     </>

@@ -27,7 +27,8 @@ workload CLI. Feature 054 owns the current `pending/in_progress/blocked/done/can
 vocabulary, where `blocked` means Needs handoff; the workload CLI resolves
 execution context and permits only allowlisted Task status transitions. Feature 052 makes Agent Context optional: a
 TaskExecutionAttempt freezes the selected Agent snapshot only when supplied and always starts
-exactly one goal/autopilot Session after its Task Workspace is ready. Every Session
+exactly one goal/autopilot Session after its `<Task, Runtime>` Workspace is ready. First launch
+atomically locks nullable `Task.runtimeId`; every later Session stays on that Runtime. Every Session
 uses the program-owned, content-addressed Standard Execution Prompt; optional Agent
 Context is lower-priority supplemental text and never replaces platform constraints.
 The self-use Agent reads Linear through host-local `linctl` and creates its PR

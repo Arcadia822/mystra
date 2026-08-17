@@ -103,6 +103,7 @@ export const taskSchema = z
     issue: taskIssueReferenceSchema.nullable(),
     status: taskStatusSchema,
     metadata: taskMetadataSchema,
+    runtimeId: z.string().uuid().nullable().default(null),
     statusRevision: z.number().int().positive(),
     statusNote: taskStatusNoteSchema.nullable(),
     statusUpdatedAt: z.string().datetime(),

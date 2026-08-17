@@ -46,12 +46,13 @@ PR/self-test statements in feature 051.
 - **Runtime** is a first-class execution backend. Runtime capacity/slot limits
   remain a future capability; an idle ready Session does not reserve capacity.
 - **Workspace** is the unified execution working-directory and context-delivery
-  contract. Feature 048 prepares one Runtime-affine Workspace per eligible Task,
-  and resolves the same mutable Workspace attachment for every Task-bound
-  Session. Feature 048 does not create Session、initial turn or Provider
-  execution；feature 049 owns that atomic launch transaction. Future
-  preparation for deferred Session modes must reuse this contract rather than
-  introduce a parallel variant.
+  contract. Feature 054 supersedes 048's Task-global cardinality with one
+  shared-mutable Workspace per `<Task, Runtime>`. First Session launch uses Provider
+  availability to resolve and atomically lock nullable `Task.runtimeId`; every later
+  Session stays on that Runtime and automatically prepares or reuses its Workspace.
+  Human operators do not perform a separate setup step. Cross-Runtime Workspace
+  synchronization, Task Runtime migration and failover are deferred. Future preparation for deferred Session modes
+  must reuse this contract rather than introduce a parallel variant.
 - **Runtime/Runner** enrollment and Runtime capability persistence are owned by
   feature 044. Session claim, continuation and lifecycle reporting are owned by
   feature 049; capacity/slot persistence and scheduling are a future capability.

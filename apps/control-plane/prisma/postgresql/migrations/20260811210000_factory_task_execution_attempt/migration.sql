@@ -17,6 +17,7 @@ CREATE TABLE "task_execution_attempts" (
   "task_title" TEXT NOT NULL,
   "task_description" TEXT,
   "task_issue" TEXT,
+  "manual_context_text" TEXT,
   "runtime_id" TEXT NOT NULL,
   "provider_key" TEXT NOT NULL,
   "workspace_id" TEXT,

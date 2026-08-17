@@ -11,12 +11,15 @@ const services = vi.hoisted(() => ({
   get: vi.fn(),
   list: vi.fn(),
   listEvents: vi.fn(),
-  launchForTask: vi.fn(),
+  launch: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
 vi.mock("@/lib/sessions/session-service-factory", () => ({
   createSessionService: vi.fn(() => services),
+}));
+vi.mock("@/lib/sessions/task-session-launch-service-factory", () => ({
+  createTaskSessionLaunchService: vi.fn(() => services),
 }));
 
 const userId = randomUUID();
@@ -68,7 +71,7 @@ beforeEach(() => {
   vi.mocked(getDb).mockResolvedValue(db() as never);
   services.get.mockResolvedValue(session);
   services.list.mockResolvedValue([session]);
-  services.launchForTask.mockResolvedValue({ session, created: true });
+  services.launch.mockResolvedValue({ state: "ready", session, created: true });
   services.listEvents.mockResolvedValue({
     events: [2, 1].map((globalSequence) => ({
       eventId: randomUUID(),
@@ -106,7 +109,7 @@ describe("Task Session human routes", () => {
       body: JSON.stringify(input),
     }), { params: Promise.resolve({ id: taskId }) });
     expect(launched.status).toBe(201);
-    expect(services.launchForTask).toHaveBeenCalledWith({
+    expect(services.launch).toHaveBeenCalledWith({
       actor: { actorId: userId, teamId, roles: ["member"] }, taskId, request: input,
     });
 
@@ -117,7 +120,7 @@ describe("Task Session human routes", () => {
       body: JSON.stringify(standardInput),
     }), { params: Promise.resolve({ id: taskId }) });
     expect(standardLaunch.status).toBe(201);
-    expect(services.launchForTask).toHaveBeenLastCalledWith({
+    expect(services.launch).toHaveBeenLastCalledWith({
       actor: { actorId: userId, teamId, roles: ["member"] },
       taskId,
       request: { ...standardInput, agentId: null },
@@ -159,6 +162,18 @@ describe("Task Session human routes", () => {
     }), { params: Promise.resolve({ id: taskId }) });
     expect(response.status).toBe(401);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(services.launchForTask).not.toHaveBeenCalled();
+    expect(services.launch).not.toHaveBeenCalled();
+  });
+
+  it("returns 202 while the locked Runtime prepares the Task Workspace", async () => {
+    services.launch.mockResolvedValueOnce({ state: "preparing", sessionId });
+    const response = await launchTaskSession(request(`http://localhost/api/tasks/${taskId}/sessions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionId, providerKey: "codex" }),
+    }), { params: Promise.resolve({ id: taskId }) });
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ state: "preparing", sessionId });
   });
 });

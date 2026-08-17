@@ -10,6 +10,7 @@ import { requireHumanSession, requireTeamPermission } from "../../../_auth";
 import { getDb } from "@/lib/db";
 import { sessionErrorResponse, noStore } from "../../../_session-http";
 import { createSessionService } from "@/lib/sessions/session-service-factory";
+import { createTaskSessionLaunchService } from "@/lib/sessions/task-session-launch-service-factory";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -44,13 +45,13 @@ export async function POST(request: Request, context: Context) {
     const subject = await requireHumanSession(db, request, "task-session-launch");
     const active = await requireTeamPermission(db, subject, "team.resource.access");
     const input = taskSessionLaunchInputSchema.parse(await request.json());
-    const result = await createSessionService(db).launchForTask({
+    const result = await createTaskSessionLaunchService(db).launch({
       actor: { actorId: subject.user.id, teamId: active.team.id, roles: [active.role] },
       taskId,
       request: input,
     });
     return noStore(NextResponse.json(taskSessionLaunchResponseSchema.parse(result), {
-      status: result.created ? 201 : 200,
+      status: result.state === "preparing" ? 202 : result.created ? 201 : 200,
     }));
   } catch (error) {
     return sessionErrorResponse(error);

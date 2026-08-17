@@ -29,6 +29,7 @@ const issue = {
 };
 const task = {
   id: taskId, teamId, title: "Prepare repository", description: null, projectId, issue,
+  runtimeId,
   createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
 };
 const runtime = {
@@ -94,7 +95,7 @@ function fixture(overrides: {
     getTask: vi.fn(async () => "task" in overrides ? overrides.task : task),
     getProjectById: vi.fn(async () => "project" in overrides ? overrides.project : project),
     getRuntime: vi.fn(async () => "runtime" in overrides ? overrides.runtime : runtime),
-    getTaskWorkspaceByTaskId: vi.fn(async () => overrides.existing),
+    getTaskWorkspace: vi.fn(async () => overrides.existing),
     createTaskWorkspace: vi.fn(async (input) => ({
       workspace: { ...workspace, ...input },
       attempt,
@@ -234,7 +235,7 @@ describe("TaskWorkspaceService", () => {
     expect(failed.db.retryTaskWorkspace).toHaveBeenCalledWith({ workspaceId, teamId, runtimeId });
 
     await expect(failed.service.setup({ ...setupInput, runtimeId: randomUUID() }))
-      .rejects.toMatchObject({ code: "workspace_already_prepared" });
+      .rejects.toMatchObject({ code: "workspace_runtime_mismatch" });
   });
 
   it("resolves the same ready Task attachment repeatedly without repository or Issue side effects", async () => {

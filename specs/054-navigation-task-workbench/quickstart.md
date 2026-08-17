@@ -34,7 +34,7 @@ pnpm audit:task-session-terminology
 3. Tasks Table/Kanban 在相同 filters 下拥有相同 Task IDs；load more 保持条件。
 4. provider 正常/超时/不可用时，Project/Issue external identifiers 均稳定且 provider requests 不随 rows 增长。
 5. New Task 成功/validation/API error/double submit；`/new` 不再提供页面。
-6. Task detail New Session 成功/precondition/error/close，Task/TaskExecutionAttempt 状态无副作用。
+6. Task detail New Session 覆盖 Workspace absent 自动 setup、preparing continuation、ready reuse、failed retry、Provider error 与 close；Workspace 过程不在 UI 出现。
 
 ## Completion gates
 
@@ -72,6 +72,18 @@ pnpm audit:task-session-terminology
 - Kanban 五列计数为 pending 22、in_progress 20、blocked 20、done 20、canceled 19；列表请求均 HTTP 200，观察值约 5–240ms，低于 500ms gate。
 - Task detail Main 只显示 Sessions；Right Panel 显示 repository external ID、Issue identifier、Task metadata 与 status history；完整 Session UUID 可见，panel 可收起/恢复。
 - Task detail 320px 页面无横向溢出；Sessions 列表保留自己的内部横向 viewport，不扩张页面。
-- 手动 New Session 成功后导航到 canonical Session；数据库证据为 Session 1→2、TaskExecutionAttempt 0→0、Task.status 保持 pending、Task.metadata 保持 `{}`。
-- Workspace not ready 时显示明确 inline error、禁用 Provider/Create，并可恢复关闭；New Task 成功只创建一个 pending Task，metadata 默认 `{}`。
+- 原实现证据：手动 New Session 只在 ready Workspace 上成功，并允许 pending Task 保持 pending。该证据已被 2026-08-17 owner correction 废止，不再作为验收结果。
+- 新验收要求：New Task 成功仍只创建 `runtimeId=null` 的 pending Task；首次 New Session 根据 Provider 解析 Runtime、原子锁定 `Task.runtimeId`、自动创建 `<Task, Runtime>` Workspace、原子进入 in_progress，并在 ready 后导航到 canonical Session。Workspace not ready 不得显示或禁用提交；后续 New Session 只能使用锁定 Runtime 上 available 的 Provider，同 Runtime 两个 Provider共用一个 Workspace。不同 Runtime Workspace 仅作为未来 sync 的持久化 seam，跨 Runtime sync、解锁、迁移与 failover 不在本期实现。
 - 应用 console 无错误；浏览器工具自身一次 Statsig timeout 不属于应用页面日志。
+
+### Automatic Task Runtime correction evidence — 2026-08-17
+
+- Shared Task response 增加 `runtimeId: UUID | null`；create/PATCH strict schemas 拒绝 caller 写入。SQLite/PostgreSQL Task schema 对等，`TaskWorkspace` 唯一键为 `(taskId, runtimeId)`。
+- RDB 20-way concurrent first Start contract 只有一个成功 Runtime winner；Task conditional update 与后续 mismatch rejection 保证 first non-null write immutable。
+- `POST /api/tasks/:id/sessions` 现在返回 `202 preparing` 或 `ready` result；pending Task 首次 launch 原子进入 `in_progress`、冻结 TaskExecutionAttempt launch input，并自动 setup/continue Workspace。终态准备失败返回稳定错误，不会让 UI 无限轮询。
+- Create Session 不读取 Workspace API 作为 gate。Task 无 Runtime 时聚合 eligible Runtime 的 available Providers；锁定后只显示该 Runtime 的 Providers。相同 `sessionId` 自动轮询，ready 后进入 canonical Session URL；Right Panel 只读显示 Task Runtime。
+- 2026-08-17 最终 root gates：typecheck、lint、build、双 Prisma validate、术语审计均通过；137 个 test files 通过、1 个 file 跳过，653 tests 通过、22 tests 跳过。其中 Control Plane 387/387、Shared 153/153、UI 30/30、Spec Prototype 37/37、Agent adapters 9/9、Agent CLI 5/5、Runner daemon 32/32。
+- Session replay 回归覆盖 Runtime 在 Session 已持久化后离线的情况：相同 `sessionId` 仍返回 canonical Session，不让当前 liveness 改写幂等历史。
+- 真实浏览器：Task 创建 Session 的 POST 返回 201 并自动进入 `/sessions/:id`；Task Right Panel 显示锁定 Runtime；第二个 Session 再次返回 201。持久化检查为 2 Sessions、1 distinct Runtime，且 Task/Session Runtime 一致；页面无 framework error overlay。
+- 浏览器 QA 使用临时本地账号、Runtime 与伪 ready Workspace 仅验证 UI/API/lock/navigation。伪 Workspace 的 runner-side attachment 按预期失败，不作为真实 repository materialization 成功证据；Workspace absent/preparing/retry 由 service/route/RDB integration contracts覆盖。
+- QA 后已停止临时 Runner/Browser，并按 owner 授权再次 reset `/apps/control-plane/data/mystra.db`；测试数据未保留、未备份。

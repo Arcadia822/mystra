@@ -10,7 +10,7 @@ describe("CreateSessionDialog composition", () => {
     expect(source).toContain('aria-label="Provider"');
     expect(source).toContain("Session-only context, constraints, or a specific focus");
     expect(source).toContain('from "@mystra/shared/session"');
-    expect(source).toContain('import type { RuntimeView, Session, Task, TaskWorkspaceView } from "@mystra/shared"');
+    expect(source).toContain('TaskSessionLaunchResponse');
     expect(source).toContain("manualContext: { text: prompt.trim() }");
     expect(source).not.toContain('aria-label="Runtime"');
     expect(source).not.toContain('aria-label="Agent Context"');
@@ -18,9 +18,12 @@ describe("CreateSessionDialog composition", () => {
     expect(source).not.toContain("Launch Session");
   });
 
-  it("keeps precondition/API errors in the modal and restores trigger focus on close", () => {
-    expect(source).toContain('workspace?.state !== "ready"');
+  it("automatically waits for Workspace preparation and restores trigger focus on close", () => {
+    expect(source).not.toContain('workspace?.state !== "ready"');
+    expect(source).not.toContain("Task Workspace is not ready");
     expect(source).toContain("providers.length === 0");
+    expect(source).toContain('payload.state === "ready"');
+    expect(source).toContain("await waitForPreparation");
     expect(source).toContain("setError(caught instanceof Error");
     expect(source).toContain("triggerRef.current?.focus()");
     expect(source).toContain('event.key !== "Escape"');

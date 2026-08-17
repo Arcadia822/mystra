@@ -1,6 +1,7 @@
 export type SessionFailureCode =
   | "session_not_found"
   | "task_not_found"
+  | "task_not_eligible"
   | "project_not_found"
   | "task_project_mismatch"
   | "agent_unavailable"

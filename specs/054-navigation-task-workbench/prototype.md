@@ -120,7 +120,7 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   `UiTextarea` Prompt input，并保留 placeholder `Session-only context, constraints, or a
   specific focus`；footer
   左侧是 available Provider 的 inline `UiDropdown`，右侧是文案为 `Create` 的 solid
-  inline action。Runtime 由服务端根据 ready Workspace 解析，不显示也不提交；Agent
+  inline action。首次 Runtime 由服务端根据 Provider 解析并锁定到 Task，后续 Session 复用该 Runtime；Workspace 按 `<Task, Runtime>` 自动查找或初始化；Runtime/Workspace 均不显示也不提交；Agent
   Context 省略/null，不出现控件；不渲染 Cancel、intro、notice 或 `Launch Session`。
   Close、Escape 与 backdrop 均可退出，关闭后焦点返回 Header trigger。
 - Prompt 是 `manualContext.text` 的 UI copy，不添加 `prompt` request/domain field，也不
@@ -215,7 +215,7 @@ display value。`ready` 显示为“Ready · can continue”，不是 Completed�
 
 - 使用固定 mock data，不调用 Mystra API，不验证 053 Overview 查询、RBAC、
   routing、偏好持久化或真实异步追加。
-- New Session Modal 只验证入口、字段 composition、关闭与焦点行为；Create 停在 API
+- New Session Modal 只验证入口、字段 composition、关闭与焦点行为；Create 停在自动 Workspace/Session launch API
   dispatch 边界，不宣称创建成功。production 成功/错误 journey 仍需接入既有
   `POST /api/tasks/:id/sessions` 后单独验证。
 - 主区域会用 contract-faithful mock 覆盖 loaded/full 组合；loading、empty、error、

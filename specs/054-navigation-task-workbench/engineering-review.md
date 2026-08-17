@@ -5,7 +5,7 @@ taco_scope: plan
 
 ## Verdict
 
-`CLEARED_WITH_GATES`。无未决产品决策。五项风险均有确定缓解策略并进入 tasks；没有 silent critical gap。
+`CLEARED_WITH_GATES`。2026-08-17 owner 将 Session launch 改为 Provider-resolved Runtime 与 automatic Workspace orchestration，明确 Workspace identity 为 `<Task, Runtime>`，并补充 `Task.runtimeId` 首次 launch 原子写入后不可变。新增高风险 gate 已进入 T060–T066；跨 Runtime Workspace sync 与 Task Runtime 解锁/迁移/failover deferred，没有未决产品决策。
 
 ## Step 0: Scope Challenge
 
@@ -19,7 +19,13 @@ taco_scope: plan
 
 ### Minimum complete change
 
-一个 Task.metadata contract、一种 page query、一次五态 replacement、一套 shared workbench composition。没有 TaskLabel 子资源、新服务、缓存、snapshot、provider proxy 或 view-preference persistence。
+一个 Task.metadata contract、一种 page query、一次五态 replacement、一套 shared workbench composition，以及一条由 Session launch 内部拥有的 `<Task, Runtime>` Workspace setup/retry/ready continuation。没有 TaskLabel 子资源、用户可见 Workspace setup、跨 Runtime sync、缓存、snapshot、provider proxy 或 view-preference persistence。
+
+### 2026-08-17 launch correction risks
+
+1. **Runtime lock 与 Workspace cardinality/persistence replacement**，P1：Task 增加 nullable、首次写入后不可变的 `runtimeId`，且 `taskId @unique` 改为 `(taskId, runtimeId) unique`，会影响双 Prisma schema、RdbProvider、production transaction、preparation claim 与 Session attachment。Gate：SQLite/PostgreSQL parity、20-way concurrent first launch 只有一个 Runtime winner、后续写入拒绝、同 pair 20-way race、同 Runtime 不同 Provider 复用；不同 Runtime Workspace 仅做 provider-contract seam 验证。
+2. **Long-running launch semantics**，P1：Workspace materialization 不能跨 HTTP/RDB 事务等待。Gate：短事务持久化稳定 launch identity，返回 `202 preparing`，runner ready callback 与 client poll 均幂等续接；不得用同步阻塞伪装自动化。
+3. **Task production ownership**，P1：pending Task 的首个 Session launch 必须复用 TaskExecutionAttempt/status audit，不得并行保留一个需要用户先点 Start 的入口。Gate：route/service E2E 证明一次 Human command 原子进入 `in_progress`，最终一个 Session；后续 Session 不覆盖 attempt 首 Session。
 
 ### NOT in scope
 
@@ -89,7 +95,7 @@ REGRESSION GATES
 | list query | provider unavailable | zero-fanout spy | no provider dependency | persisted IDs still visible |
 | status replace | stale revision | service/route | conflict | refresh/retry message |
 | New Task | double submit | browser/route | idempotency + disabled submit | one Task |
-| New Session | Workspace not ready | browser/route | no dispatch | explicit unavailable reason |
+| New Session | Workspace absent/not ready | browser/route/service | automatic setup or accepted poll | Session starting；不暴露 Workspace |
 | Metadata label measurement | resize/font change | component/browser | ResizeObserver remeasure | intact labels/+N |
 
 Silent unhandled failures: 0.
@@ -153,3 +159,23 @@ Silent unhandled failures: 0.
 - 646 tests 通过，21 tests 为既有显式 skipped；Control Plane 380 tests 通过。
 - 101-row browser fixture、五列 exact counts、load-more、320px overflow、dialog focus return、New Session no-attempt side effect 均有运行时证据。
 - Review 结论：0 个未解决 correctness、security、contract 或 UI-fusion finding。
+
+## Automatic Task Runtime Correction Review — 2026-08-17
+
+### Verdict
+
+`IMPLEMENTED_AND_VERIFIED`。Task Runtime Context 由首次 Provider-driven Session launch 原子写入，之后不可变；后续 Session 无 Runtime selector/failover，并复用相同 `<Task, Runtime>` Workspace。跨 Runtime sync、解锁与迁移仍明确 deferred。
+
+### Risk closure
+
+- `mapTask` impact 为 HIGH（9 direct / 19 total），通过 shared strict schema、双 Prisma parity、RDB route/full suites 与浏览器 projection gate 收口；其余 launch/workspace/UI symbols 为 LOW。
+- 20-way first Start race 只有一个 Runtime winner；Task row conditional update 包含当前 nullable Runtime，lost race 返回 conflict，不做 last-writer-wins。
+- Session HTTP 不跨 Workspace materialization 长事务：`202 preparing` 暴露稳定 `sessionId`，poll/callback 都复用 TaskExecutionAttempt continuation。`setupFailureCode` 被转为稳定失败，避免无限 preparing。
+- UI 完全移除 Workspace-ready precondition。Runtime 只作为 Task property 显示，不成为表单输入；Provider 列表在首启前来自 eligible Runtime，锁定后受 Task Runtime 约束。
+
+### Verification conclusion
+
+- Root typecheck/lint/test/build、双 schema validate、术语审计、RDB concurrency/parity、Session E2E 与 route/component tests 全绿。
+- Browser 观察到首次与后续 Session 均导航成功，Task/两条 Session 只有一个 Runtime，且 Right Panel 显示锁定值；无 framework error overlay。
+- Commit 前 `detect_changes(compare main)`：120 files、377 changed symbols、25 affected flows、CRITICAL。风险来自 054 既定的 RdbProvider/AppShell/Task status 跨层直接替换；新增 Runtime correction 的 `mapTask` 为 HIGH，其余 launch/workspace/UI symbols 为 LOW，全部 direct consumers 已由完整 suite 与 browser gate覆盖。
+- 最终本地 SQLite 已按 owner 授权清空重建。0 个未解决 correctness、contract 或 UI-fusion finding。

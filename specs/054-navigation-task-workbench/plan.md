@@ -27,7 +27,7 @@ taco_scope: plan
 - **RDB abstraction**: PASS WITH HIGH-RISK NOTE。只在现有 Task persistence seam 增加 page query 与单一 Metadata JSON field，SQLite/PostgreSQL 对等；查询时的 case-insensitive implementation 保持在 provider 内，不泄漏 Prisma/dialect。GitNexus 对整个 `RdbProvider` 报 CRITICAL（42 direct、149 total、44 flows），任务必须限制变更并跑全 contract suite。
 - **Team authorization**: PASS。所有列表、写入与 detail 均使用 active Team，不接受 caller-supplied cross-Team fallback。
 - **External ownership**: PASS。Project 显示 `repositoryExternalId`，Issue 显示 exact `identifier`；不保存/缓存 snapshot，不逐行解析 provider。
-- **Task/Session separation**: PASS。五态 Task 与 Session/internal TaskExecutionAttempt/Workspace facts 正交；TaskExecutionAttempt 只作为 Start 到首个 Autopilot Session 的内部协调记录，不进入产品导航或工作台；New Session 不改变 Task status/attempt session reference。
+- **Task/Session separation**: PASS WITH REPLACEMENT。五态 Task 与 Session/internal TaskExecutionAttempt/Workspace facts 正交；首次 Session launch 根据 Provider 解析 Runtime，并把 nullable `Task.runtimeId` 原子写入为不可变 Runtime Context，再以 `<Task, Runtime>` 解析或自动初始化 Workspace。pending Task 的首个 launch 复用 TaskExecutionAttempt 并进入 `in_progress`；后续 `in_progress` launch 不替换 attempt 首 Session，也不得切换 Runtime。Workspace 过程不进入导航或工作台。
 - **UI prototype reuse**: PASS。prototype 路由已存在；production/prototype 直接消费 `packages/ui`，只迁移 feature composition 与 production adapters。
 - **Verification/docs**: PASS。计划包含 schema/API/UI/CLI/prompt/tests/docs 与 browser evidence。
 
@@ -96,6 +96,7 @@ specs/054-navigation-task-workbench/# contracts, tests, review artifacts
 3. `waiting_for_review` 全调用面直接替换：status service、agent CLI、prompt、API/UI/fixtures/docs。
 4. 共享 UI 缺口与 production AppShell/root placeholder。
 5. Tasks Table/Kanban、New Task/Search、Active Tasks、Task detail/New Session adapters。
+6. Owner correction：将 TaskWorkspace 从 `taskId` 唯一直接替换为 `(taskId, runtimeId)` 唯一；Task 新增 nullable `runtimeId`，首次 Session launch 根据 Provider 自动解析并原子锁定，后续 Session 只能在该 Runtime 运行；setup/retry Workspace 以 accepted continuation 隐藏异步准备过程。跨 Runtime Workspace sync、Task Runtime 解锁/迁移/failover deferred。
 6. browser acceptance、performance evidence、terminology audit、Taco/status refresh。
 
 ## Engineering Review Gate

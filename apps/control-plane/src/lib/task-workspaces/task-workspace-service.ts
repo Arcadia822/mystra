@@ -31,7 +31,7 @@ type WorkspaceDb = Pick<
   | "getTask"
   | "getProjectById"
   | "getRuntime"
-  | "getTaskWorkspaceByTaskId"
+  | "getTaskWorkspace"
   | "createTaskWorkspace"
   | "retryTaskWorkspace"
 >;
@@ -82,7 +82,16 @@ export class TaskWorkspaceService {
     if (!task) {
       throw new TaskWorkspaceFailure("workspace_missing", "Task is unavailable");
     }
-    const existing = await this.#db.getTaskWorkspaceByTaskId(task.id, { teamId: input.actor.teamId });
+    if (task.runtimeId !== request.runtimeId) {
+      throw new TaskWorkspaceFailure(
+        "workspace_runtime_mismatch",
+        "Task Runtime Context does not match the requested Workspace Runtime",
+      );
+    }
+    const existing = await this.#db.getTaskWorkspace(task.id, {
+      teamId: input.actor.teamId,
+      runtimeId: request.runtimeId,
+    });
     if (existing) return this.#useExisting(existing, input.actor.teamId, request.runtimeId);
     if (!task.projectId) {
       throw new TaskWorkspaceFailure("task_project_required", "Task requires Project context");
@@ -132,9 +141,10 @@ export class TaskWorkspaceService {
     }
   }
 
-  async get(input: { actor: { teamId: string }; taskId: string }): Promise<TaskWorkspaceView | undefined> {
-    const workspace = await this.#db.getTaskWorkspaceByTaskId(input.taskId, {
+  async get(input: { actor: { teamId: string }; taskId: string; runtimeId: string }): Promise<TaskWorkspaceView | undefined> {
+    const workspace = await this.#db.getTaskWorkspace(input.taskId, {
       teamId: input.actor.teamId,
+      runtimeId: input.runtimeId,
     });
     return workspace ? toTaskWorkspaceView(workspace) : undefined;
   }
@@ -144,8 +154,9 @@ export class TaskWorkspaceService {
     taskId: string;
     requestedRuntimeId: string;
   }): Promise<SessionWorkspaceAttachment> {
-    const workspace = await this.#db.getTaskWorkspaceByTaskId(input.taskId, {
+    const workspace = await this.#db.getTaskWorkspace(input.taskId, {
       teamId: input.teamId,
+      runtimeId: input.requestedRuntimeId,
     });
     if (!workspace || workspace.state === "unavailable") {
       throw new TaskWorkspaceFailure("workspace_missing", "Ready Task Workspace is unavailable");

@@ -64,7 +64,7 @@ describe("Session execution SQLite/HTTP E2E", () => {
   it("executes the launch message and two continuations through one Provider session", async () => {
     fixture = await createSessionE2eFixture();
     const sessionId = crypto.randomUUID();
-    const launched = await fixture.sessions.launchForTask({
+    const launched = await fixture.taskSessionLaunches.launch({
       actor: fixture.actor,
       taskId: fixture.task.id,
       request: {
@@ -72,8 +72,11 @@ describe("Session execution SQLite/HTTP E2E", () => {
         manualContext: { text: "Exercise the Task-bound Web launch path" },
       },
     });
+    expect(launched.state).toBe("ready");
+    if (launched.state !== "ready") throw new Error("Expected ready Session launch");
     const firstMessageId = launched.session.activeMessageId!;
     expect(launched).toMatchObject({
+      state: "ready",
       created: true,
       session: { state: "queued", activeMessageId: firstMessageId, agentId: null, agentRevision: null },
     });

@@ -399,10 +399,17 @@ export const taskSessionLaunchInputSchema = z.object({
 export type TaskSessionLaunchInput = z.input<typeof taskSessionLaunchInputSchema>;
 export type ParsedTaskSessionLaunchInput = z.output<typeof taskSessionLaunchInputSchema>;
 
-export const taskSessionLaunchResponseSchema = z.object({
-  session: sessionSchema,
-  created: z.boolean(),
-}).strict();
+export const taskSessionLaunchResponseSchema = z.discriminatedUnion("state", [
+  z.object({
+    state: z.literal("preparing"),
+    sessionId: z.string().uuid(),
+  }).strict(),
+  z.object({
+    state: z.literal("ready"),
+    session: sessionSchema,
+    created: z.boolean(),
+  }).strict(),
+]);
 export type TaskSessionLaunchResponse = z.infer<typeof taskSessionLaunchResponseSchema>;
 
 export const sessionResponseSchema = z.object({ session: sessionSchema }).strict();

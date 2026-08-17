@@ -57,16 +57,18 @@ describe("TaskProductionService", () => {
       actor: { actorId: "owner-1", teamId: task.teamId },
       taskId: task.id,
       request: { agentId: id("5"), runtimeId: id("6"), providerKey: "codex", expectedRevision: 1, idempotencyKey: "assign-1" },
+      launch: { sessionId: id("20"), manualContextText: "Inspect the regression" },
     });
     expect(calls).toEqual(["assigned", "workspace"]);
     expect(result.attempt).toMatchObject({ agentName: "Production Agent", agentRevision: 7, agentSystemPrompt: "Frozen Agent prompt.", taskTitle: "Frozen title", workspaceId: id("8") });
+    expect(result.attempt).toMatchObject({ plannedSessionId: id("20"), manualContextText: "Inspect the regression" });
     expect(updateExecutionAttempt).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: id("8") }));
   });
 
   it("launches the planned Session once when Workspace becomes ready", async () => {
     const attempt = {
       id: id("1"), teamId: id("2"), taskId: id("3"), projectId: id("4"), agentId: id("5"), agentName: "Agent", agentRevision: 1,
-      agentSystemPrompt: "Prompt", taskTitle: "Task", taskDescription: null, taskIssue: null, runtimeId: id("6"), providerKey: "codex" as const,
+      agentSystemPrompt: "Prompt", taskTitle: "Task", taskDescription: null, taskIssue: null, manualContextText: null, runtimeId: id("6"), providerKey: "codex" as const,
       workspaceId: null, plannedSessionId: id("7"), sessionId: null, firstMessageId: id("8"), assignIdempotencyKey: "assign-1",
       assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,
       createdAt: now, updatedAt: now,
@@ -99,6 +101,8 @@ describe("TaskProductionService", () => {
       runtimeId: request.runtimeId,
       providerKey: request.providerKey,
       expectedRevision: request.expectedRevision,
+      plannedSessionId: null,
+      manualContextText: null,
     })).digest("hex");
     const task = {
       id: id("1"), teamId: actor.teamId, title: "Frozen title", description: null, projectId: id("3"), issue: null,
@@ -108,7 +112,7 @@ describe("TaskProductionService", () => {
     };
     const attempt: TaskExecutionAttempt = {
       id: id("9"), teamId: actor.teamId, taskId: task.id, projectId: task.projectId, agentId: request.agentId, agentName: "Agent", agentRevision: 1,
-      agentSystemPrompt: "Frozen prompt", taskTitle: task.title, taskDescription: null, taskIssue: null,
+      agentSystemPrompt: "Frozen prompt", taskTitle: task.title, taskDescription: null, taskIssue: null, manualContextText: null,
       runtimeId: request.runtimeId, providerKey: request.providerKey, workspaceId: null, plannedSessionId: id("10"), sessionId: null,
       firstMessageId: id("11"), assignIdempotencyKey: request.idempotencyKey, assignRequestFingerprint: requestFingerprint,
       capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: now, updatedAt: now,

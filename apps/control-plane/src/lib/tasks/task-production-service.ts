@@ -50,6 +50,7 @@ export class TaskProductionService {
     actor: { actorId: string; teamId: string };
     taskId: string;
     request: unknown;
+    launch?: { sessionId: string; manualContextText: string | null };
   }): Promise<TaskStartResult> {
     const request = taskStartRequestSchema.parse(input.request);
     const task = await this.#db.getTask(input.taskId, { teamId: input.actor.teamId });
@@ -62,6 +63,8 @@ export class TaskProductionService {
       runtimeId: request.runtimeId,
       providerKey: request.providerKey,
       expectedRevision: request.expectedRevision,
+      plannedSessionId: input.launch?.sessionId ?? null,
+      manualContextText: input.launch?.manualContextText ?? null,
     });
     if (!task.projectId || task.status !== "pending") {
       const replay = await this.#db.getExecutionAttemptByTaskId(task.id, { teamId: input.actor.teamId });
@@ -114,10 +117,11 @@ export class TaskProductionService {
       taskTitle: task.title,
       taskDescription: task.description,
       taskIssue: task.issue,
+      manualContextText: input.launch?.manualContextText ?? null,
       runtimeId: runtime.id,
       providerKey: request.providerKey,
       workspaceId: null,
-      plannedSessionId: this.#newId(),
+      plannedSessionId: input.launch?.sessionId ?? this.#newId(),
       sessionId: null,
       firstMessageId: this.#newId(),
       assignIdempotencyKey: request.idempotencyKey,
@@ -175,7 +179,11 @@ export class TaskProductionService {
   async continueAfterWorkspaceReady(input: { teamId: string; taskId: string }): Promise<TaskExecutionAttempt | undefined> {
     const attempt = await this.#db.getExecutionAttemptByTaskId(input.taskId, { teamId: input.teamId });
     if (!attempt) return undefined;
-    const workspace = await this.#workspace.get({ actor: { teamId: input.teamId }, taskId: input.taskId });
+    const workspace = await this.#workspace.get({
+      actor: { teamId: input.teamId },
+      taskId: input.taskId,
+      runtimeId: attempt.runtimeId,
+    });
     if (!workspace || workspace.state !== "ready") return attempt;
     let current = attempt.workspaceId === workspace.id
       ? attempt

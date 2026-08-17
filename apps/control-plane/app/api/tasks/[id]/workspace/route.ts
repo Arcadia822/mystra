@@ -18,9 +18,14 @@ export async function GET(request: Request, context: Context) {
     const db = await getDb();
     const subject = await requireHumanSession(db, request, "task-workspace-read");
     const active = await requireTeamPermission(db, subject, "team.resource.access");
+    const task = await db.getTask(taskId, { teamId: active.team.id });
+    if (!task?.runtimeId) {
+      throw new TaskWorkspaceFailure("workspace_missing", "Task Runtime Context is not initialized");
+    }
     const workspace = await createTaskWorkspaceService(db).get({
       actor: { teamId: active.team.id },
       taskId,
+      runtimeId: task.runtimeId,
     });
     if (!workspace) {
       throw new TaskWorkspaceFailure("workspace_missing", "Task Workspace has not been set up");

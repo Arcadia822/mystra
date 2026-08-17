@@ -19,7 +19,7 @@ const resolved = {
 const task = {
   id: "00000000-0000-4000-8000-000000000004", teamId, title: "Fix it", description: null,
   projectId, issue: { provider: "github" as const, connectionId, scopeExternalId: "repo-42", externalId: "issue-7", identifier: "7" },
-  status: "pending" as const, metadata: {}, statusRevision: 1, statusNote: null,
+  status: "pending" as const, metadata: {}, runtimeId: null, statusRevision: 1, statusNote: null,
   statusUpdatedAt: "2026-08-08T00:00:00.000Z",
   statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
   createdAt: "2026-08-08T00:00:00.000Z", updatedAt: "2026-08-08T00:00:00.000Z",

@@ -15,7 +15,7 @@ const ids = {
 function task(status: "in_progress" | "blocked" = "in_progress", revision = 2) {
   return {
     id: ids.task, teamId: ids.team, title: "Task", description: null, projectId: null, issue: null,
-    status, metadata: {}, statusRevision: revision, statusNote: null,
+    status, metadata: {}, runtimeId: null, statusRevision: revision, statusNote: null,
     statusUpdatedAt: "2026-08-11T00:00:00.000Z",
     statusActor: { kind: "system" as const, actorId: null, agentId: null, attemptId: null, sessionId: null },
     createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",

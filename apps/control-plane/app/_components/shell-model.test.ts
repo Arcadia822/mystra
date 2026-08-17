@@ -13,6 +13,7 @@ function task(overrides: Partial<TaskListItem> = {}): TaskListItem {
     issue: null,
     status: "pending",
     metadata: {},
+    runtimeId: null,
     statusRevision: 1,
     statusNote: null,
     statusUpdatedAt: "2026-08-05T00:00:00.000Z",

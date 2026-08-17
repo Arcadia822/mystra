@@ -57,15 +57,16 @@ TaskExecutionAttempt-driven Session still stores the resolved execution inputs, 
 attempt freezes optional Agent Context and coordinates when the Session is created or
 continued.
 Workspace is the unified execution working-directory and context-delivery
-surface; it is never a tenancy term. The current 048/049/050 slice supports
-Task-bound Sessions only: feature 048 prepares one Runtime-affine Task Workspace
-and resolves the same shared-mutable ref for each Session for that Task. Feature
-048 does not create Session、initial turn、Provider execution or Session events;
-feature 049 owns an atomic launch transaction that creates Session, resolves all
-inputs, composes the system prompt and first user message, then starts the
-selected Provider. Project-only and standalone Sessions are deferred; a future
-preparation policy must reuse this Workspace/attachment contract instead of
-creating a parallel type.
+surface; it is never a tenancy term. Feature 054 supersedes the original 048
+cardinality: Task-bound Sessions resolve one shared-mutable Workspace per
+`<Task, Runtime>`, unique by `(taskId, runtimeId)`. The Session launch service
+uses Provider availability to select a compatible Runtime on first launch and atomically
+locks nullable `Task.runtimeId`. Later Sessions must use that Runtime; the service
+automatically prepares, retries, or reuses its Workspace before creating the Session.
+Cross-Runtime Workspace synchronization, Task Runtime migration and failover are deferred.
+Project-only and standalone Sessions remain deferred; future
+preparation must reuse this Workspace/attachment type instead of creating a
+parallel type.
 TaskExecutionAttempt is the Task-bound attempt identity introduced by feature 051. It freezes
 an optional Agent name/revision/system-prompt snapshot and associates exactly one goal/autopilot Session in the
 first version. Task owns the production state machine; Session owns execution

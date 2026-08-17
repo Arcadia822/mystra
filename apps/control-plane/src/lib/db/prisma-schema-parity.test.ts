@@ -130,13 +130,14 @@ describe("Prisma provider schema parity", () => {
     expect(schema).not.toMatch(/TaskLabel|normalizedKey|normalizedValue|ordinal/u);
   });
 
-  it("models a singular Task Workspace and monotonically sequenced preparation attempts", () => {
+  it("models one Task Workspace per Runtime and monotonically sequenced preparation attempts", () => {
     const schema = modelSection(readSchema("sqlite"));
     const workspace = schema.match(/model TaskWorkspace \{[\s\S]*?\n\}/u)?.[0] ?? "";
     const attempt = schema.match(/model WorkspacePreparationAttempt \{[\s\S]*?\n\}/u)?.[0] ?? "";
 
-    expect(workspace).toMatch(/taskId\s+String\s+@unique/u);
+    expect(workspace).toMatch(/taskId\s+String/u);
     expect(workspace).toMatch(/runtimeId\s+String/u);
+    expect(workspace).toMatch(/@@unique\(\[taskId, runtimeId\]\)/u);
     expect(workspace).toMatch(/workspaceRef\s+String\?/u);
     expect(workspace).toMatch(/activeAttemptSequence\s+Int/u);
     expect(workspace).toMatch(/@@index\(\[runtimeId, state, createdAt\]\)/u);

@@ -1260,6 +1260,7 @@ export class PrismaRdbProvider implements RdbProvider {
           });
           if (
             task.projectId !== requestedAttempt.projectId
+            || (task.runtimeId !== null && task.runtimeId !== requestedAttempt.runtimeId)
             || requestedAttempt.teamId !== input.teamId
             || requestedAttempt.taskId !== task.id
             || requestedTransition.teamId !== input.teamId
@@ -1285,8 +1286,10 @@ export class PrismaRdbProvider implements RdbProvider {
               teamId: input.teamId,
               status: task.status,
               statusRevision: input.expectedRevision,
+              runtimeId: task.runtimeId,
             },
             data: {
+              runtimeId: requestedAttempt.runtimeId,
               status: "in_progress",
               statusRevision: requestedTransition.revision,
               statusNote: requestedTransition.note,
@@ -1307,6 +1310,7 @@ export class PrismaRdbProvider implements RdbProvider {
           return {
             task: mapTask({
               ...task,
+              runtimeId: requestedAttempt.runtimeId,
               status: "in_progress",
               statusRevision: requestedTransition.revision,
               statusNote: requestedTransition.note,
@@ -1500,7 +1504,7 @@ export class PrismaRdbProvider implements RdbProvider {
   }
 
   async createTaskWorkspace(input: TaskWorkspaceCreateInput): Promise<TaskWorkspaceCreateResult> {
-    const existing = await this.#findTaskWorkspaceCreateResult(input.taskId);
+    const existing = await this.#findTaskWorkspaceCreateResult(input.taskId, input.runtimeId);
     if (existing) return this.#requireSameTaskWorkspaceIntent(existing, input);
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -1566,7 +1570,7 @@ export class PrismaRdbProvider implements RdbProvider {
           conflictMessage: "Task already has a Workspace",
         });
         if (normalized.code !== "TASK_WORKSPACE_CONFLICT") throw normalized;
-        const raced = await this.#findTaskWorkspaceCreateResult(input.taskId);
+        const raced = await this.#findTaskWorkspaceCreateResult(input.taskId, input.runtimeId);
         if (!raced) throw normalized;
         return this.#requireSameTaskWorkspaceIntent(raced, input);
       }
@@ -1574,11 +1578,13 @@ export class PrismaRdbProvider implements RdbProvider {
     throw new RdbError("RDB_UNAVAILABLE", "Task Workspace transaction could not be serialized");
   }
 
-  async getTaskWorkspaceByTaskId(
+  async getTaskWorkspace(
     taskId: string,
-    options: { teamId: string },
+    options: { teamId: string; runtimeId: string },
   ): Promise<import("@mystra/shared").TaskWorkspaceTrusted | undefined> {
-    const row = await this.#client.taskWorkspace.findUnique({ where: { taskId } });
+    const row = await this.#client.taskWorkspace.findUnique({
+      where: { taskId_runtimeId: { taskId, runtimeId: options.runtimeId } },
+    });
     return row?.teamId === options.teamId ? mapTaskWorkspace(row) : undefined;
   }
 
@@ -2685,9 +2691,12 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async #findTaskWorkspaceCreateResult(
     taskId: string,
+    runtimeId: string,
     client: MystraPrismaDelegates = this.#client,
   ): Promise<TaskWorkspaceCreateResult | undefined> {
-    const workspace = await client.taskWorkspace.findUnique({ where: { taskId } });
+    const workspace = await client.taskWorkspace.findUnique({
+      where: { taskId_runtimeId: { taskId, runtimeId } },
+    });
     if (!workspace) return undefined;
     const attempt = await client.workspacePreparationAttempt.findUnique({
       where: {
@@ -2874,6 +2883,7 @@ export class PrismaRdbProvider implements RdbProvider {
           issueIdentifier: input.issue?.identifier ?? null,
           status: "pending",
           metadata: serializeJson(input.metadata),
+          runtimeId: null,
           statusRevision: 1,
           statusNote: null,
           statusUpdatedAt: timestamp,

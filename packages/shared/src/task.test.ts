@@ -54,6 +54,7 @@ describe("Task contracts", () => {
       { issueExternalId: issue.externalId },
       { agentId: "00000000-0000-4000-8000-000000000005" },
       { provider: "codex" },
+      { runtimeId: "00000000-0000-4000-8000-000000000006" },
       { branch: "feature/task" },
       { objective: "start a Session" },
     ]) {
@@ -101,6 +102,7 @@ describe("Task contracts", () => {
     expect(() => taskUpdateRequestSchema.parse({})).toThrow();
     expect(() => taskUpdateRequestSchema.parse({ projectId })).toThrow();
     expect(() => taskUpdateRequestSchema.parse({ issue })).toThrow();
+    expect(() => taskUpdateRequestSchema.parse({ runtimeId: "00000000-0000-4000-8000-000000000006" })).toThrow();
   });
 
   it("enforces text limits and the public Task shape", () => {
@@ -123,6 +125,7 @@ describe("Task contracts", () => {
       issue,
       status: "pending",
       metadata: { priority: "high", score: 2, nested: { enabled: true } },
+      runtimeId: null,
       statusRevision: 1,
       statusNote: null,
       statusUpdatedAt: "2026-08-08T00:00:00.000Z",
@@ -132,6 +135,7 @@ describe("Task contracts", () => {
     });
     expect(parsed.issue?.identifier).toBe("GH-42");
     expect(parsed.metadata).toEqual({ priority: "high", score: 2, nested: { enabled: true } });
+    expect(parsed.runtimeId).toBeNull();
     expect("issueDispatchKey" in parsed).toBe(false);
     expect(parsed.status).toBe("pending");
     expect("productionStatus" in parsed).toBe(false);
@@ -206,6 +210,7 @@ describe("Task contracts", () => {
       issue: null,
       status: "pending",
       metadata: { priority: "P1" },
+      runtimeId: "00000000-0000-4000-8000-000000000007",
       statusRevision: 1,
       statusNote: null,
       statusUpdatedAt: "2026-08-08T00:00:00.000Z",
@@ -218,6 +223,7 @@ describe("Task contracts", () => {
       nextCursor: null,
     });
     expect(page.items[0]?.metadata).toEqual({ priority: "P1" });
+    expect(page.items[0]?.runtimeId).toBe("00000000-0000-4000-8000-000000000007");
     expect("labels" in page).toBe(false);
   });
 });

@@ -11,6 +11,7 @@ const task = {
   issue: null,
   status: "pending" as const,
   metadata: {},
+  runtimeId: null,
   statusRevision: 1,
   statusNote: null,
   statusUpdatedAt: "2026-08-07T00:00:00.000Z",

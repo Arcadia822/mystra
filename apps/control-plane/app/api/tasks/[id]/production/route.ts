@@ -20,7 +20,13 @@ export async function GET(request: Request, context: Context) {
     const [attempt, transitions, workspace, sessions] = await Promise.all([
       db.getExecutionAttemptByTaskId(task.id, { teamId: active.team.id }),
       db.listTaskStatusTransitions({ taskId: task.id, teamId: active.team.id, limit: 100 }),
-      createTaskWorkspaceService(db).get({ actor: { teamId: active.team.id }, taskId: task.id }),
+      task.runtimeId
+        ? createTaskWorkspaceService(db).get({
+            actor: { teamId: active.team.id },
+            taskId: task.id,
+            runtimeId: task.runtimeId,
+          })
+        : Promise.resolve(undefined),
       db.listSessions({ teamId: active.team.id, taskId: task.id, limit: 1 }),
     ]);
     const promptEvent = sessions[0]

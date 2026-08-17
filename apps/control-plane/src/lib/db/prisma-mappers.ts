@@ -145,6 +145,7 @@ export function mapTask(row: PrismaTask): TaskRecord {
     },
     status: row.status,
     metadata: parseJsonObject(row.metadata),
+    runtimeId: row.runtimeId,
     statusRevision: row.statusRevision,
     statusNote: row.statusNote,
     statusUpdatedAt: row.statusUpdatedAt,

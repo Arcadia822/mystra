@@ -89,6 +89,7 @@ const claim = {
 
 function db() {
   return {
+    getTask: vi.fn(async () => ({ id: taskId, teamId, runtimeId })),
     getAuthSessionByTokenHash: vi.fn(async () => ({
       id: randomUUID(),
       userId,
@@ -201,7 +202,7 @@ describe("Runner Workspace routes", () => {
 });
 
 describe("Task Workspace operator route", () => {
-  it("sets up and reads the singular Team-scoped Workspace without exposing workspaceRef", async () => {
+  it("sets up and reads the Runtime-locked Team-scoped Workspace without exposing workspaceRef", async () => {
     vi.mocked(getDb).mockResolvedValue(db() as never);
     const setupResponse = await setupTaskWorkspace(new Request(
       `http://localhost/api/tasks/${taskId}/workspace`,
@@ -230,7 +231,7 @@ describe("Task Workspace operator route", () => {
       { headers: { authorization: "Bearer route-test-token-048" } },
     ), { params: Promise.resolve({ id: taskId }) });
     expect(getResponse.status).toBe(200);
-    expect(services.getWorkspace).toHaveBeenCalledWith({ actor: { teamId }, taskId });
+    expect(services.getWorkspace).toHaveBeenCalledWith({ actor: { teamId }, taskId, runtimeId });
     await expect(getResponse.json()).resolves.toEqual({ workspace });
   });
 

@@ -403,6 +403,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       taskTitle: task.title,
       taskDescription: task.description,
       taskIssue: task.issue,
+      manualContextText: null,
       runtimeId: runtime.id,
       providerKey: "codex" as const,
       workspaceId: null,
@@ -559,6 +560,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
           taskTitle: task.title,
           taskDescription: task.description,
           taskIssue: task.issue,
+          manualContextText: null,
           runtimeId: runtime.id,
           providerKey: "codex" as const,
           workspaceId: null,
@@ -779,7 +781,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.reportHostProviders("unknown-runner", registration.providers)).toBeUndefined();
   });
 
-  it("persists one Task Workspace, fences attempts, and preserves Runtime affinity", async () => {
+  it("persists one Task Workspace per Task and Runtime, fences attempts, and preserves Runtime affinity", async () => {
     const parent = await project();
     const task = (await db.createTask({
       teamId: parent.teamId,
@@ -820,11 +822,11 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       workspaceRef: null,
     });
     expect(created.attempt).toMatchObject({ sequence: 1, state: "queued" });
-    expect(await db.getTaskWorkspaceByTaskId(task.id, { teamId: parent.teamId }))
+    expect(await db.getTaskWorkspace(task.id, { teamId: parent.teamId, runtimeId: runtime.id }))
       .toEqual(created.workspace);
 
     const otherTeam = (await tenant()).initialTeam;
-    expect(await db.getTaskWorkspaceByTaskId(task.id, { teamId: otherTeam.id })).toBeUndefined();
+    expect(await db.getTaskWorkspace(task.id, { teamId: otherTeam.id, runtimeId: runtime.id })).toBeUndefined();
 
     const claimed = await db.claimTaskWorkspacePreparation({
       runnerId: registration.runnerId,
@@ -864,8 +866,13 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       failure: { code: "materialization_failed", message: "late failure" },
     })).rejects.toMatchObject({ code: "STALE_WORKSPACE_ATTEMPT" });
 
-    await expect(db.createTaskWorkspace({ ...input, runtimeId: randomUUID() }))
-      .rejects.toMatchObject({ code: "TASK_WORKSPACE_CONFLICT" });
+    const secondRuntime = await db.registerHostRuntime(workspaceRuntimeRegistration("Second Workspace host"));
+    const second = await db.createTaskWorkspace({ ...input, runtimeId: secondRuntime.id });
+    expect(second).toMatchObject({
+      created: true,
+      workspace: { taskId: task.id, runtimeId: secondRuntime.id },
+    });
+    expect(second.workspace.id).not.toBe(created.workspace.id);
   });
 
   it("retries a failed preparation under the same Workspace identity and marks missing ready data unavailable", async () => {
@@ -948,6 +955,81 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       workspaceRef: null,
       failureCode: "workspace_missing",
     });
+  });
+
+  it("atomically locks exactly one Task Runtime under twenty concurrent first starts", async () => {
+    const parent = await project();
+    const task = (await db.createTask({
+      teamId: parent.teamId,
+      projectId: parent.id,
+      title: "Lock one Runtime",
+      description: null,
+      idempotencyKey: randomUUID(),
+    })).task;
+    const runtimes = await Promise.all([
+      db.registerHostRuntime(workspaceRuntimeRegistration("Runtime lock A")),
+      db.registerHostRuntime(workspaceRuntimeRegistration("Runtime lock B")),
+    ]);
+    const timestamp = "2026-08-17T00:00:00.000Z";
+    const starts = await Promise.allSettled(Array.from({ length: 20 }, (_, index) => {
+      const runtime = runtimes[index % runtimes.length]!;
+      const attemptId = randomUUID();
+      const idempotencyKey = randomUUID();
+      const fingerprint = index.toString(16).padStart(64, "0");
+      return db.startTaskProduction({
+        teamId: parent.teamId,
+        taskId: task.id,
+        agentId: null,
+        expectedRevision: 1,
+        requestFingerprint: fingerprint,
+        attempt: {
+          id: attemptId,
+          teamId: parent.teamId,
+          taskId: task.id,
+          projectId: parent.id,
+          agentId: null,
+          agentName: null,
+          agentRevision: null,
+          agentSystemPrompt: null,
+          taskTitle: task.title,
+          taskDescription: task.description,
+          taskIssue: task.issue,
+          manualContextText: null,
+          runtimeId: runtime.id,
+          providerKey: "codex",
+          workspaceId: null,
+          plannedSessionId: randomUUID(),
+          sessionId: null,
+          firstMessageId: randomUUID(),
+          assignIdempotencyKey: idempotencyKey,
+          assignRequestFingerprint: fingerprint,
+          capabilityRevokedAt: null,
+          setupFailureCode: null,
+          setupFailureMessage: null,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        transition: {
+          id: randomUUID(),
+          teamId: parent.teamId,
+          taskId: task.id,
+          fromStatus: "pending",
+          toStatus: "in_progress",
+          revision: 2,
+          actor: { kind: "human", actorId: "owner", agentId: null, attemptId, sessionId: null },
+          note: null,
+          idempotencyKey,
+          requestFingerprint: fingerprint,
+          occurredAt: timestamp,
+        },
+      });
+    }));
+
+    const fulfilled = starts.filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<RdbProvider["startTaskProduction"]>>> => result.status === "fulfilled");
+    expect(fulfilled).toHaveLength(1);
+    const lockedRuntimeId = fulfilled[0]!.value.attempt.runtimeId;
+    expect((await db.getTask(task.id, { teamId: parent.teamId }))?.runtimeId).toBe(lockedRuntimeId);
+    expect(new Set(runtimes.map((runtime) => runtime.id))).toContain(lockedRuntimeId);
   });
 
   it("expires a preparation lease before accepting late reports and allows a fenced retry", async () => {
@@ -1325,6 +1407,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         id: attemptId, teamId: projectRecord.teamId, taskId: task.id, projectId: projectRecord.id,
         agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
         taskTitle: task.title, taskDescription: task.description, taskIssue: task.issue,
+        manualContextText: null,
         runtimeId: runtime.id, providerKey: "codex", workspaceId: null, plannedSessionId: sessionId,
         sessionId: null, firstMessageId: messageId, assignIdempotencyKey: assignKey,
         assignRequestFingerprint: assignFingerprint, capabilityRevokedAt: null,
@@ -1338,6 +1421,8 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       },
     });
     expect(assigned.task.status).toBe("in_progress");
+    expect(assigned.task.runtimeId).toBe(runtime.id);
+    expect((await db.getTask(task.id, { teamId: projectRecord.teamId }))?.runtimeId).toBe(runtime.id);
     const workspaceCreated = await db.createTaskWorkspace({
       teamId: projectRecord.teamId,
       taskId: task.id,
