@@ -13,7 +13,7 @@ import { agentCliBinDirectory } from "@mystra/agent-cli";
 import type { SessionClaimAssignment, SessionEventInput } from "@mystra/shared";
 
 import type { SessionControlPlaneClient } from "./session-client.js";
-import { runProviderProcess } from "./provider-process.js";
+import { runProviderProcess, type ProviderProcessObserver } from "./provider-process.js";
 
 type WorkspaceResolver = { resolveReadyWorkspace(ref: string): Promise<{ directory: string }> };
 
@@ -22,7 +22,11 @@ export async function executeSessionAssignment(input: {
   client: Pick<SessionControlPlaneClient, "appendEvents">;
   workspace: WorkspaceResolver;
   providerExecutable: string;
-  runProcess?: (command: ProviderSessionCommand, signal?: AbortSignal) => Promise<ProviderProcessResult>;
+  runProcess?: (
+    command: ProviderSessionCommand,
+    signal?: AbortSignal,
+    observer?: ProviderProcessObserver,
+  ) => Promise<ProviderProcessResult>;
   controlPlaneUrl?: string;
   signal?: AbortSignal;
 }): Promise<void> {
@@ -77,36 +81,72 @@ export async function executeSessionAssignment(input: {
     await input.client.appendEvents(assignment, [failureEvent(assignment, "provider_unavailable", "Provider is unsupported by this Runtime")]);
     return;
   }
+  let sequence = 1;
+  const event = (kind: SessionEventInput["kind"], payload: SessionEventInput["payload"], messageId?: string): SessionEventInput => ({
+    eventId: randomUUID(), sessionId: assignment.session.id, sourceId: `${assignment.lease.runnerId}:${assignment.message.messageId}`,
+    sourceSequence: sequence++, kind, version: 1, ...(messageId ? { messageId } : {}), payload, metadata: {}, occurredAt: new Date().toISOString(),
+  });
+  let responseStarted = false;
+  let startEventsPromise: Promise<void> = Promise.resolve();
+  const publishResponseStarted = (providerSessionId?: string): Promise<void> => {
+    if (responseStarted) return startEventsPromise;
+    responseStarted = true;
+    const events: SessionEventInput[] = [];
+    if (!assignment.lease.providerSessionId && providerSessionId) {
+      events.push(event("session.provider_started", { providerSessionId }));
+    }
+    events.push(event("session.response_started", {}, assignment.message.messageId));
+    startEventsPromise = input.client.appendEvents(assignment, events);
+    void startEventsPromise.catch(() => undefined);
+    return startEventsPromise;
+  };
+  let codexOutput = "";
+  const observer: ProviderProcessObserver | undefined = assignment.session.providerKey === "codex"
+    && !assignment.lease.providerSessionId
+    ? {
+        onStdoutChunk(chunk) {
+          if (responseStarted) return;
+          codexOutput = (codexOutput + chunk).slice(-65_536);
+          const providerSessionId = extractCodexThreadId(codexOutput);
+          if (providerSessionId) void publishResponseStarted(providerSessionId);
+        },
+      }
+    : undefined;
+  if (assignment.lease.providerSessionId) {
+    await publishResponseStarted();
+  } else if (assignment.session.providerKey === "copilot") {
+    await publishResponseStarted(assignment.session.id);
+  }
   let result: ProviderProcessResult;
   try {
-    result = await (input.runProcess ?? runProviderProcess)(command, input.signal);
+    result = await (input.runProcess ?? runProviderProcess)(command, input.signal, observer);
+    await startEventsPromise;
   } catch {
     if (input.signal?.aborted) {
-      await input.client.appendEvents(assignment, cancellationEvents(assignment));
+      await startEventsPromise;
+      await input.client.appendEvents(assignment, responseStarted
+        ? [event("session.response_canceled", { reason: "Runtime assignment was canceled" }, assignment.message.messageId)]
+        : cancellationEvents(assignment));
       return;
     }
-    await input.client.appendEvents(assignment, [failureEvent(assignment, "provider_start_failed", "Provider process failed to start")]);
+    await startEventsPromise;
+    await input.client.appendEvents(assignment, responseStarted
+      ? [event("session.response_failed", { code: "provider_start_failed", message: "Provider process failed to start" }, assignment.message.messageId)]
+      : [failureEvent(assignment, "provider_start_failed", "Provider process failed to start")]);
     return;
   }
   let parsed: ReturnType<typeof adapter.parseResult>;
   try {
     parsed = adapter.parseResult(result);
   } catch {
-    await input.client.appendEvents(assignment, [failureEvent(assignment, "provider_result_invalid", "Provider result could not be parsed")]);
+    await input.client.appendEvents(assignment, responseStarted
+      ? [event("session.response_failed", { code: "provider_result_invalid", message: "Provider result could not be parsed" }, assignment.message.messageId)]
+      : [failureEvent(assignment, "provider_result_invalid", "Provider result could not be parsed")]);
     return;
   }
   const providerSessionId = parsed.providerSessionId ?? assignment.lease.providerSessionId ?? assignment.session.id;
-  const timestamp = new Date().toISOString();
-  let sequence = 1;
-  const event = (kind: SessionEventInput["kind"], payload: SessionEventInput["payload"], messageId?: string): SessionEventInput => ({
-    eventId: randomUUID(), sessionId: assignment.session.id, sourceId: `${assignment.lease.runnerId}:${assignment.message.messageId}`,
-    sourceSequence: sequence++, kind, version: 1, ...(messageId ? { messageId } : {}), payload, metadata: {}, occurredAt: timestamp,
-  });
+  await publishResponseStarted(providerSessionId);
   const events: SessionEventInput[] = [];
-  if (!assignment.lease.providerSessionId) {
-    events.push(event("session.provider_started", { providerSessionId }));
-  }
-  events.push(event("session.response_started", {}, assignment.message.messageId));
   const assistantMessage = redactExecutionCode(
     extractAssistantMessage(assignment.session.providerKey, result.stdout),
     assignment.execution?.code,
@@ -118,6 +158,21 @@ export async function executeSessionAssignment(input: {
     ? event("session.response_completed", { stopReason: "end_turn" }, assignment.message.messageId)
     : event("session.response_failed", { code: "provider_failed", message: `Provider execution failed with exit code ${result.exitCode}` }, assignment.message.messageId));
   await input.client.appendEvents(assignment, events);
+}
+
+function extractCodexThreadId(stdout: string): string | undefined {
+  for (const line of stdout.split(/\r?\n/u)) {
+    if (!line.trim()) continue;
+    try {
+      const value = JSON.parse(line) as { type?: unknown; thread_id?: unknown };
+      if (value.type === "thread.started" && typeof value.thread_id === "string" && value.thread_id.length > 0) {
+        return value.thread_id;
+      }
+    } catch {
+      // Partial and diagnostic lines are retained until a complete thread event arrives.
+    }
+  }
+  return undefined;
 }
 
 function cancellationEvents(assignment: SessionClaimAssignment): SessionEventInput[] {

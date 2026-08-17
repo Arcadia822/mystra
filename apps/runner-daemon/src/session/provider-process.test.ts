@@ -48,6 +48,25 @@ describe("runProviderProcess", () => {
     expect(result.stderr).toHaveLength(1_048_576);
   });
 
+  it("observes stdout while retaining the final captured result", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "mystra-provider-observer-"));
+    directories.push(directory);
+    const chunks: string[] = [];
+
+    const result = await runProviderProcess(command([
+      process.execPath,
+      "-e",
+      "process.stdout.write('thread-started\\n')",
+    ], directory), undefined, {
+      onStdoutChunk(chunk) {
+        chunks.push(chunk);
+      },
+    });
+
+    expect(chunks.join("")).toBe("thread-started\n");
+    expect(result.stdout).toBe("thread-started\n");
+  });
+
   it("cancels the child process through AbortSignal", async () => {
     const directory = mkdtempSync(path.join(tmpdir(), "mystra-provider-abort-"));
     directories.push(directory);

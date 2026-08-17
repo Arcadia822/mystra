@@ -6,6 +6,76 @@ import type { ProviderSessionCommand } from "@mystra/agent-adapters";
 import { executeSessionAssignment } from "./session-worker.js";
 
 describe("executeSessionAssignment", () => {
+  it("reports initial and resumed responses as started before the Provider exits", async () => {
+    const appendEvents = vi.fn(async (_assignment: SessionClaimAssignment, _events: SessionEventInput[]) => undefined);
+    let finishProvider: ((result: { exitCode: number; stdout: string; stderr: string }) => void) | undefined;
+    const providerResult = new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve) => {
+      finishProvider = resolve;
+    });
+    const assignment = {
+      session: {
+        id: "00000000-0000-4000-8000-000000000001", teamId: "00000000-0000-4000-8000-000000000002",
+        taskId: "00000000-0000-4000-8000-000000000003", projectId: null,
+        runtimeId: "00000000-0000-4000-8000-000000000005", providerKey: "codex",
+        agentId: null, agentRevision: null, state: "dispatched",
+        activeMessageId: "00000000-0000-4000-8000-000000000007", lastMessageId: null,
+        interruptKind: null, continuationMode: null, failureCode: null, metadata: {},
+        createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
+      },
+      lease: {
+        id: "00000000-0000-4000-8000-000000000008", sessionId: "00000000-0000-4000-8000-000000000001",
+        runtimeId: "00000000-0000-4000-8000-000000000005", runnerId: "runner-1", leaseToken: "x".repeat(32),
+        providerSessionId: "provider-thread-1", leaseExpiresAt: "2026-08-10T00:01:00.000Z",
+        claimedAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
+      },
+      systemPrompt: "System prompt",
+      workspace: { kind: "task", taskWorkspaceId: "00000000-0000-4000-8000-000000000009", runtimeId: "00000000-0000-4000-8000-000000000005", workspaceRef: "host-task-workspace:00000000-0000-4000-8000-000000000009", sharingMode: "shared-mutable" },
+      message: { messageId: "00000000-0000-4000-8000-000000000007", content: [{ type: "text", text: "Continue" }] },
+    } as SessionClaimAssignment;
+
+    const execution = executeSessionAssignment({
+      assignment,
+      client: { appendEvents },
+      workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/mystra/bin/codex",
+      runProcess: vi.fn(async () => providerResult),
+    });
+
+    await vi.waitFor(() => expect(appendEvents).toHaveBeenCalledTimes(1));
+    expect(appendEvents.mock.calls[0]![1].map((event) => event.kind)).toEqual(["session.response_started"]);
+
+    finishProvider?.({ exitCode: 0, stdout: "", stderr: "" });
+    await execution;
+
+    appendEvents.mockClear();
+    let finishInitialProvider: ((result: { exitCode: number; stdout: string; stderr: string }) => void) | undefined;
+    const initialProviderResult = new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve) => {
+      finishInitialProvider = resolve;
+    });
+    const initialExecution = executeSessionAssignment({
+      assignment: { ...assignment, lease: { ...assignment.lease, providerSessionId: null } },
+      client: { appendEvents },
+      workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/mystra/bin/codex",
+      runProcess: vi.fn(async (_command, _signal, observer) => {
+        observer?.onStdoutChunk?.('{"type":"thread.started","thread_id":"provider-');
+        observer?.onStdoutChunk?.('thread-2"}\n');
+        return initialProviderResult;
+      }),
+    });
+
+    await vi.waitFor(() => expect(appendEvents).toHaveBeenCalledTimes(1));
+    expect(appendEvents.mock.calls[0]![1].map((event) => event.kind)).toEqual([
+      "session.provider_started", "session.response_started",
+    ]);
+    finishInitialProvider?.({
+      exitCode: 0,
+      stdout: '{"type":"thread.started","thread_id":"provider-thread-2"}\n',
+      stderr: "",
+    });
+    await initialExecution;
+  });
+
   it("releases a provider response as typed events", async () => {
     const appendEvents = vi.fn(async (_assignment: SessionClaimAssignment, _events: SessionEventInput[]) => undefined);
     const assignment = {
@@ -34,7 +104,7 @@ describe("executeSessionAssignment", () => {
       providerExecutable: "/opt/mystra/bin/codex",
       runProcess: vi.fn(async () => ({ exitCode: 0, stdout: '{"type":"thread.started","thread_id":"thread-1"}\n{"type":"item.completed","item":{"type":"agent_message","text":"Done"}}\n', stderr: "" })),
     });
-    const events = appendEvents.mock.calls[0]![1];
+    const events = appendEvents.mock.calls.flatMap((call) => call[1]);
     expect(events.map((event) => event.kind)).toEqual([
       "session.provider_started", "session.response_started", "session.agent_message_chunk", "session.response_completed",
     ]);
@@ -77,7 +147,7 @@ describe("executeSessionAssignment", () => {
       providerExecutable: "/opt/mystra/bin/codex",
       runProcess: vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" })),
     });
-    expect(appendEvents.mock.calls[0]![1].map((event) => event.kind)).toEqual([
+    expect(appendEvents.mock.calls.flatMap((call) => call[1]).map((event) => event.kind)).toEqual([
       "session.response_started", "session.response_completed",
     ]);
   });

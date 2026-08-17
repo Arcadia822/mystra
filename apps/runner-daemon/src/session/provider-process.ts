@@ -4,9 +4,14 @@ import type { ProviderProcessResult, ProviderSessionCommand } from "@mystra/agen
 
 const MAX_CAPTURED_PROVIDER_OUTPUT = 1_048_576;
 
+export type ProviderProcessObserver = {
+  onStdoutChunk?(chunk: string): void;
+};
+
 export function runProviderProcess(
   command: ProviderSessionCommand,
   signal?: AbortSignal,
+  observer?: ProviderProcessObserver,
 ): Promise<ProviderProcessResult> {
   const [executable, ...args] = command.argv;
   if (!executable) throw new Error("Provider command is empty");
@@ -21,7 +26,10 @@ export function runProviderProcess(
     let stderr = "";
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => { stdout = appendBounded(stdout, chunk); });
+    child.stdout.on("data", (chunk: string) => {
+      stdout = appendBounded(stdout, chunk);
+      observer?.onStdoutChunk?.(chunk);
+    });
     child.stderr.on("data", (chunk: string) => { stderr = appendBounded(stderr, chunk); });
     child.once("error", reject);
     child.once("close", (code) => resolve({ exitCode: code ?? 1, stdout, stderr }));
