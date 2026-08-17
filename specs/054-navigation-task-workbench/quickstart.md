@@ -87,3 +87,10 @@ pnpm audit:task-session-terminology
 - 真实浏览器：Task 创建 Session 的 POST 返回 201 并自动进入 `/sessions/:id`；Task Right Panel 显示锁定 Runtime；第二个 Session 再次返回 201。持久化检查为 2 Sessions、1 distinct Runtime，且 Task/Session Runtime 一致；页面无 framework error overlay。
 - 浏览器 QA 使用临时本地账号、Runtime 与伪 ready Workspace 仅验证 UI/API/lock/navigation。伪 Workspace 的 runner-side attachment 按预期失败，不作为真实 repository materialization 成功证据；Workspace absent/preparing/retry 由 service/route/RDB integration contracts覆盖。
 - QA 后已停止临时 Runner/Browser，并按 owner 授权再次 reset `/apps/control-plane/data/mystra.db`；测试数据未保留、未备份。
+
+### Independent Session execution-context correction — 2026-08-17
+
+- 真实 Session `43b54f0d-4f2f-474c-b894-934c9d2f61e4` 已被 Runner 正常领取并完成 Provider response；事件序列包含 `runtime_dispatched`、`provider_started`、`response_started` 与 `response_completed`，排除 Runner 未领取与网络阻塞。
+- 该 Session 是同一 Task 的后续独立 Session；唯一 `TaskExecutionAttempt` 仍正确绑定首个 Session `c7f00b8f-f4f0-435c-94a7-7fbc083a7ddc`，因此后续 Session dispatch lease 按合同不含 execution code。旧 Standard Execution Prompt 却无条件要求 `mystra-agent context get`，Agent 因 `MYSTRA_EXECUTION_CODE` 缺失报告 blocker。
+- 修复不扩大 capability：attempt-bound 首 Session 继续使用 `mystra-agent context get`；后续独立 Session 使用创建时已冻结的 embedded Task/Project/Issue facts 与独立 Workspace attachment，并明确 capability 缺失不是 blocker。
+- TDD 证据：新增回归在旧实现上失败；修复后 `system-prompt-assembler.test.ts` 与 `session-service.test.ts` 共 17/17 tests 通过。

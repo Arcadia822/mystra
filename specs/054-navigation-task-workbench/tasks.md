@@ -116,13 +116,19 @@ taco_scope: tasks
 - [x] T065 [US6] 添加 shared/service/route/component/browser regression tests，覆盖 absent、queued/preparing、ready、failed retry、provider unavailable、idempotent replay、并发首次 Runtime lock、后续 Session 不切换 Runtime、同 Runtime两 Provider 一个 Workspace；用内部 provider contract fixture 验证不同 Runtime Workspace composite identity，不把它作为 Session failover
 - [x] T066 运行双 schema generate/validate、focused/full tests、typecheck/lint/build、GitNexus detect_changes、browser journey、Spec-Kit status/doctor，并刷新 Taco
 
+## Phase 12: Independent Session execution-context correction
+
+- [x] T067 [US6] 复现后续独立 Session 因未绑定首个 `TaskExecutionAttempt` 而缺少 execution code、却被 Standard Execution Prompt 强制调用 `mystra-agent context get` 的合同冲突
+- [x] T068 [US6] 在 Standard Execution Prompt 与两类 `execution_context` 中显式区分 attempt-bound capability bootstrap 和 independent embedded-context bootstrap；不得把首个 attempt capability 复用给后续 Session
+- [x] T069 [US6] 运行 prompt/session focused regressions，确认独立 Session 不再把缺少 attempt capability 当作 blocker，且首个 Autopilot Session 仍强制执行 `mystra-agent context get`
+
 ## Dependencies And Parallel Lanes
 
 - T001–T006 后才能进入 persistence/status/UI consumers。
 - Lane A：T007–T015；Lane B：T016–T024 中纯 UI tests/shared primitives可并行。
 - T025–T048 依赖 A+B；US3/US4/US5/US6 在 shared contracts稳定后可分 worktree，但共享 `AppShell` 的任务必须串行合并。
 - T049–T054 依赖 T004，必须在 final verification 前完成。
-- T055–T059 是原实现证据；T060–T066 作为 owner correction 在其后串行替换旧 New Session precondition。
+- T055–T059 是原实现证据；T060–T066 作为 owner correction 在其后串行替换旧 New Session precondition；T067–T069 修复真实 Runner 验收发现的后续 Session bootstrap 合同冲突。
 
 ## Implementation Gate
 

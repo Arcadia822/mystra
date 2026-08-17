@@ -122,6 +122,17 @@ describe("assembleSystemPrompt", () => {
     expect(result.finalPrompt.indexOf("<agent_context>")).toBeLessThan(result.finalPrompt.indexOf("<execution_context>"));
   });
 
+  it("uses embedded authoritative context when an independent Task Session has no execution capability", () => {
+    const input = fixtures();
+    const result = assembleSystemPrompt({ ...input, providerKey: "codex" });
+
+    expect(result.finalPrompt).toContain("If it identifies this Session as bound to a TaskExecutionAttempt, run mystra-agent context get");
+    expect(result.finalPrompt).toContain("If it identifies an independent Task Session, use its embedded execution context");
+    expect(result.finalPrompt).toContain("This independent Task Session is not bound to a TaskExecutionAttempt capability");
+    expect(result.finalPrompt).not.toContain("Run mystra-agent context get before reading or changing the Task");
+    expect(result.finalPrompt).not.toContain("MYSTRA_EXECUTION_CODE");
+  });
+
   it("omits only the Agent Context component when no Agent is selected", () => {
     const input = fixtures();
     const result = assembleSystemPrompt({ ...input, agentContext: null, providerKey: "codex" });
