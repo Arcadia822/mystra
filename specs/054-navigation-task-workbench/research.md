@@ -64,6 +64,12 @@ taco_scope: plan
 **Deferred**: 不同 Runtime Workspace 之间的内容同步、复制、合并、冲突解决和一致性协议，以及解锁、迁移或 failover Task Runtime Context 均不属于 054；不得为未来同步预置双写、后台复制或抽象 Workflow。
 **Alternatives considered**: Task 全局唯一 Workspace（无法表达多 Runtime）；`(Task, Provider)` Workspace（owner 更正，Provider 不是物理 Workspace owner）；每 Session Workspace（破坏同一 Task/Runtime 的共享工作目录）；要求 Human 先 Setup Workspace（暴露内部编排并造成当前 UX 故障）。
 
+## Decision 11：Runtime CLI 是活合同，Workspace checkout 是工作对象
+
+**Decision**: Runner 为每个领取的 Session 注入 Runtime 所提供 `mystra-agent` 的绝对路径 `MYSTRA_AGENT_PATH`。Standard Execution Prompt 和 execution-context prompt 只允许通过该路径访问 workload capability，并明确实时 CLI/API 响应覆盖 Workspace 内冲突的源码、文档或生成 CLI。Agent 不得构建或调用 Workspace 副本中的 `mystra-agent`。
+**Rationale**: Workspace 是目标仓库的完整检出。当 Mystra 自身成为 Task 的目标仓库时，其中自然包含 shared schemas、CLI 和文档，而且检出 revision 可能落后于正在运行的 Control Plane。把这些待修改源码误当成部署合同会使 Agent 用旧状态词或旧命令覆盖 Runtime 事实。
+**Alternatives considered**: 从 Mystra Workspace 排除合同文件（会破坏完整源码检出和正常开发）；依赖 PATH 优先级但不声明权威边界（Agent 仍可主动构建并调用 Workspace copy）；兼容旧 CLI 命令（违反 pre-0.1 直接替换政策并延长合同分叉）。
+
 ## GitNexus Evidence
 
 - `AppShell`: LOW，2 total upstream impacts。

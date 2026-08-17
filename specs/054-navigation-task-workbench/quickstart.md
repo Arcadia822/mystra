@@ -96,3 +96,10 @@ pnpm audit:task-session-terminology
 - TDD 证据：新增 AgentExecutionService 与 SQLite RDB contract 回归在旧实现上分别以 `scope_mismatch` 和缺少 `executionCodeExpiresAt` 失败；修复后 prompt/session/RDB focused tests 48/48 通过。
 - 最终门禁：双 Prisma schema validate、术语审计、root typecheck/lint/build 全部通过；137 个 test files 通过、1 个 file 跳过，657 tests 通过、22 tests 跳过。GitNexus 对 71 个文件的直接合同替换报告 HIGH scope（139 changed symbols、15 affected processes），其风险来自跨层重命名范围；对应 shared、RDB、route、Session、Runner 与 UI contracts 均已由全量门禁覆盖。
 - 本地 pre-0.1 SQLite 已按 owner 授权无备份 reset，并应用 `20260811210000_factory_task_execution_context`；Control Plane `/login` 返回 HTTP 200/title `Mystra`，Runner 已重新注册。
+
+### Runtime-authoritative workload contract — 2026-08-17
+
+- 真实 Session `c3ed8b6a-3baf-4188-b67c-bfc6afe1134b` 已完成至 `ready`，事件序列到达 `session.response_completed`；Task 被 Agent 置为 `blocked`，并提交 PR #27。它没有卡死，但 Agent 因 Mystra self-hosting Workspace 中的旧 `waiting_for_review` 源码合同而构建 Workspace CLI，造成约 7 分钟无效工作并产生错误 blocker。
+- Runner 现在为 capability-bearing Session 注入 Runtime CLI 的绝对路径 `MYSTRA_AGENT_PATH`；Standard Execution Prompt 与两类 execution-context prompt 都要求通过 `"$MYSTRA_AGENT_PATH" context get` 获取活合同，并禁止构建或调用 Workspace copy。
+- Focused TDD：Control Plane prompt/session suites 17/17，Runner session-worker suite 3/3。完整门禁：typecheck、lint、build 通过；139 个 test files 通过、1 个跳过，657 tests 通过、22 tests 跳过。
+- GitNexus `detect_changes(scope=all)` 报告 11 个文件、12 个 changed symbols、0 affected processes、LOW risk；`assembleSystemPrompt` 预编辑 impact 为 LOW，2 个直接调用点、5 个总受影响符号，限定在 Sessions 模块。

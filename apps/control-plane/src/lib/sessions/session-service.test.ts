@@ -75,7 +75,7 @@ describe("SessionService.launch", () => {
     const persisted = createSessionWithEvents.mock.calls[0]![0];
     const prompt = persisted.events[1]!.payload.finalPrompt;
     expect(prompt).toContain("Frozen production Agent prompt");
-    expect(prompt).toContain("mystra-agent context get");
+    expect(prompt).toContain('"$MYSTRA_AGENT_PATH" context get');
     expect(prompt).toContain("linctl");
     expect(prompt).toContain("gh");
     expect(prompt).not.toContain("Frozen executionContext title");

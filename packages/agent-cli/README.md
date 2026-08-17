@@ -7,6 +7,12 @@ The Runtime injects only:
 
 - `MYSTRA_CONTROL_PLANE_URL`
 - `MYSTRA_EXECUTION_CODE`
+- `MYSTRA_AGENT_PATH`, the absolute path to the Runtime-provided CLI
+
+The Runtime-provided CLI and its live Control Plane responses are authoritative.
+A Workspace may contain an older checkout of Mystra itself when Mystra is the
+Task's target repository; that checkout is work product, not the active execution
+contract. Workloads must not build or invoke a Workspace copy of `mystra-agent`.
 
 Supported commands:
 

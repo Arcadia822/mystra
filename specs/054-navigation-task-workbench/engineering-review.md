@@ -173,6 +173,10 @@ Silent unhandled failures: 0.
 - Session HTTP 不跨 Workspace materialization 长事务：`202 preparing` 暴露稳定 `sessionId`，poll/callback 都复用 TaskExecutionContext continuation。`setupFailureCode` 被转为稳定失败，避免无限 preparing。
 - UI 完全移除 Workspace-ready precondition。Runtime 只作为 Task property 显示，不成为表单输入；Provider 列表在首启前来自 eligible Runtime，锁定后受 Task Runtime 约束。
 
+## Runtime-authoritative workload contract correction — 2026-08-17
+
+`CLEARED`。Mystra self-hosting Task 暴露了 Workspace checkout 与 deployed Runtime 的版本偏差：Agent 主动构建 Workspace 中的旧 CLI，并用旧 `waiting_for_review` 合同解释 live CLI。修复为 Runner 注入绝对 `MYSTRA_AGENT_PATH`，所有 prompt 明确 live CLI/API 覆盖 Workspace source/docs/generated CLI。GitNexus 对 `assembleSystemPrompt` 的 upstream impact 为 LOW（2 direct / 5 total，Sessions-only）；最终 detect_changes 为 LOW、0 affected processes。完整 typecheck/lint/test/build 通过。
+
 ### Verification conclusion
 
 - Root typecheck/lint/test/build、双 schema validate、术语审计、RDB concurrency/parity、Session E2E 与 route/component tests 全绿。

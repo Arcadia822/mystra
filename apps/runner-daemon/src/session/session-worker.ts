@@ -72,6 +72,7 @@ export async function executeSessionAssignment(input: {
         environment: {
           ...command.environment,
           PATH: [agentCliBinDirectory, process.env.PATH].filter(Boolean).join(path.delimiter),
+          MYSTRA_AGENT_PATH: path.join(agentCliBinDirectory, "mystra-agent"),
           MYSTRA_CONTROL_PLANE_URL: input.controlPlaneUrl,
           MYSTRA_EXECUTION_CODE: assignment.execution.code,
         },

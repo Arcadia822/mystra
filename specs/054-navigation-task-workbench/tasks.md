@@ -130,6 +130,13 @@ taco_scope: tasks
 - [x] T073 [US6] 更新 Standard Execution Prompt、Agent CLI identity、Task status actor、production projection、Prisma 双 schema 与回归合同
 - [x] T074 运行完整 tests/typecheck/lint/build、双 Prisma validate、术语审计、GitNexus detect_changes、重置本地 pre-0.1 数据并刷新 Taco
 
+## Phase 14: Runtime-authoritative workload contract
+
+- [x] T075 复现 Mystra self-hosting Workspace 中旧 `waiting_for_review` 合同诱导 Agent 构建并调用 Workspace CLI，而 live Runtime CLI 仅接受 `blocked|in_progress` 的版本偏差
+- [x] T076 为 Runner dispatch 增加 Runtime CLI 绝对路径 `MYSTRA_AGENT_PATH`，并以测试证明每个 capability-bearing Session 都注入该路径
+- [x] T077 更新 Standard Execution Prompt、execution-context prompt 与 Agent CLI 文档：live Runtime CLI/API 覆盖 Workspace 源码、文档和生成 CLI，禁止构建或调用 Workspace copy
+- [x] T078 运行 focused/full tests、typecheck/lint/build、GitNexus detect_changes、Session 状态复核并刷新 Taco
+
 ## Dependencies And Parallel Lanes
 
 - T001–T006 后才能进入 persistence/status/UI consumers。

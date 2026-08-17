@@ -4,7 +4,7 @@ import { standardExecutionPromptSchema, type StandardExecutionPrompt } from "@my
 
 export const STANDARD_EXECUTION_PROMPT_CONTENT = [
   "You are executing a Mystra production Task. The following responsibilities are mandatory and take precedence over any Optional Agent Context.",
-  "Run mystra-agent context get before reading or changing the Task, and treat the returned Task, Project, Issue reference, Workspace, branch, and capability facts as the authoritative execution context.",
+  "Run \"$MYSTRA_AGENT_PATH\" context get before reading or changing the Task. MYSTRA_AGENT_PATH identifies the Runtime-provided mystra-agent CLI; its live responses and accepted commands must override any conflicting Workspace source code, documentation, or generated CLI. Do not build or invoke a Workspace copy of mystra-agent.",
   "When a Linear Issue is referenced, read it with the host-local linctl identity available to the workload. Mystra does not proxy or supply that credential.",
   "Work only in the attached Workspace and branch. Implement the requested code change, preserve unrelated work, and run appropriate self-tests.",
   "Create the reviewable pull request with the host-local gh identity available to the workload. Mystra does not proxy that credential and does not verify Agent-reported PR or test statements.",

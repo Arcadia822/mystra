@@ -282,13 +282,19 @@ Task product surfaces rather than an Automations catalog.
 Feature 051 splits the clients by actor and authority. `mystra` is the
 Control Plane management CLI for Humans, external Agents, and automation.
 `mystra-agent` is the workload-local CLI for one execution context; Runtime
-injects `MYSTRA_CONTROL_PLANE_URL` and a short-lived, revocable
+injects `MYSTRA_CONTROL_PLANE_URL`, the absolute Runtime CLI path
+`MYSTRA_AGENT_PATH`, and a short-lived, revocable
 `MYSTRA_EXECUTION_CODE` bound to Team, Task, TaskExecutionContext, Session, and optional frozen Agent
 identity. It exposes `whoami`, schema-versioned `context get`, and Task status
 get/set over the dedicated TaskStatusService without accepting an arbitrary
 Task ID. Context contains the minimum Task/Project/Issue-reference/Workspace
-inputs and no external Issue body, Integration credential, or secret. Generic
-TaskExecutionContext CLI commands, heartbeat/event subscriptions, multiple Session
+inputs and no external Issue body, Integration credential, or secret.
+The Runtime CLI and its live Control Plane responses are authoritative over any
+conflicting source, documentation, or generated CLI inside the Workspace. A
+Workspace is the complete target-repository checkout; when Mystra itself is the
+target, its in-tree contracts are work product and may lag the deployed Runtime.
+Workloads must not build or invoke that Workspace copy of `mystra-agent`.
+Generic TaskExecutionContext CLI commands, heartbeat/event subscriptions, multiple Session
 orchestration, Artifact contracts, non-PR outputs and PR/self-test verification
 are deferred to explicit follow-up specifications.
 

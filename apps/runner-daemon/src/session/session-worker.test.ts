@@ -134,6 +134,7 @@ describe("executeSessionAssignment", () => {
     expect(runWithCapability.mock.calls[0]![0].environment).toMatchObject({
       MYSTRA_CONTROL_PLANE_URL: "http://127.0.0.1:3000",
       MYSTRA_EXECUTION_CODE: "execution-code-value-which-is-long-enough",
+      MYSTRA_AGENT_PATH: expect.stringMatching(/\/agent-cli\/bin\/mystra-agent$/u),
     });
     expect(runWithCapability.mock.calls[0]![0].environment.PATH).toContain("agent-cli/bin");
     expect(JSON.stringify(appendEvents.mock.calls.at(-1)?.[1])).not.toContain("execution-code-value-which-is-long-enough");

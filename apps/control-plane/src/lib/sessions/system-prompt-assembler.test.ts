@@ -126,7 +126,10 @@ describe("assembleSystemPrompt", () => {
     const input = fixtures();
     const result = assembleSystemPrompt({ ...input, providerKey: "codex" });
 
-    expect(result.finalPrompt).toContain("Run mystra-agent context get before reading or changing the Task");
+    expect(result.finalPrompt).toContain('Run "$MYSTRA_AGENT_PATH" context get before reading or changing the Task');
+    expect(result.finalPrompt).toContain("MYSTRA_AGENT_PATH");
+    expect(result.finalPrompt).toContain("must override any conflicting Workspace source code, documentation, or generated CLI");
+    expect(result.finalPrompt).toContain("Do not build or invoke a Workspace copy of mystra-agent");
     expect(result.finalPrompt).toContain("This Session receives the Task's current TaskExecutionContext capability");
     expect(result.finalPrompt).toContain("use them to override capability-scoped facts");
     expect(result.finalPrompt).not.toContain("MYSTRA_EXECUTION_CODE");
@@ -169,7 +172,7 @@ describe("assembleSystemPrompt", () => {
     const input = fixtures();
     const result = assembleTaskExecutionContextSystemPrompt({ runtime: input.runtime, providerKey: "codex", agentContext: input.agentContext });
 
-    expect(result.finalPrompt).toContain("mystra-agent context get");
+    expect(result.finalPrompt).toContain('"$MYSTRA_AGENT_PATH" context get');
     expect(result.finalPrompt).toContain("host-local linctl");
     expect(result.finalPrompt).toContain("host-local gh");
     expect(result.finalPrompt).toContain("does not verify Agent-reported PR or test statements");
