@@ -29,7 +29,7 @@ One shipped screen does not silently override the system. One explicit user corr
 ## Current Baseline Decision
 
 - **Scope:** global Mystra layout design and shared component geometry.
-- **Winner:** the owner correction recorded on 2026-08-14: 300px sidebar, 8px page padding and section gaps, 28px rows, 12px body/small-heading/annotation/medium-heading text, 16px icons, 20px inline forms, 24px large titles, 4px grouped inline gaps, and 8px ungrouped inline gaps.
-- **Superseded guidance:** 16/12/12/32px page-frame insets, 12px primary layout gaps, 10–11px metadata/annotations, 14px compact headings, 12px generic modal/content insets, and treating 24/28/32/36px controls as the default for inline forms.
-- **Retained exceptions:** higher control heights and 24/16px reading-body insets remain valid only when an owning component/page-family role explicitly names them.
+- **Winner:** the owner correction recorded on 2026-08-17: 300px sidebar, 8px page padding and section gaps, 44px Section Header/Footer rows, 28px default rows and inline forms, 12px body/small-heading/annotation/medium-heading text, 16px icons, 24px large titles, 4px grouped inline gaps, and 8px ungrouped inline gaps.
+- **Superseded guidance:** 16/12/12/32px page-frame insets, 12px primary layout gaps, 10–11px metadata/annotations, 14px compact headings, 12px generic modal/content insets, 28px Section chrome, and 20px inline forms.
+- **Retained exceptions:** 24px compact controls, 32px actions, 36px stacked fields, and 24/16px reading-body insets remain valid only when an owning component/page-family role explicitly names them.
 - **Reason:** the prior rules mixed several historical density systems and produced silent geometric drift across prototypes and production surfaces.

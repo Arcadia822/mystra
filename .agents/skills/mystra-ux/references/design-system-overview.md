@@ -30,7 +30,7 @@ Mystra UX is the product UI contract for durable decisions across the control-pl
 
 ## Design Inputs
 
-Collect the user goal, business goal, affected routes and objects, required states, content density, navigation depth, API availability, responsive impact, keyboard/touch requirements, localization impact, current Mystra rules, explicit user feedback, and named source implementations. Before sketching, record which baseline roles apply: `300px` sidebar, `8px` page padding, `8px` section gap, `28px` rows, `12px` body/headings/annotations, `16px` icons, `20px` inline controls, `24px` large titles, and `4px` grouped versus `8px` ungrouped inline gaps.
+Collect the user goal, business goal, affected routes and objects, required states, content density, navigation depth, API availability, responsive impact, keyboard/touch requirements, localization impact, current Mystra rules, explicit user feedback, and named source implementations. Before sketching, record which baseline roles apply: `300px` sidebar, `8px` page padding, `8px` section gap, `44px` Section Header/Footer rows, `28px` default rows and inline controls, `12px` body/headings/annotations, `16px` icons, `24px` large titles, and `4px` grouped versus `8px` ungrouped inline gaps.
 
 ## Page Families
 

@@ -1,16 +1,37 @@
 "use client";
 
 import type { IntegrationConnectionListResponse, RepositoryListResponse, RepositorySnapshot } from "@mystra/shared";
+import {
+  ShellIcon,
+  StackedList,
+  StackedListField,
+  StackedListRow,
+  UiActionAnchor,
+  UiButton,
+  UiDialogCloseButton,
+  UiDialogSurface,
+  UiDropdown,
+  UiInput,
+  UiLabel,
+  UiSurfaceBody,
+  UiSurfaceFooter,
+  UiSurfaceHeader,
+  UiSurfaceTitle,
+  type StackedListStandardFieldDefinition,
+} from "@mystra/ui";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
 import { SettingGroup, SettingRow } from "./setting-row";
 import { githubConnectionAccountLogin } from "./github-connection-model";
-import { ShellIcon } from "./shell-icons";
-import { UiActionAnchor, UiButton, UiIconButton } from "./ui-actions";
-import { UiInput, UiSelect } from "./ui-fields";
-import { UiDialogSurface } from "./ui-surfaces";
+
+const repositoryFields = [
+  { key: "repository", align: "left", renderType: "icon" },
+  { key: "name", align: "left", renderType: "text" },
+  { key: "visibility", align: "right", renderType: "labels" },
+  { key: "branch", align: "right", renderType: "text" },
+] as const satisfies readonly StackedListStandardFieldDefinition[];
 
 function suggestedSlug(fullName: string): string {
   return (fullName.split("/").at(-1) ?? fullName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -146,26 +167,29 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
     <dialog aria-labelledby="project-create-title" className="projectCreateModal" ref={dialogRef}
       onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose}
       onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <UiDialogSurface className="projectCreateModalSurface">
-        <header className="projectCreateModalHeader">
-          <div><h2 id="project-create-title">{zh ? "添加 Project" : "Add Project"}</h2><span>{zh ? "从远程仓库创建执行边界" : "Create an execution boundary from a remote repository"}</span></div>
-          <UiIconButton aria-label={zh ? "关闭" : "Close"} onClick={onClose}><ShellIcon name="close" /></UiIconButton>
-        </header>
-        <form className="projectCreateModalBody" onSubmit={(event) => void submit(event)}>
+      <form className="projectCreateModalForm" onSubmit={(event) => void submit(event)}>
+        <UiDialogSurface className="projectCreateModalSurface">
+          <UiSurfaceHeader>
+            <UiSurfaceTitle id="project-create-title">{zh ? "创建 Project" : "Create Project"}</UiSurfaceTitle>
+            <UiDialogCloseButton aria-label={zh ? "关闭" : "Close"} onClick={onClose} />
+          </UiSurfaceHeader>
+          <UiSurfaceBody className="projectCreateModalBody">
           {!selected ? (
             <SettingGroup>
               <SettingRow
                 control={(
-                  <UiSelect
+                  <UiDropdown
                     aria-label={zh ? "项目来源" : "Project source"}
                     className="projectCreateSettingField"
-                    fieldSize="default"
+                    onValueChange={() => undefined}
+                    options={[
+                      { value: "github", label: "GitHub" },
+                      { value: "gitlab", label: "GitLab", description: zh ? "即将支持" : "Soon", disabled: true },
+                    ]}
+                    placeholder={zh ? "选择来源" : "Select a source"}
+                    size="inline"
                     value="github"
-                    onChange={() => undefined}
-                  >
-                    <option value="github">GitHub</option>
-                    <option disabled>GitLab — Soon</option>
-                  </UiSelect>
+                  />
                 )}
                 description={zh ? "以后可以扩展更多来源" : "More sources can be added later"}
                 title={zh ? "来源" : "Source"}
@@ -177,20 +201,19 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
             <SettingGroup>
               <SettingRow
                 control={(
-                  <UiSelect
+                  <UiDropdown
                     aria-label={zh ? "GitHub 连接" : "GitHub connection"}
                     className="projectCreateSettingField"
-                    fieldSize="default"
+                    onValueChange={setConnectionId}
+                    options={activeConnections.map((connection) => ({
+                      value: connection.id,
+                      label: connection.displayName ?? githubConnectionAccountLogin(connection),
+                      description: `${githubConnectionAccountLogin(connection)} · ${connection.authMethod === "github-app" ? "GitHub App" : "PAT"}`,
+                    }))}
+                    placeholder={zh ? "请选择连接" : "Select a connection"}
+                    size="inline"
                     value={connectionId}
-                    onChange={(event) => setConnectionId(event.currentTarget.value)}
-                  >
-                    {activeConnections.length > 1 ? <option value="">{zh ? "请选择连接" : "Select a connection"}</option> : null}
-                    {activeConnections.map((connection) => (
-                      <option key={connection.id} value={connection.id}>
-                        {connection.displayName ?? githubConnectionAccountLogin(connection)} · {connection.authMethod === "github-app" ? "GitHub App" : "PAT"}
-                      </option>
-                    ))}
-                  </UiSelect>
+                  />
                 )}
                 description={activeConnections.length === 1
                   ? (zh ? "已使用唯一可用连接" : "The only available connection is selected")
@@ -212,15 +235,29 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
             </div>
           ) : !selected ? (
             <section className="projectRepositoryPicker" aria-label={zh ? "选择仓库" : "Choose repository"}>
-              <UiInput autoFocus placeholder={zh ? "筛选仓库" : "Filter repositories"} type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
+              <UiInput aria-label={zh ? "筛选仓库" : "Filter repositories"} autoFocus placeholder={zh ? "筛选仓库" : "Filter repositories"} type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
               {repositoryError ? <div className="projectRepositoryState"><span>{repositoryError}</span><UiButton tone="soft" onClick={() => void loadRepositories()}>{zh ? "重试" : "Retry"}</UiButton></div> : null}
               {!repositoryError && repositoryLoading && repositories.length === 0 ? <div className="projectRepositoryState">…</div> : null}
               {!repositoryError && !repositoryLoading && visibleRepositories.length === 0 ? <div className="projectRepositoryState">{zh ? "没有可用仓库" : "No repositories available"}</div> : null}
-              <div className="projectRepositoryList">{visibleRepositories.map((repository) => (
-                <UiButton block disabled={repository.isArchived} key={repository.externalId} onClick={() => selectRepository(repository)}>
-                  <span><strong>{repository.fullName}</strong><small>{repository.visibility}{repository.isArchived ? " · archived" : ""}</small></span><span>›</span>
-                </UiButton>
-              ))}</div>
+              {visibleRepositories.length > 0 ? (
+                <div className="projectRepositoryTableViewport">
+                  <StackedList className="projectRepositoryTable" fields={repositoryFields}>
+                    {visibleRepositories.map((repository) => (
+                      <StackedListRow
+                        disabled={repository.isArchived}
+                        key={repository.externalId}
+                        left={<StackedListField field={repositoryFields[0]}><ShellIcon name="repository" /></StackedListField>}
+                        name={repository.fullName}
+                        onClick={() => selectRepository(repository)}
+                        right={<>
+                          <StackedListField field={repositoryFields[2]}><UiLabel>{repository.visibility}{repository.isArchived ? ` · ${zh ? "已归档" : "archived"}` : ""}</UiLabel></StackedListField>
+                          <StackedListField field={repositoryFields[3]}>{repository.defaultBranch}</StackedListField>
+                        </>}
+                      />
+                    ))}
+                  </StackedList>
+                </div>
+              ) : null}
               {pageInfo?.hasNextPage && pageInfo.endCursor ? <UiButton disabled={repositoryLoading} tone="soft" onClick={() => void loadRepositories(pageInfo.endCursor!)}>{repositoryLoading ? "…" : (zh ? "加载更多" : "Load more")}</UiButton> : null}
             </section>
           ) : (
@@ -267,9 +304,12 @@ export function ProjectCreateModal({ locale, onClose, onCreated }: {
             </SettingGroup>
           )}
           {submitError ? <p className="formNotice formError" role="alert">{submitError}</p> : null}
-          <footer className="projectCreateModalFooter"><UiButton onClick={onClose}>{zh ? "取消" : "Cancel"}</UiButton><UiButton disabled={!selected || submitting} tone="solid" type="submit">{submitting ? (zh ? "创建中…" : "Creating…") : (zh ? "创建 Project" : "Create Project")}</UiButton></footer>
-        </form>
-      </UiDialogSurface>
+          </UiSurfaceBody>
+          <UiSurfaceFooter className="projectCreateModalFooter">
+            <UiButton disabled={!selected || submitting} size="inline" tone="solid" type="submit">{submitting ? (zh ? "创建中…" : "Creating…") : (zh ? "创建" : "Create")}</UiButton>
+          </UiSurfaceFooter>
+        </UiDialogSurface>
+      </form>
     </dialog>
   );
 }

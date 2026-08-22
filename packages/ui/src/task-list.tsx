@@ -157,8 +157,8 @@ export function StackedListHelperRow({ children }: { children: ReactNode }) {
   return <div aria-live="polite" className="uiStackedListHelperRow">{children}</div>;
 }
 
-export function StackedListRow({ left, name, right, onClick }: { left: ReactNode; name: ReactNode; right: ReactNode; onClick?: () => void }) {
-  return <button className="uiStackedListRow" onClick={onClick} role="listitem" type="button"><span className="uiStackedListLeft">{left}</span><span className="uiStackedListName uiStackedListText">{name}</span><span className="uiStackedListSpacer" /><span className="uiStackedListRight">{right}</span></button>;
+export function StackedListRow({ disabled = false, left, name, right, onClick }: { disabled?: boolean; left: ReactNode; name: ReactNode; right: ReactNode; onClick?: () => void }) {
+  return <button className="uiStackedListRow" disabled={disabled} onClick={onClick} role="listitem" type="button"><span className="uiStackedListLeft">{left}</span><span className="uiStackedListName uiStackedListText">{name}</span><span className="uiStackedListSpacer" /><span className="uiStackedListRight">{right}</span></button>;
 }
 
 export function StackedListField({

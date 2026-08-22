@@ -60,15 +60,17 @@
   --space-8: 32px;
   --space-12: 48px;
   --space-24: 96px;
-  --control-height-inline: 20px;
+  --control-height-inline: 28px;
   --control-height-compact: 24px;
   --control-height-header: 28px;
   --control-height-default: 32px;
   --field-height-default: 36px;
+  --control-padding-inline: 8px;
   --control-padding-compact: 8px;
   --control-padding-header: 10px;
   --control-padding-default: 12px;
   --row-height-compact: 28px;
+  --section-chrome-height: 44px;
   --shell-icon-stroke: 1.7;
   --touch-target: 44px;
   --page-inset-inline: 16px;
@@ -96,6 +98,9 @@
   --radius-panel: 6px;
   --radius-round: 999px;
   --color-canvas: var(--background);
+  --color-surface-sidebar: var(--surface2);
+  --color-surface-main: var(--background);
+  --color-surface-table: var(--surface1);
   --color-surface-panel: var(--surface2);
   --color-surface-popup: var(--surface1);
   --color-surface-hover: var(--surface3);
@@ -166,6 +171,30 @@ body {
   line-height: 1.45;
 }
 
+.uiText {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+}
+
+.uiText[data-variant="body"] {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-body);
+  line-height: 1.45;
+}
+
+.uiText[data-variant="heading"] {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+}
+
+.uiText[data-variant="annotation"] {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-body);
+  line-height: 1.45;
+}
+
 button,
 input,
 select,
@@ -202,7 +231,7 @@ textarea {
 
 .uiAction[data-size="inline"] {
   height: var(--control-height-inline);
-  padding-inline: var(--space-control-gap);
+  padding-inline: var(--control-padding-inline);
 }
 
 .uiAction[data-size="header"] {
@@ -326,8 +355,10 @@ textarea {
 }
 
 .uiFieldControl {
+  box-sizing: border-box;
   height: var(--control-height-header);
-  padding-inline: var(--control-padding-header);
+  padding-block: 0;
+  padding-inline: var(--control-padding-inline);
   font-size: var(--font-size-ui);
 }
 
@@ -408,9 +439,11 @@ textarea {
 
 .uiDropdownMenu {
   position: fixed;
+  inset: auto;
   z-index: var(--layer-popup);
   width: max-content;
   max-width: min(360px, calc(100vw - var(--space-8)));
+  margin: 0;
   display: grid;
   gap: var(--space-half);
   padding: var(--space-1);
@@ -596,16 +629,23 @@ textarea {
 }
 
 .uiSurfaceHeader {
-  min-height: 40px;
+  height: var(--section-chrome-height);
+  min-height: var(--section-chrome-height);
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding-inline: var(--content-inset);
+  padding: 0 var(--space-2);
   border-bottom: 1px solid var(--color-border-soft);
+  font-size: var(--font-size-ui);
+}
+
+.uiSurfaceTitle {
+  min-width: 0;
+  padding: 0 var(--space-2);
 }
 
 .uiSurfaceBody {
-  padding: var(--panel-inset);
+  padding: 0 var(--space-2);
 }
 
 .uiSurface[data-variant="popup"] > .uiSurfaceBody {
@@ -613,19 +653,18 @@ textarea {
 }
 
 .uiSurfaceFooter {
+  height: var(--section-chrome-height);
+  min-height: var(--section-chrome-height);
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--content-inset);
+  padding: 0 var(--space-2);
   border-top: 1px solid var(--color-border-soft);
+  font-size: var(--font-size-ui);
 }
 
 .uiDialogSurface {
   overflow: hidden;
-}
-
-.uiDialogSurface > .uiSurfaceBody {
-  padding: var(--content-inset);
 }
 
 .uiDialogSurface[data-layout="rows"] {
@@ -644,8 +683,8 @@ textarea {
 
 .uiDialogSurface[data-layout="rows"] > .uiSurfaceHeader,
 .uiDialogSurface[data-layout="rows"] > .uiSurfaceFooter {
-  height: var(--row-height-compact);
-  min-height: var(--row-height-compact);
+  height: var(--section-chrome-height);
+  min-height: var(--section-chrome-height);
 }
 
 .uiDialogTitleInput {
@@ -716,7 +755,7 @@ dd {
   height: 100vh;
   padding: 0 var(--space-2) var(--space-2);
   border-right: 1px solid var(--border);
-  background: var(--surface1);
+  background: var(--color-surface-sidebar);
   overflow: hidden;
   will-change: opacity, transform;
   transition: opacity 360ms ease, transform 560ms cubic-bezier(0.22, 1, 0.36, 1), border-color 360ms ease;
@@ -1037,6 +1076,7 @@ a.taskProjectHeader:hover,
   min-height: 100vh;
   display: grid;
   grid-template-rows: var(--header-height) minmax(0, 1fr);
+  background: var(--color-surface-main);
 }
 
 .shellMainContent {
@@ -1059,9 +1099,22 @@ a.taskProjectHeader:hover,
   flex: none;
 }
 
-.shellHeader strong {
+.shellHeaderTitle {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.shellHeaderTitle > .uiText,
+.shellHeaderTitle > strong {
   font-size: 12px;
   font-weight: var(--font-weight-strong);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rightPanel {
@@ -1070,7 +1123,7 @@ a.taskProjectHeader:hover,
   display: grid;
   grid-template-rows: var(--header-height) minmax(0, 1fr);
   border-left: 1px solid var(--border);
-  background: var(--surface1);
+  background: var(--color-surface-sidebar);
 }
 
 .rightPanel[hidden] {
@@ -1152,6 +1205,16 @@ a.taskProjectHeader:hover,
   gap: var(--layout-gap);
   min-height: 100%;
   padding: 0;
+}
+
+.pagePlaceholder {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-table);
+  text-align: center;
 }
 
 .pageToolbar,
@@ -1561,6 +1624,7 @@ body:has(.settingsModal[open]) {
 }
 
 .settingsModalLayout {
+  position: relative;
   width: 100%;
   height: 100%;
   display: grid;
@@ -1571,13 +1635,26 @@ body:has(.settingsModal[open]) {
   background: var(--color-surface-popup);
 }
 
-.settingsNavigation {
+.settingsModalLayout::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  left: 240px;
+  width: 1px;
+  content: "";
+  pointer-events: none;
+  background: var(--color-border-strong);
+}
+
+.uiSurface.settingsNavigation {
   min-width: 0;
   display: grid;
   align-content: start;
-  padding: var(--content-inset);
+  padding: var(--space-2);
   overflow: hidden;
-  border-right: 1px solid var(--border-visible);
+  border: 0;
+  border-radius: 0;
   background: var(--surface1);
 }
 
@@ -1709,7 +1786,7 @@ body:has(.settingsModal[open]) {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-2) var(--content-inset);
+  padding: var(--space-2);
 }
 
 .settingsContentHeader h3 {
@@ -1728,6 +1805,7 @@ body:has(.settingsModal[open]) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding-inline: var(--space-2);
 }
 
 .settingsContentTitle .uiAction {
@@ -1760,19 +1838,13 @@ body:has(.settingsModal[open]) {
   display: grid;
   align-content: start;
   gap: var(--space-4);
-  padding: var(--modal-inset);
+  padding: var(--space-2);
   overflow: auto;
 }
 
 .scrollableSurface {
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
-}
-
-.settingsModalPage {
-  width: 100%;
-  min-height: 0;
-  padding: var(--space-0);
 }
 
 .settingsTabForm {
@@ -1787,17 +1859,21 @@ body:has(.settingsModal[open]) {
 }
 
 .settingGroup {
+  width: 100%;
+  min-width: 0;
   display: grid;
   gap: var(--space-8);
 }
 
 .settingRow {
+  width: 100%;
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-8);
   min-height: var(--row-height-compact);
+  padding: 0 var(--space-2);
 }
 
 .settingRowCopy {
@@ -1810,6 +1886,7 @@ body:has(.settingsModal[open]) {
   margin: 0;
   color: var(--text1);
   font-size: var(--font-size-ui);
+  font-weight: var(--font-weight-medium);
   line-height: 16px;
 }
 
@@ -1849,7 +1926,7 @@ body:has(.settingsModal[open]) {
 
 .settingsBusinessGroup > .settingRow {
   min-height: 58px;
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-2);
 }
 
 .settingsBusinessGroup > .settingRow + .settingRow {
@@ -2174,8 +2251,8 @@ label > span {
   font-size: 12px;
 }
 
-input,
-select {
+input:not(.uiFieldControl),
+select:not(.uiFieldControl) {
   min-height: var(--control-height-default);
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-md);
@@ -2232,7 +2309,8 @@ select {
 .projectCreateModal {
   width: min(760px, calc(100vw - var(--space-8)));
   max-width: none;
-  max-height: min(820px, calc(100vh - var(--space-8)));
+  height: min(640px, calc(100dvh - var(--space-8)));
+  max-height: none;
   padding: 0;
   border: 0;
   background: transparent;
@@ -2241,9 +2319,15 @@ select {
 
 .projectCreateModal::backdrop { background: transparent; }
 
+.projectCreateModalForm,
+.projectCreateModalSurface {
+  height: 100%;
+  min-height: 0;
+}
+
 .projectCreateModalSurface {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-elevated);
@@ -2251,32 +2335,24 @@ select {
   box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
 }
 
-.projectCreateModalHeader {
-  display: flex;
-  align-items: center;
+.projectCreateModalSurface > .uiSurfaceHeader {
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--modal-inset);
-  border-bottom: 1px solid var(--border);
 }
 
-.projectCreateModalHeader > div { display: grid; gap: var(--tight-gap); }
-.projectCreateModalHeader h2 { font-size: 14px; }
-.projectCreateModalHeader span { color: var(--text3); font-size: 11px; }
-.projectCreateModalBody { display: grid; gap: var(--space-3); padding: var(--modal-inset); overflow-y: auto; }
+.projectCreateModalBody { min-height: 0; display: grid; align-content: start; gap: var(--space-3); padding-block: var(--space-2); overflow: auto; }
 .projectCreateSettingField { width: min(260px, 100%); }
+.projectCreateSettingField.uiDropdown .uiDropdownTrigger { width: 100%; max-width: none; }
 .projectRepositoryPicker { display: grid; gap: var(--space-2); min-height: 220px; }
-.projectRepositoryList { display: grid; gap: var(--space-1); }
-.projectRepositoryList .uiAction { justify-content: space-between; min-height: 44px; border: 1px solid var(--border); }
-.projectRepositoryList .uiAction > span:first-child { min-width: 0; display: grid; gap: var(--tight-gap); text-align: left; }
-.projectRepositoryList small { color: var(--text3); font-size: 10px; }
+.projectRepositoryTableViewport { min-width: 0; background: var(--color-surface-table); }
+.projectRepositoryTable { min-width: 620px; }
+.projectRepositoryTable .uiStackedListRow { border-radius: 0; }
 .projectRepositoryState { min-height: 160px; display: grid; place-content: center; justify-items: center; gap: var(--space-2); color: var(--text2); text-align: center; }
-.projectCreateModalFooter { display: flex; justify-content: flex-end; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--border); }
+.projectCreateModalFooter { justify-content: flex-end; }
 
 @media (max-width: 640px) {
   .settingRow { grid-template-columns: 1fr; gap: var(--space-2); }
   .settingRowControl { justify-content: flex-start; }
-  .projectCreateModal { width: calc(100vw - var(--space-4)); max-height: calc(100vh - var(--space-4)); }
+  .projectCreateModal { width: calc(100vw - var(--space-4)); height: calc(100dvh - var(--space-4)); }
 }
 
 .integrationCapabilityList {
@@ -2359,7 +2435,7 @@ body:has(.searchDialog[open]) {
 .searchDialogPanel {
   height: 100%;
   display: grid;
-  grid-template-rows: var(--space-12) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   border: 0;
   border-radius: 0;
@@ -2367,11 +2443,6 @@ body:has(.searchDialog[open]) {
 }
 
 .searchDialogHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--modal-inset);
-  border-bottom: 1px solid var(--border);
   color: var(--text2);
 }
 
@@ -2388,34 +2459,17 @@ body:has(.searchDialog[open]) {
 
 .searchDialogInput input {
   width: 100%;
-  min-height: var(--space-12);
+  min-height: var(--control-height-header);
   padding: var(--space-0);
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--text1);
-  font-size: 15px;
+  font-size: var(--font-size-ui);
 }
 
 .searchDialogInput input::placeholder {
   color: var(--text3);
-}
-
-.compactIconButton {
-  width: var(--control-height-header);
-  height: var(--control-height-header);
-  display: inline-grid;
-  place-items: center;
-  padding: var(--space-0);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text2);
-}
-
-.compactIconButton:hover {
-  background: var(--surface3);
-  color: var(--text1);
 }
 
 .searchDialogWorkspace {
@@ -2432,37 +2486,29 @@ body:has(.searchDialog[open]) {
 }
 
 .searchListPane {
+  display: grid;
+  align-content: start;
   border-right: 1px solid var(--border);
   background: var(--surface1);
 }
 
 .searchActions,
 .searchResultsSection {
-  padding: var(--space-3) var(--space-2) var(--space-2);
+  border: 0;
 }
 
-.searchResultsSection {
-  padding-top: var(--space-2);
+.searchActionsBody,
+.searchResultsBody {
+  padding-block: var(--space-2);
 }
 
 .searchSectionHeader {
-  min-height: var(--row-height-compact);
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  padding: 0 var(--content-inset);
   color: var(--text3);
-}
-
-.searchSectionHeader h3 {
-  font-size: 12px;
-  font-weight: 500;
 }
 
 .searchSectionHeader a {
   color: var(--text2);
-  font-size: 11px;
   text-decoration: none;
 }
 
@@ -2567,34 +2613,19 @@ body:has(.searchDialog[open]) {
 }
 
 .searchPreviewHeader {
-  min-height: var(--space-12);
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: var(--layout-gap);
-  padding: 0 var(--modal-inset);
-  border-bottom: 1px solid var(--border);
 }
 
-.searchPreviewHeader > div:first-child {
+.searchPreviewHeader .uiSurfaceTitle {
   min-width: 0;
-  display: grid;
-  gap: var(--space-row-gap);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.searchPreviewEyebrow,
 .searchPreviewFacts dt {
   color: var(--text3);
   font-size: 10px;
-}
-
-.searchPreviewHeader h3 {
-  overflow: hidden;
-  color: var(--text1);
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .searchPreviewActions {
@@ -2827,7 +2858,7 @@ body:has(.searchDialog[open]) {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--background);
+  background: var(--color-surface-table);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
@@ -3474,16 +3505,7 @@ body:has(.searchDialog[open]) {
   }
 
   .searchDialogPanel {
-    grid-template-rows: 48px minmax(0, 1fr);
-  }
-
-  .searchDialogHeader {
-    padding-inline: var(--page-inset-inline-narrow);
-  }
-
-  .searchDialogHeader .compactIconButton {
-    width: 44px;
-    height: 44px;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .searchDialogWorkspace {
@@ -3528,12 +3550,16 @@ body:has(.searchDialog[open]) {
     grid-template-rows: auto minmax(0, 1fr);
   }
 
-  .settingsNavigation {
+  .settingsModalLayout::before {
+    display: none;
+  }
+
+  .uiSurface.settingsNavigation {
     grid-template-columns: minmax(0, 1fr) minmax(120px, .8fr);
     gap: var(--space-2) var(--space-3);
     padding: var(--space-2);
     border-right: 0;
-    border-bottom: 1px solid var(--border-visible);
+    border-bottom: 1px solid var(--color-border-strong);
   }
 
   .settingsIdentity {
@@ -3557,7 +3583,7 @@ body:has(.searchDialog[open]) {
   }
 
   .settingsPane {
-    padding: var(--content-inset);
+    padding: var(--space-2);
   }
 
   .settingRow {
@@ -3709,7 +3735,8 @@ body:has(.searchDialog[open]) {
 }
 
 @media (max-width: 420px) {
-  .shellHeader > strong,
+  .shellHeaderTitle > .uiText,
+  .shellHeaderTitle > strong,
   .collapsedHeaderBrand,
   .collapsedHeaderAction[href="/"] {
     display: none;
@@ -3753,14 +3780,12 @@ body:has(.searchDialog[open]) {
   .sidebarTask,
   .taskProjectHeader,
   .castrelTableAction,
-  .compactIconButton,
   .inboxOpenTask,
   select {
     min-height: var(--touch-target);
   }
 
   .uiAction[data-icon-only],
-  .compactIconButton,
   .castrelTableSearch button,
   .inboxSearch button,
   .iconButton {
@@ -3823,28 +3848,6 @@ body:has(.searchDialog[open]) {
   width: min(280px, 100%);
 }
 
-.projectObjectTabs {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-
-.projectObjectTabs .uiAction,
-.issueProviderTabs .uiAction {
-  position: relative;
-}
-
-.projectObjectTabs .uiAction[data-active]::after {
-  position: absolute;
-  right: var(--control-padding-header);
-  bottom: -1px;
-  left: var(--control-padding-header);
-  height: 2px;
-  background: var(--accent);
-  content: "";
-}
-
 .projectOverview,
 .projectSourceSettings,
 .projectIssuesBrowser {
@@ -3866,18 +3869,6 @@ body:has(.searchDialog[open]) {
 
 .projectOverview dt { color: var(--text3); }
 .projectOverview dd { margin: 0; overflow-wrap: anywhere; font-family: var(--font-mono); }
-
-.issueProviderTabs {
-  display: inline-flex;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface2);
-}
-
-.issueProviderTabs .uiAction { min-width: 96px; }
-.issueProviderTabs .uiAction[data-active] { background: var(--surface3); color: var(--text1); }
 
 .issueSourceLine {
   display: flex;
@@ -3906,6 +3897,7 @@ body:has(.searchDialog[open]) {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
+  background: var(--color-surface-table);
 }
 
 .issueNativeTable {
@@ -4285,7 +4277,8 @@ body:has(.searchDialog[open]) {
 }
 
 @media (max-width: 420px) {
-  .shellHeader > strong,
+  .shellHeaderTitle > .uiText,
+  .shellHeaderTitle > strong,
   .collapsedHeaderBrand,
   .collapsedHeaderAction[href="/"] {
     display: none;
@@ -4369,9 +4362,14 @@ body:has(.searchDialog[open]) {
   width: 100%;
 }
 
-.uiStackedListRow:hover {
+.uiStackedListRow:hover:not(:disabled) {
   background: var(--color-surface-hover);
   color: var(--text1);
+}
+
+.uiStackedListRow:disabled {
+  cursor: not-allowed;
+  opacity: .48;
 }
 
 .uiStackedListLeft,

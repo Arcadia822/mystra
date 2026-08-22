@@ -73,8 +73,12 @@ A token family is complete only when it defines relevant default, hover, active/
 - Role spacing: page container 8px on every side, section/layout gap 8px, row/panel inline 8px, grouped inline gap 4px, unrelated inline gap 8px, reading body 24px desktop/16px narrow only as an explicitly owned inner reading role.
 - Do not accumulate outer and inner horizontal insets. The owning section supplies the inset; children align to it.
 - Radius scale: 0, 2, 4, 6px. Chips and hairline affordances use 2px; dense rows, panels, and controls use 4px or less; composers, popovers, and modals may use 6px. There is no 3px token.
-- Default inline form controls and actions use a 20px visual height inside a 28px row. Header/navigation controls use 28px. Existing 24px compact, 32px action, and 36px stacked-field heights are explicit component roles, not the default for inline forms. Coarse-pointer hit areas reach 44px through responsive target sizing rather than desktop whitespace.
+- Default inline form controls and actions use a 28px visual height. Shared Section Header and Footer rows use 44px. Existing 24px compact, 32px action, and 36px stacked-field heights are explicit component roles, not the default for inline forms. Coarse-pointer hit areas remain 44px through responsive target sizing.
 - Page and reader content are E0 on one base plane.
+- Shell surface depth is semantic and theme-owned: table frames use the lightest
+  `surface1` role, Main uses the canvas role, and sidebars use the deeper
+  `surface2` role. This order must hold in both light and dark themes; never
+  substitute a page-local color or make a sidebar use the popup/table surface.
 - Sticky separation is E1: a quiet hairline only when needed.
 - Popups and floating tools are E2: an elevated surface plus restrained separation.
 - Modal/drawer is E3: strongest functional separation, never glossy.

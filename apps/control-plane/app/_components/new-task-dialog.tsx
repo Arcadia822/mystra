@@ -6,11 +6,12 @@ import {
   UiButton,
   UiDialogCloseButton,
   UiDialogSurface,
-  UiDialogTitleInput,
   UiDropdown,
+  UiInput,
   UiSurfaceBody,
   UiSurfaceFooter,
   UiSurfaceHeader,
+  UiSurfaceTitle,
   UiTextarea,
 } from "@mystra/ui";
 import { useRouter } from "next/navigation";
@@ -95,20 +96,20 @@ export function NewTaskDialog({ locale, onClose, onCreated, triggerRef }: {
       }}
       ref={dialogRef}
     >
-      <UiDialogSurface className="taskComposer" layout="rows">
+      <UiDialogSurface className="taskComposer">
         <UiSurfaceHeader className="taskComposerHeader">
-          <UiDialogTitleInput
+          <UiSurfaceTitle id="new-task-dialog-title">{zh ? "创建 Task" : "Create Task"}</UiSurfaceTitle>
+          <UiDialogCloseButton aria-label={zh ? "关闭" : "Close"} onClick={close} />
+        </UiSurfaceHeader>
+        <UiSurfaceBody className="taskComposerBody">
+          <UiInput
             autoFocus
             aria-label={zh ? "Task 名称" : "Task name"}
-            id="new-task-dialog-title"
             maxLength={500}
             onChange={(event) => setTitle(event.currentTarget.value)}
             placeholder={zh ? "Task 名称" : "Task name"}
             value={title}
           />
-          <UiDialogCloseButton aria-label={zh ? "关闭" : "Close"} onClick={close} />
-        </UiSurfaceHeader>
-        <UiSurfaceBody>
           <UiTextarea
             aria-label={zh ? "Task 描述" : "Task description"}
             className="taskDescription"

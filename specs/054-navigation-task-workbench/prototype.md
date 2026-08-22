@@ -8,6 +8,7 @@ taco_scope: spec
 - 运行：`pnpm dev:prototype`
 - 054 route：<http://localhost:3010/054-navigation-task-workbench>
 - Task detail route：<http://localhost:3010/054-navigation-task-workbench/tasks/MYS-118>
+- Project detail route：<http://localhost:3010/054-navigation-task-workbench/projects/mystra>
 - 通用起点：<http://localhost:3010/starter>
 - 054 composition：`apps/spec-prototype/app/_components/navigation-task-workbench.tsx`
 - 可复用 shell：`apps/spec-prototype/app/_components/prototype-shell.tsx`
@@ -23,7 +24,7 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   `@mystra/ui/styles.css`；prototype root layout 也直接 import 同一个入口。
 - `UiButton`、`UiIconButton`、`UiInput`、`UiTextarea`、
   `UiDropdown`、`UiPopover`、`UiSegmented`、`UiSurface`、
-  `UiDialogSurface`、`UiBreadcrumb`、`UiShellRightPanel`、`UiRightPanelToggle`、
+  `UiDialogSurface`、`UiBreadcrumb`、`UiText`、`UiShellRightPanel`、`UiRightPanelToggle`、
   `ShellIcon`、`MystraLogo`、`TaskStatusIcon`、
   `UiLabel` 与 stacked list 均来自 `packages/ui`。
 - 生产 app 原有的 `app/_components/ui-*.tsx`、`shell-icons.tsx` 和
@@ -42,8 +43,9 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   brand、New Task、Search 与展开按钮保持在主 header，所有 icon 使用共享
   16px grid。
 - 主导航展示 Overview、Inbox、Tasks、Runtimes，不展示 New、Search、Issues。
-- 053 尚未可用时，Overview 入口只显示明确的无数据 placeholder；prototype 不复制
-  053 查询、指标、空态或 mock dashboard。
+- 053 尚未可用的 Overview 与暂停的 Inbox 都只显示共享 `PagePlaceholder`：满剩余
+  区域的虚线边框与居中文字；不显示页面 title、description、图标、数据或辅助操作。
+  prototype 不复制 053 查询、指标、空态或 mock dashboard。
 - Active Tasks 保留真实前端的 Project grouping，只展示非终态快捷入口。
 - Tasks 主区域直接显示一个有主题圆角、surface 背景和外围边线的 workbench；
   主 header、toolbar 与内容之间均无 divider。
@@ -88,16 +90,14 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   同系列 `+N` control；点击或键盘激活后由共享 `UiPopover` portal 到全局
   popup layer 并列出被折叠属性。`ResizeObserver` 在 card 宽度变化时重新
   解析，不通过固定数量、重叠、半截裁切或换行改变卡片高度。
-- New Task 使用共享 `UiDialogSurface` 与 Section slots；composer 只在外层
-  使用一次 `space-2`（8px）inset，header/body/footer 自身无
-  padding/divider，并以同一个 `space-2` 保持纵向节奏；不得回退到 12px
-  generic `content-inset`。title 在 header，以 `Task name` 作为
-  placeholder，使用共享 medium typography token；close 使用共享
-  `UiDialogCloseButton`/dismiss glyph。description 是无边框、透明且不可拖拽
-  的 ghost textarea。Project 使用共享 `UiDropdown` 的 ghost trigger，宽度随
-  内容自然解析；menu portal 到全局 popup layer，不参与 modal 排版或裁切。
-  Project trigger 与 footer solid `Create` action 都使用共享 20px `inline`
-  size，在 28px footer row 内保留上下各 4px 空间。
+- New Task 使用共享 `UiDialogSurface` 与 Section slots。Header/Footer 均为
+  44px，使用公共 8px 横向 padding 与 divider；Header 通过 `UiSurfaceTitle`
+  显示 `Create Task`，唯一 action 是共享 `UiDialogCloseButton`/dismiss glyph。
+  title 的 `UiInput` 与无边框、透明且不可拖拽的 description textarea 位于
+  Body；公共 Body 只提供左右 8px，`taskComposerBody` 自行提供上下 8px。
+  Project 使用共享 `UiDropdown` ghost trigger，宽度随内容自然解析；menu
+  portal 到全局 popup layer，不参与 modal 排版或裁切。Project trigger 与
+  footer solid `Create` action 均使用共享 28px `inline` size。
 - Task detail 从 Table row、Kanban card 与 Active Tasks 共用同一个动态 route。
   Main 直接从 Sessions helper row 与 shared stacked list 开始，不再渲染 page-local
   title/description、Production、TaskExecutionContext 或 Workspace；Properties 与 Status history 通过全局
@@ -109,13 +109,13 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   不再手写 nav、分隔符或 breadcrumb CSS。全局 shell 在 320px 下按 Main 后
   Right Panel 堆叠。页面级 8px outer inset 只由 shell Main 提供，详情 feature root
   padding 为 0；section gap 与 Right Panel content padding 均为 8px，inline actions
-  为 20px，默认 rows 为 28px。Project、Issue、Metadata Labels、
+  与默认 rows 均为 28px。Project、Issue、Metadata Labels、
   status、surface、actions 与 shell 均复用 `@mystra/ui`；prototype 只保留 mock
   execution data 与 detail composition。Main content 不提供 Edit、Start、Workspace
   setup 或 action header；New Session 作为当前 Task surface action 位于 shell Main
   Header 右侧，Right Panel 收起时 recovery control 始终排在其后。
 - New Session 打开共享 `UiDialogSurface` compact-row composition。Surface 统一持有
-  8px inset/gap；header/footer 是 28px rows 且没有自己的 padding/divider。Header 标题为
+  8px inset/gap；header/footer 是 44px rows 且没有自己的 padding/divider。Header 标题为
   `Create Session`，只保留共享 Close；body 只有一个无边框、透明背景、不可 resize 的
   `UiTextarea` Prompt input，并保留 placeholder `Session-only context, constraints, or a
   specific focus`；footer
@@ -123,9 +123,77 @@ SVG，不是可迁移的 React 实现，继续保留只会制造第二份事实�
   inline action。首次 Runtime 由服务端根据 Provider 解析并锁定到 Task，后续 Session 复用该 Runtime；Workspace 按 `<Task, Runtime>` 自动查找或初始化；Runtime/Workspace 均不显示也不提交；Agent
   Context 省略/null，不出现控件；不渲染 Cancel、intro、notice 或 `Launch Session`。
   Close、Escape 与 backdrop 均可退出，关闭后焦点返回 Header trigger。
+
+## UX Intent：共享 Modal 与 Section Body 修正
+
+- **Intent**：让 New Task、Search 与既有 Project Modal 共享同一套 44px
+  Header/Footer、28px inline controls、公共标题与 Close anatomy；消除 Search
+  中私有 48px Header、15px input 和复制的 close button。
+- **Body ownership**：`UiSurfaceBody` 只拥有左右 8px padding，上下默认为 0。
+  业务内容自行声明上下 padding；Search workspace 不声明上下 padding，因此左右
+  split-pane 的竖向 divider 能从 Body 顶部连续到达底部。
+- **Reuse evidence**：production 与 prototype 都直接消费 `@mystra/ui` 的
+  `UiDialogSurface`、`UiSurfaceHeader/Body/Footer`、`UiSurfaceTitle`、
+  `UiDialogCloseButton`、`UiInput`、`UiTextarea`、`UiDropdown` 与 `UiButton`。
+- **Verification**：静态 composition tests 固定公共组件边界；浏览器读取 computed
+  height/padding 与 divider 边界，并检查 Search/New Task 的可访问结构和控制台。
 - Prompt 是 `manualContext.text` 的 UI copy，不添加 `prompt` request/domain field，也不
   声称覆盖服务端固定 `firstUserMessage`。Prototype 明确停在 API dispatch 边界，不向
   Sessions 列表追加 mock、不改变 Task/TaskExecutionContext/Workspace，也不伪造成功导航。
+
+## UX Intent：Project detail Header navigation
+
+- **Intent**：让 Project identity 与其一级业务切换占用 Shell Header 的稳定位置，
+  为后续业务对象页保留同一条 Header-level peer-switch interaction seam。
+- **Reuse evidence**：production 与 prototype 都通过 `UiSurfaceTitle` 和
+  `UiSegmented` 从 `@mystra/ui` 获取标题 inset、切换边框与 tab 语义；Appearance
+  的 mode control 是可视基线。不得再增加 `UiNavTabs` 或 page-local tab
+  component/style。PrototypeShell 与 AppShell 都使用 `shellHeaderTitle` layout
+  slot，而不是在页面内复制 header 或 tab anatomy。
+- **Selected state**：当前项使用 `UiSegmented` 的 shared selected surface、统一
+  outer border 与 `radius-control`，不绘制 accent underline 或 page-local radius。
+- **Verification**：Project name 替换默认 `Project detail` Header label；DOM 中
+  `projectContext`、`projectObjectTabs` 与 slug/范围描述为 0。三项 tabs 均在
+  Header 内，标题 text 自身 computed horizontal padding 为 8px；点击和 Arrow
+  key 切换 selected tab，320px 页面无横向 overflow。Issue provider peer tabs
+  同样消费 `UiSegmented`，不保留第二套 tab anatomy。
+
+## UX Intent：Settings modal density and split boundary
+
+- **Intent**：Settings 保持一个 modal header 的当前 Tab 标题；嵌入其中的
+  Account、Team、Team members 不再重复渲染自己的页面 title/description。
+- **Layout**：左侧导航与右侧内容的 `color-border-strong` 1px divider 由双栏
+  layout 本身从顶部连续画到底部；它不属于左侧 Surface，因而不继承其 radius。
+  navigation、header 与 scrollable content pane 均使用 8px inset，header 内的
+  title container 另有自身的 8px horizontal inset。
+  三个 management view 嵌入时直接返回其 Setting content，不渲染任何额外 page
+  root，也不继承独立路由的 `settingsPage` outer padding；外层 pane 是唯一的
+  modal content inset owner。
+  SettingRow 继续拥有自身的左右 8px 文本 inset，不以外层 20px modal inset
+  代替行内密度。
+- **Verification**：浏览器确认三个嵌入式页的 page header 数量为 0、当前 Tab
+  header 保留、embedded page-root 数量为 0、两列间 divider 为贯通整高的直线，
+  且 navigation/content 与 title container 的 computed padding 均为 8px。复核三个页面只消费共享
+  `SettingGroup`、`SettingRow`、`UiInput/UiSelect` 与 `UiButton`，不增加私有控件
+  高度或 card surface；Appearance 保持参考实现不变。
+
+## UX Intent：shell surface hierarchy and paused-route placeholders
+
+- **Intent**：将 light/dark theme 的既有背景 token 映射为一致的深度层级，而不是让
+  Shell sidebar 意外成为最白的区域；暂停交付的 Overview、Inbox 仅保留一个安静、
+  可辨认的空白边界。
+- **Surface roles**：`color-surface-sidebar` 复用 theme `surface2`，
+  `color-surface-main` 复用 theme `canvas`，`color-surface-table` 复用 theme
+  `surface1`。因此任一主题下的视觉深度固定为 table 最浅、Main 居中、sidebar 最深；
+  不写 page-local 色值。Tasks/Runtimes workbench、Castrel table、Issue table 与
+  Project repository table 均消费 table role。
+- **Placeholder**：`PagePlaceholder` 复用 `UiText annotation`、table surface、
+  strong-border 虚线和 panel radius；它在 page 剩余高度内使用 grid 居中，避免伪造
+  title/description/card 层级。
+- **Verification**：light Mystra theme computed colors 为 sidebar
+  `rgb(233, 238, 235)`、Main `rgb(245, 247, 245)`、table `rgb(255, 255, 255)`；
+  Overview 与 Inbox 的 placeholder 都是虚线、满高且仅显示自身标签，浏览器 console
+  无 warning/error。
 
 ## Task detail 主区域 Data Design
 

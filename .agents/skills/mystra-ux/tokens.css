@@ -60,12 +60,13 @@
   --mystra-inline-gap: 8px;
   --mystra-inline-group-gap: 4px;
   --mystra-tight-gap: var(--mystra-inline-group-gap);
-  --mystra-control-height-inline: 20px;
+  --mystra-control-height-inline: 28px;
   --mystra-control-height-compact: 24px;
   --mystra-control-height-header: 28px;
   --mystra-control-height-standard: 32px;
   --mystra-field-height-standard: 36px;
   --mystra-control-height-touch: 44px;
+  --mystra-section-chrome-height: 44px;
   --mystra-sidebar-width: 300px;
   --mystra-sidebar-min-width: 240px;
   --mystra-sidebar-max-width: 440px;

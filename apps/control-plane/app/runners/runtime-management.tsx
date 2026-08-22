@@ -1,9 +1,18 @@
 "use client";
 
 import type { RuntimeView } from "@mystra/shared";
+import {
+  ShellIcon,
+  StackedList,
+  StackedListField,
+  StackedListRow,
+  UiButton,
+  UiIconButton,
+  type StackedListStandardFieldDefinition,
+} from "@mystra/ui";
 import { useEffect, useState } from "react";
 
-import { EmptyState, ErrorState, LoadingState } from "../_components/states";
+import { EmptyState } from "../_components/states";
 import { controlPlaneRequest } from "../_lib/control-plane-api";
 import { relativeTime } from "../_lib/format";
 import { useResource } from "../_lib/use-resource";
@@ -12,6 +21,14 @@ import {
   type RuntimeRenameResponse,
   type RuntimesResponse,
 } from "./runtime-management-model";
+
+const runtimeFields = [
+  { key: "status", align: "left", renderType: "labels" },
+  { key: "name", align: "left", renderType: "text" },
+  { key: "type", align: "right", renderType: "text" },
+  { key: "providers", align: "right", renderType: "labels" },
+  { key: "heartbeat", align: "right", renderType: "datetime" },
+] as const satisfies readonly StackedListStandardFieldDefinition[];
 
 function RuntimeStatusBadge({ status }: { status: RuntimeView["status"] }) {
   return <span className={`statusBadge ${status === "online" ? "good" : "bad"}`}>{status}</span>;
@@ -76,126 +93,116 @@ export function RuntimeManagement() {
 
   return (
     <div className="pageContent">
-      <div className="pageToolbar">
-        <p className="pageDescription">
-          Runtimes are enrolled execution backends. Status is derived from the latest host heartbeat.
-        </p>
-        <button className="secondaryButton" type="button" onClick={() => void resource.refresh()}>
-          Refresh
-        </button>
-      </div>
+      <div className="detailStack runtimeDetailStack">
+        <section aria-label="Enrolled runtimes" className="taskWorkbench runtimeTableWorkbench">
+          <div aria-label="Runtime list controls" className="taskToolbar runtimeTableToolbar">
+            <div className="taskToolbarActions">
+              <UiIconButton aria-label="Refresh runtimes" disabled={resource.isLoading} onClick={() => void resource.refresh()} title="Refresh runtimes">
+                <ShellIcon className={resource.isLoading ? "refreshIcon isLoading" : "refreshIcon"} name="refresh" />
+              </UiIconButton>
+            </div>
+          </div>
 
-      {resource.isLoading ? <LoadingState label="Loading runtimes" /> : null}
-      {resource.error ? <ErrorState message={resource.error} onRetry={() => void resource.refresh()} /> : null}
-      {!resource.isLoading && !resource.error && runtimes.length === 0 ? (
-        <EmptyState
-          title="No runtimes enrolled"
-          description="Start mystra-runner on a host to register its Runtime and available Providers."
-        />
-      ) : null}
-      {runtimes.length > 0 ? (
-        <div className="detailStack">
-          <section className="panel" aria-label="Enrolled runtimes">
-            <div className="tableHeader runnerColumns">
-              <span>Runtime</span><span>Type</span><span>Status</span><span>Available Providers</span><span />
+          {resource.error ? <div className="workbenchState" role="alert"><span>{resource.error}</span><UiButton onClick={() => void resource.refresh()}>Retry</UiButton></div> : null}
+          {!resource.error && resource.isLoading && runtimes.length === 0 ? <div className="workbenchState" role="status">Loading runtimes…</div> : null}
+          {!resource.error && !resource.isLoading && runtimes.length === 0 ? <div className="workbenchState" role="status">No runtimes enrolled</div> : null}
+
+          {!resource.error && runtimes.length > 0 ? (
+            <div className="taskListViewport">
+              <StackedList fields={runtimeFields}>
+                {runtimes.map((runtime) => (
+                  <StackedListRow
+                    key={runtime.id}
+                    left={<StackedListField field={runtimeFields[0]}><RuntimeStatusBadge status={runtime.status} /></StackedListField>}
+                    name={<span className="primaryCell"><strong>{runtime.name}</strong><small className="mono">{runtime.id}</small></span>}
+                    onClick={() => setSelectedRuntimeId(runtime.id)}
+                    right={<>
+                      <StackedListField field={runtimeFields[2]}>{runtime.type}</StackedListField>
+                      <StackedListField field={runtimeFields[3]}><ProviderList runtime={runtime} /></StackedListField>
+                      <StackedListField field={runtimeFields[4]}>
+                        {runtime.lastSeenAt ? <time dateTime={runtime.lastSeenAt}>{relativeTime(runtime.lastSeenAt)}</time> : "Not received"}
+                      </StackedListField>
+                    </>}
+                  />
+                ))}
+              </StackedList>
+            </div>
+          ) : null}
+        </section>
+
+        {selectedRuntime ? (
+          <section className="panel" aria-labelledby="runtime-detail-heading">
+            <div className="panelHeader">
+              <div>
+                <h2 id="runtime-detail-heading">{selectedRuntime.name}</h2>
+                <span className="mono">{selectedRuntime.id}</span>
+              </div>
+              <div className="toolbarActions">
+                <RuntimeStatusBadge status={selectedRuntime.status} />
+                <button className="secondaryButton" type="button" onClick={() => startRename(selectedRuntime)}>
+                  Rename runtime
+                </button>
+              </div>
+            </div>
+            {isRenaming ? (
+              <form className="formStack" onSubmit={renameRuntime}>
+                <label htmlFor="runtime-name">Runtime name</label>
+                <input
+                  autoFocus
+                  id="runtime-name"
+                  maxLength={255}
+                  minLength={1}
+                  name="name"
+                  required
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+                {renameError ? <p className="formError" role="alert">{renameError}</p> : null}
+                <div className="toolbarActions">
+                  <button className="primaryButton" disabled={isSubmitting} type="submit">
+                    {isSubmitting ? "Saving…" : "Save name"}
+                  </button>
+                  <button
+                    className="secondaryButton"
+                    disabled={isSubmitting}
+                    type="button"
+                    onClick={() => setIsRenaming(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
+            <dl className="definitionList">
+              <div><dt>Runtime id</dt><dd className="mono">{selectedRuntime.id}</dd></div>
+              <div><dt>Runner id</dt><dd className="mono">{selectedRuntime.metadata.runnerId}</dd></div>
+              <div><dt>Name</dt><dd>{selectedRuntime.name}</dd></div>
+              <div><dt>Type</dt><dd>{selectedRuntime.type}</dd></div>
+              <div><dt>Status</dt><dd><RuntimeStatusBadge status={selectedRuntime.status} /></dd></div>
+              <div>
+                <dt>Last heartbeat</dt>
+                <dd>{selectedRuntime.lastSeenAt ? `${relativeTime(selectedRuntime.lastSeenAt)} · ${selectedRuntime.lastSeenAt}` : "Not received"}</dd>
+              </div>
+            </dl>
+            <div className="panelHeader">
+              <h2>Available Providers</h2>
             </div>
             <div className="dataList">
-              {runtimes.map((runtime) => (
-                <div className="dataRow runnerColumns" key={runtime.id}>
+              {availableProviders(selectedRuntime).length > 0 ? availableProviders(selectedRuntime).map((provider) => (
+                <div className="dataRow compactRow" key={provider.provider}>
                   <span className="primaryCell">
-                    <strong>{runtime.name}</strong>
-                    <small className="mono">{runtime.id}</small>
+                    <strong>{provider.provider}</strong>
+                    <small className="mono">{provider.resolvedPath ?? "No resolved path"}</small>
                   </span>
-                  <span>{runtime.type}</span>
-                  <RuntimeStatusBadge status={runtime.status} />
-                  <ProviderList runtime={runtime} />
-                  <button
-                    aria-pressed={selectedRuntimeId === runtime.id}
-                    className="secondaryButton"
-                    type="button"
-                    onClick={() => setSelectedRuntimeId(runtime.id)}
-                  >
-                    Details
-                  </button>
+                  <span className="statusBadge good">{provider.version ?? "Available"}</span>
                 </div>
-              ))}
+              )) : (
+                <EmptyState title="No Providers available" description="The Runtime has not reported an available Provider." />
+              )}
             </div>
           </section>
-
-          {selectedRuntime ? (
-            <section className="panel" aria-labelledby="runtime-detail-heading">
-              <div className="panelHeader">
-                <div>
-                  <h2 id="runtime-detail-heading">{selectedRuntime.name}</h2>
-                  <span className="mono">{selectedRuntime.id}</span>
-                </div>
-                <div className="toolbarActions">
-                  <RuntimeStatusBadge status={selectedRuntime.status} />
-                  <button className="secondaryButton" type="button" onClick={() => startRename(selectedRuntime)}>
-                    Rename runtime
-                  </button>
-                </div>
-              </div>
-              {isRenaming ? (
-                <form className="formStack" onSubmit={renameRuntime}>
-                  <label htmlFor="runtime-name">Runtime name</label>
-                  <input
-                    autoFocus
-                    id="runtime-name"
-                    maxLength={255}
-                    minLength={1}
-                    name="name"
-                    required
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                  />
-                  {renameError ? <p className="formError" role="alert">{renameError}</p> : null}
-                  <div className="toolbarActions">
-                    <button className="primaryButton" disabled={isSubmitting} type="submit">
-                      {isSubmitting ? "Saving…" : "Save name"}
-                    </button>
-                    <button
-                      className="secondaryButton"
-                      disabled={isSubmitting}
-                      type="button"
-                      onClick={() => setIsRenaming(false)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-              <dl className="definitionList">
-                <div><dt>Runtime id</dt><dd className="mono">{selectedRuntime.id}</dd></div>
-                <div><dt>Runner id</dt><dd className="mono">{selectedRuntime.metadata.runnerId}</dd></div>
-                <div><dt>Name</dt><dd>{selectedRuntime.name}</dd></div>
-                <div><dt>Type</dt><dd>{selectedRuntime.type}</dd></div>
-                <div><dt>Status</dt><dd><RuntimeStatusBadge status={selectedRuntime.status} /></dd></div>
-                <div>
-                  <dt>Last heartbeat</dt>
-                  <dd>{selectedRuntime.lastSeenAt ? `${relativeTime(selectedRuntime.lastSeenAt)} · ${selectedRuntime.lastSeenAt}` : "Not received"}</dd>
-                </div>
-              </dl>
-              <div className="panelHeader">
-                <h2>Available Providers</h2>
-              </div>
-              <div className="dataList">
-                {availableProviders(selectedRuntime).length > 0 ? availableProviders(selectedRuntime).map((provider) => (
-                  <div className="dataRow compactRow" key={provider.provider}>
-                    <span className="primaryCell">
-                      <strong>{provider.provider}</strong>
-                      <small className="mono">{provider.resolvedPath ?? "No resolved path"}</small>
-                    </span>
-                    <span className="statusBadge good">{provider.version ?? "Available"}</span>
-                  </div>
-                )) : (
-                  <EmptyState title="No Providers available" description="The Runtime has not reported an available Provider." />
-                )}
-              </div>
-            </section>
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

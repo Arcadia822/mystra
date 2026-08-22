@@ -1,4 +1,5 @@
 export {
+  UiDialogCloseButton,
   UiDialogSurface,
   UiRightPanelToggle,
   UiShellRightPanel,
@@ -6,6 +7,7 @@ export {
   UiSurfaceBody,
   UiSurfaceFooter,
   UiSurfaceHeader,
+  UiSurfaceTitle,
   type UiDialogSurfaceProps,
   type UiRightPanelToggleProps,
   type UiShellRightPanelProps,

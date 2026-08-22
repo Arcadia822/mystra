@@ -19,9 +19,52 @@ describe("shared popup density", () => {
 });
 
 describe("shared inline action density", () => {
-  it("keeps inline controls at 20px", () => {
-    expect(styles).toContain("--control-height-inline: 20px;");
+  it("keeps inline controls at 28px with 8px horizontal padding", () => {
+    expect(styles).toContain("--control-height-inline: 28px;");
+    expect(styles).toContain("--control-padding-inline: 8px;");
     expect(rule('.uiAction[data-size="inline"]')).toContain("height: var(--control-height-inline);");
+    expect(rule('.uiAction[data-size="inline"]')).toContain("padding-inline: var(--control-padding-inline);");
+    expect(rule(".uiFieldControl")).toContain("box-sizing: border-box;");
+    expect(rule(".uiFieldControl")).toContain("height: var(--control-height-header);");
+    expect(rule(".uiFieldControl")).toContain("padding-block: 0;");
+    expect(rule(".uiFieldControl")).toContain("padding-inline: var(--control-padding-inline);");
+    expect(styles).toContain("input:not(.uiFieldControl),\nselect:not(.uiFieldControl)");
+  });
+});
+
+describe("shared section geometry", () => {
+  it("keeps header and footer at 44px and gives every section an 8px horizontal inset", () => {
+    const header = rule(".uiSurfaceHeader");
+    const body = rule(".uiSurfaceBody");
+    const footer = rule(".uiSurfaceFooter");
+    const title = rule(".uiSurfaceTitle");
+
+    expect(styles).toContain("--section-chrome-height: 44px;");
+    expect(header).toContain("height: var(--section-chrome-height);");
+    expect(header).toContain("padding: 0 var(--space-2);");
+    expect(header).toContain("font-size: var(--font-size-ui);");
+    expect(title).toContain("padding: 0 var(--space-2);");
+    expect(title).not.toMatch(/font-(?:family|size|weight)\s*:/);
+    expect(rule('.uiText[data-variant="heading"]')).toContain("font-weight: var(--font-weight-medium);");
+    expect(rule(".uiText")).toContain("font-size: var(--font-size-ui);");
+    expect(body).toContain("padding: 0 var(--space-2);");
+    expect(footer).toContain("height: var(--section-chrome-height);");
+    expect(footer).toContain("padding: 0 var(--space-2);");
+    expect(footer).toContain("font-size: var(--font-size-ui);");
+    expect(rule('.uiDialogSurface[data-layout="rows"] > .uiSurfaceHeader,\n.uiDialogSurface[data-layout="rows"] > .uiSurfaceFooter')).toContain(
+      "height: var(--section-chrome-height);",
+    );
+  });
+});
+
+describe("shared setting row geometry", () => {
+  it("fills its container and adds the second 8px text inset", () => {
+    expect(rule(".settingGroup")).toContain("width: 100%;");
+    expect(rule(".settingRow")).toContain("width: 100%;");
+    expect(rule(".settingRow")).toContain("padding: 0 var(--space-2);");
+    expect(rule(".settingRowCopy h4")).toContain("font-size: var(--font-size-ui);");
+    expect(rule(".settingRowCopy h4")).toContain("font-weight: var(--font-weight-medium);");
+    expect(rule(".settingsBusinessGroup > .settingRow")).toContain("padding: var(--space-3) var(--space-2);");
   });
 });
 
@@ -29,7 +72,9 @@ describe("shared compact heading typography", () => {
   it("uses 12px and a restrained 500 weight for structural labels", () => {
     expect(styles).toContain("--font-weight-body: 400;");
     expect(styles).toContain("--font-weight-strong: 500;");
-    expect(rule(".shellHeader strong")).toContain("font-weight: var(--font-weight-strong);");
+    expect(rule(".shellHeaderTitle > .uiText,\n.shellHeaderTitle > strong")).toContain(
+      "font-weight: var(--font-weight-strong);",
+    );
     expect(rule(".shellHeader")).toContain("min-width: 0;");
     expect(rule(".shellHeader > .uiBreadcrumb")).toContain("flex: 1 1 auto;");
     expect(rule(".shellHeader > .shellHeaderControls")).toContain("flex: none;");
@@ -89,5 +134,16 @@ describe("shared Task status anatomy", () => {
   it("uses the theme canvas token for marks inside solid status circles", () => {
     expect(rule(".taskStatusMark")).toContain("stroke: var(--color-canvas);");
     expect(rule(".taskStatusMark")).not.toContain("var(--canvas)");
+  });
+});
+
+describe("shared surface hierarchy", () => {
+  it("maps sidebar, main canvas, and table frames to distinct theme surface roles", () => {
+    expect(styles).toContain("--color-surface-sidebar: var(--surface2);");
+    expect(styles).toContain("--color-surface-main: var(--background);");
+    expect(styles).toContain("--color-surface-table: var(--surface1);");
+    expect(rule(".sidebar")).toContain("background: var(--color-surface-sidebar);");
+    expect(rule(".shellMain")).toContain("background: var(--color-surface-main);");
+    expect(rule(".castrelTable")).toContain("background: var(--color-surface-table);");
   });
 });
