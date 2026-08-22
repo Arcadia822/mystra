@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ElementType } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { MemberView, TeamListItem, TeamRole } from "@mystra/shared";
 
@@ -65,11 +65,7 @@ export function TeamMembers({ embedded = false }: { embedded?: boolean }) {
   const canEdit = (member: MemberView) => canManage && (active?.currentUserRole === "owner" || member.role === "member");
   const canChangeRole = active?.currentUserRole === "owner";
 
-  const Container: ElementType = embedded ? "section" : "main";
-
-  return (
-    <Container className={`settingsPage${embedded ? " settingsModalPage" : ""}`}>
-      <header><h1 ref={headingRef} tabIndex={-1}>Team members</h1><p>Manage membership by local username for {active?.displayName ?? "the active Team"}.</p></header>
+  const content = <>
       {teams.isLoading || loading ? <p aria-busy="true" className="statePanel">Loading members…</p> : null}
       {teams.error || error ? <p className="statePanel errorState" role="alert">{teams.error ?? error}</p> : null}
       {!teams.isLoading && !active ? <p className="statePanel">No active Team is available.</p> : null}
@@ -84,6 +80,14 @@ export function TeamMembers({ embedded = false }: { embedded?: boolean }) {
         </li>)}
       </ul></SettingRow></SettingGroup> : null}
       {status ? <p aria-live="polite" className="formNotice" role="status">{status}</p> : null}
-    </Container>
+    </>;
+
+  if (embedded) return content;
+
+  return (
+    <main className="settingsPage">
+      <header><h1 ref={headingRef} tabIndex={-1}>Team members</h1><p>Manage membership by local username for {active?.displayName ?? "the active Team"}.</p></header>
+      {content}
+    </main>
   );
 }

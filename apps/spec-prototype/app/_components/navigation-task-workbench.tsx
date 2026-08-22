@@ -12,7 +12,6 @@ import {
   UiCheckbox,
   UiDialogCloseButton,
   UiDialogSurface,
-  UiDialogTitleInput,
   UiDropdown,
   UiIconButton,
   UiInput,
@@ -24,6 +23,7 @@ import {
   UiSurfaceBody,
   UiSurfaceFooter,
   UiSurfaceHeader,
+  UiSurfaceTitle,
   UiTextarea,
   type StackedListStandardFieldDefinition as StackedField,
   type UiLabelOverflowItem,
@@ -111,12 +111,15 @@ export function TaskComposer({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState("");
   return (
     <PrototypeDialog onClose={onClose} title="Create task">
-      <UiDialogSurface className="taskComposer" layout="rows">
+      <UiDialogSurface className="taskComposer">
         <UiSurfaceHeader className="taskComposerHeader">
-          <UiDialogTitleInput aria-label="Task name" onChange={(event) => setTitle(event.currentTarget.value)} placeholder="Task name" value={title} />
+          <UiSurfaceTitle>Create Task</UiSurfaceTitle>
           <UiDialogCloseButton aria-label="Close" onClick={onClose} />
         </UiSurfaceHeader>
-        <UiSurfaceBody><UiTextarea aria-label="Task description" className="taskDescription" placeholder="Add a description…" rows={3} /></UiSurfaceBody>
+        <UiSurfaceBody className="taskComposerBody">
+          <UiInput autoFocus aria-label="Task name" onChange={(event) => setTitle(event.currentTarget.value)} placeholder="Task name" value={title} />
+          <UiTextarea aria-label="Task description" className="taskDescription" placeholder="Add a description…" rows={3} />
+        </UiSurfaceBody>
         <UiSurfaceFooter className="taskComposerFooter">
           <UiDropdown aria-label="Project" icon={<ShellIcon name="project" />} onValueChange={setProject} options={[{ value: "", label: "No project" }, { value: "mystra", label: "R_kgDOMystra" }, { value: "castrel", label: "R_kgDOCastrel" }]} placeholder="No project" size="inline" value={project} variant="ghost" />
           <UiButton disabled={!title.trim()} onClick={onClose} size="inline" tone="solid">Create</UiButton>

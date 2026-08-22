@@ -152,7 +152,7 @@ export function PrototypeShell({
             <UiIconButton aria-label="Search" className="collapsedHeaderAction" onClick={onSearch} title="Search"><ShellIcon name="search" /></UiIconButton>
             <UiIconButton aria-label="Expand sidebar" className="collapsedHeaderAction" onClick={() => setCollapsed(false)} title="Expand sidebar"><ShellIcon name="expand" /></UiIconButton>
           </div>
-          {breadcrumbItems?.length ? <UiBreadcrumb items={breadcrumbItems} /> : title ? <strong>{title}</strong> : null}
+          {breadcrumbItems?.length ? <UiBreadcrumb items={breadcrumbItems} /> : title ? <div className="shellHeaderTitle">{title}</div> : null}
           {headerActions || (rightPanel && rightPanelCollapsed) ? (
             <div className="shellHeaderControls">
               {headerActions}

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { UiButton } from "./ui-actions";
 import { UiInput, UiSelect } from "./ui-fields";
+import { UiSegmented } from "./ui-preference-controls";
 import { GitHubIssueTable, LinearIssueTable } from "./project-issue-tables";
 import { ISSUE_COPY } from "./shell-copy";
 import { useShellLocale } from "./shell-locale";
@@ -19,6 +20,10 @@ interface PageState { cursors: string[]; filters: Filters }
 
 const initialGitHub: PageState = { cursors: [], filters: { state: "open", assignee: "", label: "", milestone: "" } };
 const initialLinear: PageState = { cursors: [], filters: { status: "", priority: "", assignee: "", cycle: "" } };
+const providerOptions = [
+  { label: "GitHub", value: "github" },
+  { label: "Linear", value: "linear" },
+] as const;
 
 function errorMessage(payload: unknown, status: number): string {
   if (payload && typeof payload === "object" && "error" in payload) {
@@ -128,10 +133,7 @@ export function ProjectIssuesBrowser({ projectSlug }: { projectSlug: string }) {
   const linearSource = sources.linear;
   return (
     <section aria-label="Project Issues" className="projectIssuesBrowser">
-      <div aria-label="Issue provider" className="issueProviderTabs" role="tablist">
-        <UiButton active={provider === "github"} aria-selected={provider === "github"} role="tab" onClick={() => setProvider("github")}>GitHub</UiButton>
-        <UiButton active={provider === "linear"} aria-selected={provider === "linear"} role="tab" onClick={() => setProvider("linear")}>Linear</UiButton>
-      </div>
+      <UiSegmented aria-label="Issue provider" onValueChange={setProvider} options={providerOptions} role="tablist" value={provider} />
       <div className="issueSourceLine">
         <strong>{provider === "github" ? `GitHub · ${sources.github.repositoryExternalId}` : linearSource ? `Linear · ${linearSource.team?.name ?? linearSource.linearTeamExternalId}` : "Linear · Not configured"}</strong>
         <span>{provider === "github" ? copy.derivedRepository : source ? copy.exactTeamScope : copy.noFallback}</span>

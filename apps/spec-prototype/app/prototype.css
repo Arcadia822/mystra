@@ -53,7 +53,7 @@ body {
 }
 
 .taskWorkbench {
-  background: var(--color-surface-panel);
+  background: var(--color-surface-table);
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-panel);
   display: grid;
@@ -307,11 +307,23 @@ body {
 }
 
 .taskComposer {
-  padding: var(--space-2);
+  display: grid;
+  grid-template-rows: auto auto auto;
+  overflow: hidden;
 }
 
 .taskComposerHeader {
+  justify-content: space-between;
+}
+
+.taskComposerBody {
+  display: grid;
   gap: var(--space-2);
+  padding-block: var(--space-2);
+}
+
+.taskComposerBody .uiFieldControl {
+  width: 100%;
 }
 
 .taskComposer .taskDescription {
@@ -329,7 +341,6 @@ body {
 
 .taskComposerFooter {
   justify-content: space-between;
-  min-height: var(--control-height-header);
 }
 
 .sessionComposer {
@@ -374,7 +385,7 @@ body {
 .searchPrototype > .uiSurfaceBody {
   display: grid;
   gap: var(--tight-gap);
-  padding: var(--space-1);
+  padding-block: var(--space-1);
 }
 
 .searchPrototypeResult {
@@ -662,6 +673,7 @@ body {
 .prototypeStarter .uiSurfaceBody {
   display: grid;
   gap: var(--space-2);
+  padding-block: var(--space-2);
 }
 
 @media (max-width: 1024px) {

@@ -8,9 +8,16 @@ import { taskLabel } from "../_lib/format";
 import { taskTitle } from "../_lib/task-view";
 import { filterTasks, selectedSearchTask } from "./shell-model";
 import { ShellIcon } from "./shell-icons";
-import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
+import { UiActionLink, UiButton } from "./ui-actions";
 import { UiInput } from "./ui-fields";
-import { UiDialogSurface, UiSurface, UiSurfaceBody, UiSurfaceHeader } from "./ui-surfaces";
+import {
+  UiDialogCloseButton,
+  UiDialogSurface,
+  UiSurface,
+  UiSurfaceBody,
+  UiSurfaceHeader,
+  UiSurfaceTitle,
+} from "./ui-surfaces";
 
 interface ShellSearchDialogProps {
   actionsLabel: string;
@@ -109,69 +116,70 @@ export function ShellSearchDialog({
       <UiDialogSurface className="searchDialogPanel">
         <UiSurfaceHeader className="searchDialogHeader">
           <h2 className="srOnly" id="shell-search-title">{title}</h2>
+          <ShellIcon name="search" />
           <label className="searchDialogInput">
             <span className="srOnly">{placeholder}</span>
             <UiInput autoFocus placeholder={placeholder} type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
-          <ShellIcon name="search" />
-          <UiIconButton aria-label={closeLabel} className="compactIconButton" onClick={onClose}><ShellIcon name="close" /></UiIconButton>
+          <UiDialogCloseButton aria-label={closeLabel} onClick={onClose} />
         </UiSurfaceHeader>
 
-        <div className="searchDialogWorkspace">
+        <UiSurfaceBody className="searchDialogWorkspace">
           <aside className="searchListPane">
-            <section aria-labelledby="search-actions-title" className="searchActions">
-              <header className="searchSectionHeader">
-                <h3 id="search-actions-title">{actionsLabel}</h3>
+            <UiSurface aria-labelledby="search-actions-title" as="section" className="searchActions" variant="ghost">
+              <UiSurfaceHeader className="searchSectionHeader">
+                <UiSurfaceTitle as="h3" id="search-actions-title">{actionsLabel}</UiSurfaceTitle>
                 <UiActionLink href="/tasks" size="compact" onClick={onClose}>{showAllLabel}</UiActionLink>
-              </header>
-              <UiButton block className="searchAction" onClick={() => { onClose(); onNewTask(); }}>
-                <span className="searchResultIcon"><ShellIcon name="new" /></span>
-                <span>{newTaskLabel}</span>
-              </UiButton>
-            </section>
+              </UiSurfaceHeader>
+              <UiSurfaceBody className="searchActionsBody">
+                <UiButton block className="searchAction" onClick={() => { onClose(); onNewTask(); }}>
+                  <span className="searchResultIcon"><ShellIcon name="new" /></span>
+                  <span>{newTaskLabel}</span>
+                </UiButton>
+              </UiSurfaceBody>
+            </UiSurface>
 
-            <section aria-labelledby="search-results-title" className="searchResultsSection">
-              <header className="searchSectionHeader">
-                <h3 id="search-results-title">{tasksLabel}</h3>
-              </header>
-              {results.length > 0 ? (
-                <ul className="searchResults">
-                  {results.map((task) => {
-                    const selected = task.id === selectedTask?.id;
-                    return (
-                      <li key={task.id}>
-                        <UiButton
-                          active={selected}
-                          aria-pressed={selected}
-                          block
-                          className="searchResult"
-                          onClick={() => setSelectedId(task.id)}
-                        >
-                          <TaskStatusIcon status={task.status} />
-                          <span className="searchResultCopy">
-                            <strong>{taskTitle(task)}</strong>
-                            <small>{taskLabel(task.id, task.issue?.identifier)} · {task.projectReference?.repositoryExternalId ?? "No project"}</small>
-                          </span>
-                          <time dateTime={task.updatedAt}>{formatSearchDate(task.updatedAt, locale)}</time>
-                        </UiButton>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="searchEmpty" role="status">{query.trim() ? emptyLabel : noTasksLabel}</p>
-              )}
-            </section>
+            <UiSurface aria-labelledby="search-results-title" as="section" className="searchResultsSection" variant="ghost">
+              <UiSurfaceHeader className="searchSectionHeader">
+                <UiSurfaceTitle as="h3" id="search-results-title">{tasksLabel}</UiSurfaceTitle>
+              </UiSurfaceHeader>
+              <UiSurfaceBody className="searchResultsBody">
+                {results.length > 0 ? (
+                  <ul className="searchResults">
+                    {results.map((task) => {
+                      const selected = task.id === selectedTask?.id;
+                      return (
+                        <li key={task.id}>
+                          <UiButton
+                            active={selected}
+                            aria-pressed={selected}
+                            block
+                            className="searchResult"
+                            onClick={() => setSelectedId(task.id)}
+                          >
+                            <TaskStatusIcon status={task.status} />
+                            <span className="searchResultCopy">
+                              <strong>{taskTitle(task)}</strong>
+                              <small>{taskLabel(task.id, task.issue?.identifier)} · {task.projectReference?.repositoryExternalId ?? "No project"}</small>
+                            </span>
+                            <time dateTime={task.updatedAt}>{formatSearchDate(task.updatedAt, locale)}</time>
+                          </UiButton>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="searchEmpty" role="status">{query.trim() ? emptyLabel : noTasksLabel}</p>
+                )}
+              </UiSurfaceBody>
+            </UiSurface>
           </aside>
 
           <section aria-live="polite" className="searchPreview">
             {selectedTask ? (
               <UiSurface as="article" className="searchPreviewCard" variant="ghost">
                 <UiSurfaceHeader className="searchPreviewHeader">
-                  <div>
-                    <span className="searchPreviewEyebrow">{tasksLabel}</span>
-                    <h3>{taskTitle(selectedTask)}</h3>
-                  </div>
+                  <UiSurfaceTitle as="h3">{taskTitle(selectedTask)}</UiSurfaceTitle>
                   <div className="searchPreviewActions">
                     <UiActionLink href={`/tasks/${selectedTask.id}`} size="compact" tone="soft" onClick={onClose}>{openTaskLabel}</UiActionLink>
                   </div>
@@ -190,7 +198,7 @@ export function ShellSearchDialog({
               <p className="searchPreviewEmpty">{previewEmptyLabel}</p>
             )}
           </section>
-        </div>
+        </UiSurfaceBody>
       </UiDialogSurface>
     </dialog>
   );

@@ -24,6 +24,25 @@ export interface DropdownFloatingPosition {
   top: number;
 }
 
+export interface DropdownPopoverElement {
+  matches(selector: string): boolean;
+  showPopover?: () => void;
+}
+
+export interface DropdownPortalAnchor {
+  closest(selector: "dialog"): Element | null;
+}
+
+export function resolveDropdownPortalHost(root: DropdownPortalAnchor | null, fallback: Element): Element {
+  return root?.closest("dialog") ?? fallback;
+}
+
+export function showDropdownInTopLayer(menu: DropdownPopoverElement): boolean {
+  if (typeof menu.showPopover !== "function" || menu.matches(":popover-open")) return false;
+  menu.showPopover();
+  return true;
+}
+
 export function resolveDropdownFloatingPosition({
   align,
   anchor,

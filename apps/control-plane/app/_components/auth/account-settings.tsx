@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ElementType } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { controlPlaneRequest, ControlPlaneApiError } from "../../_lib/control-plane-api";
@@ -60,11 +60,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     router.replace("/login");
   }
 
-  const Container: ElementType = embedded ? "section" : "main";
-
-  return (
-    <Container className={`settingsPage${embedded ? " settingsModalPage" : ""}`}>
-      <header><h1 ref={headingRef} tabIndex={-1}>Account settings</h1><p>Manage your local identity and signed-in sessions.</p></header>
+  const content = <>
       {account.isLoading ? <p aria-busy="true" className="statePanel">Loading account…</p> : null}
       {account.error ? <p className="statePanel errorState" role="alert">{account.error}</p> : null}
       {account.data ? (
@@ -88,6 +84,14 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         <div className="settingsTabActions"><UiButton size="compact" tone="ghost" onClick={() => void logout()}>Sign out</UiButton></div>
       </SettingGroup>
       {status ? <p aria-live="polite" className="formNotice" role="status">{status}</p> : null}
-    </Container>
+    </>;
+
+  if (embedded) return content;
+
+  return (
+    <main className="settingsPage">
+      <header><h1 ref={headingRef} tabIndex={-1}>Account settings</h1><p>Manage your local identity and signed-in sessions.</p></header>
+      {content}
+    </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ElementType } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import type { TeamListItem } from "@mystra/shared";
@@ -63,11 +63,7 @@ export function TeamSettings({
     }
   }
 
-  const Container: ElementType = embedded ? "section" : "main";
-
-  return (
-    <Container className={`settingsPage${embedded ? " settingsModalPage" : ""}`}>
-      <header><h1 ref={headingRef} tabIndex={-1}>Team settings</h1><p>Switch, create, and manage the active Team.</p></header>
+  const content = <>
       {teams.isLoading ? <p aria-busy="true" className="statePanel">Loading Teams…</p> : null}
       {teams.error ? <p className="statePanel errorState" role="alert">{teams.error}</p> : null}
       {!teams.isLoading && !teams.error && teams.data?.teams.length === 0 ? <p className="statePanel">No active Teams are available.</p> : null}
@@ -92,6 +88,14 @@ export function TeamSettings({
         <h2 id="archive-team-title">Archive {archiving?.displayName}?</h2><p>This removes the Team from every member’s switcher. Historical work remains available to the system.</p>
         <div><UiButton ref={cancelRef} size="default" onClick={() => { dialogRef.current?.close(); setArchiving(null); }}>Cancel</UiButton><UiButton size="default" tone="danger" onClick={() => void archive()}>Archive Team</UiButton></div>
       </dialog>
-    </Container>
+    </>;
+
+  if (embedded) return content;
+
+  return (
+    <main className="settingsPage">
+      <header><h1 ref={headingRef} tabIndex={-1}>Team settings</h1><p>Switch, create, and manage the active Team.</p></header>
+      {content}
+    </main>
   );
 }

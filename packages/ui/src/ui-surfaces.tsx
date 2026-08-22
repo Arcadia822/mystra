@@ -2,6 +2,7 @@ import type { ComponentProps, ElementType, HTMLAttributes, ReactNode } from "rea
 import { joinClassNames, UiIconButton, type UiIconButtonProps } from "./ui-actions.js";
 import { ShellIcon } from "./icons.js";
 import { UiInput } from "./ui-fields.js";
+import { UiText, type UiTextProps } from "./ui-text.js";
 
 export type UiSurfaceVariant = "panel" | "popup" | "outline" | "ghost";
 type UiSurfaceElement = "div" | "section" | "article" | "aside";
@@ -19,6 +20,9 @@ export function UiSurface({ as = "div", children, className, selected = false, v
 
 export function UiSurfaceHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props} className={joinClassNames("uiSurfaceHeader", className)} />;
+}
+export function UiSurfaceTitle({ as = "h2", className, ...props }: Omit<UiTextProps, "variant">) {
+  return <UiText {...props} as={as} className={joinClassNames("uiSurfaceTitle", className)} variant="heading" />;
 }
 export function UiSurfaceBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props} className={joinClassNames("uiSurfaceBody", className)} />;

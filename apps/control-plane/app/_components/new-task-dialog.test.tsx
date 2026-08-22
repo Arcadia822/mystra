@@ -5,7 +5,10 @@ const source = readFileSync(new URL("./new-task-dialog.tsx", import.meta.url), "
 
 describe("NewTaskDialog composition", () => {
   it("uses the approved shared modal controls and persisted Project external ID", () => {
-    for (const primitive of ["UiDialogSurface", "UiDialogTitleInput", "UiDialogCloseButton", "UiDropdown", "UiTextarea", "UiButton"]) expect(source).toContain(primitive);
+    for (const primitive of ["UiDialogSurface", "UiSurfaceTitle", "UiSurfaceBody", "UiSurfaceFooter", "UiInput", "UiDialogCloseButton", "UiDropdown", "UiTextarea", "UiButton"]) expect(source).toContain(primitive);
+    expect(source).not.toContain('layout="rows"');
+    expect(source).toContain('<UiSurfaceBody className="taskComposerBody">');
+    expect(source).toContain('zh ? "创建 Task" : "Create Task"');
     expect(source).toContain("label: project.repositoryExternalId");
     expect(source).not.toContain("label: project.name");
     expect(source).toContain("metadata: {}");

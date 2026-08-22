@@ -4,7 +4,7 @@ import { type CSSProperties, type KeyboardEvent, type ReactNode, useEffect, useI
 import { createPortal } from "react-dom";
 import { UiButton, joinClassNames, type UiActionSize } from "./ui-actions.js";
 import { ShellIcon } from "./icons.js";
-import { edgeEnabledDropdownIndex, nextEnabledDropdownIndex, resolveDropdownFloatingPosition } from "./ui-dropdown-model.js";
+import { edgeEnabledDropdownIndex, nextEnabledDropdownIndex, resolveDropdownFloatingPosition, resolveDropdownPortalHost, showDropdownInTopLayer } from "./ui-dropdown-model.js";
 
 export interface UiDropdownOption {
   value: string;
@@ -75,6 +75,8 @@ export function UiDropdown({
       const trigger = triggerRef.current;
       const menu = menuRef.current;
       if (!trigger || !menu) return;
+
+      showDropdownInTopLayer(menu);
 
       const anchor = trigger.getBoundingClientRect();
       const viewportMargin = 8;
@@ -172,6 +174,7 @@ export function UiDropdown({
           data-align={align}
           id={listboxId}
           onKeyDown={handleListboxKeyDown}
+          popover="manual"
           ref={menuRef}
           role="listbox"
           style={menuStyle ?? { left: 0, top: 0, visibility: "hidden" }}
@@ -194,7 +197,7 @@ export function UiDropdown({
             </UiButton>
           ))}
         </div>,
-        document.body,
+        resolveDropdownPortalHost(rootRef.current, document.body),
       ) : null}
     </div>
   );

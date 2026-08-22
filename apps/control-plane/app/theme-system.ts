@@ -317,6 +317,9 @@ export const CONTROL_PLANE_FOUNDATION_TOKENS = {
 
 const CONTROL_PLANE_SEMANTIC_ALIASES = {
   "--color-canvas": "var(--background)",
+  "--color-surface-sidebar": "var(--surface2)",
+  "--color-surface-main": "var(--background)",
+  "--color-surface-table": "var(--surface1)",
   "--color-surface-panel": "var(--surface2)",
   "--color-surface-popup": "var(--surface1)",
   "--color-surface-hover": "var(--surface3)",

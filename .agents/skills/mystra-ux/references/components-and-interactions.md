@@ -21,12 +21,13 @@ Adjacent controls share density without flattening their semantic levels. Destru
 - Whole-row or whole-card navigation uses a real link/button with pointer and keyboard behavior; do not nest competing primary links.
 - Page, section, panel, and row insets have one owner. The page-level layout container and ordinary modal/composer surface use the 8px baseline; children do not wrap another generic inset unless an explicit reading-body role requires it.
 - Empty states use the remaining layout space or a modest 16–32px block inset. They do not manufacture hierarchy with oversized padding.
-- Default inline forms use 20px controls inside a 28px row. Header/navigation controls remain 28px; 24px compact, 32px action, and 36px stacked-field heights require an explicit component role. Coarse-pointer media rules expand the hit target to 44px.
+- Default inline forms use 28px controls. Header/navigation controls remain 28px; 24px compact, 32px action, and 36px stacked-field heights require an explicit component role. Coarse-pointer media rules expand the hit target to 44px.
 - Icon-only actions use one shared icon-button primitive and one icon grid. Modal close actions never supply a private glyph, font-size, padding, or stroke; Search, Add Project, Settings, and future dialogs use the same close icon anatomy and accessible label.
 
 ## Layout Spacing Semantics
 
 - Page-level layout containers use 8px padding; adjacent sections use an 8px gap.
+- Shared UI text uses `UiText` with the bounded `body`, `heading`, or `annotation` variant; consumers choose semantics through `as` but do not supply arbitrary typography values. Shared Section Header and Footer rows are exactly 44px high with 8px horizontal padding, no vertical padding, and 12px text. Static Header headings use `UiSurfaceTitle`, which owns the additional 8px horizontal padding and composes `UiText variant="heading"`; nested sections may select `h3`/`h4` through `as` without changing typography, and consumers do not attach a typography class themselves. Footer action text remains owned by the shared action component. Shared Section Body uses 8px horizontal padding and zero default vertical padding; the feature consumer owns any vertical padding so dividers, scrolling regions, and split panes can reach the Body edges. Consumers may change layout or overflow behavior, but do not override the shared horizontal inset, row heights, or typography.
 - Inline elements belonging to one semantic group use a 4px gap. Separate actions, fields, or data groups that merely share a row use an 8px gap.
 - Default rows are 28px high, body copy is 12px, and default icons occupy a 16px slot.
 - Small headings, annotations, and medium headings remain 12px; weight and semantic color carry hierarchy. Large titles alone use 24px.
@@ -42,7 +43,7 @@ Adjacent controls share density without flattening their semantic levels. Destru
 - Attachment and Project are ghost controls at rest; border/fill appears only for hover, focus, open, selected, or disabled explanation. Project uses the shared dropdown trigger/content/item anatomy and never uses Repository as its UI label.
 - Issue selection is not a footer dropdown. After Project selection, repository-scoped Issues appear as compact selectable cards below the input; before Project selection the Issue region is absent.
 - Do not reserve a disabled Issue selector or add instructional filler such as “configure a Project before creating a Task.” Disabled dependency order is sufficient when the unavailable control is absent and the next available action is obvious.
-- Footer Project and commit controls use the shared 20px inline height within a 28px footer row. Send is the single solid action; a larger circular variant must be explicitly owned by the immersive intake component rather than treated as the inline default.
+- Footer Project and commit controls use the shared 28px inline height. Send is the single solid action; a larger circular variant must be explicitly owned by the immersive intake component rather than treated as the inline default.
 - Unsupported API actions remain disabled with a concise explanation.
 
 ## Dropdown
@@ -84,7 +85,7 @@ Adjacent controls share density without flattening their semantic levels. Destru
 
 - Settings uses the Castrel-derived two-column modal shell, but Mystra owns the tab taxonomy, copy, tokens, and persistence boundaries.
 - The default information architecture is `Account`, `Appearance`, `Team`, `Team members`, and `Integrations`. Account, Team, and Team members render their management surfaces inside the Settings modal; Theme and Language belong to Appearance; tenancy uses Team, never workspace.
-- `SettingGroup` is transparent and uses the shared 8px section gap. `SettingRow` uses a left title/description and right control/status with no private card border, fill, shadow, or extra inset.
+- `SettingGroup` is transparent, fills the available width, and uses the shared 8px section gap. `SettingRow` also fills the available width, adds 8px horizontal padding, and uses a left 12px/500 title plus description and a right control/status with no private card border, fill, shadow, or extra inset.
 - Narrow screens stack each setting row in reading order: title, description, then control. Unsupported Account or Team mutations remain explicit read-only/unavailable states instead of simulated form controls.
 - Appearance uses shared dropdown, segmented, range, input, preview, and reset controls. It supports System/Light/Dark, separate light and dark schemes, default/high/color-high border contrast, independent light/dark code surface, contrast, UI/Chat/Code fonts, and UI/Chat sizes.
 - Resetting theme details resets contrast, fonts, and sizes for the active scheme; it does not silently reset mode, light/dark scheme selection, border mode, code surface, or language.
