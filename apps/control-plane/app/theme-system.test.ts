@@ -15,6 +15,18 @@ describe("foundation density tokens", () => {
   });
 });
 
+describe("theme surface hierarchy", () => {
+  it("derives sidebar, main, and table roles from each selected theme", () => {
+    for (const theme of CONTROL_PLANE_THEMES) {
+      const values = buildAppearanceCssVariables(appearance("default", 52, theme), theme.variant);
+
+      expect(values["--color-surface-sidebar"]).toBe("var(--surface2)");
+      expect(values["--color-surface-main"]).toBe("var(--background)");
+      expect(values["--color-surface-table"]).toBe("var(--surface1)");
+    }
+  });
+});
+
 const EDGE_TOKENS = [
   "--border",
   "--border-visible",

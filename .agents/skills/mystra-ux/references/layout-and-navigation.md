@@ -26,7 +26,7 @@ This file owns Mystra shell structure, header, sidebar, navigation hierarchy, de
 - Menu rows: `28px` height, 12px text, 16px icon, 8px horizontal inset, 2px inter-row rhythm.
 - Section title rows: `28px`, 12px secondary text, no count metadata, no reserved leading icon slot.
 - Header ghost actions and path nodes: `28px` height, 10px horizontal padding, 12px text.
-- Default inline form controls are `20px` high within a `28px` owning row, leaving 4px above and below. Taller controls require an explicit component role.
+- Default inline form controls are `28px` high. Shared Section Header and Footer rows are `44px`; taller controls require an explicit component role.
 - Logo icon, navigation icons, and shell toggle icons share one compact visual grid.
 - Selected rows use the selected-surface role without bolding, border pills, or status dots.
 - Hover uses background feedback only and must remain visually weaker than selected/active state.

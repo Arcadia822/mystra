@@ -54,7 +54,7 @@ taco_scope: tasks
 
 **Independent Test**: 任意页面打开 modal；success/validation/API error/double-submit/focus return 均单一可恢复。
 
-- [x] T030 [P] [US3] 在 `apps/control-plane/app/_components/new-task-dialog.test.tsx` 先写 shared composition、20px controls、validation/focus tests
+- [x] T030 [P] [US3] 在 `apps/control-plane/app/_components/new-task-dialog.test.tsx` 先写原 shared composer composition、validation/focus tests（尺寸合同已由 T079–T081 替换）
 - [x] T031 [P] [US3] 在 `apps/control-plane/app/api/tasks/route.test.ts` 写 create idempotency、metadata 默认 `{}`/显式 input 与 response nesting contract tests
 - [x] T032 [US3] 将 prototype TaskComposer 接入 production `apps/control-plane/app/_components/new-task-dialog.tsx`，Project option 只显示 persisted external ID
 - [x] T033 [US3] 在 `apps/control-plane/app/_components/app-shell.tsx` 连接 create success refresh/navigation 与 error/double-submit state
@@ -137,13 +137,41 @@ taco_scope: tasks
 - [x] T077 更新 Standard Execution Prompt、execution-context prompt 与 Agent CLI 文档：live Runtime CLI/API 覆盖 Workspace 源码、文档和生成 CLI，禁止构建或调用 Workspace copy
 - [x] T078 运行 focused/full tests、typecheck/lint/build、GitNexus detect_changes、Session 状态复核并刷新 Taco
 
+## Phase 15: Shared Modal and Section Body correction
+
+- [x] T079 [P] [US3] 将 `UiSurfaceBody` 的公共 padding 收敛为 `0 8px`，由 Project/New Task/prototype 等业务 consumer 显式拥有所需上下 padding，并更新共享 CSS contract tests
+- [x] T080 [US1] [US3] 将 production 与 prototype 的 New Task/Search Modal 收敛到 `UiDialogSurface`、44px Header/Footer、28px inline controls、`UiSurfaceTitle` 与统一 Close；Search actions/results/preview 复用 Section slots并让 split-pane divider 贯穿 Body
+- [x] T081 运行 UI/Control Plane/Spec Prototype tests 与 typecheck、浏览器测量 New Task/Search computed geometry、检查 console/a11y structure、运行 GitNexus `detect_changes` 并刷新 Taco
+
+## Phase 16: Project detail Header navigation
+
+- [x] T082 在 `@mystra/ui` 增加共享 `UiNavTabs`，将 production 与 prototype Project detail 的 Project name + Overview/Issues/Settings 切换注册到 Shell Header；删除 page-local Project header、描述和 private tabs，并在浏览器验证点击/Arrow key/320px overflow
+
+## Phase 17: Settings modal density and split boundary
+
+- [x] T083 移除 Settings modal 内 Account、Team、Team members 的重复页面 header；将 navigation/header/content pane 收敛至 8px inset，title container 另有 8px horizontal inset，并由双栏 layout 绘制不继承左侧 Surface radius 的 shared strong divider；浏览器验证各 Tab 与控制台
+
+## Phase 18: Owner correction — shared title, tabs, and embedded Settings
+
+- [x] T084 让 Shell Main 的普通 title 与 Project title 都使用 `UiSurfaceTitle` 自身 8px horizontal inset；以 Appearance 已验证的 `UiSegmented` 统一 production/prototype Project Header tabs 与 Issue provider peer tabs，保留 tablist/Arrow/Home/End 语义并移除 `UiNavTabs` 第二套组件与样式
+- [x] T085 修正 Account、Team、Team members 的 embedded render 直接返回 Setting content，不创建额外 page root，消除继承 `settingsPage` 产生的二次 outer padding；复核 Settings 三页的共享 controls、明确高度角色、row/list surface 与 Appearance 基线，不改变独立管理路由
+- [x] T086 运行共享 UI、Control Plane、Spec Prototype focused/full tests、typecheck/build、真实浏览器 computed style/keyboard/console 验证、GitNexus `detect_changes` 与 Taco refresh
+
+## Phase 19: Owner correction — surface depth and paused-route placeholders
+
+- [x] T087 将 sidebar/Main/table 分别绑定至 theme `surface2`/`canvas`/`surface1` 的共享语义 role；Overview 与 Inbox 复用居中的 `PagePlaceholder`，不再渲染 title、description、数据获取或辅助状态；更新 production/prototype table role，并以 focused tests、light-theme computed style 与 console 验证
+
 ## Dependencies And Parallel Lanes
 
 - T001–T006 后才能进入 persistence/status/UI consumers。
 - Lane A：T007–T015；Lane B：T016–T024 中纯 UI tests/shared primitives可并行。
 - T025–T048 依赖 A+B；US3/US4/US5/US6 在 shared contracts稳定后可分 worktree，但共享 `AppShell` 的任务必须串行合并。
 - T049–T054 依赖 T004，必须在 final verification 前完成。
-- T055–T059 是原实现证据；T060–T066 作为 owner correction 在其后串行替换旧 New Session precondition；T067–T069 修复真实 Runner 验收发现的后续 Session bootstrap 合同冲突。
+- T055–T059 是原实现证据；T060–T066 作为 owner correction 在其后串行替换旧 New Session precondition；T067–T069 修复真实 Runner 验收发现的后续 Session bootstrap 合同冲突；T079–T081 以 owner 最新公共 Modal/Section 尺寸与 Body padding 决策替换原 New Task/Search presentation contract。
+- T082 依赖共享 Shell Header 与 `@mystra/ui`；其 `UiNavTabs` 方案已由 owner correction T084 以 `UiSegmented` 取代。
+- T083 依赖 Settings shared Surface shell 与既有 embedded management views；不改变独立 Account/Team/Team members route 的页面 header。
+- T084–T086 是 owner 对 T082/T083 的运行时复核修正：Appearance 的 `UiSegmented` 与 Settings pane 是基线，禁止用视觉近似的新组件替代共享 primitive。
+- T087 依赖现有 Appearance token builder、shared shell 和 table frames；禁止为 light theme 写独立色值或让 sidebar 使用 popup/table surface。
 
 ## Implementation Gate
 

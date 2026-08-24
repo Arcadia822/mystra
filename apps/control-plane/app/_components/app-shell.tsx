@@ -33,7 +33,7 @@ import { ShellRightPanelProvider } from "./shell-right-panel";
 import { MystraLogo } from "./mystra-logo";
 import { NewTaskDialog } from "./new-task-dialog";
 import { UiActionLink, UiButton, UiIconButton } from "./ui-actions";
-import { UiRightPanelToggle, UiShellRightPanel } from "./ui-surfaces";
+import { UiRightPanelToggle, UiShellRightPanel, UiSurfaceTitle } from "./ui-surfaces";
 import { ProjectCreateModal } from "./project-create-modal";
 import { VerticalNavItem } from "./vertical-nav-item";
 import {
@@ -366,7 +366,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <ShellIcon name="expand" />
               </UiIconButton>
             </div>
-          {mainHeader?.breadcrumbItems ? <UiBreadcrumb items={mainHeader.breadcrumbItems} /> : <strong>{mainHeader?.title ?? shellTitle}</strong>}
+          {mainHeader?.breadcrumbItems ? <UiBreadcrumb items={mainHeader.breadcrumbItems} /> : <div className="shellHeaderTitle">{mainHeader?.title ?? <UiSurfaceTitle as="span">{shellTitle}</UiSurfaceTitle>}</div>}
           {mainHeader?.actions || (rightPanel && rightPanelCollapsed) ? (
             <div className="shellHeaderControls">
               {mainHeader?.actions}

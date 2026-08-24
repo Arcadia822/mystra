@@ -30,4 +30,22 @@ describe("identity control-plane pages", () => {
     }
     expect(members).toContain('aria-live="polite"');
   });
+
+  it("renders embedded Settings content directly without a second page container", () => {
+    const account = source("./_components/auth/account-settings.tsx");
+    const team = source("./_components/team-settings.tsx");
+    const members = source("./_components/team-members.tsx");
+    const styles = source("../../../packages/ui/src/styles.css");
+
+    for (const page of [account, team, members]) {
+      expect(page).toContain("if (embedded) return content;");
+      expect(page).not.toContain("settingsModalPage");
+    }
+    expect(styles).not.toContain(".settingsModalPage");
+    expect(styles).toContain("padding: var(--space-2);\n  overflow: auto;");
+    expect(styles).toContain(".settingsModalLayout::before {");
+    expect(styles).toContain("left: 240px;");
+    expect(styles).toContain(".settingsContentTitle {");
+    expect(styles).toContain("padding-inline: var(--space-2);");
+  });
 });

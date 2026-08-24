@@ -38,10 +38,12 @@ Use this table before designing, reviewing, or implementing any Mystra layout. S
 | Sidebar default width | `300px` |
 | Shell Main page inset | `8px`; owned once by the shell layout |
 | Gap between sections | `8px` |
+| Section Header/Footer height | `44px` |
+| Section Body padding | `0 8px`; feature owns vertical padding |
 | Default row height | `28px` |
 | Body text | `12px` |
 | Default icon | `16px` |
-| Default inline form/control height | `20px` |
+| Default inline form/control height | `28px` |
 | Small heading, annotation, and medium heading | `12px`; distinguish with weight and semantic color |
 | Large heading | `24px` |
 | Gap inside one inline group | `4px` |
@@ -60,7 +62,7 @@ Any exception must name its role and reason in the active UX Intent or owning co
 - Configuration and management pages default to a fixed reading width. Spatial workbenches and immersive intake may be full-bleed.
 - Ghost is for navigation and lightweight actions, soft for secondary actions, and solid for the current primary commit.
 - Reuse shared icon buttons, close glyphs, dropdowns, sidebar visual slots, segmented controls, and range controls. Page-local lookalikes are drift even when their screenshots happen to align.
-- Default inline form controls are `20px` high inside a `28px` row. Use `4px` for one inline group and `8px` between unrelated inline elements.
+- Shared Section Header and Footer rows are `44px` high. Shared Section Body owns only `8px` horizontal padding; its feature consumer owns vertical padding so full-height dividers and scrolling regions can reach both edges. Default inline form controls are `28px` high. Use `4px` for one inline group and `8px` between unrelated inline elements.
 - Appearance is a versioned browser preference until server persistence is explicitly owned. It includes System/Light/Dark mode, separate light/dark schemes, border contrast, code surface, theme details, and first-paint hydration without inventing API or database state.
 - The default palette is the paired Mystra light/dark family. Every visible color resolves through semantic tokens; signal colors have one defined meaning each.
 - Typography has exactly three internal roles: UI, content, and code. Each role stores one primary family; the runtime appends role-specific browser/system generic fallbacks. A Codex v1 import maps `theme.fonts.ui` to both UI and content, and `theme.fonts.code` to code without extending the external schema.

@@ -10,3 +10,4 @@ export * from "./ui-fields.js";
 export * from "./ui-preference-controls.js";
 export * from "./ui-popover.js";
 export * from "./ui-surfaces.js";
+export * from "./ui-text.js";

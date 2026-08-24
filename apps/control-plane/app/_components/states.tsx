@@ -1,3 +1,13 @@
+import { UiText } from "@mystra/ui";
+
+export function PagePlaceholder({ label }: { label: string }) {
+  return (
+    <section aria-label={label} className="pagePlaceholder" role="status">
+      <UiText variant="annotation">{label}</UiText>
+    </section>
+  );
+}
+
 export function LoadingState({ label = "Loading" }: { label?: string }) {
   return (
     <div aria-busy="true" aria-label={label} className="statePanel">

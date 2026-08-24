@@ -1,6 +1,40 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveDropdownFloatingPosition } from "./ui-dropdown-model.js";
+import { resolveDropdownFloatingPosition, resolveDropdownPortalHost, showDropdownInTopLayer } from "./ui-dropdown-model.js";
+
+describe("resolveDropdownPortalHost", () => {
+  it("keeps a dialog-owned dropdown in the dialog top-layer subtree", () => {
+    const dialog = {} as Element;
+    const body = {} as Element;
+
+    expect(resolveDropdownPortalHost({ closest: () => dialog }, body)).toBe(dialog);
+    expect(resolveDropdownPortalHost({ closest: () => null }, body)).toBe(body);
+    expect(resolveDropdownPortalHost(null, body)).toBe(body);
+  });
+});
+
+describe("showDropdownInTopLayer", () => {
+  it("promotes a closed dropdown menu into the browser top layer", () => {
+    let showCount = 0;
+
+    expect(showDropdownInTopLayer({
+      matches: () => false,
+      showPopover: () => { showCount += 1; },
+    })).toBe(true);
+    expect(showCount).toBe(1);
+  });
+
+  it("does not reopen an existing popover or require unsupported browsers to expose the API", () => {
+    let showCount = 0;
+
+    expect(showDropdownInTopLayer({
+      matches: () => true,
+      showPopover: () => { showCount += 1; },
+    })).toBe(false);
+    expect(showDropdownInTopLayer({ matches: () => false })).toBe(false);
+    expect(showCount).toBe(0);
+  });
+});
 
 describe("resolveDropdownFloatingPosition", () => {
   it("keeps a start-aligned menu beside its trigger without a preset width", () => {

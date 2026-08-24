@@ -29,14 +29,16 @@ describe("054 Kanban card density", () => {
 });
 
 describe("054 New Task modal density", () => {
-  it("uses the standard 8px composer inset", () => {
+  it("uses shared Section chrome and owns only the business vertical body inset", () => {
     const composerRule = rule(".taskComposer");
-    expect(composerRule).toContain("padding: var(--space-2);");
-    expect(composerRule).not.toContain("padding: var(--content-inset);");
+    expect(composerRule).not.toMatch(/padding\s*:/);
+    expect(rule(".taskComposerBody")).toContain("padding-block: var(--space-2);");
+    expect(workbenchSource).toContain("<UiSurfaceTitle>Create Task</UiSurfaceTitle>");
+    expect(workbenchSource).not.toContain('layout="rows"');
   });
 
-  it("uses 20px inline controls for Project and Create", () => {
-    expect(rule(".taskComposerFooter")).toContain("min-height: var(--control-height-header);");
+  it("uses the shared inline size for Project and Create", () => {
+    expect(rule(".taskComposerFooter")).toContain("justify-content: space-between;");
     expect(workbenchSource).toMatch(/<UiDropdown[\s\S]*?size="inline"[\s\S]*?variant="ghost"/);
     expect(workbenchSource).toMatch(/<UiButton[^>]*size="inline"[^>]*tone="solid">Create<\/UiButton>/);
   });
