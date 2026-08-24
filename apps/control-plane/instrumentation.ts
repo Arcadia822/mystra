@@ -1,6 +1,10 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("./sentry.server.config");
+    await Promise.all([
+      import("./sentry.server.config"),
+      import("./src/lib/skills/skill-service-factory")
+        .then(({ initializeSkillContentStore }) => initializeSkillContentStore()),
+    ]);
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

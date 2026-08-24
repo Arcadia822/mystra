@@ -7,6 +7,7 @@ describe("Team and RBAC contracts", () => {
     expect(teamRoleSchema.options).toEqual(["owner", "admin", "member"]);
     expect(permissionSchema.options).toContain("team.resource.access");
     expect(permissionSchema.options).toContain("team.integration.manage");
+    expect(permissionSchema.options).toContain("team.skill.manage");
     expect(permissionSchema.safeParse("project.delete").success).toBe(false);
   });
 });

@@ -19,7 +19,9 @@ describe("removed persistence surfaces", () => {
   it("persists the canonical Session ledger without obsolete execution models", () => {
     for (const provider of ["sqlite", "postgresql"]) {
       const source = readFileSync(path.join(process.cwd(), `prisma/${provider}/schema.prisma`), "utf8");
-      expect(source.match(/^model\s+/gmu)).toHaveLength(22);
+      expect(source.match(/^model\s+/gmu)).toHaveLength(24);
+      expect(source).toMatch(/model\s+Skill\b/u);
+      expect(source).toMatch(/model\s+SkillRevision\b/u);
       expect(source).toMatch(/model\s+ProjectIssueSource\b/u);
       expect(source).toMatch(/model\s+Agent\b/u);
       expect(source).toMatch(/model\s+SecretEnvelope\b/u);

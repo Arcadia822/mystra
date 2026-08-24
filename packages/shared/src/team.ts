@@ -15,6 +15,7 @@ export const permissionSchema = z.enum([
   "team.role.manage",
   "team.delete",
   "team.integration.manage",
+  "team.skill.manage",
   "team.resource.access",
 ]);
 export type Permission = z.infer<typeof permissionSchema>;

@@ -7,8 +7,28 @@ import { POST } from "./route";
 
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
 const startProduction = vi.hoisted(() => vi.fn());
+const skillServices = vi.hoisted(() => ({
+  list: vi.fn(),
+  get: vi.fn(),
+  listRevisions: vi.fn(),
+  getRevision: vi.fn(),
+  preview: vi.fn(),
+  archive: vi.fn(),
+}));
 vi.mock("@/lib/tasks/task-production-service-factory", () => ({
   createTaskProductionService: vi.fn(() => ({ start: startProduction })),
+}));
+vi.mock("@/lib/skills/skill-service-factory", () => ({
+  createSkillServices: vi.fn(async () => ({
+    query: {
+      list: skillServices.list,
+      get: skillServices.get,
+      listRevisions: skillServices.listRevisions,
+      getRevision: skillServices.getRevision,
+    },
+    preview: { preview: skillServices.preview },
+    publication: { archive: skillServices.archive },
+  })),
 }));
 
 const userId = randomUUID();
@@ -77,6 +97,13 @@ beforeEach(() => {
     executionContext: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
     created: true,
   });
+  for (const mock of Object.values(skillServices)) mock.mockReset();
+  skillServices.list.mockResolvedValue({ items: [], nextCursor: null });
+  skillServices.get.mockResolvedValue({ id: randomUUID(), name: "reviewer" });
+  skillServices.listRevisions.mockResolvedValue({ items: [], nextCursor: null });
+  skillServices.getRevision.mockResolvedValue({ id: randomUUID(), sequence: 1 });
+  skillServices.preview.mockResolvedValue({ revisionId: randomUUID(), sequence: 1, content: "# Reviewer" });
+  skillServices.archive.mockResolvedValue({ id: randomUUID(), status: "archived", resourceRevision: 2 });
   vi.mocked(getDb).mockResolvedValue({
     getAuthSessionByTokenHash: vi.fn(async () => ({
       id: randomUUID(),
@@ -314,6 +341,51 @@ describe("MCP human session authorization", () => {
     });
   });
 
+  it("exposes only JSON-safe Skill tools and calls them in the active Team", async () => {
+    const skillId = randomUUID();
+    const revisionId = randomUUID();
+    const listed = await POST(rpcRequest(call("tools/list")));
+    const listedPayload = await listed.json() as { result: { tools: Array<{ name: string; description: string }> } };
+    const skillTools = listedPayload.result.tools.filter(({ name }) => name.startsWith("skill"));
+    expect(skillTools.map(({ name }) => name)).toEqual([
+      "skills_list",
+      "skill_get",
+      "skill_revisions_list",
+      "skill_revision_get",
+      "skill_file_preview",
+      "skill_archive",
+    ]);
+    expect(skillTools.some(({ name }) => /upload|publish|download/u.test(name))).toBe(false);
+    expect(skillTools.map(({ description }) => description).join(" ")).toContain("mystra skills upload");
+
+    const calls = [
+      toolCall("skills_list", { includeArchived: true }),
+      toolCall("skill_get", { skillId }),
+      toolCall("skill_revisions_list", { skillId }),
+      toolCall("skill_revision_get", { skillId, revisionId }),
+      toolCall("skill_file_preview", { skillId, revisionId, path: "SKILL.md" }),
+      toolCall("skill_archive", { skillId, expectedRevision: 1 }),
+    ];
+    for (const request of calls) {
+      const response = await POST(rpcRequest(request));
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toHaveProperty("result.content.0.type", "text");
+    }
+
+    expect(skillServices.list).toHaveBeenCalledWith(expect.objectContaining({ teamId, includeArchived: true }));
+    expect(skillServices.get).toHaveBeenCalledWith({ teamId, skillId });
+    expect(skillServices.get).toHaveBeenCalledTimes(2);
+    expect(skillServices.listRevisions).toHaveBeenCalledWith(expect.objectContaining({ teamId, skillId }));
+    expect(skillServices.getRevision).toHaveBeenCalledWith({ teamId, skillId, revisionId });
+    expect(skillServices.preview).toHaveBeenCalledWith({ teamId, skillId, revisionId, path: "SKILL.md" });
+    expect(skillServices.archive).toHaveBeenCalledWith({
+      teamId,
+      skillId,
+      expectedResourceRevision: 1,
+      archivedByUserId: userId,
+    });
+  });
+
   it("manages Agents through the resolved active Team", async () => {
     const createdResponse = await POST(rpcRequest(toolCall("mystra_create_agent", {
       name: "Reviewer",
@@ -367,6 +439,22 @@ describe("MCP human session authorization", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { code: -32003, message: "Forbidden" },
     });
+  });
+
+  it("denies Skill archive to a Team member while preserving Skill read access", async () => {
+    vi.mocked(getDb).mockResolvedValue({
+      ...(await getDb()),
+      resolveActiveTeam: vi.fn(async () => ({
+        team: { id: teamId, displayName: "Operations", status: "active", createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
+        role: "member",
+      })),
+    } as never);
+    const skillId = randomUUID();
+    const readable = await POST(rpcRequest(toolCall("skill_get", { skillId })));
+    expect(readable.status).toBe(200);
+    const archived = await POST(rpcRequest(toolCall("skill_archive", { skillId, expectedRevision: 1 })));
+    await expect(archived.json()).resolves.toMatchObject({ error: { code: -32003, message: "Forbidden" } });
+    expect(skillServices.archive).not.toHaveBeenCalled();
   });
 
   it("reports health totals only for the resolved active Team", async () => {

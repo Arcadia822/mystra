@@ -257,6 +257,155 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.getProjectIssueSource(parent.id, "linear", { teamId: parent.teamId })).toBeUndefined();
   });
 
+  it("publishes immutable Skill revisions, enforces Team scope, and releases archived names", async () => {
+    const owner = await tenant();
+    const outsider = await tenant();
+    const manifest = [{
+      path: "SKILL.md",
+      sizeBytes: 42,
+      sha256: "a".repeat(64),
+      mediaType: "text/markdown",
+      previewability: "text" as const,
+    }];
+    const initialContent = {
+      description: "First revision",
+      manifest,
+      compressedSizeBytes: 100,
+      uncompressedSizeBytes: 42,
+      zipSha256: "b".repeat(64),
+      contentSha256: "c".repeat(64),
+    };
+
+    const concurrentInitialInput = {
+      teamId: owner.initialTeam.id,
+      name: "review-evidence",
+      createdByUserId: owner.user.id,
+      content: initialContent,
+    };
+    const concurrentInitial = await Promise.all([
+      db.reserveInitialSkillPublication(concurrentInitialInput),
+      db.reserveInitialSkillPublication(concurrentInitialInput),
+    ]);
+    const reserved = concurrentInitial.find(({ created }) => created) ?? concurrentInitial[0]!;
+    expect(new Set(concurrentInitial.map(({ skill }) => skill.id))).toEqual(new Set([reserved.skill.id]));
+    expect(new Set(concurrentInitial.map(({ revision }) => revision.id))).toEqual(new Set([reserved.revision.id]));
+    expect(concurrentInitial.filter(({ created }) => created)).toHaveLength(1);
+    expect(reserved).toMatchObject({
+      created: true,
+      skill: { resourceRevision: 0, currentRevisionId: null, activeName: "review-evidence" },
+      revision: { publicationStatus: "uploading", sequence: null, baseRevisionId: null },
+    });
+    expect(reserved.revision.objectKey).toBe(
+      `teams/${owner.initialTeam.id}/skills/${reserved.skill.id}/revisions/${reserved.revision.id}/bundle.zip`,
+    );
+    expect(await db.getSkillRecord(reserved.skill.id, { teamId: owner.initialTeam.id })).toBeUndefined();
+
+    const resumed = await db.reserveInitialSkillPublication({
+      teamId: owner.initialTeam.id,
+      name: "review-evidence",
+      createdByUserId: owner.user.id,
+      content: initialContent,
+    });
+    expect(resumed).toMatchObject({ created: false, revision: { id: reserved.revision.id } });
+
+    const first = await db.finalizeSkillRevisionPublication({
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      revisionId: reserved.revision.id,
+      expectedResourceRevision: 0,
+    });
+    expect(first).toMatchObject({
+      skill: { resourceRevision: 1, currentRevisionId: reserved.revision.id },
+      revision: { publicationStatus: "ready", sequence: 1 },
+    });
+    expect(await db.getSkillRevisionRecord({
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      revisionId: "1",
+    })).toMatchObject({ id: reserved.revision.id, sequence: 1 });
+    expect(await db.getSkillRecord(reserved.skill.id, { teamId: outsider.initialTeam.id })).toBeUndefined();
+
+    const repeatReady = await db.reserveInitialSkillPublication({
+      teamId: owner.initialTeam.id,
+      name: "review-evidence",
+      createdByUserId: owner.user.id,
+      content: initialContent,
+    });
+    expect(repeatReady).toMatchObject({ created: false, revision: { id: reserved.revision.id, publicationStatus: "ready" } });
+
+    const secondContent = {
+      ...initialContent,
+      description: "Second revision",
+      zipSha256: "d".repeat(64),
+      contentSha256: "e".repeat(64),
+    };
+    const secondInput = {
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      expectedResourceRevision: 1,
+      name: "review-evidence",
+      createdByUserId: owner.user.id,
+      content: secondContent,
+    };
+    const concurrentSecond = await Promise.all([
+      db.reserveSkillRevisionPublication(secondInput),
+      db.reserveSkillRevisionPublication(secondInput),
+    ]);
+    const secondReserved = concurrentSecond.find(({ created }) => created) ?? concurrentSecond[0]!;
+    expect(new Set(concurrentSecond.map(({ revision }) => revision.id)))
+      .toEqual(new Set([secondReserved.revision.id]));
+    expect(concurrentSecond.filter(({ created }) => created)).toHaveLength(1);
+    const second = await db.finalizeSkillRevisionPublication({
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      revisionId: secondReserved.revision.id,
+      expectedResourceRevision: 1,
+    });
+    expect(second).toMatchObject({ skill: { resourceRevision: 2 }, revision: { sequence: 2 } });
+    expect((await db.listSkillRevisionRecords({
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      limit: 10,
+    })).items.map((revision) => revision.sequence)).toEqual([2, 1]);
+
+    await expect(db.reserveSkillRevisionPublication({
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      expectedResourceRevision: 1,
+      name: "review-evidence",
+      createdByUserId: owner.user.id,
+      content: { ...secondContent, zipSha256: "f".repeat(64) },
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+
+    const archived = await db.archiveSkillRecord({
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      expectedResourceRevision: 2,
+      archivedByUserId: owner.user.id,
+    });
+    expect(archived).toMatchObject({ status: "archived", activeName: null, resourceRevision: 3 });
+    expect(await db.archiveSkillRecord({
+      teamId: owner.initialTeam.id,
+      skillId: reserved.skill.id,
+      expectedResourceRevision: 2,
+      archivedByUserId: owner.user.id,
+    })).toEqual(archived);
+    expect((await db.listSkillRecords({ teamId: owner.initialTeam.id, limit: 10 })).items).toEqual([]);
+    expect((await db.listSkillRecords({
+      teamId: owner.initialTeam.id,
+      limit: 10,
+      includeArchived: true,
+    })).items).toHaveLength(1);
+
+    const replacement = await db.reserveInitialSkillPublication({
+      teamId: owner.initialTeam.id,
+      name: "review-evidence",
+      createdByUserId: owner.user.id,
+      content: initialContent,
+    });
+    expect(replacement.skill.id).not.toBe(reserved.skill.id);
+  });
+
   it("persists projects with immutable repository identity and deterministic ordering", async () => {
     const first = await project();
     const second = await project();

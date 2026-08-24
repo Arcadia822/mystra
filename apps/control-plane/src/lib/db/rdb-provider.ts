@@ -45,6 +45,9 @@ import type {
   TaskExecutionContext,
   TaskStatusTransition,
   TaskTransitionActor,
+  SkillManifestEntry,
+  SkillPublicationStatus,
+  SkillStatus,
 } from "@mystra/shared";
 
 export type IntegrationConnectionRecord = IntegrationConnection & {
@@ -254,6 +257,66 @@ export type ExpiredSessionLease = {
   leaseExpiresAt: string;
 };
 
+export type SkillRecord = {
+  id: string;
+  teamId: string;
+  name: string;
+  activeName: string | null;
+  status: SkillStatus;
+  currentRevisionId: string | null;
+  resourceRevision: number;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedByUserId: string | null;
+  archivedAt: string | null;
+};
+
+export type SkillRevisionRecord = {
+  id: string;
+  skillId: string;
+  baseRevisionId: string | null;
+  sequence: number | null;
+  publicationStatus: SkillPublicationStatus;
+  description: string;
+  manifest: SkillManifestEntry[];
+  compressedSizeBytes: number;
+  uncompressedSizeBytes: number;
+  zipSha256: string;
+  contentSha256: string;
+  objectKey: string;
+  createdByUserId: string;
+  createdAt: string;
+  readyAt: string | null;
+  failedAt: string | null;
+  failureCode: string | null;
+};
+
+export type SkillPublicationContent = {
+  description: string;
+  manifest: SkillManifestEntry[];
+  compressedSizeBytes: number;
+  uncompressedSizeBytes: number;
+  zipSha256: string;
+  contentSha256: string;
+};
+
+export type SkillPublicationReservation = {
+  skill: SkillRecord;
+  revision: SkillRevisionRecord;
+  created: boolean;
+};
+
+export type SkillRecordPage = {
+  items: SkillRecord[];
+  nextCursor: string | null;
+};
+
+export type SkillRevisionRecordPage = {
+  items: SkillRevisionRecord[];
+  nextCursor: string | null;
+};
+
 /**
  * Domain-owned relational persistence boundary.
  *
@@ -264,6 +327,54 @@ export type ExpiredSessionLease = {
  */
 export interface RdbProvider {
   close(): Promise<void>;
+
+  reserveInitialSkillPublication(input: {
+    teamId: string;
+    name: string;
+    createdByUserId: string;
+    content: SkillPublicationContent;
+  }): Promise<SkillPublicationReservation>;
+  reserveSkillRevisionPublication(input: {
+    teamId: string;
+    skillId: string;
+    expectedResourceRevision: number;
+    name: string;
+    createdByUserId: string;
+    content: SkillPublicationContent;
+  }): Promise<SkillPublicationReservation>;
+  finalizeSkillRevisionPublication(input: {
+    teamId: string;
+    skillId: string;
+    revisionId: string;
+    expectedResourceRevision: number;
+  }): Promise<{ skill: SkillRecord; revision: SkillRevisionRecord }>;
+  failSkillRevisionPublication(input: {
+    teamId: string;
+    skillId: string;
+    revisionId: string;
+    failureCode: string;
+  }): Promise<SkillRevisionRecord>;
+  getSkillRecord(skillId: string, options: { teamId: string; includeHidden?: boolean }): Promise<SkillRecord | undefined>;
+  getSkillRevisionRecord(input: { teamId: string; skillId: string; revisionId: string }): Promise<SkillRevisionRecord | undefined>;
+  listSkillRecords(input: {
+    teamId: string;
+    cursor?: string;
+    limit: number;
+    query?: string;
+    includeArchived?: boolean;
+  }): Promise<SkillRecordPage>;
+  listSkillRevisionRecords(input: {
+    teamId: string;
+    skillId: string;
+    cursor?: string;
+    limit: number;
+  }): Promise<SkillRevisionRecordPage>;
+  archiveSkillRecord(input: {
+    teamId: string;
+    skillId: string;
+    expectedResourceRevision: number;
+    archivedByUserId: string;
+  }): Promise<SkillRecord>;
 
   activateIntegrationConnection(input: IntegrationConnectionActivation): Promise<IntegrationConnection>;
   upsertIntegrationConnection(input: IntegrationConnectionUpsert): Promise<IntegrationConnectionRecord>;

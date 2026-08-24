@@ -1,0 +1,390 @@
+.page {
+  display: grid;
+  gap: var(--layout-gap);
+  grid-template-columns: minmax(260px, 0.34fr) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.library,
+.detail {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.library {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.detail {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.libraryHeader,
+.detailHeader {
+  align-items: flex-start;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.libraryHeader > div,
+.detailHeader > div:first-child,
+.uploadDialog .uiSurfaceHeader > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.libraryHeader span,
+.detailHeader span,
+.uploadDialog span {
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.archiveToggle {
+  align-items: center;
+  color: var(--text3);
+  display: flex;
+  font-size: 11px;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.searchField {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-soft);
+  display: flex;
+  gap: var(--space-2);
+  margin-inline: var(--space-2);
+}
+
+.searchField svg {
+  color: var(--text3);
+  flex: none;
+}
+
+.searchField input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  padding-inline: 0;
+  width: 100%;
+}
+
+.skillList {
+  align-content: start;
+  display: grid;
+  gap: var(--space-1);
+  overflow: auto;
+  padding: var(--space-2);
+}
+
+.skillRow,
+.skillRow[data-size] {
+  align-items: stretch;
+  display: grid;
+  gap: var(--space-1);
+  height: auto;
+  justify-items: stretch;
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.skillRow > span:not(.skillRowTitle) {
+  color: var(--text2);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.skillRow .skillMeta {
+  color: var(--text3);
+  font-size: 10px;
+}
+
+.skillRowTitle {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.skillRowTitle strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skillRowTitle small {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 999px;
+  color: var(--text3);
+  font-size: 9px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.skillRowTitle small[data-status="archived"] {
+  opacity: .65;
+}
+
+.detailActions {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.revisionBar {
+  align-items: end;
+  border-bottom: 1px solid var(--color-border-soft);
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-2);
+}
+
+.revisionBar label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.revisionBar label > span,
+.revisionBar dt {
+  color: var(--text3);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.revisionBar dl {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.revisionBar dl > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.revisionBar dd {
+  color: var(--text2);
+  font-size: 11px;
+  margin: 0;
+}
+
+.browser {
+  display: grid;
+  grid-template-columns: minmax(210px, .3fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.fileTree {
+  border-right: 1px solid var(--color-border-soft);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-2);
+}
+
+.fileTree > header {
+  align-items: center;
+  color: var(--text2);
+  display: flex;
+  justify-content: space-between;
+  min-height: var(--control-height-header);
+  padding-inline: var(--space-1);
+}
+
+.fileTree > header span {
+  color: var(--text3);
+  font-size: 11px;
+}
+
+.fileRow {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  min-width: 0;
+  text-align: left;
+}
+
+.fileRow span {
+  direction: rtl;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+}
+
+.fileRow small {
+  color: var(--text3);
+  flex: none;
+}
+
+.preview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.preview > header {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-soft);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.preview > header > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.preview > header span,
+.preview > header > code {
+  color: var(--text3);
+  font-size: 10px;
+}
+
+.preview pre {
+  background: color-mix(in srgb, var(--color-surface-panel), black 9%);
+  color: var(--text2);
+  font: 12px/1.65 var(--font-mono);
+  margin: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3);
+  white-space: pre-wrap;
+}
+
+.noPreview {
+  align-content: center;
+  color: var(--text3);
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.noPreview svg {
+  height: 28px;
+  width: 28px;
+}
+
+.noPreview span {
+  max-width: 420px;
+}
+
+.statusLine {
+  color: var(--text3);
+  font-size: 11px;
+  min-height: 34px;
+}
+
+.uploadDialog {
+  overflow: hidden;
+}
+
+.uploadBody {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dropZone {
+  align-items: center;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  cursor: pointer;
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  min-height: 180px;
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.dropZone > svg {
+  height: 28px;
+  width: 28px;
+}
+
+.dropZone input {
+  max-width: 240px;
+}
+
+.uploadRules {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.uploadRules span {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.uploadRules svg {
+  color: var(--text2);
+  flex: none;
+}
+
+.uploadFooter {
+  justify-content: flex-end;
+}
+
+@media (max-width: 980px) {
+  .page {
+    grid-template-columns: minmax(220px, .38fr) minmax(0, 1fr);
+  }
+
+  .detailHeader {
+    display: grid;
+  }
+
+  .revisionBar dl > div:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .library {
+    max-height: 320px;
+  }
+
+  .detail {
+    min-height: 680px;
+  }
+
+  .revisionBar,
+  .browser {
+    grid-template-columns: 1fr;
+  }
+
+  .revisionBar {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .revisionBar dl {
+    justify-content: space-between;
+  }
+
+  .fileTree {
+    border-bottom: 1px solid var(--color-border-soft);
+    border-right: 0;
+    max-height: 220px;
+  }
+}

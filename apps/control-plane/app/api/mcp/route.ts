@@ -14,6 +14,8 @@ import {
   taskTitleSchema,
   taskStartRequestSchema,
   taskStartResultSchema,
+  skillListQuerySchema,
+  skillRevisionListQuerySchema,
 } from "@mystra/shared";
 import { z } from "zod";
 
@@ -21,6 +23,8 @@ import { getDb } from "@/lib/db";
 import { requirePermission } from "@/lib/rbac";
 import { createTaskService } from "@/lib/tasks/task-service-factory";
 import { createTaskProductionService } from "@/lib/tasks/task-production-service-factory";
+import { SkillFailure } from "@/lib/skills/skill-errors";
+import { createSkillServices } from "@/lib/skills/skill-service-factory";
 import { requireHumanSession, requireTeamPermission } from "../_auth";
 
 const jsonRpcRequestSchema = z.object({
@@ -89,6 +93,17 @@ const taskUpdateToolSchema = z.object({
   message: "At least one of title or description is required",
 });
 const taskStartToolSchema = taskStartRequestSchema.extend({ taskId: z.string().uuid() }).strict();
+const skillIdArgumentSchema = z.object({ skillId: z.string().uuid() }).strict();
+const skillRevisionArgumentSchema = skillIdArgumentSchema.extend({
+  revisionId: z.string().trim().min(1).max(128),
+}).strict();
+const skillRevisionListToolSchema = skillRevisionListQuerySchema.extend({ skillId: z.string().uuid() }).strict();
+const skillPreviewToolSchema = skillRevisionArgumentSchema.extend({
+  path: z.string().trim().min(1).max(1_024),
+}).strict();
+const skillArchiveToolSchema = skillIdArgumentSchema.extend({
+  expectedRevision: z.number().int().positive(),
+}).strict();
 
 const tools = [
   {
@@ -181,6 +196,25 @@ const tools = [
       additionalProperties: false,
     },
   },
+  {
+    name: "skills_list",
+    description: "List Skills in the active Team. Binary create/publish/download use the canonical HTTP API or `mystra skills upload|publish|download` CLI commands.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", minimum: 1, maximum: 100 },
+        cursor: { type: ["string", "null"] },
+        query: { type: ["string", "null"], maxLength: 500 },
+        includeArchived: { type: "boolean" },
+      },
+      additionalProperties: false,
+    },
+  },
+  { name: "skill_get", description: "Get one Skill from the active Team.", inputSchema: { type: "object", required: ["skillId"], properties: { skillId: { type: "string", format: "uuid" } }, additionalProperties: false } },
+  { name: "skill_revisions_list", description: "List immutable Revisions for one Skill.", inputSchema: { type: "object", required: ["skillId"], properties: { skillId: { type: "string", format: "uuid" }, limit: { type: "integer", minimum: 1, maximum: 100 }, cursor: { type: ["string", "null"] } }, additionalProperties: false } },
+  { name: "skill_revision_get", description: "Get one immutable Skill Revision by id or sequence.", inputSchema: { type: "object", required: ["skillId", "revisionId"], properties: { skillId: { type: "string", format: "uuid" }, revisionId: { type: "string", minLength: 1, maxLength: 128 } }, additionalProperties: false } },
+  { name: "skill_file_preview", description: "Preview one exact text file from an immutable Skill Revision.", inputSchema: { type: "object", required: ["skillId", "revisionId", "path"], properties: { skillId: { type: "string", format: "uuid" }, revisionId: { type: "string", minLength: 1, maxLength: 128 }, path: { type: "string", minLength: 1, maxLength: 1024 } }, additionalProperties: false } },
+  { name: "skill_archive", description: "Archive one active Skill with resource-revision protection. Archive does not delete immutable ZIP objects.", inputSchema: { type: "object", required: ["skillId", "expectedRevision"], properties: { skillId: { type: "string", format: "uuid" }, expectedRevision: { type: "integer", minimum: 1 } }, additionalProperties: false } },
   { name: "mystra_health", description: "Report local control-plane database health.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
 ] as const;
 
@@ -335,6 +369,53 @@ export async function POST(request: Request) {
       });
       return jsonRpc(rpc.id, textToolResult(taskStartResultSchema.parse(result)));
     }
+    if (call.name === "skills_list") {
+      const parsed = parseArguments(rpc.id, call.name, skillListQuerySchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const services = await createSkillServices(db);
+      return jsonRpc(rpc.id, textToolResult(await services.query.list({ teamId: active.team.id, ...parsed.data })));
+    }
+    if (call.name === "skill_get") {
+      const parsed = parseArguments(rpc.id, call.name, skillIdArgumentSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const services = await createSkillServices(db);
+      return jsonRpc(rpc.id, textToolResult(await services.query.get({ teamId: active.team.id, skillId: parsed.data.skillId })));
+    }
+    if (call.name === "skill_revisions_list") {
+      const parsed = parseArguments(rpc.id, call.name, skillRevisionListToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const { skillId, ...query } = parsed.data;
+      const services = await createSkillServices(db);
+      return jsonRpc(rpc.id, textToolResult(await services.query.listRevisions({ teamId: active.team.id, skillId, ...query })));
+    }
+    if (call.name === "skill_revision_get") {
+      const parsed = parseArguments(rpc.id, call.name, skillRevisionArgumentSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const services = await createSkillServices(db);
+      return jsonRpc(rpc.id, textToolResult(await services.query.getRevision({ teamId: active.team.id, skillId: parsed.data.skillId, revisionId: parsed.data.revisionId })));
+    }
+    if (call.name === "skill_file_preview") {
+      const parsed = parseArguments(rpc.id, call.name, skillPreviewToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const services = await createSkillServices(db);
+      return jsonRpc(rpc.id, textToolResult(await services.preview.preview({ teamId: active.team.id, ...parsed.data })));
+    }
+    if (call.name === "skill_archive") {
+      requirePermission(active, "team.skill.manage");
+      const parsed = parseArguments(rpc.id, call.name, skillArchiveToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const services = await createSkillServices(db);
+      await services.publication.archive({
+        teamId: active.team.id,
+        skillId: parsed.data.skillId,
+        expectedResourceRevision: parsed.data.expectedRevision,
+        archivedByUserId: actorId,
+      });
+      return jsonRpc(rpc.id, textToolResult(await services.query.get({
+        teamId: active.team.id,
+        skillId: parsed.data.skillId,
+      })));
+    }
     if (call.name === "mystra_health") {
       const tasks = await db.listTasks({ teamId: active.team.id });
       return jsonRpc(rpc.id, textToolResult({
@@ -359,6 +440,9 @@ export async function POST(request: Request) {
     if (productionCode) {
       const message = error instanceof Error ? error.message : productionCode;
       return jsonRpc(rpc.id, textToolResult({ error: { code: productionCode, message } }));
+    }
+    if (error instanceof SkillFailure) {
+      return jsonRpc(rpc.id, textToolResult({ error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } }));
     }
     return jsonRpcError(rpc.id, -32603, "Internal error", { tool: call.name });
   }

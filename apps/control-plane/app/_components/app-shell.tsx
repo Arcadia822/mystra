@@ -71,6 +71,8 @@ function routeTitle(pathname: string, locale: ShellLocale): string {
   if (pathname === "/runners") return zh ? "运行环境" : "Runtimes";
   if (pathname.startsWith("/sessions/")) return zh ? "Session 详情" : "Session detail";
   if (pathname === "/automations") return zh ? "自动化" : "Automations";
+  if (pathname.startsWith("/skills/")) return zh ? "Skill 详情" : "Skill detail";
+  if (pathname === "/skills") return zh ? "Skills" : "Skills";
   if (pathname.startsWith("/tasks/")) return zh ? "Task 详情" : "Task detail";
   if (pathname === "/issues") return zh ? "议题" : "Issues";
   if (pathname === "/tasks") return zh ? "任务" : "Tasks";

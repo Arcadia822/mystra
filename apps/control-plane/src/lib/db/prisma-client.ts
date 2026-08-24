@@ -15,6 +15,8 @@ import {
   type Runtime,
   type RuntimeProvider,
   type SecretEnvelope,
+  type Skill,
+  type SkillRevision,
   type Session as PrismaSession,
   type SessionDispatchLease,
   type SessionEvent,
@@ -48,6 +50,12 @@ type UserUpdate = Partial<Pick<User, "displayName" | "status" | "requirePassword
 type AuthAccountUpdate = Partial<Pick<AuthAccount, "passwordHash" | "passwordSalt" | "passwordParams" | "updatedAt">>;
 type RuntimeUpdate = Partial<Pick<Runtime, "name" | "type" | "metadata" | "updatedAt">>;
 type AgentUpdate = Partial<Pick<Agent, "name" | "systemPrompt" | "revision" | "status" | "archivedAt" | "updatedAt">>;
+type SkillUpdate = Partial<Pick<Skill,
+  "activeName" | "status" | "currentRevisionId" | "resourceRevision" | "updatedAt" | "archivedByUserId" | "archivedAt"
+>>;
+type SkillRevisionUpdate = Partial<Pick<SkillRevision,
+  "sequence" | "publicationStatus" | "readyAt" | "failedAt" | "failureCode"
+>>;
 type TaskUpdate = Partial<Pick<Task,
   "title" | "description" | "status" | "metadata" | "runtimeId" | "statusRevision" | "statusNote" | "statusUpdatedAt" | "statusActor" | "updatedAt"
 >>;
@@ -262,6 +270,52 @@ export interface MystraPrismaDelegates {
     findUnique(args: { where: { id: string } }): Promise<Team | null>;
     findMany(args: { where?: { status?: string }; orderBy: OrderBy }): Promise<Team[]>;
   };
+  skill: {
+    create(args: { data: Skill }): Promise<Skill>;
+    updateMany(args: {
+      where: { id: string; teamId?: string; status?: string; currentRevisionId?: string | null; resourceRevision?: number };
+      data: SkillUpdate;
+    }): Promise<CountResult>;
+    findUnique(args: {
+      where: { id: string } | { teamId_activeName: { teamId: string; activeName: string } };
+    }): Promise<Skill | null>;
+    findMany(args: {
+      where?: {
+        teamId?: string;
+        status?: string;
+        currentRevisionId?: { not: null };
+        OR?: Array<
+          | { name: { contains: string } }
+          | { currentRevision: { is: { description: { contains: string } } } }
+        >;
+      };
+      orderBy: Array<{ updatedAt: SortOrder } | { id: SortOrder }>;
+      take?: number;
+      cursor?: { id: string };
+      skip?: number;
+    }): Promise<Skill[]>;
+  };
+  skillRevision: {
+    create(args: { data: SkillRevision }): Promise<SkillRevision>;
+    updateMany(args: {
+      where: { id: string; skillId?: string; publicationStatus?: string };
+      data: SkillRevisionUpdate;
+    }): Promise<CountResult>;
+    findUnique(args: {
+      where: { id: string } | { skillId_sequence: { skillId: string; sequence: number } };
+    }): Promise<SkillRevision | null>;
+    findFirst(args: {
+      where: { skillId: string; baseRevisionId?: string | null; zipSha256?: string };
+      orderBy?: Array<{ createdAt: SortOrder } | { id: SortOrder }>;
+    }): Promise<SkillRevision | null>;
+    findMany(args: {
+      where: { skillId: string; publicationStatus?: string };
+      orderBy: Array<{ sequence: SortOrder } | { id: SortOrder }>;
+      take?: number;
+      cursor?: { id: string };
+      skip?: number;
+    }): Promise<SkillRevision[]>;
+  };
   teamMembership: {
     create(args: { data: TeamMembership }): Promise<TeamMembership>;
     updateMany(args: {
@@ -355,6 +409,8 @@ const modelMethods = {
   authAccount: ["create", "updateMany", "findUnique"],
   authSession: ["create", "updateMany", "findUnique", "findMany", "deleteMany"],
   team: ["create", "updateMany", "findUnique", "findMany"],
+  skill: ["create", "updateMany", "findUnique", "findMany"],
+  skillRevision: ["create", "updateMany", "findUnique", "findFirst", "findMany"],
   teamMembership: ["create", "updateMany", "findUnique", "findMany", "count"],
 } as const;
 

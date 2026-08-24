@@ -104,6 +104,13 @@ function usage() {
   pnpm operator:cli -- agents create --name NAME --system-prompt TEXT [--json]
   pnpm operator:cli -- agents update <agent-id> --expected-revision N [--name NAME] [--system-prompt TEXT] [--json]
   pnpm operator:cli -- agents archive <agent-id> --expected-revision N [--json]
+  pnpm operator:cli -- skills list [--include-archived] [--json]
+  pnpm operator:cli -- skills show <skill-id> [--revision ID_OR_SEQUENCE] [--json]
+  pnpm operator:cli -- skills upload <bundle.zip> [--json]
+  pnpm operator:cli -- skills publish <skill-id> <bundle.zip> --expected-revision N [--json]
+  pnpm operator:cli -- skills preview <skill-id> --revision ID_OR_SEQUENCE --path LOGICAL_PATH [--json]
+  pnpm operator:cli -- skills download <skill-id> --revision ID_OR_SEQUENCE --output FILE.zip [--json]
+  pnpm operator:cli -- skills archive <skill-id> --expected-revision N [--json]
   pnpm operator:cli -- runners list [--json] [--control-plane-url URL]
   pnpm operator:cli -- runners inspect <runner-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- issues list --integration NAME [--repository IDENTIFIER] [--limit N] [--cursor TOKEN] [--json]
@@ -160,6 +167,9 @@ function managementExitCode(code) {
     "INTEGRATION_NOT_FOUND",
     "REPOSITORY_NOT_FOUND",
     "ISSUE_NOT_FOUND",
+    "skill_not_found",
+    "skill_revision_not_found",
+    "skill_file_not_found",
   ].includes(code)) {
     return EXIT_CODES.MISSING;
   }
@@ -173,6 +183,14 @@ function managementExitCode(code) {
     "REPOSITORY_CAPABILITY_UNAVAILABLE",
     "INTEGRATION_NOT_CONFIGURED",
     "DISPATCH_CONFLICT",
+    "skill_name_conflict",
+    "skill_archived",
+    "revision_conflict",
+    "skill_storage_unavailable",
+    "skill_storage_misconfigured",
+    "skill_storage_integrity_error",
+    "skill_storage_integrity_conflict",
+    "publication_failed",
   ].includes(code)) {
     return EXIT_CODES.UNAVAILABLE;
   }
@@ -184,6 +202,12 @@ function managementExitCode(code) {
     "INVALID_DISPATCH",
     "INVALID_GITHUB_REPOSITORY",
     "REPOSITORY_SCOPE_REQUIRED",
+    "invalid_content_type",
+    "content_length_required",
+    "skill_zip_too_large",
+    "invalid_skill_zip",
+    "skill_name_mismatch",
+    "skill_file_not_previewable",
   ].includes(code)) {
     return EXIT_CODES.INVALID;
   }
@@ -227,6 +251,9 @@ function parseArgs(argv) {
     expectedRevision: undefined,
     runtimeId: undefined,
     agentContextId: undefined,
+    revision: undefined,
+    path: undefined,
+    output: undefined,
     includeArchived: false,
     intervalSeconds: 2,
     timeoutSeconds: 3600,
@@ -282,6 +309,9 @@ function parseArgs(argv) {
       ["--expected-revision", "expectedRevision"],
       ["--runtime-id", "runtimeId"],
       ["--agent-context-id", "agentContextId"],
+      ["--revision", "revision"],
+      ["--path", "path"],
+      ["--output", "output"],
       ["--username", "username"],
       ["--interval-seconds", "intervalSeconds"],
       ["--timeout-seconds", "timeoutSeconds"],
@@ -301,7 +331,7 @@ function parseArgs(argv) {
     positionals.push(arg);
   }
 
-  const [group, command, target] = positionals;
+  const [group, command, target, source, ...extraPositionals] = positionals;
   if (!group || !command) {
     return { ok: false, message: "Missing command" };
   }
@@ -313,11 +343,15 @@ function parseArgs(argv) {
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
     (group === "tasks" && ["inspect", "update", "start"].includes(command)) ||
     (group === "agents" && ["inspect", "update", "archive"].includes(command)) ||
+    (group === "skills" && ["show", "upload", "publish", "preview", "download", "archive"].includes(command)) ||
     (group === "teams" && command === "use") ||
     (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command))
   );
   if (needsTarget && !target) {
     return { ok: false, message: `Missing target for ${group} ${command}` };
+  }
+  if (extraPositionals.length > 0 || (source && !(group === "skills" && command === "publish"))) {
+    return { ok: false, message: "Too many positional arguments" };
   }
 
   if (group === "control-plane" && command !== "inspect") {
@@ -344,6 +378,9 @@ function parseArgs(argv) {
   if (group === "agents" && !["list", "inspect", "create", "update", "archive"].includes(command)) {
     return { ok: false, message: `Unknown agents command: ${command}` };
   }
+  if (group === "skills" && !["list", "show", "upload", "publish", "preview", "download", "archive"].includes(command)) {
+    return { ok: false, message: `Unknown skills command: ${command}` };
+  }
   if (group === "tasks" && !["list", "create", "inspect", "update", "start"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
   }
@@ -362,6 +399,7 @@ function parseArgs(argv) {
     "projects",
     "runners",
     "agents",
+    "skills",
     "issues",
     "tasks",
     "sessions",
@@ -420,6 +458,25 @@ function parseArgs(argv) {
   if (group === "agents" && command === "update" && !flags.name && !flags.systemPrompt) {
     return { ok: false, message: "agents update requires --name or --system-prompt" };
   }
+  if (group === "skills" && command === "publish" && !source) {
+    return { ok: false, message: "skills publish requires a ZIP path" };
+  }
+  if (group === "skills" && ["publish", "archive"].includes(command)) {
+    const revision = Number(flags.expectedRevision);
+    if (!Number.isInteger(revision) || revision < 1) {
+      return { ok: false, message: `skills ${command} requires a positive --expected-revision` };
+    }
+    flags.expectedRevision = revision;
+  }
+  if (group === "skills" && ["preview", "download"].includes(command) && !flags.revision) {
+    return { ok: false, message: `skills ${command} requires --revision` };
+  }
+  if (group === "skills" && command === "preview" && !flags.path) {
+    return { ok: false, message: "skills preview requires --path" };
+  }
+  if (group === "skills" && command === "download" && !flags.output) {
+    return { ok: false, message: "skills download requires --output" };
+  }
   if (group === "sessions" && command === "wait") {
     for (const [flag, value] of [
       ["--interval-seconds", flags.intervalSeconds],
@@ -440,6 +497,7 @@ function parseArgs(argv) {
       group,
       command,
       target,
+      ...(source ? { source } : {}),
       json: flags.json,
       ...(flags.controlPlaneUrl ? { controlPlaneUrl: flags.controlPlaneUrl } : {}),
       ...(flags.username ? { username: flags.username } : {}),
@@ -463,6 +521,9 @@ function parseArgs(argv) {
       ...(flags.expectedRevision !== undefined ? { expectedRevision: flags.expectedRevision } : {}),
       ...(flags.runtimeId ? { runtimeId: flags.runtimeId } : {}),
       ...(flags.agentContextId ? { agentContextId: flags.agentContextId } : {}),
+      ...(flags.revision ? { revision: flags.revision } : {}),
+      ...(flags.path ? { path: flags.path } : {}),
+      ...(flags.output ? { output: flags.output } : {}),
       ...(flags.includeArchived ? { includeArchived: true } : {}),
       ...(group === "sessions" && command === "wait"
         ? {
@@ -525,6 +586,36 @@ async function readJson(url, fetchImpl, init = {}) {
   }
 
   return { ok: true, data: parsed, headers: response.headers };
+}
+
+async function readBinaryResponse(url, fetchImpl, init = {}) {
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      ...init,
+      headers: { accept: "application/zip", ...(init.headers ?? {}) },
+    });
+  } catch (error) {
+    return operatorError(
+      "TRANSPORT_ERROR",
+      error instanceof Error ? error.message : "Request failed",
+      EXIT_CODES.TRANSPORT_ERROR,
+      { url: String(url) },
+    );
+  }
+  if (!response.ok) {
+    let parsed;
+    try {
+      parsed = JSON.parse(await response.text());
+    } catch {
+      return operatorError("TRANSPORT_ERROR", `Request failed with status ${response.status}`, EXIT_CODES.TRANSPORT_ERROR);
+    }
+    if (isObject(parsed?.error) && typeof parsed.error.code === "string" && typeof parsed.error.message === "string") {
+      return operatorError(parsed.error.code, parsed.error.message, managementExitCode(parsed.error.code), parsed);
+    }
+    return operatorError("TRANSPORT_ERROR", `Request failed with status ${response.status}`, EXIT_CODES.TRANSPORT_ERROR);
+  }
+  return { ok: true, data: new Uint8Array(await response.arrayBuffer()), headers: response.headers };
 }
 
 function resultView(snapshot) {
@@ -963,6 +1054,8 @@ function formatSuccess(command, payload, jsonMode) {
 async function executeCommand(command, fetchImpl, deps = {}) {
   const sessionStore = deps.sessionStore ?? createSessionStore();
   const readPassword = deps.readPassword ?? (async () => await readFile(0, "utf8"));
+  const readBinary = deps.readBinary ?? (async (path) => await readFile(path));
+  const writeBinary = deps.writeBinary ?? (async (path, value) => await writeFile(path, value));
   let baseUrl;
   const sleep = deps.sleep ?? (async (milliseconds) => {
     await new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -1150,6 +1243,66 @@ async function executeCommand(command, fetchImpl, deps = {}) {
     return await readJson(new URL(`/api/agents/${encodeURIComponent(command.target)}/archive`, baseUrl), fetchImpl, {
       method: "POST",
       body: JSON.stringify({ expectedRevision: command.expectedRevision }),
+    });
+  }
+  if (command.group === "skills" && command.command === "list") {
+    const url = new URL("/api/skills", baseUrl);
+    if (command.includeArchived) url.searchParams.set("includeArchived", "true");
+    return await readJson(url, fetchImpl);
+  }
+  if (command.group === "skills" && command.command === "show") {
+    const suffix = command.revision
+      ? `/revisions/${encodeURIComponent(command.revision)}`
+      : "";
+    return await readJson(new URL(`/api/skills/${encodeURIComponent(command.target)}${suffix}`, baseUrl), fetchImpl);
+  }
+  if (command.group === "skills" && ["upload", "publish"].includes(command.command)) {
+    const zipPath = command.command === "upload" ? command.target : command.source;
+    let body;
+    try {
+      body = await readBinary(zipPath);
+    } catch {
+      return operatorError("SKILL_ZIP_READ_FAILED", "Unable to read the ZIP bundle.", EXIT_CODES.INVALID, { path: zipPath });
+    }
+    const url = command.command === "upload"
+      ? new URL("/api/skills", baseUrl)
+      : new URL(`/api/skills/${encodeURIComponent(command.target)}/revisions`, baseUrl);
+    return await readJson(url, fetchImpl, {
+      method: "POST",
+      body,
+      headers: {
+        "content-type": "application/zip",
+        "content-length": String(body.byteLength),
+        ...(command.command === "publish" ? { "if-match": `"${command.expectedRevision}"` } : {}),
+      },
+    });
+  }
+  if (command.group === "skills" && command.command === "preview") {
+    const url = new URL(
+      `/api/skills/${encodeURIComponent(command.target)}/revisions/${encodeURIComponent(command.revision)}/file`,
+      baseUrl,
+    );
+    url.searchParams.set("path", command.path);
+    return await readJson(url, fetchImpl);
+  }
+  if (command.group === "skills" && command.command === "download") {
+    const url = new URL(
+      `/api/skills/${encodeURIComponent(command.target)}/revisions/${encodeURIComponent(command.revision)}/download`,
+      baseUrl,
+    );
+    const downloaded = await readBinaryResponse(url, fetchImpl);
+    if (!downloaded.ok) return downloaded;
+    try {
+      await writeBinary(command.output, downloaded.data);
+    } catch {
+      return operatorError("SKILL_ZIP_WRITE_FAILED", "Unable to write the downloaded ZIP bundle.", EXIT_CODES.TRANSPORT_ERROR, { path: command.output });
+    }
+    return { ok: true, payload: { output: command.output, size: downloaded.data.byteLength } };
+  }
+  if (command.group === "skills" && command.command === "archive") {
+    return await readJson(new URL(`/api/skills/${encodeURIComponent(command.target)}/archive`, baseUrl), fetchImpl, {
+      method: "POST",
+      headers: { "if-match": `"${command.expectedRevision}"` },
     });
   }
   if (command.group === "runners" && command.command === "list") {
@@ -1349,6 +1502,8 @@ export async function run(argv, deps = {}) {
     ...(deps.now ? { now: deps.now } : {}),
     ...(deps.sessionStore ? { sessionStore: deps.sessionStore } : {}),
     ...(deps.readPassword ? { readPassword: deps.readPassword } : {}),
+    ...(deps.readBinary ? { readBinary: deps.readBinary } : {}),
+    ...(deps.writeBinary ? { writeBinary: deps.writeBinary } : {}),
   });
   if (!result.ok) {
     stderr(formatError(result, parsed.value.json));

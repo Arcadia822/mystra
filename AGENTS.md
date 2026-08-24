@@ -493,5 +493,7 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - 050 不新增 Session summary/detail view 或持久化表；只增加 Task-filtered Session query、Task launch adapter 与 SessionEvent presentation (050-task-session-experience)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16、React 19、Zod 4、Prisma 7.9.1、Vitest 4、`@mystra/ui` (054-navigation-task-workbench)
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider`；在两套 Task row 增加单一 Metadata JSON payload，不新增关系表或 normalized columns (054-navigation-task-workbench)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16、React 19、Zod 4、Prisma 7.9.1、Vitest 4、`@mystra/ui`；新增 `@aws-sdk/client-s3`、`yauzl` 3.4.x、`yaml` 2.9.x (056-skill-library)
+- SQLite 与 PostgreSQL/Supabase-backed PostgreSQL 通过 `RdbProvider` 保存元数据；单一 S3-compatible `S3SkillContentStore` 保存不可变 ZIP；无 filesystem adapter、RDB BLOB 或 per-file object source of truth (056-skill-library)
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

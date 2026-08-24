@@ -10,6 +10,8 @@ import {
 import { integrationConnectionSchema, integrationProviderStatusSchema } from "./integrations.js";
 import { taskIssueResolutionSchema, taskSchema } from "./task.js";
 
+export * from "./skill.js";
+
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 
 export const managementErrorCodeSchema = z.enum([
@@ -48,6 +50,23 @@ export const managementErrorCodeSchema = z.enum([
   "INTEGRATION_RATE_LIMITED",
   "INTEGRATION_UPSTREAM_ERROR",
   "REPOSITORY_CREDENTIAL_UNAVAILABLE",
+  "invalid_content_type",
+  "content_length_required",
+  "skill_zip_too_large",
+  "invalid_skill_zip",
+  "skill_name_conflict",
+  "skill_not_found",
+  "skill_revision_not_found",
+  "skill_file_not_found",
+  "skill_file_not_previewable",
+  "skill_archived",
+  "skill_name_mismatch",
+  "revision_conflict",
+  "skill_storage_unavailable",
+  "skill_storage_misconfigured",
+  "skill_storage_integrity_error",
+  "skill_storage_integrity_conflict",
+  "publication_failed",
 ]);
 export type ManagementErrorCode = z.infer<typeof managementErrorCodeSchema>;
 
