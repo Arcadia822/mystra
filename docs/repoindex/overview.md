@@ -8,12 +8,14 @@ This onboarding snapshot is GitNexus-first and 5xP-aware. Read `PRODUCT.md`,
 Mystra is a coding-Agent production control plane. Callers capture durable Task
 context, launch a Session through a selected Provider, and let Mystra lock the
 Task to one Runtime, prepare its shared Task Workspace, and deliver reviewable
-execution evidence through Sessions plus Task status history.
+execution evidence through Sessions plus Task status history. Operators can also
+maintain a Team-scoped Skill library whose immutable ZIP revisions are available
+for review and download independently of Runtime delivery.
 
 ## Runtime shape
 
 ```text
-apps/control-plane    API, MCP, Web, integrations, RDB and Session coordination
+apps/control-plane    API, MCP, Web, integrations, Skill library, RDB and Session coordination
 apps/runner-daemon    host Runtime enrollment, Workspace materialization and Session execution
 packages/shared       canonical Zod contracts, Session events and projection reducer
 packages/agent-adapters  Codex/Copilot CLI command and continuation adapters
@@ -38,6 +40,10 @@ plugins/mystra        MCP-facing Agent skills
    verify those external commands or the PR/self-test note.
 6. A Human reviews the independently visible Task status, Sessions and history,
    then marks the Task done, resumes blocked work, or cancels it.
+7. An Owner/Admin uploads a ZIP to create a Skill or publish an immutable
+   Revision. Mystra validates and previews selected archive files in memory,
+   stores Skill/Revision metadata through `RdbProvider`, and stores the original
+   ZIP in S3-compatible object storage for authorized preview and download.
 
 ## Boundaries
 
@@ -62,6 +68,11 @@ plugins/mystra        MCP-facing Agent skills
   authoritative live execution contract.
 - SQLite, PostgreSQL and Supabase-backed PostgreSQL remain behind `RdbProvider`;
   Prisma types do not cross the public/domain boundary.
+- Skill is Team-scoped and archive-only; publishing creates immutable Revisions.
+  Skill names are unique only among active Skills, so archiving permits a new
+  Skill with the same name. Revision ZIPs use one S3-compatible source of truth;
+  there is no filesystem adapter, RDB BLOB, per-file object catalog, Session/Agent
+  binding, or Runtime delivery in Spec 056.
 
 ## Important commands
 
@@ -78,3 +89,5 @@ Use `specs/spec-status.md` for Spec-Kit completion and
 `specs/050-task-session-experience/` for the Session experience, and
 `specs/054-navigation-task-workbench/` for Task status, TaskExecutionContext,
 automatic Runtime/Workspace launch, navigation and the workload CLI boundary.
+Use `specs/056-skill-library/` for Skill CRUD, immutable Revision, ZIP validation,
+S3-compatible storage, preview, download, and archive semantics.
