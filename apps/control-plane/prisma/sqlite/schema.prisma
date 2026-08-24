@@ -333,6 +333,9 @@ model User {
   account               AuthAccount?
   sessions              AuthSession[]
   memberships           TeamMembership[]
+  createdSkills         Skill[]         @relation("SkillCreatedBy")
+  archivedSkills        Skill[]         @relation("SkillArchivedBy")
+  createdSkillRevisions SkillRevision[] @relation("SkillRevisionCreatedBy")
 
   @@index([createdAt, id])
   @@map("users")
@@ -387,10 +390,67 @@ model Team {
   sessions               Session[]
   executionContexts      TaskExecutionContext[]
   taskStatusTransitions  TaskStatusTransition[]
+  skills                 Skill[]
 
   @@index([status])
   @@index([createdAt, id])
   @@map("teams")
+}
+
+model Skill {
+  id                String          @id
+  teamId            String          @map("team_id")
+  name              String
+  activeName        String?         @map("active_name")
+  status            String
+  currentRevisionId String?         @map("current_revision_id")
+  resourceRevision  Int             @map("resource_revision")
+  createdByUserId   String          @map("created_by_user_id")
+  createdAt         String          @map("created_at")
+  updatedAt         String          @map("updated_at")
+  archivedByUserId  String?         @map("archived_by_user_id")
+  archivedAt        String?         @map("archived_at")
+  team              Team            @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdBy         User            @relation("SkillCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  archivedBy        User?           @relation("SkillArchivedBy", fields: [archivedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  currentRevision   SkillRevision?  @relation("SkillCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  revisions         SkillRevision[] @relation("SkillRevisions")
+
+  @@unique([teamId, activeName])
+  @@index([teamId, status, updatedAt, id])
+  @@index([teamId, name, archivedAt])
+  @@map("skills")
+}
+
+model SkillRevision {
+  id                    String          @id
+  skillId               String          @map("skill_id")
+  baseRevisionId        String?         @map("base_revision_id")
+  sequence              Int?
+  publicationStatus     String          @map("publication_status")
+  description           String
+  manifestJson          String          @map("manifest_json")
+  compressedSizeBytes   Int             @map("compressed_size_bytes")
+  uncompressedSizeBytes Int             @map("uncompressed_size_bytes")
+  zipSha256             String          @map("zip_sha256")
+  contentSha256         String          @map("content_sha256")
+  objectKey             String          @map("object_key")
+  createdByUserId       String          @map("created_by_user_id")
+  createdAt             String          @map("created_at")
+  readyAt               String?         @map("ready_at")
+  failedAt              String?         @map("failed_at")
+  failureCode           String?         @map("failure_code")
+  skill                 Skill           @relation("SkillRevisions", fields: [skillId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  baseRevision          SkillRevision?  @relation("SkillRevisionLineage", fields: [baseRevisionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  childRevisions        SkillRevision[] @relation("SkillRevisionLineage")
+  currentForSkills      Skill[]         @relation("SkillCurrentRevision")
+  createdBy             User            @relation("SkillRevisionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([skillId, sequence])
+  @@unique([skillId, baseRevisionId, zipSha256])
+  @@index([skillId, sequence])
+  @@index([skillId, publicationStatus, createdAt])
+  @@map("skill_revisions")
 }
 
 model Session {

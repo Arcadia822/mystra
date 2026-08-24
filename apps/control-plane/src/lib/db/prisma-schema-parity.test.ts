@@ -44,6 +44,8 @@ describe("Prisma provider schema parity", () => {
       "AuthAccount",
       "AuthSession",
       "Team",
+      "Skill",
+      "SkillRevision",
       "Session",
       "SessionEvent",
       "SessionEventHead",
@@ -68,6 +70,8 @@ describe("Prisma provider schema parity", () => {
       '@@map("auth_accounts")',
       '@@map("auth_sessions")',
       '@@map("teams")',
+      '@@map("skills")',
+      '@@map("skill_revisions")',
       '@@map("sessions")',
       '@@map("session_events")',
       '@@map("session_event_heads")',
@@ -76,6 +80,25 @@ describe("Prisma provider schema parity", () => {
       '@@map("team_memberships")',
     ]);
     expect(schema).not.toMatch(/Runner|ContextBundle|Artifact|Snapshot|objective|turnId|maxConcurrency/u);
+  });
+
+  it("models Team-scoped Skills with embedded manifests and no command ledger", () => {
+    const schema = modelSection(readSchema("sqlite"));
+    const skill = schema.match(/model Skill \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const revision = schema.match(/model SkillRevision \{[\s\S]*?\n\}/u)?.[0] ?? "";
+
+    expect(skill).toMatch(/teamId\s+String\s+@map\("team_id"\)/u);
+    expect(skill).toMatch(/activeName\s+String\?\s+@map\("active_name"\)/u);
+    expect(skill).toMatch(/currentRevisionId\s+String\?\s+@map\("current_revision_id"\)/u);
+    expect(skill).toMatch(/resourceRevision\s+Int\s+@map\("resource_revision"\)/u);
+    expect(skill).toMatch(/@@unique\(\[teamId, activeName\]\)/u);
+    expect(revision).toMatch(/baseRevisionId\s+String\?\s+@map\("base_revision_id"\)/u);
+    expect(revision).toMatch(/sequence\s+Int\?/u);
+    expect(revision).toMatch(/publicationStatus\s+String\s+@map\("publication_status"\)/u);
+    expect(revision).toMatch(/manifestJson\s+String\s+@map\("manifest_json"\)/u);
+    expect(revision).toMatch(/@@unique\(\[skillId, sequence\]\)/u);
+    expect(revision).toMatch(/@@unique\(\[skillId, baseRevisionId, zipSha256\]\)/u);
+    expect(schema).not.toMatch(/model SkillCommand|model SkillManifestEntry|idempotencyKey.*Skill|objectEtag|skillMdSize|fileCount/u);
   });
 
   it("models one durable Session event ledger without Turn or capacity tables", () => {

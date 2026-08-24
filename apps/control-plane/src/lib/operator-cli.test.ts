@@ -23,6 +23,8 @@ async function execute(
       clear: () => Promise<void>;
     };
     readPassword?: () => Promise<string>;
+    readBinary?: (path: string) => Promise<Uint8Array>;
+    writeBinary?: (path: string, value: Uint8Array) => Promise<void>;
   } = {},
 ) {
   const stdout: string[] = [];
@@ -80,6 +82,112 @@ function sessionDetail(state = "succeeded", result: Record<string, unknown> | un
 }
 
 describe("operator CLI Task and Session commands", () => {
+  it("parses the canonical Skill command surface and rejects incomplete mutations", () => {
+    expect(parseArgs(["skills", "list", "--include-archived", "--json"])).toMatchObject({
+      ok: true,
+      value: { group: "skills", command: "list", includeArchived: true },
+    });
+    expect(parseArgs(["skills", "show", "skill-1", "--revision", "2"])).toMatchObject({
+      ok: true,
+      value: { target: "skill-1", revision: "2" },
+    });
+    expect(parseArgs(["skills", "upload", "bundle.zip"])).toMatchObject({
+      ok: true,
+      value: { target: "bundle.zip" },
+    });
+    expect(parseArgs(["skills", "publish", "skill-1", "bundle.zip", "--expected-revision", "3"])).toMatchObject({
+      ok: true,
+      value: { target: "skill-1", source: "bundle.zip", expectedRevision: 3 },
+    });
+    expect(parseArgs(["skills", "preview", "skill-1", "--revision", "rev-1", "--path", "SKILL.md"])).toMatchObject({
+      ok: true,
+      value: { revision: "rev-1", path: "SKILL.md" },
+    });
+    expect(parseArgs(["skills", "download", "skill-1", "--revision", "1", "--output", "out.zip"])).toMatchObject({
+      ok: true,
+      value: { revision: "1", output: "out.zip" },
+    });
+    expect(parseArgs(["skills", "archive", "skill-1"])).toMatchObject({ ok: false });
+    expect(parseArgs(["skills", "publish", "skill-1", "bundle.zip"])).toMatchObject({ ok: false });
+    expect(parseArgs(["skills", "preview", "skill-1", "--revision", "1"])).toMatchObject({ ok: false });
+  });
+
+  it("executes Skill JSON, raw ZIP, preview, download, and archive requests through canonical APIs", async () => {
+    const zip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const writes: Array<{ path: string; value: Uint8Array }> = [];
+    const skillId = "00000000-0000-4000-8000-000000000056";
+    const common = {
+      readBinary: async (path: string) => {
+        expect(path).toBe("bundle.zip");
+        return zip;
+      },
+      writeBinary: async (path: string, value: Uint8Array) => void writes.push({ path, value }),
+    };
+
+    const listed = await execute(["skills", "list", "--include-archived", "--json"], async (url) => {
+      expect(url).toBe("http://localhost:3000/api/skills?includeArchived=true");
+      return response({ skills: [], nextCursor: null });
+    }, common);
+    const shown = await execute(["skills", "show", skillId, "--revision", "2", "--json"], async (url) => {
+      expect(url).toBe(`http://localhost:3000/api/skills/${skillId}/revisions/2`);
+      return response({ revision: { id: "revision-2", sequence: 2 } });
+    }, common);
+    const uploaded = await execute(["skills", "upload", "bundle.zip", "--json"], async (url, init) => {
+      expect(url).toBe("http://localhost:3000/api/skills");
+      expect(init?.method).toBe("POST");
+      expect(init?.headers).toMatchObject({ "content-type": "application/zip", "content-length": "4" });
+      expect(new Uint8Array(init?.body as ArrayBuffer)).toEqual(zip);
+      return response({ skill: { id: skillId, resourceRevision: 1 }, revision: { sequence: 1 } }, 201);
+    }, common);
+    const published = await execute([
+      "skills", "publish", skillId, "bundle.zip", "--expected-revision", "1", "--json",
+    ], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/skills/${skillId}/revisions`);
+      expect(init?.headers).toMatchObject({ "if-match": '"1"', "content-type": "application/zip" });
+      return response({ skill: { id: skillId, resourceRevision: 2 }, revision: { sequence: 2 } }, 201);
+    }, common);
+    const previewed = await execute([
+      "skills", "preview", skillId, "--revision", "2", "--path", "SKILL.md", "--json",
+    ], async (url) => {
+      expect(url).toBe(`http://localhost:3000/api/skills/${skillId}/revisions/2/file?path=SKILL.md`);
+      return response({ kind: "text", content: "# Skill" });
+    }, common);
+    const downloaded = await execute([
+      "skills", "download", skillId, "--revision", "2", "--output", "saved.zip", "--json",
+    ], async (url) => {
+      expect(url).toBe(`http://localhost:3000/api/skills/${skillId}/revisions/2/download`);
+      return new Response(zip, { headers: { "content-type": "application/zip" } });
+    }, common);
+    const archived = await execute([
+      "skills", "archive", skillId, "--expected-revision", "2", "--json",
+    ], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/skills/${skillId}/archive`);
+      expect(init?.method).toBe("POST");
+      expect(init?.headers).toMatchObject({ "if-match": '"2"' });
+      return response({ skill: { id: skillId, status: "archived", resourceRevision: 3 } });
+    }, common);
+
+    for (const result of [listed, shown, uploaded, published, previewed, downloaded, archived]) {
+      expect(result.exitCode).toBe(EXIT_CODES.OK);
+    }
+    expect(writes).toEqual([{ path: "saved.zip", value: zip }]);
+    expect(JSON.parse(downloaded.stdout)).toEqual({ output: "saved.zip", size: 4 });
+  });
+
+  it("maps stable Skill failures to operator exit categories without exposing transport internals", async () => {
+    const missing = await execute(["skills", "show", sessionId, "--json"], async () => response({
+      error: { code: "skill_not_found", message: "Skill not found" },
+    }, 404));
+    const conflict = await execute(["skills", "archive", sessionId, "--expected-revision", "1", "--json"], async () => response({
+      error: { code: "revision_conflict", message: "Skill changed" },
+    }, 409));
+    const invalid = await execute(["skills", "upload", "bundle.zip", "--json"], async () => response({
+      error: { code: "invalid_skill_zip", message: "Invalid ZIP" },
+    }, 400), { readBinary: async () => new Uint8Array([1]) });
+    expect(missing.exitCode).toBe(EXIT_CODES.MISSING);
+    expect(conflict.exitCode).toBe(EXIT_CODES.UNAVAILABLE);
+    expect(invalid.exitCode).toBe(EXIT_CODES.INVALID);
+  });
   it("does not expose the obsolete Project execution-default create command", () => {
     expect(parseArgs([
       "projects", "create",

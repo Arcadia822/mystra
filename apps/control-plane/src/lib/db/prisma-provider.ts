@@ -24,6 +24,10 @@ import {
   sessionEventSchema,
   sessionLaunchRequestSchema,
   sessionSchema,
+  skillDescriptionSchema,
+  skillManifestEntrySchema,
+  skillNameSchema,
+  skillSha256Schema,
   sessionWorkspaceAttachmentSchema,
   effectiveSystemPromptEvidenceSchema,
   agentContextSnapshotSchema,
@@ -70,6 +74,7 @@ import {
 import type {
   Runtime as PrismaRuntime,
   RuntimeProvider as PrismaRuntimeProvider,
+  SkillRevision as PrismaSkillRevision,
 } from "../../generated/prisma/sqlite/client";
 
 import type { MystraPrismaClient, MystraPrismaDelegates } from "./prisma-client";
@@ -88,6 +93,8 @@ import {
   mapRuntime,
   mapSession,
   mapSessionEvent,
+  mapSkill,
+  mapSkillRevision,
   mapTask,
   mapTaskStatusTransition,
   mapTaskWorkspace,
@@ -122,12 +129,43 @@ import type {
   SessionLaunchPersistenceInput,
   TaskProductionStartInput,
   TaskStatusTransitionInput,
+  SkillPublicationContent,
+  SkillPublicationReservation,
+  SkillRecord,
+  SkillRecordPage,
+  SkillRevisionRecord,
+  SkillRevisionRecordPage,
 } from "./rdb-provider";
 
 type PrismaRdbProviderOptions = {
   now?: () => string;
   newId?: () => string;
 };
+
+function parseSkillPublicationContent(input: SkillPublicationContent): SkillPublicationContent {
+  const description = skillDescriptionSchema.parse(input.description);
+  const manifest = skillManifestEntrySchema.array().min(1).max(1_000).parse(input.manifest);
+  const compressedSizeBytes = Number(input.compressedSizeBytes);
+  const uncompressedSizeBytes = Number(input.uncompressedSizeBytes);
+  if (
+    !Number.isSafeInteger(compressedSizeBytes)
+    || compressedSizeBytes < 1
+    || compressedSizeBytes > 20 * 1024 * 1024
+    || !Number.isSafeInteger(uncompressedSizeBytes)
+    || uncompressedSizeBytes < 1
+    || uncompressedSizeBytes > 100 * 1024 * 1024
+  ) {
+    throw new RdbError("RDB_CONFLICT", "Skill publication sizes are invalid");
+  }
+  return {
+    description,
+    manifest,
+    compressedSizeBytes,
+    uncompressedSizeBytes,
+    zipSha256: skillSha256Schema.parse(input.zipSha256),
+    contentSha256: skillSha256Schema.parse(input.contentSha256),
+  };
+}
 
 export class PrismaRdbProvider implements RdbProvider {
   readonly #client: MystraPrismaClient;
@@ -142,6 +180,371 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async close(): Promise<void> {
     await this.#client.disconnect();
+  }
+
+  async reserveInitialSkillPublication(input: {
+    teamId: string;
+    name: string;
+    createdByUserId: string;
+    content: SkillPublicationContent;
+  }): Promise<SkillPublicationReservation> {
+    const name = skillNameSchema.parse(input.name);
+    const content = parseSkillPublicationContent(input.content);
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        const existingSkill = await transaction.skill.findUnique({
+          where: { teamId_activeName: { teamId: input.teamId, activeName: name } },
+        });
+        if (existingSkill) {
+          const existingRevision = await transaction.skillRevision.findFirst({
+            where: {
+              skillId: existingSkill.id,
+              baseRevisionId: null,
+              zipSha256: content.zipSha256,
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          });
+          if (existingRevision) {
+            return {
+              skill: mapSkill(existingSkill),
+              revision: mapSkillRevision(existingRevision),
+              created: false,
+            };
+          }
+          if (existingSkill.currentRevisionId !== null) {
+            throw new RdbError("RDB_CONFLICT", "An active Skill already uses this name");
+          }
+          const revision = await this.#createSkillRevision(transaction, {
+            skillId: existingSkill.id,
+            baseRevisionId: null,
+            createdByUserId: input.createdByUserId,
+            content,
+            teamId: input.teamId,
+          });
+          return { skill: mapSkill(existingSkill), revision: mapSkillRevision(revision), created: true };
+        }
+
+        const timestamp = this.#now();
+        const skillId = this.#newId();
+        const skill = await transaction.skill.create({
+          data: {
+            id: skillId,
+            teamId: input.teamId,
+            name,
+            activeName: name,
+            status: "active",
+            currentRevisionId: null,
+            resourceRevision: 0,
+            createdByUserId: input.createdByUserId,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            archivedByUserId: null,
+            archivedAt: null,
+          },
+        });
+        const revision = await this.#createSkillRevision(transaction, {
+          skillId,
+          baseRevisionId: null,
+          createdByUserId: input.createdByUserId,
+          content,
+          teamId: input.teamId,
+        });
+        return { skill: mapSkill(skill), revision: mapSkillRevision(revision), created: true };
+      });
+    } catch (error) {
+      if (!(error instanceof RdbError) || error.code !== "RDB_CONFLICT") throw error;
+      const existingSkill = await this.#client.skill.findUnique({
+        where: { teamId_activeName: { teamId: input.teamId, activeName: name } },
+      });
+      if (!existingSkill) throw error;
+      const existingRevision = await this.#client.skillRevision.findFirst({
+        where: { skillId: existingSkill.id, baseRevisionId: null, zipSha256: content.zipSha256 },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      });
+      if (!existingRevision) throw error;
+      return { skill: mapSkill(existingSkill), revision: mapSkillRevision(existingRevision), created: false };
+    }
+  }
+
+  async reserveSkillRevisionPublication(input: {
+    teamId: string;
+    skillId: string;
+    expectedResourceRevision: number;
+    name: string;
+    createdByUserId: string;
+    content: SkillPublicationContent;
+  }): Promise<SkillPublicationReservation> {
+    const name = skillNameSchema.parse(input.name);
+    const content = parseSkillPublicationContent(input.content);
+    if (!Number.isInteger(input.expectedResourceRevision) || input.expectedResourceRevision < 1) {
+      throw new RdbError("RDB_CONFLICT", "Expected Skill resource revision is invalid");
+    }
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        const skill = await transaction.skill.findUnique({ where: { id: input.skillId } });
+        if (!skill || skill.teamId !== input.teamId || skill.currentRevisionId === null) {
+          throw new RdbError("RDB_NOT_FOUND", "Skill not found");
+        }
+        if (skill.status !== "active") {
+          throw new RdbError("RDB_CONFLICT", "Archived Skill cannot be published");
+        }
+        if (skill.name !== name) {
+          throw new RdbError("RDB_CONFLICT", "Skill name cannot change across revisions");
+        }
+
+        const baseRevision = await transaction.skillRevision.findUnique({
+          where: { skillId_sequence: { skillId: skill.id, sequence: input.expectedResourceRevision } },
+        });
+        const existing = baseRevision
+          ? await transaction.skillRevision.findFirst({
+              where: {
+                skillId: skill.id,
+                baseRevisionId: baseRevision.id,
+                zipSha256: content.zipSha256,
+              },
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            })
+          : null;
+        if (existing) {
+          return { skill: mapSkill(skill), revision: mapSkillRevision(existing), created: false };
+        }
+        if (
+          skill.resourceRevision !== input.expectedResourceRevision
+          || baseRevision?.id !== skill.currentRevisionId
+        ) {
+          throw new RdbError("RDB_CONFLICT", "Skill resource revision changed");
+        }
+        const revision = await this.#createSkillRevision(transaction, {
+          skillId: skill.id,
+          baseRevisionId: baseRevision.id,
+          createdByUserId: input.createdByUserId,
+          content,
+          teamId: input.teamId,
+        });
+        return { skill: mapSkill(skill), revision: mapSkillRevision(revision), created: true };
+      });
+    } catch (error) {
+      if (!(error instanceof RdbError) || error.code !== "RDB_CONFLICT") throw error;
+      const skill = await this.#client.skill.findUnique({ where: { id: input.skillId } });
+      if (!skill || skill.teamId !== input.teamId) throw error;
+      const baseRevision = await this.#client.skillRevision.findUnique({
+        where: { skillId_sequence: { skillId: skill.id, sequence: input.expectedResourceRevision } },
+      });
+      if (!baseRevision) throw error;
+      const existing = await this.#client.skillRevision.findFirst({
+        where: { skillId: skill.id, baseRevisionId: baseRevision.id, zipSha256: content.zipSha256 },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      });
+      if (!existing) throw error;
+      return { skill: mapSkill(skill), revision: mapSkillRevision(existing), created: false };
+    }
+  }
+
+  async finalizeSkillRevisionPublication(input: {
+    teamId: string;
+    skillId: string;
+    revisionId: string;
+    expectedResourceRevision: number;
+  }): Promise<{ skill: SkillRecord; revision: SkillRevisionRecord }> {
+    return this.#client.transaction(async (transaction) => {
+      const [skill, revision] = await Promise.all([
+        transaction.skill.findUnique({ where: { id: input.skillId } }),
+        transaction.skillRevision.findUnique({ where: { id: input.revisionId } }),
+      ]);
+      if (!skill || skill.teamId !== input.teamId || !revision || revision.skillId !== skill.id) {
+        throw new RdbError("RDB_NOT_FOUND", "Skill publication not found");
+      }
+      if (revision.publicationStatus === "ready") {
+        return { skill: mapSkill(skill), revision: mapSkillRevision(revision) };
+      }
+      if (revision.publicationStatus !== "uploading") {
+        throw new RdbError("RDB_CONFLICT", "Skill publication is terminal");
+      }
+      if (
+        skill.status !== "active"
+        || skill.resourceRevision !== input.expectedResourceRevision
+        || skill.currentRevisionId !== revision.baseRevisionId
+      ) {
+        throw new RdbError("RDB_CONFLICT", "Skill publication can no longer be finalized");
+      }
+      const baseSequence = revision.baseRevisionId === null
+        ? 0
+        : (await transaction.skillRevision.findUnique({ where: { id: revision.baseRevisionId } }))?.sequence;
+      if (baseSequence === undefined || baseSequence === null || baseSequence !== input.expectedResourceRevision) {
+        throw new RdbError("RDB_CONFLICT", "Skill publication base revision changed");
+      }
+      const timestamp = this.#now();
+      const sequence = baseSequence + 1;
+      const revisionUpdate = await transaction.skillRevision.updateMany({
+        where: { id: revision.id, skillId: skill.id, publicationStatus: "uploading" },
+        data: { publicationStatus: "ready", sequence, readyAt: timestamp },
+      });
+      const skillUpdate = await transaction.skill.updateMany({
+        where: {
+          id: skill.id,
+          teamId: input.teamId,
+          status: "active",
+          currentRevisionId: revision.baseRevisionId,
+          resourceRevision: input.expectedResourceRevision,
+        },
+        data: {
+          currentRevisionId: revision.id,
+          resourceRevision: input.expectedResourceRevision + 1,
+          updatedAt: timestamp,
+        },
+      });
+      if (revisionUpdate.count !== 1 || skillUpdate.count !== 1) {
+        throw new RdbError("RDB_CONFLICT", "Skill publication finalize lost a concurrency race");
+      }
+      const [updatedSkill, updatedRevision] = await Promise.all([
+        transaction.skill.findUnique({ where: { id: skill.id } }),
+        transaction.skillRevision.findUnique({ where: { id: revision.id } }),
+      ]);
+      if (!updatedSkill || !updatedRevision) throw new RdbError("RDB_UNAVAILABLE", "Finalized Skill publication is missing");
+      return { skill: mapSkill(updatedSkill), revision: mapSkillRevision(updatedRevision) };
+    });
+  }
+
+  async failSkillRevisionPublication(input: {
+    teamId: string;
+    skillId: string;
+    revisionId: string;
+    failureCode: string;
+  }): Promise<SkillRevisionRecord> {
+    return this.#client.transaction(async (transaction) => {
+      const [skill, revision] = await Promise.all([
+        transaction.skill.findUnique({ where: { id: input.skillId } }),
+        transaction.skillRevision.findUnique({ where: { id: input.revisionId } }),
+      ]);
+      if (!skill || skill.teamId !== input.teamId || !revision || revision.skillId !== skill.id) {
+        throw new RdbError("RDB_NOT_FOUND", "Skill publication not found");
+      }
+      if (revision.publicationStatus === "failed") return mapSkillRevision(revision);
+      if (revision.publicationStatus !== "uploading") throw new RdbError("RDB_CONFLICT", "Ready Skill revision cannot fail");
+      await transaction.skillRevision.updateMany({
+        where: { id: revision.id, skillId: skill.id, publicationStatus: "uploading" },
+        data: { publicationStatus: "failed", failedAt: this.#now(), failureCode: input.failureCode },
+      });
+      const updated = await transaction.skillRevision.findUnique({ where: { id: revision.id } });
+      if (!updated) throw new RdbError("RDB_UNAVAILABLE", "Failed Skill publication is missing");
+      return mapSkillRevision(updated);
+    });
+  }
+
+  async getSkillRecord(
+    skillId: string,
+    options: { teamId: string; includeHidden?: boolean },
+  ): Promise<SkillRecord | undefined> {
+    const skill = await this.#client.skill.findUnique({ where: { id: skillId } });
+    if (!skill || skill.teamId !== options.teamId || (skill.currentRevisionId === null && options.includeHidden !== true)) {
+      return undefined;
+    }
+    return mapSkill(skill);
+  }
+
+  async getSkillRevisionRecord(input: {
+    teamId: string;
+    skillId: string;
+    revisionId: string;
+  }): Promise<SkillRevisionRecord | undefined> {
+    const skill = await this.#client.skill.findUnique({ where: { id: input.skillId } });
+    if (!skill || skill.teamId !== input.teamId || skill.currentRevisionId === null) return undefined;
+    const sequence = /^[1-9][0-9]*$/u.test(input.revisionId) ? Number(input.revisionId) : undefined;
+    const revision = await this.#client.skillRevision.findUnique({
+      where: sequence !== undefined && Number.isSafeInteger(sequence)
+        ? { skillId_sequence: { skillId: skill.id, sequence } }
+        : { id: input.revisionId },
+    });
+    if (!revision || revision.skillId !== skill.id) return undefined;
+    return mapSkillRevision(revision);
+  }
+
+  async listSkillRecords(input: {
+    teamId: string;
+    cursor?: string;
+    limit: number;
+    query?: string;
+    includeArchived?: boolean;
+  }): Promise<SkillRecordPage> {
+    const take = Math.min(Math.max(input.limit, 1), 100);
+    const rows = await this.#client.skill.findMany({
+      where: {
+        teamId: input.teamId,
+        ...(input.includeArchived === true ? {} : { status: "active" }),
+        currentRevisionId: { not: null },
+        ...(input.query ? {
+          OR: [
+            { name: { contains: input.query } },
+            { currentRevision: { is: { description: { contains: input.query } } } },
+          ],
+        } : {}),
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: take + 1,
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+    });
+    const hasNext = rows.length > take;
+    const items = rows.slice(0, take).map(mapSkill);
+    return { items, nextCursor: hasNext ? items.at(-1)?.id ?? null : null };
+  }
+
+  async listSkillRevisionRecords(input: {
+    teamId: string;
+    skillId: string;
+    cursor?: string;
+    limit: number;
+  }): Promise<SkillRevisionRecordPage> {
+    const skill = await this.getSkillRecord(input.skillId, { teamId: input.teamId });
+    if (!skill) throw new RdbError("RDB_NOT_FOUND", "Skill not found");
+    const take = Math.min(Math.max(input.limit, 1), 100);
+    const rows = await this.#client.skillRevision.findMany({
+      where: { skillId: skill.id, publicationStatus: "ready" },
+      orderBy: [{ sequence: "desc" }, { id: "desc" }],
+      take: take + 1,
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+    });
+    const hasNext = rows.length > take;
+    const items = rows.slice(0, take).map(mapSkillRevision);
+    return { items, nextCursor: hasNext ? items.at(-1)?.id ?? null : null };
+  }
+
+  async archiveSkillRecord(input: {
+    teamId: string;
+    skillId: string;
+    expectedResourceRevision: number;
+    archivedByUserId: string;
+  }): Promise<SkillRecord> {
+    return this.#client.transaction(async (transaction) => {
+      const skill = await transaction.skill.findUnique({ where: { id: input.skillId } });
+      if (!skill || skill.teamId !== input.teamId || skill.currentRevisionId === null) {
+        throw new RdbError("RDB_NOT_FOUND", "Skill not found");
+      }
+      if (skill.status === "archived") return mapSkill(skill);
+      if (skill.resourceRevision !== input.expectedResourceRevision) {
+        throw new RdbError("RDB_CONFLICT", "Skill resource revision changed");
+      }
+      const timestamp = this.#now();
+      const updated = await transaction.skill.updateMany({
+        where: {
+          id: skill.id,
+          teamId: input.teamId,
+          status: "active",
+          resourceRevision: input.expectedResourceRevision,
+        },
+        data: {
+          activeName: null,
+          status: "archived",
+          resourceRevision: input.expectedResourceRevision + 1,
+          updatedAt: timestamp,
+          archivedByUserId: input.archivedByUserId,
+          archivedAt: timestamp,
+        },
+      });
+      if (updated.count !== 1) throw new RdbError("RDB_CONFLICT", "Skill archive lost a concurrency race");
+      const result = await transaction.skill.findUnique({ where: { id: skill.id } });
+      if (!result) throw new RdbError("RDB_UNAVAILABLE", "Archived Skill is missing");
+      return mapSkill(result);
+    });
   }
 
   async createSessionWithEvents(
@@ -2691,6 +3094,40 @@ export class PrismaRdbProvider implements RdbProvider {
   async countActiveOwners(teamId: string): Promise<number> {
     return this.#client.teamMembership.count({
       where: { teamId, role: "owner", status: "active" },
+    });
+  }
+
+  async #createSkillRevision(
+    client: MystraPrismaDelegates,
+    input: {
+      teamId: string;
+      skillId: string;
+      baseRevisionId: string | null;
+      createdByUserId: string;
+      content: SkillPublicationContent;
+    },
+  ): Promise<PrismaSkillRevision> {
+    const revisionId = this.#newId();
+    return client.skillRevision.create({
+      data: {
+        id: revisionId,
+        skillId: input.skillId,
+        baseRevisionId: input.baseRevisionId,
+        sequence: null,
+        publicationStatus: "uploading",
+        description: input.content.description,
+        manifestJson: JSON.stringify(input.content.manifest),
+        compressedSizeBytes: input.content.compressedSizeBytes,
+        uncompressedSizeBytes: input.content.uncompressedSizeBytes,
+        zipSha256: input.content.zipSha256,
+        contentSha256: input.content.contentSha256,
+        objectKey: `teams/${input.teamId}/skills/${input.skillId}/revisions/${revisionId}/bundle.zip`,
+        createdByUserId: input.createdByUserId,
+        createdAt: this.#now(),
+        readyAt: null,
+        failedAt: null,
+        failureCode: null,
+      },
     });
   }
 

@@ -71,6 +71,7 @@ const matrix: Record<TeamRole, Record<Permission, boolean>> = {
     "team.role.manage": true,
     "team.delete": true,
     "team.integration.manage": true,
+    "team.skill.manage": true,
     "team.resource.access": true,
   },
   admin: {
@@ -79,6 +80,7 @@ const matrix: Record<TeamRole, Record<Permission, boolean>> = {
     "team.role.manage": false,
     "team.delete": false,
     "team.integration.manage": true,
+    "team.skill.manage": true,
     "team.resource.access": true,
   },
   member: {
@@ -87,6 +89,7 @@ const matrix: Record<TeamRole, Record<Permission, boolean>> = {
     "team.role.manage": false,
     "team.delete": false,
     "team.integration.manage": false,
+    "team.skill.manage": false,
     "team.resource.access": true,
   },
 };

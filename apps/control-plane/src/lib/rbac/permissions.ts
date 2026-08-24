@@ -7,11 +7,13 @@ export const rolePermissions: Readonly<Record<TeamRole, readonly Permission[]>> 
     "team.role.manage",
     "team.delete",
     "team.integration.manage",
+    "team.skill.manage",
     "team.resource.access",
   ],
   admin: [
     "team.member.manage",
     "team.integration.manage",
+    "team.skill.manage",
     "team.resource.access",
   ],
   member: [

@@ -307,6 +307,12 @@ describe("active MCP surface", () => {
       "mystra_get_task",
       "mystra_update_task",
       "mystra_start_task_production",
+      "skills_list",
+      "skill_get",
+      "skill_revisions_list",
+      "skill_revision_get",
+      "skill_file_preview",
+      "skill_archive",
       "mystra_health",
     ]);
     expect(names.some((name) => /session|runner|context/i.test(name))).toBe(false);

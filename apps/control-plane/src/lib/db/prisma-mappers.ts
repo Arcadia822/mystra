@@ -15,6 +15,9 @@ import {
   membershipStatusSchema,
   sessionSchema,
   sessionEventSchema,
+  skillManifestEntrySchema,
+  skillPublicationStatusSchema,
+  skillStatusSchema,
   type IntegrationConnection,
   type Agent,
   type Project,
@@ -31,6 +34,7 @@ import {
   taskStatusTransitionSchema,
   type TaskExecutionContext,
   type TaskStatusTransition,
+  type SkillManifestEntry,
 } from "@mystra/shared";
 
 import type {
@@ -50,6 +54,8 @@ import type {
   WorkspacePreparationAttempt as PrismaWorkspacePreparationAttempt,
   Session as PrismaSession,
   SessionEvent as PrismaSessionEvent,
+  Skill as PrismaSkill,
+  SkillRevision as PrismaSkillRevision,
   TaskExecutionContext as PrismaTaskExecutionContext,
   TaskStatusTransition as PrismaTaskStatusTransition,
 } from "../../generated/prisma/sqlite/client";
@@ -61,6 +67,8 @@ import type {
   TeamMembershipRecord,
   TeamRecord,
   UserRecord,
+  SkillRecord,
+  SkillRevisionRecord,
 } from "./rdb-provider";
 
 function parseJsonObject(value: string): Record<string, unknown> {
@@ -78,6 +86,57 @@ function parseJsonObject(value: string): Record<string, unknown> {
 
 export function serializeJson(value: Record<string, unknown>): string {
   return JSON.stringify(value);
+}
+
+function parseManifest(value: string): SkillManifestEntry[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new RdbError("RDB_UNAVAILABLE", "Persisted Skill manifest is invalid");
+  }
+  const result = skillManifestEntrySchema.array().safeParse(parsed);
+  if (!result.success) throw new RdbError("RDB_UNAVAILABLE", "Persisted Skill manifest is invalid");
+  return result.data;
+}
+
+export function mapSkill(row: PrismaSkill): SkillRecord {
+  return {
+    id: row.id,
+    teamId: row.teamId,
+    name: row.name,
+    activeName: row.activeName,
+    status: skillStatusSchema.parse(row.status),
+    currentRevisionId: row.currentRevisionId,
+    resourceRevision: row.resourceRevision,
+    createdByUserId: row.createdByUserId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    archivedByUserId: row.archivedByUserId,
+    archivedAt: row.archivedAt,
+  };
+}
+
+export function mapSkillRevision(row: PrismaSkillRevision): SkillRevisionRecord {
+  return {
+    id: row.id,
+    skillId: row.skillId,
+    baseRevisionId: row.baseRevisionId,
+    sequence: row.sequence,
+    publicationStatus: skillPublicationStatusSchema.parse(row.publicationStatus),
+    description: row.description,
+    manifest: parseManifest(row.manifestJson),
+    compressedSizeBytes: row.compressedSizeBytes,
+    uncompressedSizeBytes: row.uncompressedSizeBytes,
+    zipSha256: row.zipSha256,
+    contentSha256: row.contentSha256,
+    objectKey: row.objectKey,
+    createdByUserId: row.createdByUserId,
+    createdAt: row.createdAt,
+    readyAt: row.readyAt,
+    failedAt: row.failedAt,
+    failureCode: row.failureCode,
+  };
 }
 
 export function mapIntegrationConnectionRecord(
