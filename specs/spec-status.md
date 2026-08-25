@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=4189908fa03fb5f261480340b69abeb8f71bbf91 updated=2026-08-25T13:39:25Z -->
+<!-- spec-status: project=mystra commit=bc7bbb34bb9efca091bec5e68c01f3024b833123 updated=2026-08-25T13:45:08Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
