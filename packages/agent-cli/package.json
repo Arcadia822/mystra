@@ -13,6 +13,9 @@
     }
   },
   "scripts": {
+    "prelint": "pnpm --filter @mystra/shared build",
+    "pretest": "pnpm --filter @mystra/shared build",
+    "pretypecheck": "pnpm --filter @mystra/shared build",
     "build": "tsc -p tsconfig.build.json",
     "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
