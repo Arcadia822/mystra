@@ -165,8 +165,11 @@ pnpm lsp:typescript
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core production is direct and Task-bound: Start, optionally with Agent Context, creates a
   TaskExecutionContext and exactly one first-version Autopilot Session. Agent reports Task
-  status through a narrow CLI; PR/test notes remain unverified. There is no
-  general WorkflowProvider, workflow node graph or DSL.
+  status through a narrow CLI; PR/test notes remain unverified. Feature 057 adds
+  only the fixed, program-owned `mystra.workflow`, enabled or disabled per Task
+  and persisted in dedicated `TaskWorkflowState`. Its implementation has an
+  internal replacement seam for future Harness plugin work, not a public
+  Resource model, handler registry, workflow graph or remote plugin runtime.
 - Shared-nothing is a future scaling direction, not permission to discard
   durable Task, Session, Runner, result, or artifact state.
 

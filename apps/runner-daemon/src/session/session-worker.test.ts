@@ -193,6 +193,28 @@ describe("executeSessionAssignment", () => {
     });
     expect(providerFailure.mock.calls[0]![1][0]?.payload).toMatchObject({ code: "provider_unavailable" });
 
+    const projectionFailure = vi.fn(async (_assignment: SessionClaimAssignment, _events: SessionEventInput[]) => undefined);
+    const providerMustNotStart = vi.fn();
+    await executeSessionAssignment({
+      assignment: {
+        ...assignment,
+        workflowSkills: {
+          workspaceId: assignment.workspace.taskWorkspaceId, generation: 1, removals: [],
+          entries: [{
+            skillId: "00000000-0000-4000-8000-000000000020", revisionId: "00000000-0000-4000-8000-000000000021",
+            relativePath: ".mystra/skills/00000000-0000-4000-8000-000000000020",
+            zipSha256: "a".repeat(64), manifest: [{ path: "SKILL.md", sizeBytes: 1, sha256: "b".repeat(64), mediaType: "text/markdown", previewability: "text" }],
+            downloadPath: "/api/runner/sessions/00000000-0000-4000-8000-000000000001/skills/00000000-0000-4000-8000-000000000020/revisions/00000000-0000-4000-8000-000000000021/download",
+          }],
+        },
+      },
+      client: { appendEvents: projectionFailure },
+      workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/mystra/bin/codex", runProcess: providerMustNotStart,
+    });
+    expect(providerMustNotStart).not.toHaveBeenCalled();
+    expect(projectionFailure.mock.calls[0]![1][0]?.payload).toMatchObject({ code: "workflow_skill_projection_failed" });
+
     const cancellation = vi.fn(async (_assignment: SessionClaimAssignment, _events: SessionEventInput[]) => undefined);
     const controller = new AbortController();
     controller.abort();

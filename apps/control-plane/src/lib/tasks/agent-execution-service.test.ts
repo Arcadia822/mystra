@@ -29,7 +29,7 @@ describe("AgentExecutionService", () => {
   it("resolves only the code hash and returns frozen, secret-free context", async () => {
     const resolveWorkloadExecution = vi.fn(async () => resolved());
     const service = new AgentExecutionService({
-      db: { resolveWorkloadExecution, getTask: vi.fn(), transitionTaskStatus: vi.fn(), listTaskStatusTransitions: vi.fn() },
+      db: { resolveWorkloadExecution, getTask: vi.fn(), transitionTaskStatus: vi.fn(), listTaskStatusTransitions: vi.fn(), getSessionWorkflowCapability: vi.fn(), getTaskWorkflowState: vi.fn() },
       now: () => new Date("2026-08-11T01:00:00.000Z"),
     });
     const context = await service.context("execution-code");
@@ -102,5 +102,33 @@ describe("AgentExecutionService", () => {
     });
 
     await expect(service.context("foreign-scope")).rejects.toMatchObject({ code: "scope_mismatch" });
+  });
+
+  it("resolves Workflow authority only through the exact active Session binding", async () => {
+    const execution = resolved();
+    const state = {
+      id: id("20"), teamId: execution.session.teamId, taskId: execution.session.taskId,
+      workflowId: "mystra.workflow" as const, stageId: "implement" as const,
+      stateVersion: 2, activeKey: "mystra.workflow" as const,
+      enabledByUserId: id("21"), enableCommandId: id("22"), enabledAt: "2026-08-11T00:00:00.000Z",
+      disabledByUserId: null, disableCommandId: null, disabledAt: null, updatedAt: "2026-08-11T00:00:00.000Z",
+    };
+    const capability = {
+      sessionId: execution.session.id, workflowStateId: state.id,
+      teamId: state.teamId, taskId: state.taskId, issuedAt: state.enabledAt, revokedAt: null,
+    };
+    const service = new AgentExecutionService({ db: {
+      resolveWorkloadExecution: vi.fn(async () => execution),
+      getSessionWorkflowCapability: vi.fn(async () => capability),
+      getTaskWorkflowState: vi.fn(async () => state),
+    } as never, now: () => new Date("2026-08-11T01:00:00.000Z") });
+    await expect(service.resolveWorkflowExecution("bound")).resolves.toMatchObject({ state: { id: state.id } });
+
+    const expired = new AgentExecutionService({ db: {
+      resolveWorkloadExecution: vi.fn(async () => execution),
+      getSessionWorkflowCapability: vi.fn(async () => ({ ...capability, revokedAt: "2026-08-11T00:30:00.000Z" })),
+      getTaskWorkflowState: vi.fn(),
+    } as never });
+    await expect(expired.resolveWorkflowExecution("old-session")).rejects.toMatchObject({ code: "capability_expired" });
   });
 });

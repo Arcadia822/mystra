@@ -6,6 +6,7 @@ import {
 } from "./task-execution-context.js";
 
 import { sessionWorkspaceAttachmentSchema } from "./task-workspace.js";
+import { workflowSkillProjectionAssignmentSchema } from "./workflow.js";
 
 export const SESSION_EVENT_MAX_BYTES = 64 * 1024;
 export const SESSION_EVENT_BATCH_MAX_BYTES = 256 * 1024;
@@ -213,19 +214,23 @@ export const standardExecutionPromptSchema = z.object({
 export type StandardExecutionPrompt = z.infer<typeof standardExecutionPromptSchema>;
 
 const systemPromptComponentSchema = z.object({
-  name: z.enum(["standard", "runtime", "provider", "agent_context", "execution_context"]),
+  name: z.enum(["standard", "runtime", "provider", "workflow", "agent_context", "execution_context"]),
   content: normalTextSchema,
 }).strict();
 
 export const effectiveSystemPromptEvidenceSchema = z.object({
   standardPrompt: standardExecutionPromptSchema,
   agentContext: agentContextSnapshotSchema.nullable(),
-  components: z.array(systemPromptComponentSchema).min(4).max(5),
+  components: z.array(systemPromptComponentSchema).min(4).max(6),
   finalPrompt: normalTextSchema,
 }).strict().superRefine((value, context) => {
-  const expected = value.agentContext
-    ? ["standard", "runtime", "provider", "agent_context", "execution_context"]
-    : ["standard", "runtime", "provider", "execution_context"];
+  const hasWorkflow = value.components.some((component) => component.name === "workflow");
+  const expected = [
+    "standard", "runtime", "provider",
+    ...(hasWorkflow ? ["workflow"] : []),
+    ...(value.agentContext ? ["agent_context"] : []),
+    "execution_context",
+  ];
   const actual = value.components.map((component) => component.name);
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     context.addIssue({ code: "custom", path: ["components"], message: "System Prompt components are out of order" });
@@ -464,6 +469,7 @@ export const sessionClaimAssignmentSchema = z.object({
   workspace: sessionWorkspaceAttachmentSchema,
   message: userMessageInputSchema,
   execution: sessionExecutionCapabilitySchema.optional(),
+  workflowSkills: workflowSkillProjectionAssignmentSchema.optional(),
 }).strict();
 export type SessionClaimAssignment = z.infer<typeof sessionClaimAssignmentSchema>;
 

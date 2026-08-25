@@ -24,6 +24,7 @@ const migrations = [
   "20260811210000_factory_task_execution_context",
   "20260812090000_standard_agent_context",
   "20260824090000_skill_library",
+  "20260825190000_fixed_task_workflow",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",

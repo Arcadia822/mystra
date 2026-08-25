@@ -16,6 +16,10 @@ export const workloadCapabilitySchema = z.enum([
   "context:read",
   "task-status:read",
   "task-status:transition",
+  "workflow:read",
+  "workflow:transition",
+  "workflow:projection:read",
+  "workflow:projection:report",
 ]);
 export type WorkloadCapability = z.infer<typeof workloadCapabilitySchema>;
 export const DEFAULT_WORKLOAD_CAPABILITIES = [

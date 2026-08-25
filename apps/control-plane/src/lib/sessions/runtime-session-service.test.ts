@@ -62,6 +62,8 @@ describe("RuntimeSessionService claim and event ingest", () => {
       ] })),
       appendSessionEvents: vi.fn(), updateSessionLeaseProviderId: vi.fn(),
       listExpiredSessionLeases: vi.fn(), getSession: vi.fn(),
+      getSessionWorkflowCapability: vi.fn(async () => undefined), getTaskWorkflowState: vi.fn(),
+      listWorkspaceSkillProjections: vi.fn(), getSkillRevisionRecord: vi.fn(),
     };
     const service = new RuntimeSessionService({
       db: db as never,
@@ -91,6 +93,74 @@ describe("RuntimeSessionService claim and event ingest", () => {
       }),
     }));
     expect(JSON.stringify(db.claimSession.mock.calls[0]![0])).not.toContain("execution-code-value-which-is-long-enough");
+    expect(assignment).not.toHaveProperty("workflowSkills");
+    expect(assignment?.execution?.capabilities).toEqual(["context:read", "task-status:read", "task-status:transition"]);
+  });
+
+  it("adds exact Workflow capabilities and desired Skill revisions only for an active Session binding", async () => {
+    const leaseToken = "l".repeat(32);
+    const workflowStateId = "00000000-0000-4000-8000-000000000030";
+    const skillId = "00000000-0000-4000-8000-000000000031";
+    const revisionId = "00000000-0000-4000-8000-000000000032";
+    const workspaceId = "00000000-0000-4000-8000-000000000008";
+    const db = {
+      claimSession: vi.fn(async (input: { lease: { leaseToken: string } }) => ({
+        session: claimedSession(), launchRequest: {},
+        lease: {
+          id: "00000000-0000-4000-8000-000000000007", sessionId, runtimeId,
+          runnerId: "runner-1", leaseToken: input.lease.leaseToken, providerSessionId: null,
+          leaseExpiresAt: "2026-08-10T07:00:00.000Z", claimedAt: timestamp, updatedAt: timestamp,
+        },
+        executionCodeExpiresAt: "2026-08-10T03:00:00.000Z",
+      })),
+      listSessionEvents: vi.fn(async () => ({ events: [
+        { kind: "session.system_prompt_configured", payload: {
+          standardPrompt: { version: `sha256:${"a".repeat(64)}`, content: "Standard" }, agentContext: null,
+          components: [
+            { name: "standard", content: "Standard" }, { name: "runtime", content: "Runtime" },
+            { name: "provider", content: "Provider" }, { name: "workflow", content: "Workflow" },
+            { name: "execution_context", content: "Context" },
+          ], finalPrompt: "Frozen prompt",
+        } },
+        { kind: "session.workspace_attached", payload: { kind: "task", taskWorkspaceId: workspaceId, runtimeId, workspaceRef: `host-task-workspace:${workspaceId}`, sharingMode: "shared-mutable" } },
+        { kind: "session.user_message_submitted", messageId, payload: { content: [{ type: "text", text: "Execute" }] } },
+      ] })),
+      getSessionWorkflowCapability: vi.fn(async () => ({ sessionId, workflowStateId, teamId, taskId, issuedAt: timestamp, revokedAt: null })),
+      getTaskWorkflowState: vi.fn(async () => ({
+        id: workflowStateId, teamId, taskId, workflowId: "mystra.workflow", stageId: "understand",
+        stateVersion: 1, activeKey: "mystra.workflow", enabledByUserId: agentId,
+        enableCommandId: messageId, enabledAt: timestamp, disabledByUserId: null,
+        disableCommandId: null, disabledAt: null, updatedAt: timestamp,
+      })),
+      listWorkspaceSkillProjections: vi.fn(async () => [{
+        workspaceId, skillId, skillRevisionId: revisionId, relativePath: `.mystra/skills/${skillId}`,
+        desiredGeneration: 1, appliedGeneration: null, status: "pending", failureCode: null, updatedAt: timestamp,
+      }]),
+      getSkillRevisionRecord: vi.fn(async () => ({
+        id: revisionId, skillId, baseRevisionId: null, sequence: 1, publicationStatus: "ready",
+        description: "Workflow skill", manifest: [{ path: "SKILL.md", sizeBytes: 4, sha256: "a".repeat(64), mediaType: "text/markdown", previewability: "text" }],
+        compressedSizeBytes: 10, uncompressedSizeBytes: 4, zipSha256: "b".repeat(64), contentSha256: "c".repeat(64),
+        objectKey: "must-not-leak", createdByUserId: agentId, createdAt: timestamp, readyAt: timestamp,
+        failedAt: null, failureCode: null,
+      })),
+      appendSessionEvents: vi.fn(), updateSessionLeaseProviderId: vi.fn(), listExpiredSessionLeases: vi.fn(), getSession: vi.fn(),
+    };
+    const service = new RuntimeSessionService({
+      db: db as never, now: () => new Date("2026-08-10T01:00:00.000Z"),
+      newId: () => "00000000-0000-4000-8000-000000000007", newToken: () => leaseToken,
+      newExecutionCode: () => "execution-code-value-which-is-long-enough",
+    });
+
+    const assignment = await service.claim({ runtimeId, request: { runnerId: "runner-1", waitSeconds: 0 } });
+    expect(assignment?.execution?.capabilities).toEqual([
+      "context:read", "task-status:read", "task-status:transition",
+      "workflow:read", "workflow:transition", "workflow:projection:read", "workflow:projection:report",
+    ]);
+    expect(assignment?.workflowSkills).toMatchObject({
+      workspaceId, generation: 1,
+      entries: [{ skillId, revisionId, relativePath: `.mystra/skills/${skillId}` }],
+    });
+    expect(JSON.stringify(assignment)).not.toContain("must-not-leak");
   });
 
   it("requires the same lease token in header/body and hashes it before persistence", async () => {
@@ -100,6 +170,8 @@ describe("RuntimeSessionService claim and event ingest", () => {
       db: {
         claimSession: vi.fn(), listSessionEvents: vi.fn(), appendSessionEvents,
         updateSessionLeaseProviderId: vi.fn(), listExpiredSessionLeases: vi.fn(), getSession: vi.fn(),
+        getSessionWorkflowCapability: vi.fn(), getTaskWorkflowState: vi.fn(),
+        listWorkspaceSkillProjections: vi.fn(), getSkillRevisionRecord: vi.fn(),
       },
     });
     const batch = {
@@ -150,6 +222,8 @@ describe("RuntimeSessionService lease reconciliation", () => {
       }]),
       getSession: vi.fn(async () => session),
       appendSessionEvents,
+      getSessionWorkflowCapability: vi.fn(), getTaskWorkflowState: vi.fn(),
+      listWorkspaceSkillProjections: vi.fn(), getSkillRevisionRecord: vi.fn(),
     };
     const service = new RuntimeSessionService({ db, now: () => new Date("2026-08-10T01:00:00.000Z") });
     await expect(service.reconcileExpiredLeases(async () => false)).resolves.toBe(1);
@@ -174,6 +248,8 @@ describe("RuntimeSessionService lease reconciliation", () => {
         }]),
         getSession: vi.fn(),
         appendSessionEvents,
+        getSessionWorkflowCapability: vi.fn(), getTaskWorkflowState: vi.fn(),
+        listWorkspaceSkillProjections: vi.fn(), getSkillRevisionRecord: vi.fn(),
       },
       now: () => new Date("2026-08-10T01:00:00.000Z"),
     });

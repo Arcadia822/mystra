@@ -20,6 +20,12 @@
   },
   "dependencies": {
     "@mystra/shared": "workspace:*",
+    "yauzl": "3.4.0",
     "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/yauzl": "3.4.0",
+    "@types/yazl": "3.3.0",
+    "yazl": "3.3.1"
   }
 }

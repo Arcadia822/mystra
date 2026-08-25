@@ -121,6 +121,8 @@ function usage() {
   pnpm operator:cli -- tasks inspect <task-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- tasks update <task-id> [--title TEXT] [--description TEXT] [--json]
   pnpm operator:cli -- tasks start <task-id> --runtime-id UUID --provider NAME [--agent-context-id UUID] --expected-revision N --idempotency-key KEY [--json]
+  pnpm operator:cli -- tasks workflow enable <task-id> --command-id UUID [--json]
+  pnpm operator:cli -- tasks workflow disable <task-id> --expected-revision N --command-id UUID [--json]
   pnpm operator:cli -- sessions list <task-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- sessions create <task-id> --title TITLE --objective TEXT [--provider NAME] [--branch NAME] [--json]
   pnpm operator:cli -- sessions inspect <session-id> [--json] [--control-plane-url URL]
@@ -247,6 +249,7 @@ function parseArgs(argv) {
     objective: undefined,
     description: undefined,
     idempotencyKey: undefined,
+    commandId: undefined,
     systemPrompt: undefined,
     expectedRevision: undefined,
     runtimeId: undefined,
@@ -305,6 +308,7 @@ function parseArgs(argv) {
       ["--objective", "objective"],
       ["--description", "description"],
       ["--idempotency-key", "idempotencyKey"],
+      ["--command-id", "commandId"],
       ["--system-prompt", "systemPrompt"],
       ["--expected-revision", "expectedRevision"],
       ["--runtime-id", "runtimeId"],
@@ -331,9 +335,17 @@ function parseArgs(argv) {
     positionals.push(arg);
   }
 
-  const [group, command, target, source, ...extraPositionals] = positionals;
+  let [group, command, target, source, ...extraPositionals] = positionals;
   if (!group || !command) {
     return { ok: false, message: "Missing command" };
+  }
+  if (group === "tasks" && command === "workflow") {
+    if (!target || !["enable", "disable"].includes(target)) {
+      return { ok: false, message: `Unknown tasks workflow command: ${target ?? "missing"}` };
+    }
+    command = `workflow-${target}`;
+    target = source;
+    source = undefined;
   }
 
   const needsTarget = (
@@ -341,7 +353,7 @@ function parseArgs(argv) {
     (group === "repositories" && command === "get") ||
     (group === "runners" && command === "inspect") ||
     (group === "issues" && ["get", "dispatch"].includes(command)) ||
-    (group === "tasks" && ["inspect", "update", "start"].includes(command)) ||
+    (group === "tasks" && ["inspect", "update", "start", "workflow-enable", "workflow-disable"].includes(command)) ||
     (group === "agents" && ["inspect", "update", "archive"].includes(command)) ||
     (group === "skills" && ["show", "upload", "publish", "preview", "download", "archive"].includes(command)) ||
     (group === "teams" && command === "use") ||
@@ -381,7 +393,7 @@ function parseArgs(argv) {
   if (group === "skills" && !["list", "show", "upload", "publish", "preview", "download", "archive"].includes(command)) {
     return { ok: false, message: `Unknown skills command: ${command}` };
   }
-  if (group === "tasks" && !["list", "create", "inspect", "update", "start"].includes(command)) {
+  if (group === "tasks" && !["list", "create", "inspect", "update", "start", "workflow-enable", "workflow-disable"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
   }
   if (group === "sessions" && !["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command)) {
@@ -441,6 +453,18 @@ function parseArgs(argv) {
       return { ok: false, message: "tasks start requires --runtime-id, --provider, positive --expected-revision, and --idempotency-key" };
     }
     flags.expectedRevision = revision;
+  }
+  if (group === "tasks" && ["workflow-enable", "workflow-disable"].includes(command)) {
+    if (!flags.commandId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(flags.commandId)) {
+      return { ok: false, message: `tasks ${command} requires --command-id UUID` };
+    }
+    if (command === "workflow-disable") {
+      const revision = Number(flags.expectedRevision);
+      if (!Number.isInteger(revision) || revision < 1) {
+        return { ok: false, message: "tasks workflow disable requires a positive --expected-revision" };
+      }
+      flags.expectedRevision = revision;
+    }
   }
   if (group === "sessions" && command === "create" && (!flags.title || !flags.objective)) {
     return { ok: false, message: "sessions create requires --title and --objective" };
@@ -517,6 +541,7 @@ function parseArgs(argv) {
       ...(flags.objective ? { objective: flags.objective } : {}),
       ...(flags.description !== undefined ? { description: flags.description } : {}),
       ...(flags.idempotencyKey ? { idempotencyKey: flags.idempotencyKey } : {}),
+      ...(flags.commandId ? { commandId: flags.commandId } : {}),
       ...(flags.systemPrompt ? { systemPrompt: flags.systemPrompt } : {}),
       ...(flags.expectedRevision !== undefined ? { expectedRevision: flags.expectedRevision } : {}),
       ...(flags.runtimeId ? { runtimeId: flags.runtimeId } : {}),
@@ -1408,6 +1433,18 @@ async function executeCommand(command, fetchImpl, deps = {}) {
         idempotencyKey: command.idempotencyKey,
         ...(command.agentContextId ? { agentId: command.agentContextId } : {}),
       }),
+    });
+  }
+  if (command.group === "tasks" && command.command === "workflow-enable") {
+    return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}/workflow/enable`, baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({ commandId: command.commandId }),
+    });
+  }
+  if (command.group === "tasks" && command.command === "workflow-disable") {
+    return await readJson(new URL(`/api/tasks/${encodeURIComponent(command.target)}/workflow/disable`, baseUrl), fetchImpl, {
+      method: "POST",
+      body: JSON.stringify({ commandId: command.commandId, expectedStateVersion: command.expectedRevision }),
     });
   }
   if (command.group === "sessions" && command.command === "list") {

@@ -76,7 +76,7 @@ describe("runSessionLoop", () => {
     await runSessionLoop({
       runtimeId: first.session.runtimeId,
       runnerId: "runner-1",
-      client: { claim, appendEvents: vi.fn() },
+      client: { claim, appendEvents: vi.fn(), downloadWorkflowSkill: vi.fn(), reportWorkflowSkills: vi.fn() },
       workspace: { resolveReadyWorkspace: vi.fn() },
       providerExecutables: new Map([["codex", "/opt/mystra/bin/codex"]]),
       waitSeconds: 0,
@@ -113,7 +113,7 @@ describe("runSessionLoop", () => {
     await runSessionLoop({
       runtimeId: current.session.runtimeId,
       runnerId: "runner-1",
-      client: { claim, appendEvents: vi.fn() },
+      client: { claim, appendEvents: vi.fn(), downloadWorkflowSkill: vi.fn(), reportWorkflowSkills: vi.fn() },
       workspace: { resolveReadyWorkspace: vi.fn() },
       providerExecutables: new Map([["codex", "/opt/mystra/bin/codex"]]),
       waitSeconds: 0,
@@ -138,7 +138,7 @@ describe("runSessionLoop", () => {
     await runSessionLoop({
       runtimeId: current.session.runtimeId,
       runnerId: "runner-1",
-      client: { claim, appendEvents: vi.fn() },
+      client: { claim, appendEvents: vi.fn(), downloadWorkflowSkill: vi.fn(), reportWorkflowSkills: vi.fn() },
       workspace: { resolveReadyWorkspace: vi.fn() },
       providerExecutables: new Map([["codex", "/opt/mystra/bin/codex"]]),
       waitSeconds: 0,
@@ -164,7 +164,7 @@ describe("runSessionLoop", () => {
     await runSessionLoop({
       runtimeId: current.session.runtimeId,
       runnerId: "runner-1",
-      client: { claim, appendEvents },
+      client: { claim, appendEvents, downloadWorkflowSkill: vi.fn(), reportWorkflowSkills: vi.fn() },
       workspace: { resolveReadyWorkspace: vi.fn() },
       providerExecutables: new Map(),
       waitSeconds: 0,

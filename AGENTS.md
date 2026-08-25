@@ -393,8 +393,14 @@ cross-runner shared caches, per-repository secret management, and managed hosted
 RDB provisioning/administration. User-configured PostgreSQL and Supabase-backed
 PostgreSQL remain approved deployment targets. Hosted platform persistence
 management remains a separate phase. GitLab is not an enabled/default
-Integration, standing orders, general WorkflowProvider/DSL, arbitrary triggers,
-and orchestration outside the Task-bound TaskExecutionContext remain excluded. GitLab may remain as a
+Integration, standing orders, arbitrary triggers, workflow DAG/node execution,
+remote Harness plugins and configurable Production Recipes remain excluded.
+Feature 057 is the explicit bounded exception for one fixed, program-owned
+`mystra.workflow`: Human explicitly enables or disables it per Task, dedicated
+`TaskWorkflowState` drives Task-scoped current/transition commands and Skill
+projection, and the implementation keeps only an internal future replacement
+seam. It does not add generic Harness Resources, attachments, handler registries
+or plugin runtime capability and remains separate from TaskExecutionContext. GitLab may remain as a
 runner-side `RepoDeliveryProvider`; that does not make it an active Project
 repository Integration. PostgreSQL and Supabase-backed PostgreSQL are approved
 deployment targets; the `RdbProvider` interface must not leak database dialect,
@@ -495,5 +501,7 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL，通过 `RdbProvider`；在两套 Task row 增加单一 Metadata JSON payload，不新增关系表或 normalized columns (054-navigation-task-workbench)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16、React 19、Zod 4、Prisma 7.9.1、Vitest 4、`@mystra/ui`；新增 `@aws-sdk/client-s3`、`yauzl` 3.4.x、`yaml` 2.9.x (056-skill-library)
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL 通过 `RdbProvider` 保存元数据；单一 S3-compatible `S3SkillContentStore` 保存不可变 ZIP；无 filesystem adapter、RDB BLOB 或 per-file object source of truth (056-skill-library)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、Zod 4、Prisma 7.9.1、Vitest 4、Feature 056 Skill Library、现有 runner-daemon/agent-cli (057-workflow-harness-runtime)
+- SQLite/PostgreSQL/Supabase-backed PostgreSQL behind `RdbProvider`；Skill ZIP 继续使用 Feature 056 S3-compatible store (057-workflow-harness-runtime)
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

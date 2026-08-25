@@ -121,6 +121,28 @@ describe("canonical Session contract", () => {
     })).toThrow();
   });
 
+  it("allows one fixed Workflow component before optional Agent Context and execution facts", () => {
+    const evidence = effectiveSystemPromptEvidenceSchema.parse({
+      standardPrompt: { version: `sha256:${"a".repeat(64)}`, content: "Standard" },
+      agentContext: null,
+      components: [
+        { name: "standard", content: "Standard" },
+        { name: "runtime", content: "Runtime" },
+        { name: "provider", content: "Provider" },
+        { name: "workflow", content: "Run mystra-agent workflow current." },
+        { name: "execution_context", content: "Execution" },
+      ],
+      finalPrompt: "Frozen prompt",
+    });
+    expect(evidence.components.map(({ name }) => name)).toEqual([
+      "standard", "runtime", "provider", "workflow", "execution_context",
+    ]);
+    expect(() => effectiveSystemPromptEvidenceSchema.parse({
+      ...evidence,
+      components: [evidence.components[0], evidence.components[1], evidence.components[2], evidence.components[4], evidence.components[3]],
+    })).toThrow();
+  });
+
   it("validates bounded Task Session launch and list inputs", () => {
     expect(taskSessionListQuerySchema.parse({ limit: "50" })).toEqual({ limit: 50 });
     expect(() => taskSessionListQuerySchema.parse({ limit: 51 })).toThrow();

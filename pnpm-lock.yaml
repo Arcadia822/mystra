@@ -176,9 +176,22 @@ importers:
       '@mystra/shared':
         specifier: workspace:*
         version: link:../shared
+      yauzl:
+        specifier: 3.4.0
+        version: 3.4.0
       zod:
         specifier: ^4.1.13
         version: 4.4.1
+    devDependencies:
+      '@types/yauzl':
+        specifier: 3.4.0
+        version: 3.4.0
+      '@types/yazl':
+        specifier: 3.3.0
+        version: 3.3.0
+      yazl:
+        specifier: 3.3.1
+        version: 3.3.1
 
   packages/shared:
     dependencies:
@@ -1748,6 +1761,9 @@ packages:
 
   '@types/yauzl@3.4.0':
     resolution: {integrity: sha512-NRPn5w6h8dhcnmx3YIRQcqMywY/+nND/uOkJessedcrowO3C0AssHp3tMJpxKAwOhFOo0OV1y9VtsC5hbKKBAw==}
+
+  '@types/yazl@3.3.0':
+    resolution: {integrity: sha512-mFL6lGkk2N5u5nIxpNV/K5LW3qVSbxhJrMxYGOOxZndWxMgCamr/iCsq/1t9kd8pEwhuNP91LC5qZm/qS9pOEw==}
 
   '@types/yazl@3.3.1':
     resolution: {integrity: sha512-DIWfCKpsTp6hE5BDBHV3+fIL/bLUF9Bv13iDrWnMlmhQpH67buNvI291ZauQ1xcccxK3FqQ9honnXpq4R8NMuQ==}
@@ -5852,6 +5868,10 @@ snapshots:
       '@types/node': 24.12.2
 
   '@types/yauzl@3.4.0':
+    dependencies:
+      '@types/node': 24.12.2
+
+  '@types/yazl@3.3.0':
     dependencies:
       '@types/node': 24.12.2
 

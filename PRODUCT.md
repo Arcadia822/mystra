@@ -240,14 +240,20 @@ Out of scope:
 - Caller-login OAuth, webhooks, Issue write-back, a general-purpose Integration
   management catalog beyond the GitHub connection surface, public hosted Team
   administration, or GitLab as an enabled intake Integration.
-- A general WorkflowProvider, user-configurable workflow DSL, workflow
-  marketplace, standing orders, arbitrary triggers, or orchestration outside
-  the Task-bound TaskExecutionContext. Future Production Recipes require explicit specs.
+- Workflow DAG/node execution, remote Harness plugins, a Workflow marketplace,
+  standing orders, arbitrary triggers, automatic routing, or configurable
+  Production Recipes. Feature 057 is a narrow exception for the single fixed,
+  program-owned `mystra.workflow`; it uses dedicated `TaskWorkflowState`, not a
+  generic Harness Resource or attachment platform. Its internal module boundary
+  may be replaced by a future Harness plugin contract only through a follow-up
+  specification. Workflow stage remains independent from `Task.status`,
+  `Session.state` and `TaskExecutionContext`.
 - Generic TaskExecutionContext/Artifact CLI commands, Artifact/Delivery contracts, and
   non-PR output profiles. Feature 051 includes only `mystra-agent whoami`,
   `context get`, and the scoped Task status commands.
 - Attempt-owned heartbeat/event subscriptions, multiple Sessions, automatic
-  Session recovery, and configurable Production Recipes.
+  Session recovery, and configurable Production Recipes beyond Feature 057's
+  explicitly enabled fixed Workflow working protocol.
 
 ## Success measures
 

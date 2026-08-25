@@ -16,6 +16,8 @@ import {
   taskStartResultSchema,
   skillListQuerySchema,
   skillRevisionListQuerySchema,
+  workflowManagementCommandSchema,
+  workflowDisableCommandSchema,
 } from "@mystra/shared";
 import { z } from "zod";
 
@@ -26,6 +28,8 @@ import { createTaskProductionService } from "@/lib/tasks/task-production-service
 import { SkillFailure } from "@/lib/skills/skill-errors";
 import { createSkillServices } from "@/lib/skills/skill-service-factory";
 import { requireHumanSession, requireTeamPermission } from "../_auth";
+import { createWorkflowManagementService } from "@/lib/workflows/workflow-management-service-factory";
+import { WorkflowFailure } from "@/lib/workflows/workflow-errors";
 
 const jsonRpcRequestSchema = z.object({
   jsonrpc: z.literal("2.0").optional(),
@@ -93,6 +97,8 @@ const taskUpdateToolSchema = z.object({
   message: "At least one of title or description is required",
 });
 const taskStartToolSchema = taskStartRequestSchema.extend({ taskId: z.string().uuid() }).strict();
+const workflowEnableToolSchema = workflowManagementCommandSchema.extend({ taskId: z.string().uuid() }).strict();
+const workflowDisableToolSchema = workflowDisableCommandSchema.extend({ taskId: z.string().uuid() }).strict();
 const skillIdArgumentSchema = z.object({ skillId: z.string().uuid() }).strict();
 const skillRevisionArgumentSchema = skillIdArgumentSchema.extend({
   revisionId: z.string().trim().min(1).max(128),
@@ -195,6 +201,16 @@ const tools = [
       },
       additionalProperties: false,
     },
+  },
+  {
+    name: "mystra_task_workflow_enable",
+    description: "Enable the one fixed Mystra Workflow for a Task.",
+    inputSchema: { type: "object", required: ["taskId", "commandId"], properties: { taskId: { type: "string", format: "uuid" }, commandId: { type: "string", format: "uuid" } }, additionalProperties: false },
+  },
+  {
+    name: "mystra_task_workflow_disable",
+    description: "Disable the fixed Mystra Workflow with state-version protection.",
+    inputSchema: { type: "object", required: ["taskId", "commandId", "expectedStateVersion"], properties: { taskId: { type: "string", format: "uuid" }, commandId: { type: "string", format: "uuid" }, expectedStateVersion: { type: "integer", minimum: 1 } }, additionalProperties: false },
   },
   {
     name: "skills_list",
@@ -369,6 +385,22 @@ export async function POST(request: Request) {
       });
       return jsonRpc(rpc.id, textToolResult(taskStartResultSchema.parse(result)));
     }
+    if (call.name === "mystra_task_workflow_enable") {
+      const parsed = parseArguments(rpc.id, call.name, workflowEnableToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const { taskId, ...workflowRequest } = parsed.data;
+      return jsonRpc(rpc.id, textToolResult(await createWorkflowManagementService(db).enable({
+        teamId: active.team.id, taskId, actor: { userId: actorId, role: active.role }, request: workflowRequest,
+      })));
+    }
+    if (call.name === "mystra_task_workflow_disable") {
+      const parsed = parseArguments(rpc.id, call.name, workflowDisableToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const { taskId, ...workflowRequest } = parsed.data;
+      return jsonRpc(rpc.id, textToolResult(await createWorkflowManagementService(db).disable({
+        teamId: active.team.id, taskId, actor: { userId: actorId, role: active.role }, request: workflowRequest,
+      })));
+    }
     if (call.name === "skills_list") {
       const parsed = parseArguments(rpc.id, call.name, skillListQuerySchema, call.arguments);
       if (!parsed.ok) return parsed.response;
@@ -443,6 +475,11 @@ export async function POST(request: Request) {
     }
     if (error instanceof SkillFailure) {
       return jsonRpc(rpc.id, textToolResult({ error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } }));
+    }
+    if (error instanceof WorkflowFailure) {
+      return jsonRpc(rpc.id, textToolResult({
+        error: { code: error.code, message: error.message, retryable: error.retryable },
+      }));
     }
     return jsonRpcError(rpc.id, -32603, "Internal error", { tool: call.name });
   }

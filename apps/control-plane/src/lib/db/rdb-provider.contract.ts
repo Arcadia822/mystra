@@ -1672,6 +1672,116 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     )));
     expect(launchReplays.every((result) => result.created === false)).toBe(true);
 
+    const ownerUserId = (await db.listMembers(projectRecord.teamId))[0]!.userId;
+    const workflowEnables = await Promise.all(Array.from({ length: 20 }, (_, index) => db.enableTaskWorkflow({
+      state: {
+        id: randomUUID(), teamId: projectRecord.teamId, taskId: task.id, workflowId: "mystra.workflow",
+        stageId: "understand", stateVersion: 1, activeKey: "mystra.workflow",
+        enabledByUserId: ownerUserId, enableCommandId: randomUUID(),
+        enabledAt: `2026-08-10T00:00:${String(index).padStart(2, "0")}.000Z`,
+        disabledByUserId: null, disableCommandId: null, disabledAt: null,
+        updatedAt: `2026-08-10T00:00:${String(index).padStart(2, "0")}.000Z`,
+      },
+    })));
+    expect(workflowEnables.filter(({ created }) => created)).toHaveLength(1);
+    expect(new Set(workflowEnables.map(({ state }) => state.id)).size).toBe(1);
+    const workflowState = workflowEnables[0]!.state;
+    expect(await db.getActiveTaskWorkflowState(task.id, { teamId: projectRecord.teamId })).toEqual(workflowState);
+    await db.bindSessionWorkflowCapability({
+      sessionId, workflowStateId: workflowState.id, teamId: projectRecord.teamId, taskId: task.id,
+      issuedAt: timestamp, revokedAt: null,
+    });
+
+    const publication = await db.reserveInitialSkillPublication({
+      teamId: projectRecord.teamId,
+      name: "workflow-contract-skill",
+      createdByUserId: ownerUserId,
+      content: {
+        description: "Workflow contract Skill",
+        manifest: [{
+          path: "SKILL.md", sizeBytes: 20, sha256: "1".repeat(64),
+          mediaType: "text/markdown", previewability: "text" as const,
+        }],
+        compressedSizeBytes: 50, uncompressedSizeBytes: 20,
+        zipSha256: "2".repeat(64), contentSha256: "3".repeat(64),
+      },
+    });
+    const published = await db.finalizeSkillRevisionPublication({
+      teamId: projectRecord.teamId, skillId: publication.skill.id,
+      revisionId: publication.revision.id, expectedResourceRevision: 0,
+    });
+    const source = (kind: "global" | "stage:understand" | "stage:implement", generation: number) => ({
+      workspaceId: readyWorkspace.id,
+      sourceKey: `workflow:mystra.workflow:${workflowState.id}:${kind}`,
+      skillId: published.skill.id,
+      skillRevisionId: published.revision.id,
+      relativePath: `.mystra/skills/${published.skill.id}`,
+      desiredGeneration: generation,
+    });
+    const initialProjections = await db.replaceWorkflowSkillSources({
+      teamId: projectRecord.teamId, workspaceId: readyWorkspace.id,
+      sourcePrefix: `workflow:mystra.workflow:${workflowState.id}:`, desiredGeneration: 1,
+      sources: [source("global", 1), source("stage:understand", 1)],
+    });
+    expect(initialProjections).toEqual([expect.objectContaining({
+      skillId: published.skill.id, desiredGeneration: 1, status: "pending",
+    })]);
+    await expect(db.reportWorkspaceSkillProjection({
+      teamId: projectRecord.teamId, workspaceId: readyWorkspace.id,
+      skillId: published.skill.id, desiredGeneration: 1,
+      status: "ready", failureCode: null, reportedAt: timestamp,
+    })).resolves.toMatchObject({ accepted: true, projection: { status: "ready", appliedGeneration: 1 } });
+
+    const workflowTransitions = await Promise.allSettled(Array.from({ length: 20 }, (_, index) => {
+      const commandId = randomUUID();
+      return db.transitionTaskWorkflow({
+        teamId: projectRecord.teamId, workflowStateId: workflowState.id, expectedStateVersion: 1,
+        transition: {
+          id: randomUUID(), workflowStateId: workflowState.id, teamId: projectRecord.teamId,
+          taskId: task.id, sessionId, commandId, payloadHash: String(index).padStart(64, "0"),
+          actionId: "understanding-complete", fromStageId: "understand", toStageId: "implement",
+          fromStateVersion: 1, toStateVersion: 2,
+          occurredAt: `2026-08-10T00:01:${String(index).padStart(2, "0")}.000Z`,
+        },
+        sources: [source("global", 2), source("stage:implement", 2)],
+      });
+    }));
+    const successfulTransitions = workflowTransitions.filter((result) => result.status === "fulfilled");
+    expect(successfulTransitions).toHaveLength(1);
+    const winner = successfulTransitions[0]!.value;
+    expect(winner).toMatchObject({ created: true, state: { stageId: "implement", stateVersion: 2 } });
+    await expect(db.transitionTaskWorkflow({
+      teamId: projectRecord.teamId, workflowStateId: workflowState.id, expectedStateVersion: 1,
+      transition: winner.transition,
+      sources: [source("global", 2), source("stage:implement", 2)],
+    })).resolves.toMatchObject({ created: false, transition: { id: winner.transition.id } });
+    await expect(db.transitionTaskWorkflow({
+      teamId: projectRecord.teamId, workflowStateId: workflowState.id, expectedStateVersion: 1,
+      transition: { ...winner.transition, payloadHash: "f".repeat(64) },
+      sources: [source("global", 2), source("stage:implement", 2)],
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    await expect(db.reportWorkspaceSkillProjection({
+      teamId: projectRecord.teamId, workspaceId: readyWorkspace.id,
+      skillId: published.skill.id, desiredGeneration: 1,
+      status: "failed", failureCode: "stale", reportedAt: "2026-08-10T00:02:00.000Z",
+    })).resolves.toMatchObject({ accepted: false, projection: { desiredGeneration: 2, status: "pending" } });
+
+    const disabled = await db.disableTaskWorkflow({
+      teamId: projectRecord.teamId, taskId: task.id, workflowStateId: workflowState.id,
+      expectedStateVersion: 2, disabledByUserId: ownerUserId, disableCommandId: randomUUID(),
+      disabledAt: "2026-08-10T00:03:00.000Z",
+    });
+    expect(disabled.state).toMatchObject({ activeKey: null, stateVersion: 3 });
+    expect(await db.getSessionWorkflowCapability(sessionId)).toMatchObject({ revokedAt: "2026-08-10T00:03:00.000Z" });
+    expect(await db.listWorkspaceSkillProjections({ teamId: projectRecord.teamId, workspaceId: readyWorkspace.id })).toEqual([]);
+    const reenabled = await db.enableTaskWorkflow({ state: {
+      ...workflowState, id: randomUUID(), enableCommandId: randomUUID(),
+      enabledAt: "2026-08-10T00:04:00.000Z", updatedAt: "2026-08-10T00:04:00.000Z",
+    } });
+    expect(reenabled).toMatchObject({ created: true, state: { stateVersion: 1, activeKey: "mystra.workflow" } });
+    expect(reenabled.state.id).not.toBe(workflowState.id);
+    expect((await db.getSessionWorkflowCapability(sessionId))?.workflowStateId).toBe(workflowState.id);
+
     const leaseTokenHash = "a".repeat(64);
     await db.reportHostProviders(runtime.metadata.runnerId, [{
       provider: "codex", discovered: true, available: false, source: "path",

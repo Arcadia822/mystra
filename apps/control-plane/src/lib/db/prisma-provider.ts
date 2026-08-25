@@ -35,6 +35,10 @@ import {
   taskExecutionContextSchema,
   isTaskStatusTransitionAllowed,
   taskStatusTransitionSchema,
+  taskWorkflowStateSchema,
+  taskWorkflowTransitionSchema,
+  sessionWorkflowCapabilitySchema,
+  workspaceSkillSourceSchema,
   type IntegrationCapabilities,
   type Agent,
   type AgentArchiveRequest,
@@ -65,6 +69,10 @@ import {
   type TaskWorkbenchPage,
   type TaskExecutionContext,
   type TaskStatusTransition,
+  type TaskWorkflowState,
+  type TaskWorkflowTransition,
+  type SessionWorkflowCapability,
+  type WorkspaceSkillProjection,
   type Session,
   type SessionEvent,
   type TeamListItem,
@@ -97,6 +105,10 @@ import {
   mapSkillRevision,
   mapTask,
   mapTaskStatusTransition,
+  mapTaskWorkflowState,
+  mapTaskWorkflowTransition,
+  mapSessionWorkflowCapability,
+  mapWorkspaceSkillProjection,
   mapTaskWorkspace,
   mapTeam,
   mapTeamMembership,
@@ -135,6 +147,9 @@ import type {
   SkillRecordPage,
   SkillRevisionRecord,
   SkillRevisionRecordPage,
+  WorkflowSkillSourceWrite,
+  TaskWorkflowMutationResult,
+  TaskWorkflowTransitionResult,
 } from "./rdb-provider";
 
 type PrismaRdbProviderOptions = {
@@ -180,6 +195,117 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async close(): Promise<void> {
     await this.#client.disconnect();
+  }
+
+  async #replaceWorkflowSkillSourcesInTransaction(
+    transaction: MystraPrismaDelegates,
+    input: {
+      teamId: string;
+      workspaceId: string;
+      sourcePrefix: string;
+      desiredGeneration: number;
+      sources: WorkflowSkillSourceWrite[];
+      timestamp: string;
+    },
+  ): Promise<WorkspaceSkillProjection[]> {
+    const workspace = await transaction.taskWorkspace.findUnique({ where: { id: input.workspaceId } });
+    if (!workspace || workspace.teamId !== input.teamId) {
+      throw new RdbError("RDB_NOT_FOUND", "Task Workspace does not exist");
+    }
+    if (!Number.isSafeInteger(input.desiredGeneration) || input.desiredGeneration < 1) {
+      throw new RdbError("RDB_CONFLICT", "Workflow Skill generation is invalid");
+    }
+    const parsedSources = input.sources.map((source) => workspaceSkillSourceSchema.parse({
+      ...source,
+      createdAt: input.timestamp,
+      updatedAt: input.timestamp,
+    }));
+    if (parsedSources.some((source) => (
+      source.workspaceId !== input.workspaceId
+      || source.desiredGeneration !== input.desiredGeneration
+      || !source.sourceKey.startsWith(input.sourcePrefix)
+    ))) {
+      throw new RdbError("RDB_CONFLICT", "Workflow Skill source facts are inconsistent");
+    }
+
+    await transaction.workspaceSkillSource.deleteMany({
+      where: { workspaceId: input.workspaceId, sourceKey: { startsWith: input.sourcePrefix } },
+    });
+    for (const source of parsedSources) {
+      const [skill, revision] = await Promise.all([
+        transaction.skill.findUnique({ where: { id: source.skillId } }),
+        transaction.skillRevision.findUnique({ where: { id: source.skillRevisionId } }),
+      ]);
+      if (
+        !skill || skill.teamId !== input.teamId || skill.status !== "active"
+        || !revision || revision.skillId !== skill.id || revision.publicationStatus !== "ready"
+      ) {
+        throw new RdbError("RDB_RELATION_CONFLICT", "Workflow Skill source does not resolve to an active ready revision");
+      }
+      await transaction.workspaceSkillSource.create({ data: source });
+    }
+
+    const allSources = await transaction.workspaceSkillSource.findMany({
+      where: { workspaceId: input.workspaceId },
+      orderBy: [{ sourceKey: "asc" }, { skillId: "asc" }],
+    });
+    const desired = new Map<string, (typeof allSources)[number]>();
+    for (const source of allSources) {
+      const existing = desired.get(source.skillId);
+      if (existing && (
+        existing.skillRevisionId !== source.skillRevisionId
+        || existing.relativePath !== source.relativePath
+      )) {
+        throw new RdbError("RDB_CONFLICT", "Workflow Skill sources require conflicting exact revisions");
+      }
+      if (!existing || source.desiredGeneration > existing.desiredGeneration) desired.set(source.skillId, source);
+    }
+
+    const desiredIds = [...desired.keys()];
+    await transaction.workspaceSkillProjection.deleteMany({
+      where: desiredIds.length === 0
+        ? { workspaceId: input.workspaceId }
+        : { workspaceId: input.workspaceId, skillId: { notIn: desiredIds } },
+    });
+    for (const source of desired.values()) {
+      const existing = await transaction.workspaceSkillProjection.findUnique({
+        where: { workspaceId_skillId: { workspaceId: input.workspaceId, skillId: source.skillId } },
+      });
+      if (existing) {
+        const changed = existing.skillRevisionId !== source.skillRevisionId
+          || existing.relativePath !== source.relativePath
+          || existing.desiredGeneration !== source.desiredGeneration;
+        if (changed) {
+          await transaction.workspaceSkillProjection.updateMany({
+            where: { workspaceId: input.workspaceId, skillId: source.skillId },
+            data: {
+              skillRevisionId: source.skillRevisionId,
+              relativePath: source.relativePath,
+              desiredGeneration: source.desiredGeneration,
+              appliedGeneration: null,
+              status: "pending",
+              failureCode: null,
+              updatedAt: input.timestamp,
+            },
+          });
+        }
+      } else {
+        await transaction.workspaceSkillProjection.create({ data: {
+          workspaceId: input.workspaceId,
+          skillId: source.skillId,
+          skillRevisionId: source.skillRevisionId,
+          relativePath: source.relativePath,
+          desiredGeneration: source.desiredGeneration,
+          appliedGeneration: null,
+          status: "pending",
+          failureCode: null,
+          updatedAt: input.timestamp,
+        } });
+      }
+    }
+    return (await transaction.workspaceSkillProjection.findMany({
+      where: { workspaceId: input.workspaceId }, orderBy: [{ skillId: "asc" }],
+    })).map(mapWorkspaceSkillProjection);
   }
 
   async reserveInitialSkillPublication(input: {
@@ -554,6 +680,9 @@ export class PrismaRdbProvider implements RdbProvider {
     const initialEvents = input.events.map((event) => sessionEventSchema.parse(event));
     const launchRequest = sessionLaunchRequestSchema.parse(input.launchRequest);
     const launchPayload = serializeJson(launchRequest);
+    const workflowCapability = input.workflowCapability === undefined
+      ? undefined
+      : sessionWorkflowCapabilitySchema.parse(input.workflowCapability);
     const existing = await this.#client.session.findUnique({ where: { id: requestedSession.id } });
     if (existing) {
       const head = await this.#client.sessionEventHead.findUnique({ where: { sessionId: requestedSession.id } });
@@ -650,6 +779,18 @@ export class PrismaRdbProvider implements RdbProvider {
           throw new RdbError("RDB_CONFLICT", "Session launch dependencies changed before commit");
         }
         const created = await transaction.session.create({ data: sessionWriteData(requestedSession) });
+        if (workflowCapability) {
+          const workflowState = await transaction.taskWorkflowState.findUnique({ where: { id: workflowCapability.workflowStateId } });
+          if (
+            !workflowState || workflowState.activeKey !== "mystra.workflow"
+            || workflowCapability.sessionId !== requestedSession.id
+            || workflowCapability.teamId !== requestedSession.teamId
+            || workflowCapability.taskId !== requestedSession.taskId
+            || workflowState.teamId !== requestedSession.teamId
+            || workflowState.taskId !== requestedSession.taskId
+          ) throw new RdbError("RDB_CONFLICT", "Session Workflow capability scope changed before commit");
+          await transaction.sessionWorkflowCapability.create({ data: workflowCapability });
+        }
         let lastGlobalSequence = 0;
         const sourceSequences = new Map<string, number>();
         for (const event of initialEvents) {
@@ -1002,6 +1143,11 @@ export class PrismaRdbProvider implements RdbProvider {
       data: { providerSessionId: input.providerSessionId, updatedAt: this.#now() },
     });
     return result.count === 1;
+  }
+
+  async validateSessionLease(input: { sessionId: string; leaseTokenHash: string }): Promise<boolean> {
+    const lease = await this.#client.sessionDispatchLease.findUnique({ where: { sessionId: input.sessionId } });
+    return lease?.tokenHash === input.leaseTokenHash && lease.leaseExpiresAt > this.#now();
   }
 
   async listExpiredSessionLeases(before: string) {
@@ -1842,6 +1988,221 @@ export class PrismaRdbProvider implements RdbProvider {
       take: Math.min(Math.max(input.limit ?? 100, 1), 500),
     });
     return rows.map(mapTaskStatusTransition);
+  }
+
+  async enableTaskWorkflow(input: { state: TaskWorkflowState }): Promise<TaskWorkflowMutationResult> {
+    const requested = taskWorkflowStateSchema.parse(input.state);
+    if (requested.activeKey === null || requested.stateVersion !== 1 || requested.stageId !== "understand") {
+      throw new RdbError("RDB_CONFLICT", "Initial Workflow state is invalid");
+    }
+    const replay = await this.#client.taskWorkflowState.findUnique({
+      where: { taskId_enableCommandId: { taskId: requested.taskId, enableCommandId: requested.enableCommandId } },
+    });
+    if (replay) return { state: mapTaskWorkflowState(replay), created: false };
+    const active = await this.#client.taskWorkflowState.findUnique({
+      where: { taskId_activeKey: { taskId: requested.taskId, activeKey: requested.activeKey } },
+    });
+    if (active) return { state: mapTaskWorkflowState(active), created: false };
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        const task = await transaction.task.findUnique({ where: { id: requested.taskId } });
+        if (!task || task.teamId !== requested.teamId) throw new RdbError("RDB_NOT_FOUND", "Task does not exist");
+        const created = await transaction.taskWorkflowState.create({ data: requested });
+        return { state: mapTaskWorkflowState(created), created: true };
+      });
+    } catch (error) {
+      const afterRace = await this.#client.taskWorkflowState.findUnique({
+        where: { taskId_activeKey: { taskId: requested.taskId, activeKey: requested.activeKey } },
+      });
+      if (afterRace) return { state: mapTaskWorkflowState(afterRace), created: false };
+      throw normalizeDatabaseError(error, { conflictCode: "RDB_CONFLICT", conflictMessage: "Workflow enable conflicted" });
+    }
+  }
+
+  async getActiveTaskWorkflowState(taskId: string, options: { teamId: string }): Promise<TaskWorkflowState | undefined> {
+    const row = await this.#client.taskWorkflowState.findUnique({
+      where: { taskId_activeKey: { taskId, activeKey: "mystra.workflow" } },
+    });
+    return row?.teamId === options.teamId ? mapTaskWorkflowState(row) : undefined;
+  }
+
+  async getTaskWorkflowState(stateId: string, options: { teamId: string }): Promise<TaskWorkflowState | undefined> {
+    const row = await this.#client.taskWorkflowState.findUnique({ where: { id: stateId } });
+    return row?.teamId === options.teamId ? mapTaskWorkflowState(row) : undefined;
+  }
+
+  async disableTaskWorkflow(input: {
+    teamId: string; taskId: string; workflowStateId: string; expectedStateVersion: number;
+    disabledByUserId: string; disableCommandId: string; disabledAt: string;
+  }): Promise<TaskWorkflowMutationResult> {
+    return this.#client.transaction(async (transaction) => {
+      const state = await transaction.taskWorkflowState.findUnique({ where: { id: input.workflowStateId } });
+      if (!state || state.teamId !== input.teamId || state.taskId !== input.taskId) {
+        throw new RdbError("RDB_NOT_FOUND", "Workflow state does not exist");
+      }
+      if (state.activeKey === null) {
+        if (state.disableCommandId === input.disableCommandId) return { state: mapTaskWorkflowState(state), created: false };
+        throw new RdbError("RDB_CONFLICT", "Workflow is already disabled by another command");
+      }
+      if (state.stateVersion !== input.expectedStateVersion) throw new RdbError("RDB_CONFLICT", "Workflow state version changed");
+      const nextVersion = state.stateVersion + 1;
+      const updated = await transaction.taskWorkflowState.updateMany({
+        where: { id: state.id, teamId: input.teamId, activeKey: "mystra.workflow", stateVersion: input.expectedStateVersion },
+        data: {
+          activeKey: null, stateVersion: nextVersion,
+          disabledByUserId: input.disabledByUserId, disableCommandId: input.disableCommandId,
+          disabledAt: input.disabledAt, updatedAt: input.disabledAt,
+        },
+      });
+      if (updated.count !== 1) throw new RdbError("RDB_CONFLICT", "Workflow disable lost a race");
+      await transaction.sessionWorkflowCapability.updateMany({
+        where: { workflowStateId: state.id, revokedAt: null }, data: { revokedAt: input.disabledAt },
+      });
+      const workspaces = await transaction.taskWorkspace.findMany({
+        where: { teamId: input.teamId, taskId: input.taskId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+      for (const workspace of workspaces) {
+        await this.#replaceWorkflowSkillSourcesInTransaction(transaction, {
+          teamId: input.teamId, workspaceId: workspace.id,
+          sourcePrefix: `workflow:mystra.workflow:${state.id}:`,
+          desiredGeneration: nextVersion, sources: [], timestamp: input.disabledAt,
+        });
+      }
+      return { state: mapTaskWorkflowState({
+        ...state, activeKey: null, stateVersion: nextVersion,
+        disabledByUserId: input.disabledByUserId, disableCommandId: input.disableCommandId,
+        disabledAt: input.disabledAt, updatedAt: input.disabledAt,
+      }), created: true };
+    });
+  }
+
+  async transitionTaskWorkflow(input: {
+    teamId: string; workflowStateId: string; expectedStateVersion: number;
+    transition: TaskWorkflowTransition; sources: WorkflowSkillSourceWrite[];
+  }): Promise<TaskWorkflowTransitionResult> {
+    const requested = taskWorkflowTransitionSchema.parse(input.transition);
+    const findReplay = async () => {
+      const row = await this.#client.taskWorkflowTransition.findUnique({
+        where: { workflowStateId_commandId: { workflowStateId: input.workflowStateId, commandId: requested.commandId } },
+      });
+      if (!row) return undefined;
+      if (row.payloadHash !== requested.payloadHash) throw new RdbError("RDB_CONFLICT", "Workflow command id was reused with different input");
+      const state = await this.#client.taskWorkflowState.findUnique({ where: { id: input.workflowStateId } });
+      if (!state) throw new RdbError("RDB_UNAVAILABLE", "Workflow replay state is missing");
+      return { state: mapTaskWorkflowState(state), transition: mapTaskWorkflowTransition(row), created: false };
+    };
+    const replay = await findReplay();
+    if (replay) return replay;
+    try {
+      return await this.#client.transaction(async (transaction) => {
+        const state = await transaction.taskWorkflowState.findUnique({ where: { id: input.workflowStateId } });
+        const capability = await transaction.sessionWorkflowCapability.findUnique({ where: { sessionId: requested.sessionId } });
+        if (!state || state.teamId !== input.teamId || state.activeKey !== "mystra.workflow") {
+          throw new RdbError("RDB_NOT_FOUND", "Active Workflow state does not exist");
+        }
+        if (!capability || capability.workflowStateId !== state.id || capability.revokedAt !== null) {
+          throw new RdbError("RDB_CONFLICT", "Session Workflow capability is unavailable");
+        }
+        if (
+          requested.workflowStateId !== state.id || requested.teamId !== state.teamId || requested.taskId !== state.taskId
+          || requested.fromStageId !== state.stageId || requested.fromStateVersion !== input.expectedStateVersion
+          || requested.toStateVersion !== input.expectedStateVersion + 1 || state.stateVersion !== input.expectedStateVersion
+        ) throw new RdbError("RDB_CONFLICT", "Workflow transition facts are inconsistent");
+        const updated = await transaction.taskWorkflowState.updateMany({
+          where: { id: state.id, teamId: input.teamId, activeKey: "mystra.workflow", stateVersion: input.expectedStateVersion },
+          data: { stageId: requested.toStageId, stateVersion: requested.toStateVersion, updatedAt: requested.occurredAt },
+        });
+        if (updated.count !== 1) throw new RdbError("RDB_CONFLICT", "Workflow transition lost a race");
+        const transition = await transaction.taskWorkflowTransition.create({ data: requested });
+        const workspaceIds = new Set(input.sources.map(({ workspaceId }) => workspaceId));
+        if (workspaceIds.size !== 1) throw new RdbError("RDB_CONFLICT", "Workflow transition requires one Workspace source set");
+        const workspaceId = [...workspaceIds][0]!;
+        await this.#replaceWorkflowSkillSourcesInTransaction(transaction, {
+          teamId: input.teamId, workspaceId,
+          sourcePrefix: `workflow:mystra.workflow:${state.id}:`,
+          desiredGeneration: requested.toStateVersion, sources: input.sources, timestamp: requested.occurredAt,
+        });
+        return {
+          state: mapTaskWorkflowState({ ...state, stageId: requested.toStageId, stateVersion: requested.toStateVersion, updatedAt: requested.occurredAt }),
+          transition: mapTaskWorkflowTransition(transition), created: true,
+        };
+      });
+    } catch (error) {
+      const afterRace = await findReplay();
+      if (afterRace) return afterRace;
+      throw normalizeDatabaseError(error, { conflictCode: "RDB_CONFLICT", conflictMessage: "Workflow transition conflicted" });
+    }
+  }
+
+  async bindSessionWorkflowCapability(input: SessionWorkflowCapability): Promise<SessionWorkflowCapability> {
+    const requested = sessionWorkflowCapabilitySchema.parse(input);
+    const existing = await this.#client.sessionWorkflowCapability.findUnique({ where: { sessionId: requested.sessionId } });
+    if (existing) {
+      if (JSON.stringify(existing) !== JSON.stringify(requested)) throw new RdbError("RDB_CONFLICT", "Session is bound to another Workflow state");
+      return mapSessionWorkflowCapability(existing);
+    }
+    return this.#client.transaction(async (transaction) => {
+      const [session, state] = await Promise.all([
+        transaction.session.findUnique({ where: { id: requested.sessionId } }),
+        transaction.taskWorkflowState.findUnique({ where: { id: requested.workflowStateId } }),
+      ]);
+      if (!session || !state || state.activeKey !== "mystra.workflow"
+        || session.teamId !== requested.teamId || session.taskId !== requested.taskId
+        || state.teamId !== requested.teamId || state.taskId !== requested.taskId) {
+        throw new RdbError("RDB_RELATION_CONFLICT", "Session Workflow capability scope is invalid");
+      }
+      return mapSessionWorkflowCapability(await transaction.sessionWorkflowCapability.create({ data: requested }));
+    });
+  }
+
+  async getSessionWorkflowCapability(sessionId: string): Promise<SessionWorkflowCapability | undefined> {
+    const row = await this.#client.sessionWorkflowCapability.findUnique({ where: { sessionId } });
+    return row ? mapSessionWorkflowCapability(row) : undefined;
+  }
+
+  async replaceWorkflowSkillSources(input: {
+    teamId: string; workspaceId: string; sourcePrefix: string; desiredGeneration: number; sources: WorkflowSkillSourceWrite[];
+  }): Promise<WorkspaceSkillProjection[]> {
+    return this.#client.transaction((transaction) => this.#replaceWorkflowSkillSourcesInTransaction(transaction, {
+      ...input, timestamp: this.#now(),
+    }));
+  }
+
+  async listWorkspaceSkillProjections(input: { teamId: string; workspaceId: string }): Promise<WorkspaceSkillProjection[]> {
+    const workspace = await this.#client.taskWorkspace.findUnique({ where: { id: input.workspaceId } });
+    if (!workspace || workspace.teamId !== input.teamId) return [];
+    return (await this.#client.workspaceSkillProjection.findMany({
+      where: { workspaceId: input.workspaceId }, orderBy: [{ skillId: "asc" }],
+    })).map(mapWorkspaceSkillProjection);
+  }
+
+  async reportWorkspaceSkillProjection(input: {
+    teamId: string; workspaceId: string; skillId: string; desiredGeneration: number;
+    status: "ready" | "failed"; failureCode: string | null; reportedAt: string;
+  }): Promise<{ projection: WorkspaceSkillProjection | undefined; accepted: boolean }> {
+    if ((input.status === "failed") !== (input.failureCode !== null)) {
+      throw new RdbError("RDB_CONFLICT", "Workflow Skill projection report is inconsistent");
+    }
+    const workspace = await this.#client.taskWorkspace.findUnique({ where: { id: input.workspaceId } });
+    if (!workspace || workspace.teamId !== input.teamId) return { projection: undefined, accepted: false };
+    const existing = await this.#client.workspaceSkillProjection.findUnique({
+      where: { workspaceId_skillId: { workspaceId: input.workspaceId, skillId: input.skillId } },
+    });
+    if (!existing) return { projection: undefined, accepted: false };
+    if (existing.desiredGeneration !== input.desiredGeneration) {
+      return { projection: mapWorkspaceSkillProjection(existing), accepted: false };
+    }
+    const updated = await this.#client.workspaceSkillProjection.updateMany({
+      where: { workspaceId: input.workspaceId, skillId: input.skillId, desiredGeneration: input.desiredGeneration },
+      data: {
+        appliedGeneration: input.desiredGeneration, status: input.status,
+        failureCode: input.failureCode, updatedAt: input.reportedAt,
+      },
+    });
+    const row = await this.#client.workspaceSkillProjection.findUnique({
+      where: { workspaceId_skillId: { workspaceId: input.workspaceId, skillId: input.skillId } },
+    });
+    return { projection: row ? mapWorkspaceSkillProjection(row) : undefined, accepted: updated.count === 1 };
   }
 
   async getExecutionContextByTaskId(taskId: string, options: { teamId: string }): Promise<TaskExecutionContext | undefined> {

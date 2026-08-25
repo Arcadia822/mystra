@@ -15,6 +15,7 @@ const skillServices = vi.hoisted(() => ({
   preview: vi.fn(),
   archive: vi.fn(),
 }));
+const workflowServices = vi.hoisted(() => ({ enable: vi.fn(), disable: vi.fn() }));
 vi.mock("@/lib/tasks/task-production-service-factory", () => ({
   createTaskProductionService: vi.fn(() => ({ start: startProduction })),
 }));
@@ -29,6 +30,9 @@ vi.mock("@/lib/skills/skill-service-factory", () => ({
     preview: { preview: skillServices.preview },
     publication: { archive: skillServices.archive },
   })),
+}));
+vi.mock("@/lib/workflows/workflow-management-service-factory", () => ({
+  createWorkflowManagementService: vi.fn(() => workflowServices),
 }));
 
 const userId = randomUUID();
@@ -98,12 +102,15 @@ beforeEach(() => {
     created: true,
   });
   for (const mock of Object.values(skillServices)) mock.mockReset();
+  for (const mock of Object.values(workflowServices)) mock.mockReset();
   skillServices.list.mockResolvedValue({ items: [], nextCursor: null });
   skillServices.get.mockResolvedValue({ id: randomUUID(), name: "reviewer" });
   skillServices.listRevisions.mockResolvedValue({ items: [], nextCursor: null });
   skillServices.getRevision.mockResolvedValue({ id: randomUUID(), sequence: 1 });
   skillServices.preview.mockResolvedValue({ revisionId: randomUUID(), sequence: 1, content: "# Reviewer" });
   skillServices.archive.mockResolvedValue({ id: randomUUID(), status: "archived", resourceRevision: 2 });
+  workflowServices.enable.mockResolvedValue({ workflow: { id: "mystra.workflow", active: true } });
+  workflowServices.disable.mockResolvedValue({ workflow: { id: "mystra.workflow", active: false }, projectionCleanup: { status: "ready", retryable: false } });
   vi.mocked(getDb).mockResolvedValue({
     getAuthSessionByTokenHash: vi.fn(async () => ({
       id: randomUUID(),
@@ -338,6 +345,24 @@ describe("MCP human session authorization", () => {
       actor: { actorId: userId, teamId },
       taskId,
       request: { agentId: null, runtimeId, providerKey: "codex", expectedRevision: 1, idempotencyKey: "start-mcp-1" },
+    });
+  });
+
+  it("exposes only enable/disable for the fixed Task Workflow", async () => {
+    const commandId = randomUUID();
+    const listed = await POST(rpcRequest(call("tools/list")));
+    const listedPayload = await listed.json() as { result: { tools: Array<{ name: string }> } };
+    const names = listedPayload.result.tools.map(({ name }) => name).filter((name) => name.includes("workflow"));
+    expect(names).toEqual(["mystra_task_workflow_enable", "mystra_task_workflow_disable"]);
+    expect(names.some((name) => /list|resource|replace|switch|plugin|harness/u.test(name))).toBe(false);
+
+    await POST(rpcRequest(toolCall("mystra_task_workflow_enable", { taskId, commandId })));
+    expect(workflowServices.enable).toHaveBeenCalledWith({
+      teamId, taskId, actor: { userId, role: "owner" }, request: { commandId },
+    });
+    await POST(rpcRequest(toolCall("mystra_task_workflow_disable", { taskId, commandId, expectedStateVersion: 2 })));
+    expect(workflowServices.disable).toHaveBeenCalledWith({
+      teamId, taskId, actor: { userId, role: "owner" }, request: { commandId, expectedStateVersion: 2 },
     });
   });
 

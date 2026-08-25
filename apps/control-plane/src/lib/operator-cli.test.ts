@@ -82,6 +82,36 @@ function sessionDetail(state = "succeeded", result: Record<string, unknown> | un
 }
 
 describe("operator CLI Task and Session commands", () => {
+  it("parses only the fixed Task Workflow management commands", () => {
+    const commandId = "00000000-0000-4000-8000-000000000099";
+    expect(parseArgs(["tasks", "workflow", "enable", taskId, "--command-id", commandId, "--json"])).toMatchObject({
+      ok: true, value: { group: "tasks", command: "workflow-enable", target: taskId, commandId, json: true },
+    });
+    expect(parseArgs(["tasks", "workflow", "disable", taskId, "--expected-revision", "3", "--command-id", commandId])).toMatchObject({
+      ok: true, value: { command: "workflow-disable", expectedRevision: 3, commandId },
+    });
+    expect(parseArgs(["tasks", "workflow", "replace", taskId, "--command-id", commandId])).toMatchObject({ ok: false });
+    expect(parseArgs(["tasks", "workflow", "enable", taskId, "--harness-id", "x"])).toMatchObject({ ok: false });
+  });
+
+  it("calls the canonical fixed Workflow management endpoints", async () => {
+    const commandId = "00000000-0000-4000-8000-000000000099";
+    const enabled = await execute(["tasks", "workflow", "enable", taskId, "--command-id", commandId, "--json"], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/tasks/${taskId}/workflow/enable`);
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({ commandId });
+      return response({ workflow: { id: "mystra.workflow", active: true } });
+    });
+    expect(enabled.exitCode).toBe(EXIT_CODES.OK);
+
+    const disabled = await execute(["tasks", "workflow", "disable", taskId, "--expected-revision", "3", "--command-id", commandId, "--json"], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/tasks/${taskId}/workflow/disable`);
+      expect(JSON.parse(String(init?.body))).toEqual({ commandId, expectedStateVersion: 3 });
+      return response({ workflow: { id: "mystra.workflow", active: false } });
+    });
+    expect(disabled.exitCode).toBe(EXIT_CODES.OK);
+  });
+
   it("parses the canonical Skill command surface and rejects incomplete mutations", () => {
     expect(parseArgs(["skills", "list", "--include-archived", "--json"])).toMatchObject({
       ok: true,

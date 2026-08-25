@@ -8,10 +8,21 @@ import {
 } from "@mystra/shared";
 
 import type { RdbProvider, ResolvedWorkloadExecution } from "../db/rdb-provider";
+import type { SessionWorkflowCapability, TaskWorkflowState } from "@mystra/shared";
+import { WorkflowFailure } from "../workflows/workflow-errors";
 import { TaskProductionFailure } from "./task-production-errors";
 import { TaskStatusService } from "./task-status-service";
 
-type AgentExecutionDb = Pick<RdbProvider, "resolveWorkloadExecution" | "getTask" | "transitionTaskStatus" | "listTaskStatusTransitions">;
+type AgentExecutionDb = Pick<RdbProvider,
+  "resolveWorkloadExecution" | "getTask" | "transitionTaskStatus" | "listTaskStatusTransitions"
+  | "getSessionWorkflowCapability" | "getTaskWorkflowState"
+>;
+
+export type ResolvedWorkflowExecution = {
+  execution: ResolvedWorkloadExecution;
+  capability: SessionWorkflowCapability;
+  state: TaskWorkflowState;
+};
 
 export class AgentExecutionService {
   readonly #db: AgentExecutionDb;
@@ -89,6 +100,24 @@ export class AgentExecutionService {
       },
       request: parsed.data,
     });
+  }
+
+  async resolveWorkflowExecution(code: string): Promise<ResolvedWorkflowExecution> {
+    const execution = await this.#resolve(code);
+    const capability = await this.#db.getSessionWorkflowCapability(execution.session.id);
+    if (!capability) throw new WorkflowFailure("workflow_not_enabled", "This Session has no Workflow capability");
+    if (capability.revokedAt !== null) throw new WorkflowFailure("capability_expired", "Workflow capability is expired");
+    const state = await this.#db.getTaskWorkflowState(capability.workflowStateId, { teamId: capability.teamId });
+    if (!state || state.activeKey !== "mystra.workflow") {
+      throw new WorkflowFailure("capability_expired", "Workflow capability is expired");
+    }
+    if (
+      capability.teamId !== execution.session.teamId
+      || capability.taskId !== execution.session.taskId
+      || state.teamId !== capability.teamId
+      || state.taskId !== capability.taskId
+    ) throw new WorkflowFailure("scope_mismatch", "Workflow capability scope does not match this Session");
+    return { execution, capability, state };
   }
 
   async #resolve(code: string): Promise<ResolvedWorkloadExecution> {

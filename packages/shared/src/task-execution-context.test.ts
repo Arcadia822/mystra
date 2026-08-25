@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_WORKLOAD_CAPABILITIES,
   taskExecutionContextSchema,
   taskStartRequestSchema,
   taskExecutionContextPayloadSchema,
@@ -11,6 +12,16 @@ import {
 const ids = Array.from({ length: 12 }, (_, index) => `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`);
 
 describe("TaskExecutionContext contracts", () => {
+  it("keeps Workflow workload capabilities explicit and static", () => {
+    expect(DEFAULT_WORKLOAD_CAPABILITIES).toEqual([
+      "context:read", "task-status:read", "task-status:transition",
+    ]);
+    const workflowCapabilities = [
+      "workflow:read", "workflow:transition", "workflow:projection:read", "workflow:projection:report",
+    ];
+    expect(() => workloadExecutionContextSchema.shape.capabilities.parse(workflowCapabilities)).not.toThrow();
+  });
+
   it("models an executionContext without inventing a parallel lifecycle", () => {
     const parsed = taskExecutionContextSchema.parse({
       id: ids[0], teamId: ids[1], taskId: ids[2], projectId: ids[3],

@@ -48,6 +48,11 @@ import type {
   SkillManifestEntry,
   SkillPublicationStatus,
   SkillStatus,
+  TaskWorkflowState,
+  TaskWorkflowTransition,
+  SessionWorkflowCapability,
+  WorkspaceSkillSource,
+  WorkspaceSkillProjection,
 } from "@mystra/shared";
 
 export type IntegrationConnectionRecord = IntegrationConnection & {
@@ -206,6 +211,7 @@ export type SessionLaunchPersistenceInput = {
   session: Session;
   launchRequest: SessionLaunchRequest;
   events: SessionEvent[];
+  workflowCapability?: SessionWorkflowCapability;
 };
 
 export type SessionEventAppendInput = {
@@ -315,6 +321,19 @@ export type SkillRecordPage = {
 export type SkillRevisionRecordPage = {
   items: SkillRevisionRecord[];
   nextCursor: string | null;
+};
+
+export type WorkflowSkillSourceWrite = Omit<WorkspaceSkillSource, "createdAt" | "updatedAt">;
+
+export type TaskWorkflowMutationResult = {
+  state: TaskWorkflowState;
+  created: boolean;
+};
+
+export type TaskWorkflowTransitionResult = {
+  state: TaskWorkflowState;
+  transition: TaskWorkflowTransition;
+  created: boolean;
 };
 
 /**
@@ -448,6 +467,44 @@ export interface RdbProvider {
     created: boolean;
   }>;
   listTaskStatusTransitions(input: { taskId: string; teamId: string; limit?: number }): Promise<TaskStatusTransition[]>;
+  enableTaskWorkflow(input: { state: TaskWorkflowState }): Promise<TaskWorkflowMutationResult>;
+  getActiveTaskWorkflowState(taskId: string, options: { teamId: string }): Promise<TaskWorkflowState | undefined>;
+  getTaskWorkflowState(stateId: string, options: { teamId: string }): Promise<TaskWorkflowState | undefined>;
+  disableTaskWorkflow(input: {
+    teamId: string;
+    taskId: string;
+    workflowStateId: string;
+    expectedStateVersion: number;
+    disabledByUserId: string;
+    disableCommandId: string;
+    disabledAt: string;
+  }): Promise<TaskWorkflowMutationResult>;
+  transitionTaskWorkflow(input: {
+    teamId: string;
+    workflowStateId: string;
+    expectedStateVersion: number;
+    transition: TaskWorkflowTransition;
+    sources: WorkflowSkillSourceWrite[];
+  }): Promise<TaskWorkflowTransitionResult>;
+  bindSessionWorkflowCapability(input: SessionWorkflowCapability): Promise<SessionWorkflowCapability>;
+  getSessionWorkflowCapability(sessionId: string): Promise<SessionWorkflowCapability | undefined>;
+  replaceWorkflowSkillSources(input: {
+    teamId: string;
+    workspaceId: string;
+    sourcePrefix: string;
+    desiredGeneration: number;
+    sources: WorkflowSkillSourceWrite[];
+  }): Promise<WorkspaceSkillProjection[]>;
+  listWorkspaceSkillProjections(input: { teamId: string; workspaceId: string }): Promise<WorkspaceSkillProjection[]>;
+  reportWorkspaceSkillProjection(input: {
+    teamId: string;
+    workspaceId: string;
+    skillId: string;
+    desiredGeneration: number;
+    status: "ready" | "failed";
+    failureCode: string | null;
+    reportedAt: string;
+  }): Promise<{ projection: WorkspaceSkillProjection | undefined; accepted: boolean }>;
   getExecutionContextByTaskId(taskId: string, options: { teamId: string }): Promise<TaskExecutionContext | undefined>;
   getExecutionContextBySessionId(sessionId: string): Promise<TaskExecutionContext | undefined>;
   updateExecutionContext(input: {
@@ -542,6 +599,7 @@ export interface RdbProvider {
     leaseTokenHash: string;
     providerSessionId: string;
   }): Promise<boolean>;
+  validateSessionLease(input: { sessionId: string; leaseTokenHash: string }): Promise<boolean>;
   listExpiredSessionLeases(before: string): Promise<ExpiredSessionLease[]>;
 
   registerLocalUser(input: RegisterLocalUserInput): Promise<{

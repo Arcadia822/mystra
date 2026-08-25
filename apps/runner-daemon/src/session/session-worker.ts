@@ -14,12 +14,13 @@ import type { SessionClaimAssignment, SessionEventInput } from "@mystra/shared";
 
 import type { SessionControlPlaneClient } from "./session-client.js";
 import { runProviderProcess, type ProviderProcessObserver } from "./provider-process.js";
+import { materializeAssignmentSkills } from "./skill-materializer.js";
 
 type WorkspaceResolver = { resolveReadyWorkspace(ref: string): Promise<{ directory: string }> };
 
 export async function executeSessionAssignment(input: {
   assignment: SessionClaimAssignment;
-  client: Pick<SessionControlPlaneClient, "appendEvents">;
+  client: Pick<SessionControlPlaneClient, "appendEvents"> & Partial<Pick<SessionControlPlaneClient, "downloadWorkflowSkill" | "reportWorkflowSkills">>;
   workspace: WorkspaceResolver;
   providerExecutable: string;
   runProcess?: (
@@ -37,6 +38,18 @@ export async function executeSessionAssignment(input: {
   } catch {
     await input.client.appendEvents(assignment, [failureEvent(assignment, "workspace_unavailable", "Task Workspace is unavailable")]);
     return;
+  }
+  if (assignment.workflowSkills) {
+    try {
+      if (!input.client.downloadWorkflowSkill || !input.client.reportWorkflowSkills) throw new Error("Workflow Skill delivery is unavailable");
+      await materializeAssignmentSkills({
+        assignment, workspaceDirectory: resolved.directory,
+        client: { downloadWorkflowSkill: input.client.downloadWorkflowSkill.bind(input.client), reportWorkflowSkills: input.client.reportWorkflowSkills.bind(input.client) },
+      });
+    } catch {
+      await input.client.appendEvents(assignment, [failureEvent(assignment, "workflow_skill_projection_failed", "Workflow Skills could not be materialized")]);
+      return;
+    }
   }
   const message = assignment.message.content
     .map((part) => part.type === "text" ? part.text : `Artifact: ${part.artifactId}`)
