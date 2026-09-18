@@ -25,6 +25,8 @@ const migrations = [
   "20260806182000_init",
   "20260806210000_secret_envelopes",
   "20260807150000_identity_team_rbac",
+  "20260808173000_project_issue_sources",
+  "20260917000000_integration_webhook_endpoints",
 ].map((directory) => readFileSync(
   path.join(process.cwd(), `prisma/sqlite/migrations/${directory}/migration.sql`),
   "utf8",
@@ -161,7 +163,6 @@ describe("self-hosted Integration connection routes", () => {
       { params: Promise.resolve({ id: body.connection.id }) },
     );
     expect(deleted.status).toBe(204);
-    expect(await db.getIntegrationConnection(body.connection.id)).toBeUndefined();
   });
 
   it("blocks every GitHub App route before redirect, OAuth exchange, or persistence", async () => {

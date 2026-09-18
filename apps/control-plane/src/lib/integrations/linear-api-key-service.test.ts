@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSqlitePrismaClient } from "../db/prisma-client";
 import { PrismaRdbProvider } from "../db/prisma-provider";
 import { RdbSecretProvider } from "../secrets/rdb-secret-provider";
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { LinearApiKeyConnectionService } from "./linear-api-key-service";
 
 const tempDirectories: string[] = [];

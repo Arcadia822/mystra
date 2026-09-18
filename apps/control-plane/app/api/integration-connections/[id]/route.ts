@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
-import { integrationErrorResponse } from "@/lib/integrations/errors";
+import { integrationErrorResponse } from "@/lib/integrations/error-response"
 import { GitHubPatConnectionService } from "@/lib/integrations/github-pat-service";
 import { getSecretProvider } from "@/lib/secrets";
 import {

@@ -1672,6 +1672,116 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     )));
     expect(launchReplays.every((result) => result.created === false)).toBe(true);
 
+    const ownerUserId = (await db.listMembers(projectRecord.teamId))[0]!.userId;
+    const workflowEnables = await Promise.all(Array.from({ length: 20 }, (_, index) => db.enableTaskWorkflow({
+      state: {
+        id: randomUUID(), teamId: projectRecord.teamId, taskId: task.id, workflowId: "mystra.workflow",
+        stageId: "understand", stateVersion: 1, activeKey: "mystra.workflow",
+        enabledByUserId: ownerUserId, enableCommandId: randomUUID(),
+        enabledAt: `2026-08-10T00:00:${String(index).padStart(2, "0")}.000Z`,
+        disabledByUserId: null, disableCommandId: null, disabledAt: null,
+        updatedAt: `2026-08-10T00:00:${String(index).padStart(2, "0")}.000Z`,
+      },
+    })));
+    expect(workflowEnables.filter(({ created }) => created)).toHaveLength(1);
+    expect(new Set(workflowEnables.map(({ state }) => state.id)).size).toBe(1);
+    const workflowState = workflowEnables[0]!.state;
+    expect(await db.getActiveTaskWorkflowState(task.id, { teamId: projectRecord.teamId })).toEqual(workflowState);
+    await db.bindSessionWorkflowCapability({
+      sessionId, workflowStateId: workflowState.id, teamId: projectRecord.teamId, taskId: task.id,
+      issuedAt: timestamp, revokedAt: null,
+    });
+
+    const publication = await db.reserveInitialSkillPublication({
+      teamId: projectRecord.teamId,
+      name: "workflow-contract-skill",
+      createdByUserId: ownerUserId,
+      content: {
+        description: "Workflow contract Skill",
+        manifest: [{
+          path: "SKILL.md", sizeBytes: 20, sha256: "1".repeat(64),
+          mediaType: "text/markdown", previewability: "text" as const,
+        }],
+        compressedSizeBytes: 50, uncompressedSizeBytes: 20,
+        zipSha256: "2".repeat(64), contentSha256: "3".repeat(64),
+      },
+    });
+    const published = await db.finalizeSkillRevisionPublication({
+      teamId: projectRecord.teamId, skillId: publication.skill.id,
+      revisionId: publication.revision.id, expectedResourceRevision: 0,
+    });
+    const source = (kind: "global" | "stage:understand" | "stage:implement", generation: number) => ({
+      workspaceId: readyWorkspace.id,
+      sourceKey: `workflow:mystra.workflow:${workflowState.id}:${kind}`,
+      skillId: published.skill.id,
+      skillRevisionId: published.revision.id,
+      relativePath: `.mystra/skills/${published.skill.id}`,
+      desiredGeneration: generation,
+    });
+    const initialProjections = await db.replaceWorkflowSkillSources({
+      teamId: projectRecord.teamId, workspaceId: readyWorkspace.id,
+      sourcePrefix: `workflow:mystra.workflow:${workflowState.id}:`, desiredGeneration: 1,
+      sources: [source("global", 1), source("stage:understand", 1)],
+    });
+    expect(initialProjections).toEqual([expect.objectContaining({
+      skillId: published.skill.id, desiredGeneration: 1, status: "pending",
+    })]);
+    await expect(db.reportWorkspaceSkillProjection({
+      teamId: projectRecord.teamId, workspaceId: readyWorkspace.id,
+      skillId: published.skill.id, desiredGeneration: 1,
+      status: "ready", failureCode: null, reportedAt: timestamp,
+    })).resolves.toMatchObject({ accepted: true, projection: { status: "ready", appliedGeneration: 1 } });
+
+    const workflowTransitions = await Promise.allSettled(Array.from({ length: 20 }, (_, index) => {
+      const commandId = randomUUID();
+      return db.transitionTaskWorkflow({
+        teamId: projectRecord.teamId, workflowStateId: workflowState.id, expectedStateVersion: 1,
+        transition: {
+          id: randomUUID(), workflowStateId: workflowState.id, teamId: projectRecord.teamId,
+          taskId: task.id, sessionId, commandId, payloadHash: String(index).padStart(64, "0"),
+          actionId: "understanding-complete", fromStageId: "understand", toStageId: "implement",
+          fromStateVersion: 1, toStateVersion: 2,
+          occurredAt: `2026-08-10T00:01:${String(index).padStart(2, "0")}.000Z`,
+        },
+        sources: [source("global", 2), source("stage:implement", 2)],
+      });
+    }));
+    const successfulTransitions = workflowTransitions.filter((result) => result.status === "fulfilled");
+    expect(successfulTransitions).toHaveLength(1);
+    const winner = successfulTransitions[0]!.value;
+    expect(winner).toMatchObject({ created: true, state: { stageId: "implement", stateVersion: 2 } });
+    await expect(db.transitionTaskWorkflow({
+      teamId: projectRecord.teamId, workflowStateId: workflowState.id, expectedStateVersion: 1,
+      transition: winner.transition,
+      sources: [source("global", 2), source("stage:implement", 2)],
+    })).resolves.toMatchObject({ created: false, transition: { id: winner.transition.id } });
+    await expect(db.transitionTaskWorkflow({
+      teamId: projectRecord.teamId, workflowStateId: workflowState.id, expectedStateVersion: 1,
+      transition: { ...winner.transition, payloadHash: "f".repeat(64) },
+      sources: [source("global", 2), source("stage:implement", 2)],
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
+    await expect(db.reportWorkspaceSkillProjection({
+      teamId: projectRecord.teamId, workspaceId: readyWorkspace.id,
+      skillId: published.skill.id, desiredGeneration: 1,
+      status: "failed", failureCode: "stale", reportedAt: "2026-08-10T00:02:00.000Z",
+    })).resolves.toMatchObject({ accepted: false, projection: { desiredGeneration: 2, status: "pending" } });
+
+    const disabled = await db.disableTaskWorkflow({
+      teamId: projectRecord.teamId, taskId: task.id, workflowStateId: workflowState.id,
+      expectedStateVersion: 2, disabledByUserId: ownerUserId, disableCommandId: randomUUID(),
+      disabledAt: "2026-08-10T00:03:00.000Z",
+    });
+    expect(disabled.state).toMatchObject({ activeKey: null, stateVersion: 3 });
+    expect(await db.getSessionWorkflowCapability(sessionId)).toMatchObject({ revokedAt: "2026-08-10T00:03:00.000Z" });
+    expect(await db.listWorkspaceSkillProjections({ teamId: projectRecord.teamId, workspaceId: readyWorkspace.id })).toEqual([]);
+    const reenabled = await db.enableTaskWorkflow({ state: {
+      ...workflowState, id: randomUUID(), enableCommandId: randomUUID(),
+      enabledAt: "2026-08-10T00:04:00.000Z", updatedAt: "2026-08-10T00:04:00.000Z",
+    } });
+    expect(reenabled).toMatchObject({ created: true, state: { stateVersion: 1, activeKey: "mystra.workflow" } });
+    expect(reenabled.state.id).not.toBe(workflowState.id);
+    expect((await db.getSessionWorkflowCapability(sessionId))?.workflowStateId).toBe(workflowState.id);
+
     const leaseTokenHash = "a".repeat(64);
     await db.reportHostProviders(runtime.metadata.runnerId, [{
       provider: "codex", discovered: true, available: false, source: "path",
@@ -1945,4 +2055,115 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     } while (afterSequence);
     expect(replayedEventCount).toBe(eventCount);
   }, 20_000);
+
+  it("manages stable IntegrationWebhookEndpoint lifecycle and enforces unique scope resolution", async () => {
+    const { initialTeam: teamRecord } = await tenant();
+    const secretRef1 = `linear-key/${randomUUID()}`;
+    const connection = await db.upsertIntegrationConnectionWithSecret(
+      {
+        id: randomUUID(),
+        teamId: teamRecord.id,
+        integration: "linear",
+        provider: "linear",
+        authMethod: "api-key",
+        providerExternalId: "linear-org-1",
+        providerSubject: { name: "Linear Org" },
+        connectionConfig: { workspaceId: "linear-org-1" },
+        capabilities: {
+          issues: { state: "enabled", config: {}, permissions: {}, accessSummary: {}, verifiedAt: null },
+          events: { state: "enabled", config: {}, permissions: {}, accessSummary: {}, verifiedAt: null },
+        },
+        status: "active",
+        credentialState: "ready",
+        credentialRef: secretRef1,
+      },
+      envelope(secretRef1),
+    );
+    const initial = await db.getIntegrationWebhookEndpoint(connection.id, teamRecord.id);
+    expect(initial).toBeUndefined();
+
+    // Create endpoint
+    const endpoint1 = await db.createIntegrationWebhookEndpoint({
+      teamId: teamRecord.id,
+      connectionId: connection.id,
+    });
+    expect(endpoint1.teamId).toBe(teamRecord.id);
+    expect(endpoint1.connectionId).toBe(connection.id);
+    expect(endpoint1.id).toBeDefined();
+
+    // Repeated create returns same endpoint ID
+    const endpoint2 = await db.createIntegrationWebhookEndpoint({
+      teamId: teamRecord.id,
+      connectionId: connection.id,
+    });
+    expect(endpoint2.id).toBe(endpoint1.id);
+
+    // Lookup by connection and by id
+    const fetched = await db.getIntegrationWebhookEndpoint(connection.id, teamRecord.id);
+    expect(fetched?.id).toBe(endpoint1.id);
+
+    const secretRef2 = `gh-pat/${randomUUID()}`;
+    const repoConn = await db.upsertIntegrationConnectionWithSecret(
+      {
+        id: randomUUID(),
+        teamId: teamRecord.id,
+        integration: "github",
+        provider: "github",
+        authMethod: "pat",
+        providerExternalId: "gh-user-1",
+        providerSubject: { login: "octocat" },
+        connectionConfig: { username: "octocat" },
+        capabilities: {
+          repositories: { state: "enabled", config: {}, permissions: {}, accessSummary: {}, verifiedAt: null },
+        },
+        status: "active",
+        credentialState: "ready",
+        credentialRef: secretRef2,
+      },
+      envelope(secretRef2),
+    );
+    const project1 = await db.createProject({
+      teamId: teamRecord.id,
+      name: "Project 1",
+      slug: `p1-${randomUUID().slice(0, 8)}`,
+      repositoryConnectionId: repoConn.id,
+      repositoryExternalId: "12345",
+      repositoryBaseBranch: "main",
+      metadata: {},
+    });
+
+    await db.upsertProjectIssueSource({
+      teamId: teamRecord.id,
+      projectId: project1.id,
+      connectionId: connection.id,
+      integration: "linear",
+      scopeType: "linear-team",
+      scopeExternalId: "team-linear-uuid-1",
+    });
+
+    const resolved = await db.resolveProjectIssueSourceScope({
+      teamId: teamRecord.id,
+      integration: "linear",
+      scopeType: "linear-team",
+      scopeExternalId: "team-linear-uuid-1",
+    });
+    expect(resolved).toBeDefined();
+    expect(resolved?.project.id).toBe(project1.id);
+    expect(resolved?.connection.id).toBe(connection.id);
+    expect(resolved?.source.scopeExternalId).toBe("team-linear-uuid-1");
+
+    // Unmatched scope returns undefined
+    const missing = await db.resolveProjectIssueSourceScope({
+      teamId: teamRecord.id,
+      integration: "linear",
+      scopeType: "linear-team",
+      scopeExternalId: "nonexistent-team",
+    });
+    expect(missing).toBeUndefined();
+
+    // Deleting connection cleans up endpoint
+    expect(await db.deleteProjectIssueSource(project1.id, "linear", { teamId: teamRecord.id })).toBe(true);
+    expect(await db.deleteIntegrationConnection(connection.id)).toBe(true);
+    expect(await db.getIntegrationWebhookEndpointById(endpoint1.id)).toBeUndefined();
+  });
 }

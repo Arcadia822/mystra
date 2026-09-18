@@ -2,9 +2,14 @@ import {
   agentTaskStatusSetRequestSchema,
   workloadExecutionContextSchema,
   type AgentTaskStatusSetRequest,
+  workflowTransitionRequestSchema,
+  type WorkflowTransitionRequest,
 } from "@mystra/shared";
+import { randomUUID } from "node:crypto";
 
 import { AgentCliFailure, AgentExecutionClient } from "./client.js";
+import { runEventsCommand } from "./events-cli.js";
+import { materializeWorkflowSkills, WorkflowMaterializationError } from "./workflow-materializer.js";
 
 type Io = { write(value: string): void };
 
@@ -17,6 +22,18 @@ export async function runAgentCli(input: {
   stderr: Io;
 }): Promise<number> {
   try {
+    const [commandFamily] = input.argv;
+    if (commandFamily === "events") {
+      return await runEventsCommand({
+        argv: input.argv.slice(1),
+        env: input.env,
+        ...(input.fetch ? { fetchImpl: input.fetch } : {}),
+        stdout: input.stdout,
+        stderr: input.stderr,
+        stdin: process.stdin,
+      });
+    }
+
     const endpoint = input.env.MYSTRA_CONTROL_PLANE_URL;
     const executionCode = input.env.MYSTRA_EXECUTION_CODE;
     if (!endpoint) throw new AgentCliFailure("invalid_request", "MYSTRA_CONTROL_PLANE_URL is required");
@@ -36,6 +53,21 @@ export async function runAgentCli(input: {
       result = await client.taskStatus();
     } else if (first === "task" && second === "status" && third === "set") {
       result = await client.setTaskStatus(parseStatusSet(rest));
+    } else if (first === "workflow" && second === "current" && (third === undefined || (third === "--json" && rest.length === 0))) {
+      const current = await client.workflowCurrent();
+      await reconcileWorkflowSkills(client, current.materialization, input.cwd(), current);
+      result = current;
+    } else if (first === "workflow" && second === "transition" && third !== undefined) {
+      const transition = await client.workflowTransition(parseWorkflowTransition(third, rest));
+      await reconcileWorkflowSkills(client, transition.current.materialization, input.cwd(), transition);
+      result = transition;
+    } else if (first === "workflow" && second === "help" && third === undefined) {
+      result = {
+        usage: [
+          "mystra-agent workflow current [--json]",
+          "mystra-agent workflow transition <action-id> --expected-revision <n> [--command-id <uuid>] [--json]",
+        ],
+      };
     } else {
       throw new AgentCliFailure("invalid_request", "Invalid mystra-agent command");
     }
@@ -45,9 +77,74 @@ export async function runAgentCli(input: {
     const failure = error instanceof AgentCliFailure
       ? error
       : new AgentCliFailure("invalid_request", error instanceof Error ? error.message : "Invalid command");
-    input.stderr.write(`${JSON.stringify({ error: { code: failure.code, message: failure.message } })}\n`);
-    return failure.code === "invalid_request" ? 2 : 1;
+    input.stderr.write(`${JSON.stringify({ error: { code: failure.code, message: failure.message, ...(failure.details ?? {}) } })}\n`);
+    return input.argv[0] === "workflow"
+      ? workflowExitCode(failure.code)
+      : failure.code === "invalid_request" ? 2 : 1;
   }
+}
+
+async function reconcileWorkflowSkills(
+  client: AgentExecutionClient,
+  assignment: import("@mystra/shared").WorkflowSkillProjectionAssignment,
+  workspaceDirectory: string,
+  authority: import("@mystra/shared").WorkflowCurrentResponse | import("@mystra/shared").WorkflowTransitionResponse,
+) {
+  if (assignment.entries.length === 0 && assignment.removals.length === 0) return;
+  try {
+    await materializeWorkflowSkills({
+      assignment, workspaceDirectory,
+      download: (entry) => client.workflowSkillDownload(entry.downloadPath),
+    });
+    const ready = {
+      workspaceId: assignment.workspaceId, generation: assignment.generation,
+      results: assignment.entries.map(({ skillId }) => ({ skillId, status: "ready" as const, failureCode: null })),
+    };
+    if (!(await client.workflowSkillReport(ready))) {
+      throw new WorkflowMaterializationError("publish_failed", "Workflow Skill report was stale");
+    }
+  } catch (error) {
+    const failureCode = error instanceof WorkflowMaterializationError ? error.code : "publish_failed";
+    await client.workflowSkillReport({
+      workspaceId: assignment.workspaceId, generation: assignment.generation,
+      results: assignment.entries.map(({ skillId }) => ({ skillId, status: "failed", failureCode })),
+    }).catch(() => false);
+    throw new AgentCliFailure("workflow_skill_projection_failed", "Workflow Skills could not be materialized", { authority });
+  }
+}
+
+function parseWorkflowTransition(actionId: string, args: string[]): WorkflowTransitionRequest {
+  const values = new Map<string, string>();
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index]!;
+    if (flag === "--json") continue;
+    const value = args[index + 1];
+    if (!["--expected-revision", "--command-id"].includes(flag) || value === undefined || value.startsWith("--")) {
+      throw new AgentCliFailure("invalid_request", `Invalid Workflow flag ${flag}`);
+    }
+    if (values.has(flag)) throw new AgentCliFailure("invalid_request", `Duplicate flag ${flag}`);
+    values.set(flag, value);
+    index += 1;
+  }
+  return workflowTransitionRequestSchema.parse({
+    commandId: values.get("--command-id") ?? randomUUID(),
+    actionId,
+    expectedStateVersion: Number(values.get("--expected-revision")),
+  });
+}
+
+function workflowExitCode(code: string): number {
+  const workflowCodes: Record<string, number> = {
+    workflow_not_enabled: 4,
+    workflow_action_not_allowed: 5,
+    workflow_state_conflict: 6,
+    workflow_command_conflict: 7,
+    workflow_skill_resolution_failed: 8,
+    workflow_skill_projection_failed: 9,
+    scope_mismatch: 10,
+    capability_expired: 11,
+  };
+  return workflowCodes[code] ?? (code === "invalid_request" ? 2 : 1);
 }
 
 function parseStatusSet(args: string[]): AgentTaskStatusSetRequest {

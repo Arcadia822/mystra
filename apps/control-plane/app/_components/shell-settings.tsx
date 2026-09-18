@@ -2,15 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { IntegrationConnectionListResponse } from "@mystra/shared";
+import { SettingsModalFrame, type SettingsModalSection } from "@mystra/ui";
 
 import type { AppearancePreferences, ControlPlaneThemeDefinition, ThemeVariant } from "../theme-system";
-import { MystraLogo } from "./mystra-logo";
 import { SHELL_COPY, type ShellLocale } from "./shell-copy";
-import { ShellIcon } from "./shell-icons";
-import { UiButton, UiIconButton } from "./ui-actions";
-import { UiInput } from "./ui-fields";
-import { UiDialogSurface, UiSurface } from "./ui-surfaces";
-import { VerticalNavItem } from "./vertical-nav-item";
 import { useResource } from "../_lib/use-resource";
 import { GitHubIntegrationDetail } from "./github-integration-detail";
 import { LinearIntegrationDetail } from "./linear-integration-detail";
@@ -36,79 +31,6 @@ interface ShellSettingsProps {
 
 export type SettingsSection = "account" | "appearance" | "team" | "team-members" | "integrations";
 
-function AccountGlyph() {
-  return (
-    <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
-      <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M5.5 19c.8-3.5 3-5.3 6.5-5.3s5.7 1.8 6.5 5.3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
-    </svg>
-  );
-}
-
-function AppearanceGlyph() {
-  return (
-    <svg aria-hidden="true" height="16" viewBox="0 0 24 24" width="16">
-      <circle cx="12" cy="12" fill="none" r="8" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M12 4a8 8 0 0 0 0 16Z" fill="currentColor" opacity=".45" />
-    </svg>
-  );
-}
-
-function TeamGlyph() {
-  return (
-    <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
-      <circle cx="9" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="16" cy="9" r="2" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M3.8 18c.7-3.2 2.5-4.8 5.2-4.8s4.5 1.6 5.2 4.8M14 14c2.9 0 4.8 1.3 5.5 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
-    </svg>
-  );
-}
-
-function TeamMembersGlyph() {
-  return (
-    <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
-      <circle cx="9" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="16" cy="9" r="2" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M4 18c.7-3.1 2.4-4.7 5-4.7s4.3 1.6 5 4.7M14 14c2.8 0 4.6 1.3 5.3 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
-    </svg>
-  );
-}
-
-function IntegrationGlyph() {
-  return (
-    <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
-      <path d="M8.5 8.5 5 12l3.5 3.5M15.5 8.5 19 12l-3.5 3.5M14 5l-4 14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
-    </svg>
-  );
-}
-
-interface SettingsNavItemProps {
-  active: boolean;
-  ariaControls: string;
-  icon: React.ReactNode;
-  id: string;
-  label: string;
-  onClick: () => void;
-}
-
-function SettingsNavItem({ active, ariaControls, icon, id, label, onClick }: SettingsNavItemProps) {
-  return (
-    <VerticalNavItem
-      active={active}
-      ariaLabel={label}
-      aria-selected={active}
-      aria-controls={ariaControls}
-      className="settingsNavItem"
-      id={id}
-      role="tab"
-      onClick={onClick}
-    >
-      <span className="settingsNavIcon">{icon}</span>
-      <span>{label}</span>
-    </VerticalNavItem>
-  );
-}
-
 export function ShellSettings({ initialSection = "account", locale, onAppearanceChange, onClose, onLocaleChange, onResetAppearanceDetails, preferences, systemVariant, theme }: ShellSettingsProps) {
   const copy = SHELL_COPY[locale];
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -118,12 +40,12 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
   const connections = useResource<IntegrationConnectionListResponse>("/api/integration-connections");
   const searchLabel = `${copy.search}${locale === "zh-CN" ? "" : " "}${copy.settings}`;
   const identityDetail = `${copy.account} · ${copy.team}`;
-  const sections = useMemo(() => [
-    { id: "account" as const, icon: <AccountGlyph />, label: copy.account },
-    { id: "appearance" as const, icon: <AppearanceGlyph />, label: copy.appearance },
-    { id: "team" as const, icon: <TeamGlyph />, label: copy.team },
-    { id: "team-members" as const, icon: <TeamMembersGlyph />, label: locale === "zh-CN" ? "团队成员" : "Team members" },
-    { id: "integrations" as const, icon: <IntegrationGlyph />, label: copy.integrations },
+  const sections = useMemo<SettingsModalSection[]>(() => [
+    { id: "account", glyph: "account", label: copy.account },
+    { id: "appearance", glyph: "appearance", label: copy.appearance },
+    { id: "team", glyph: "team", label: copy.team },
+    { id: "team-members", glyph: "team-members", label: locale === "zh-CN" ? "团队成员" : "Team members" },
+    { id: "integrations", glyph: "integrations", label: copy.integrations },
   ], [copy.account, copy.appearance, copy.integrations, copy.team, locale]);
   const visibleSections = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase(locale === "zh-CN" ? "zh-CN" : "en-US");
@@ -149,7 +71,7 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
   useEffect(() => {
     const [firstVisible] = visibleSections;
     if (!firstVisible || visibleSections.some((section) => section.id === activeSection)) return;
-    setActiveSection(firstVisible.id);
+    setActiveSection(firstVisible.id as SettingsSection);
   }, [activeSection, visibleSections]);
 
   function showIntegrationDetail(detail: "github" | "linear" | null) {
@@ -162,122 +84,62 @@ export function ShellSettings({ initialSection = "account", locale, onAppearance
   }
 
   return (
-    <dialog
-      aria-labelledby="settings-title"
-      className="settingsModal"
-      ref={dialogRef}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
+    <SettingsModalFrame
+      activeSectionId={activeSection}
+      backLabel={locale === "zh-CN" ? "返回集成列表" : "Back to integrations"}
+      closeLabel={copy.closeSettings}
+      dialogRef={dialogRef}
+      identityDetail={identityDetail}
+      navLabel={copy.settings}
       onClose={onClose}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+      onQueryChange={setQuery}
+      onSelectSection={(sectionId) => {
+        setActiveSection(sectionId as SettingsSection);
+        if (sectionId !== "integrations") setIntegrationDetail(null);
       }}
+      {...(integrationDetail ? { onBack: () => showIntegrationDetail(null) } : {})}
+      query={query}
+      searchLabel={searchLabel}
+      sections={visibleSections}
+      title={activeLabel}
     >
-      <UiDialogSurface className="settingsModalLayout">
-        <UiSurface as="aside" className="settingsNavigation" variant="ghost">
-          <div className="settingsIdentity">
-            <MystraLogo className="settingsIdentityMark" />
-            <div>
-              <strong>Mystra</strong>
-              <span>{identityDetail}</span>
-            </div>
-          </div>
-
-          <label className="settingsSearch">
-            <ShellIcon name="search" />
-            <span className="srOnly">{searchLabel}</span>
-            <UiInput
-              autoFocus
-              fieldSize="header"
-              placeholder={searchLabel}
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.currentTarget.value)}
-            />
-          </label>
-
-          <div aria-label={copy.settings} className="settingsNavList" role="tablist">
-            {visibleSections.map((section) => (
-              <SettingsNavItem
-                active={activeSection === section.id}
-                ariaControls={`settings-panel-${section.id}`}
-                icon={section.icon}
-                id={`settings-tab-${section.id}`}
-                key={section.id}
-                label={section.label}
-                onClick={() => {
-                  setActiveSection(section.id);
-                  if (section.id !== "integrations") setIntegrationDetail(null);
-                }}
-              />
-            ))}
-            {visibleSections.length === 0 ? <p className="settingsSearchEmpty" role="status">—</p> : null}
-          </div>
-        </UiSurface>
-
-        <UiSurface as="section" className="settingsContent" variant="ghost">
-          <h2 className="srOnly" id="settings-title">{copy.settings}</h2>
-          <header className="settingsContentHeader">
-            <div className="settingsContentTitle">
-              {integrationDetail ? (
-                <UiButton size="compact" onClick={() => showIntegrationDetail(null)} aria-label={locale === "zh-CN" ? "返回集成列表" : "Back to integrations"}>‹</UiButton>
-              ) : null}
-              <h3>{activeLabel}</h3>
-            </div>
-            <UiIconButton aria-label={copy.closeSettings} className="settingsCloseButton" onClick={onClose}>
-              <ShellIcon name="close" />
-            </UiIconButton>
-          </header>
-
-          <div
-            aria-label={activeLabel}
-            aria-labelledby={`settings-tab-${activeSection}`}
-            className="settingsPane scrollableSurface"
-            id={`settings-panel-${activeSection}`}
-            role="tabpanel"
-          >
-            {integrationDetail === "github" ? (
-              <GitHubIntegrationDetail
-                data={connections.data}
-                error={connections.error}
-                isLoading={connections.isLoading}
-                locale={locale}
-                onChanged={connections.refresh}
-                onRetry={() => void connections.refresh()}
-              />
-            ) : integrationDetail === "linear" ? (
-              <LinearIntegrationDetail data={connections.data} error={connections.error} isLoading={connections.isLoading} locale={locale} onChanged={connections.refresh} onRetry={() => void connections.refresh()} />
-            ) : activeSection === "account" ? (
-              <AccountSettings embedded />
-            ) : activeSection === "appearance" ? (
-              <AppearanceSettingsPanel
-                locale={locale}
-                onAppearanceChange={onAppearanceChange}
-                onLocaleChange={onLocaleChange}
-                onResetDetails={onResetAppearanceDetails}
-                preferences={preferences}
-                systemVariant={systemVariant}
-                theme={theme}
-              />
-            ) : activeSection === "team" ? (
-              <TeamSettings embedded onOpenMembers={() => setActiveSection("team-members")} />
-            ) : activeSection === "team-members" ? (
-              <TeamMembers embedded />
-            ) : (
-              <IntegrationsSettingsPanel
-                data={connections.data}
-                error={connections.error}
-                isLoading={connections.isLoading}
-                locale={locale}
-                onOpenGitHub={() => showIntegrationDetail("github")}
-                onOpenLinear={() => showIntegrationDetail("linear")}
-              />
-            )}
-          </div>
-        </UiSurface>
-      </UiDialogSurface>
-    </dialog>
+        {integrationDetail === "github" ? (
+          <GitHubIntegrationDetail
+            data={connections.data}
+            error={connections.error}
+            isLoading={connections.isLoading}
+            locale={locale}
+            onChanged={connections.refresh}
+            onRetry={() => void connections.refresh()}
+          />
+        ) : integrationDetail === "linear" ? (
+          <LinearIntegrationDetail data={connections.data} error={connections.error} isLoading={connections.isLoading} locale={locale} onChanged={connections.refresh} onRetry={() => void connections.refresh()} />
+        ) : activeSection === "account" ? (
+          <AccountSettings embedded />
+        ) : activeSection === "appearance" ? (
+          <AppearanceSettingsPanel
+            locale={locale}
+            onAppearanceChange={onAppearanceChange}
+            onLocaleChange={onLocaleChange}
+            onResetDetails={onResetAppearanceDetails}
+            preferences={preferences}
+            systemVariant={systemVariant}
+            theme={theme}
+          />
+        ) : activeSection === "team" ? (
+          <TeamSettings embedded onOpenMembers={() => setActiveSection("team-members")} />
+        ) : activeSection === "team-members" ? (
+          <TeamMembers embedded />
+        ) : (
+          <IntegrationsSettingsPanel
+            data={connections.data}
+            error={connections.error}
+            isLoading={connections.isLoading}
+            locale={locale}
+            onOpenGitHub={() => showIntegrationDetail("github")}
+            onOpenLinear={() => showIntegrationDetail("linear")}
+          />
+        )}
+      </SettingsModalFrame>
   );
 }

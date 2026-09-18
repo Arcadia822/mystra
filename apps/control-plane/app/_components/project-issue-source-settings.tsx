@@ -9,7 +9,7 @@ import type {
 import { useEffect, useMemo, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
-import { SettingGroup, SettingRow } from "./setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 import { UiButton } from "./ui-actions";
 import { UiSelect } from "./ui-fields";
 import { useShellLocale } from "./shell-locale";

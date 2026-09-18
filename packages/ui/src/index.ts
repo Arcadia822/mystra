@@ -8,6 +8,8 @@ export * from "./ui-dropdown-model.js";
 export * from "./ui-dropdown.js";
 export * from "./ui-fields.js";
 export * from "./ui-preference-controls.js";
+export * from "./setting-row.js";
+export * from "./settings-modal.js";
 export * from "./ui-popover.js";
 export * from "./ui-surfaces.js";
 export * from "./ui-text.js";

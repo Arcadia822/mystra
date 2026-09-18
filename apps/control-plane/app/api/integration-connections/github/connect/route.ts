@@ -10,7 +10,7 @@ import {
   safeReturnTo,
   setTransactionCookie,
 } from "@/lib/integrations/github-oauth-cookies";
-import { integrationErrorResponse } from "@/lib/integrations/errors";
+import { integrationErrorResponse } from "@/lib/integrations/error-response"
 import { getDb } from "@/lib/db";
 import {
   authorizationErrorResponse,

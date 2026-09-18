@@ -31,10 +31,15 @@ describe("Prisma provider schema parity", () => {
       "IntegrationConnection",
       "Project",
       "ProjectIssueSource",
+      "IntegrationWebhookEndpoint",
       "Task",
       "TaskExecutionContext",
       "TaskStatusTransition",
+      "TaskWorkflowState",
+      "TaskWorkflowTransition",
       "TaskWorkspace",
+      "WorkspaceSkillSource",
+      "WorkspaceSkillProjection",
       "WorkspacePreparationAttempt",
       "Agent",
       "Runtime",
@@ -47,6 +52,7 @@ describe("Prisma provider schema parity", () => {
       "Skill",
       "SkillRevision",
       "Session",
+      "SessionWorkflowCapability",
       "SessionEvent",
       "SessionEventHead",
       "SessionEventStream",
@@ -57,10 +63,15 @@ describe("Prisma provider schema parity", () => {
       '@@map("integration_connections")',
       '@@map("projects")',
       '@@map("project_issue_sources")',
+      '@@map("integration_webhook_endpoints")',
       '@@map("tasks")',
       '@@map("task_execution_contexts")',
       '@@map("task_status_transitions")',
+      '@@map("task_workflow_states")',
+      '@@map("task_workflow_transitions")',
       '@@map("task_workspaces")',
+      '@@map("workspace_skill_sources")',
+      '@@map("workspace_skill_projections")',
       '@@map("workspace_preparation_attempts")',
       '@@map("agents")',
       '@@map("runtimes")',
@@ -73,6 +84,7 @@ describe("Prisma provider schema parity", () => {
       '@@map("skills")',
       '@@map("skill_revisions")',
       '@@map("sessions")',
+      '@@map("session_workflow_capabilities")',
       '@@map("session_events")',
       '@@map("session_event_heads")',
       '@@map("session_event_streams")',
@@ -80,6 +92,28 @@ describe("Prisma provider schema parity", () => {
       '@@map("team_memberships")',
     ]);
     expect(schema).not.toMatch(/Runner|ContextBundle|Artifact|Snapshot|objective|turnId|maxConcurrency/u);
+  });
+
+  it("models fixed Workflow state, exact Session authority, and aggregated Skill projection", () => {
+    const schema = modelSection(readSchema("sqlite"));
+    const state = schema.match(/model TaskWorkflowState \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const transition = schema.match(/model TaskWorkflowTransition \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const capability = schema.match(/model SessionWorkflowCapability \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const source = schema.match(/model WorkspaceSkillSource \{[\s\S]*?\n\}/u)?.[0] ?? "";
+    const projection = schema.match(/model WorkspaceSkillProjection \{[\s\S]*?\n\}/u)?.[0] ?? "";
+
+    expect(state).toMatch(/activeKey\s+String\?\s+@map\("active_key"\)/u);
+    expect(state).toMatch(/@@unique\(\[taskId, activeKey\]\)/u);
+    expect(state).toMatch(/stateVersion\s+Int\s+@map\("state_version"\)/u);
+    expect(transition).toMatch(/@@unique\(\[workflowStateId, commandId\]\)/u);
+    expect(transition).toMatch(/@@unique\(\[workflowStateId, toStateVersion\]\)/u);
+    expect(capability).toMatch(/sessionId\s+String\s+@id/u);
+    expect(capability).toMatch(/workflowStateId\s+String\s+@map\("workflow_state_id"\)/u);
+    expect(source).toMatch(/@@id\(\[workspaceId, sourceKey, skillId\]\)/u);
+    expect(source).toMatch(/desiredGeneration\s+Int\s+@map\("desired_generation"\)/u);
+    expect(projection).toMatch(/@@id\(\[workspaceId, skillId\]\)/u);
+    expect(projection).toMatch(/appliedGeneration\s+Int\?\s+@map\("applied_generation"\)/u);
+    expect(schema).not.toMatch(/model (?:Harness|WorkflowResource|WorkflowPlugin)|handlerRegistry|pluginCapability/u);
   });
 
   it("models Team-scoped Skills with embedded manifests and no command ledger", () => {

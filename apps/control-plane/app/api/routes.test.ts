@@ -307,6 +307,8 @@ describe("active MCP surface", () => {
       "mystra_get_task",
       "mystra_update_task",
       "mystra_start_task_production",
+      "mystra_task_workflow_enable",
+      "mystra_task_workflow_disable",
       "skills_list",
       "skill_get",
       "skill_revisions_list",

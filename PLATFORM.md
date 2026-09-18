@@ -75,6 +75,22 @@ TaskExecutionContext does not introduce a third synchronized lifecycle. Heartbea
 event subscriptions, multi-Session coordination and generic
 Artifact/Delivery profiles are deferred.
 
+Feature 058 is implemented inside the Control Plane and the existing
+`mystra-agent`: unified Integration webhook ingress, a program-owned Linear
+event capability, and Project-authorized online-only event subscriptions. Its
+single Node/Next composition root is `apps/control-plane/server.ts`, which owns
+the webhook handler, the event catalog route, the WebSocket transport and the
+volatile `EventRuntime`, delegating every other request to Next. Subscription
+authorization reuses the existing human AuthSession Bearer token and never
+widens workload execution codes or introduces TaskExecutionContext event
+subscriptions. Webhook identity is a stable, connection-bound
+`IntegrationWebhookEndpoint` UUID carried in the URL query; it is public routing
+identity with no token hash, rotation or revocation. `MYSTRA_PUBLIC_URL` is the
+trusted deployment origin for webhook URLs and must be HTTPS in production.
+Persistent event queues, replay, retry APIs, arbitrary callbacks and Issue
+write-back remain excluded. Feature artifacts live under
+`specs/058-event-subscription-protocol/`.
+
 ## Commands
 
 ```sh
@@ -165,8 +181,11 @@ pnpm lsp:typescript
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core production is direct and Task-bound: Start, optionally with Agent Context, creates a
   TaskExecutionContext and exactly one first-version Autopilot Session. Agent reports Task
-  status through a narrow CLI; PR/test notes remain unverified. There is no
-  general WorkflowProvider, workflow node graph or DSL.
+  status through a narrow CLI; PR/test notes remain unverified. Feature 057 adds
+  only the fixed, program-owned `mystra.workflow`, enabled or disabled per Task
+  and persisted in dedicated `TaskWorkflowState`. Its implementation has an
+  internal replacement seam for future Harness plugin work, not a public
+  Resource model, handler registry, workflow graph or remote plugin runtime.
 - Shared-nothing is a future scaling direction, not permission to discard
   durable Task, Session, Runner, result, or artifact state.
 

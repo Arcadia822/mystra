@@ -1,10 +1,12 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
+  DEFAULT_WORKLOAD_CAPABILITIES,
   sessionClaimAssignmentSchema,
   sessionClaimRequestSchema,
   sessionEventBatchSchema,
   effectiveSystemPromptEvidenceSchema,
+  sessionWorkspaceAttachmentSchema,
   type SessionClaimAssignment,
 } from "@mystra/shared";
 
@@ -13,8 +15,16 @@ import { SessionFailure } from "./session-errors";
 
 type RuntimeSessionDb = Pick<RdbProvider,
   "claimSession" | "listSessionEvents" | "appendSessionEvents" | "updateSessionLeaseProviderId" |
-  "listExpiredSessionLeases" | "getSession"
+  "listExpiredSessionLeases" | "getSession" | "getSessionWorkflowCapability" |
+  "getTaskWorkflowState" | "listWorkspaceSkillProjections" | "getSkillRevisionRecord"
 >;
+
+const WORKFLOW_CAPABILITIES = [
+  "workflow:read",
+  "workflow:transition",
+  "workflow:projection:read",
+  "workflow:projection:report",
+] as const;
 
 function hashLeaseToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -67,20 +77,62 @@ export class RuntimeSessionService {
       throw new SessionFailure("session_conflict", "Claimed Session has incomplete launch events");
     }
     const promptEvidence = effectiveSystemPromptEvidenceSchema.parse(promptEvent.payload);
+    const workspace = sessionWorkspaceAttachmentSchema.parse(workspaceEvent.payload);
+    const workflowSkills = await this.#resolveWorkflowSkills({
+      sessionId: claimed.session.id,
+      teamId: claimed.session.teamId,
+      taskId: claimed.session.taskId,
+      workspaceId: workspace.taskWorkspaceId,
+    });
     return sessionClaimAssignmentSchema.parse({
       session: claimed.session,
       lease: { ...claimed.lease, sessionId: claimed.session.id },
       systemPrompt: promptEvidence.finalPrompt,
-      workspace: workspaceEvent.payload,
+      workspace,
       message: { messageId: messageEvent.messageId, content: messageEvent.payload.content },
       ...(claimed.executionCodeExpiresAt ? {
         execution: {
           code: executionCode,
           expiresAt: claimed.executionCodeExpiresAt,
-          capabilities: ["context:read", "task-status:read", "task-status:transition"],
+          capabilities: workflowSkills
+            ? [...DEFAULT_WORKLOAD_CAPABILITIES, ...WORKFLOW_CAPABILITIES]
+            : DEFAULT_WORKLOAD_CAPABILITIES,
         },
       } : {}),
+      ...(workflowSkills ? { workflowSkills } : {}),
     });
+  }
+
+  async #resolveWorkflowSkills(input: {
+    sessionId: string; teamId: string; taskId: string; workspaceId: string;
+  }) {
+    const capability = await this.#db.getSessionWorkflowCapability(input.sessionId);
+    if (!capability || capability.revokedAt !== null) return undefined;
+    const state = await this.#db.getTaskWorkflowState(capability.workflowStateId, { teamId: input.teamId });
+    if (!state || state.activeKey === null || state.taskId !== input.taskId || capability.taskId !== input.taskId || capability.teamId !== input.teamId) {
+      return undefined;
+    }
+    const projections = await this.#db.listWorkspaceSkillProjections({ teamId: input.teamId, workspaceId: input.workspaceId });
+    const entries = await Promise.all(projections.map(async (projection) => {
+      if (projection.desiredGeneration !== state.stateVersion) {
+        throw new SessionFailure("session_conflict", "Workflow Skill projection generation is inconsistent");
+      }
+      const revision = await this.#db.getSkillRevisionRecord({
+        teamId: input.teamId, skillId: projection.skillId, revisionId: projection.skillRevisionId,
+      });
+      if (!revision || revision.publicationStatus !== "ready") {
+        throw new SessionFailure("session_conflict", "Workflow Skill revision is unavailable");
+      }
+      return {
+        skillId: projection.skillId,
+        revisionId: projection.skillRevisionId,
+        relativePath: projection.relativePath,
+        zipSha256: revision.zipSha256,
+        manifest: revision.manifest,
+        downloadPath: `/api/runner/sessions/${input.sessionId}/skills/${projection.skillId}/revisions/${projection.skillRevisionId}/download`,
+      };
+    }));
+    return { workspaceId: input.workspaceId, generation: state.stateVersion, entries, removals: [] };
   }
 
   async appendEvents(input: { sessionId: string; teamId: string; leaseToken: string; batch: unknown }) {

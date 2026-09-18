@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { LinearIssueProvider } from "./linear";
 
 const linearIssue = {

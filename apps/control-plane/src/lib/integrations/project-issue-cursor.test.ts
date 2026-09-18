@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { decodeProjectIssueCursor, encodeProjectIssueCursor } from "./project-issue-cursor";
 
 const scope = {

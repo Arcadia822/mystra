@@ -11,7 +11,7 @@ import {
   readRequestCookies,
   setTransactionCookie,
 } from "@/lib/integrations/github-oauth-cookies";
-import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
+import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/error-response"
 import { getDb } from "@/lib/db";
 import {
   authorizationErrorResponse,

@@ -15,11 +15,11 @@ for review and download independently of Runtime delivery.
 ## Runtime shape
 
 ```text
-apps/control-plane    API, MCP, Web, integrations, Skill library, RDB and Session coordination
-apps/runner-daemon    host Runtime enrollment, Workspace materialization and Session execution
+apps/control-plane    API, MCP, Web, integrations, Skill/workflow services, RDB and Session coordination
+apps/runner-daemon    host Runtime enrollment, Workspace/Skill materialization and Session execution
 packages/shared       canonical Zod contracts, Session events and projection reducer
 packages/agent-adapters  Codex/Copilot CLI command and continuation adapters
-packages/agent-cli    workload-local mystra-agent context and Task-status client
+packages/agent-cli    workload-local mystra-agent context, Task-status and workflow client
 plugins/mystra        MCP-facing Agent skills
 ```
 
@@ -44,6 +44,11 @@ plugins/mystra        MCP-facing Agent skills
    Revision. Mystra validates and previews selected archive files in memory,
    stores Skill/Revision metadata through `RdbProvider`, and stores the original
    ZIP in S3-compatible object storage for authorized preview and download.
+8. A Human may explicitly enable the fixed `mystra.workflow` for a Task. Its
+   dedicated `TaskWorkflowState` begins at `understand`; the scoped Agent reads
+   the current step and submits allowlisted transitions through `mystra-agent`.
+   Each Task-bound Session receives a deterministic generated Skill projection
+   for the workflow state observed at launch.
 
 ## Boundaries
 
@@ -73,6 +78,11 @@ plugins/mystra        MCP-facing Agent skills
   Skill with the same name. Revision ZIPs use one S3-compatible source of truth;
   there is no filesystem adapter, RDB BLOB, per-file object catalog, Session/Agent
   binding, or Runtime delivery in Spec 056.
+- Workflow is a separate Task-scoped opt-in capability with exactly one
+  program-owned definition: `understand -> implement -> verify -> completed`,
+  with `verification-failed` returning to `implement`. It does not add generic
+  Harness Resources, attachments, registries, editable graphs, remote plugins,
+  automatic Agent routing, or a parallel TaskExecutionContext state machine.
 
 ## Important commands
 
@@ -91,3 +101,5 @@ Use `specs/spec-status.md` for Spec-Kit completion and
 automatic Runtime/Workspace launch, navigation and the workload CLI boundary.
 Use `specs/056-skill-library/` for Skill CRUD, immutable Revision, ZIP validation,
 S3-compatible storage, preview, download, and archive semantics.
+Use `specs/057-workflow-harness-runtime/` for the fixed Task workflow,
+allowlisted transitions, workload CLI commands, and generated Skill projection.

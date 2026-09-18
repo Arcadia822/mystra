@@ -19,6 +19,9 @@ import { RuntimeSessionService } from "../src/lib/sessions/runtime-session-servi
 import { SessionService } from "../src/lib/sessions/session-service";
 import { TaskSessionLaunchService } from "../src/lib/sessions/task-session-launch-service";
 import { TaskProductionService } from "../src/lib/tasks/task-production-service";
+import { ProgramOwnedFixedWorkflowRuntime } from "../src/lib/workflows/fixed-workflow-runtime";
+import { WorkflowSessionLaunchService } from "../src/lib/workflows/workflow-session-launch-service";
+import { WorkflowSkillProjectionService } from "../src/lib/workflows/workflow-skill-projection-service";
 
 const migrationDirectories = [
   "20260806182000_init",
@@ -32,6 +35,8 @@ const migrationDirectories = [
   "20260810160000_session_launch_framework",
   "20260811210000_factory_task_execution_context",
   "20260812090000_standard_agent_context",
+  "20260824090000_skill_library",
+  "20260825190000_fixed_task_workflow",
 ];
 
 export async function createSessionE2eFixture() {
@@ -235,11 +240,14 @@ export async function createSessionE2eFixture() {
         });
       },
   };
+  const workflowRuntime = new ProgramOwnedFixedWorkflowRuntime();
+  const workflowSkills = new WorkflowSkillProjectionService({ db, runtime: workflowRuntime });
   const sessions = new SessionService({
     db,
     runtimeResolver: async (id) => id === runtime.id ? runtime : undefined,
     workspace: workspaceService,
     now,
+    workflow: new WorkflowSessionLaunchService({ db, runtime: workflowRuntime, skills: workflowSkills, now }),
   });
   const production = new TaskProductionService({ db, workspace: workspaceService, sessions, now });
   const taskSessionLaunches = new TaskSessionLaunchService({
@@ -270,6 +278,8 @@ export async function createSessionE2eFixture() {
     runtime,
     runnerId,
     workspace,
+    workflowRuntime,
+    workflowSkills,
     async close() {
       await server.close();
       await db.close();

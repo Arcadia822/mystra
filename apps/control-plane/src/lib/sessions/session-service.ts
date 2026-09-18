@@ -17,6 +17,7 @@ import {
   type TaskSessionLaunchInput,
   type TaskRecord,
   type TaskWorkspaceView,
+  type SessionWorkflowCapability,
 } from "@mystra/shared";
 
 import type { RdbProvider } from "../db/rdb-provider";
@@ -35,12 +36,20 @@ type WorkspaceResolver = {
   resolveSessionAttachment(input: { teamId: string; taskId: string; requestedRuntimeId: string }): Promise<SessionWorkspaceAttachment>;
 };
 
+type WorkflowLaunchResolver = {
+  prepare(input: { teamId: string; taskId: string; sessionId: string; workspaceId: string }): Promise<{
+    prompt: string;
+    capability: SessionWorkflowCapability;
+  } | undefined>;
+};
+
 export class SessionService {
   readonly #db: SessionDb;
   readonly #workspace: WorkspaceResolver;
   readonly #runtimeResolver: (id: string) => Promise<RuntimeView | undefined>;
   readonly #now: () => string;
   readonly #newId: () => string;
+  readonly #workflow: WorkflowLaunchResolver | undefined;
 
   constructor(input: {
     db: SessionDb;
@@ -48,12 +57,14 @@ export class SessionService {
     runtimeResolver?: (id: string) => Promise<RuntimeView | undefined>;
     now?: () => string;
     newId?: () => string;
+    workflow?: WorkflowLaunchResolver;
   }) {
     this.#db = input.db;
     this.#workspace = input.workspace;
     this.#runtimeResolver = input.runtimeResolver ?? ((id) => input.db.getRuntime(id));
     this.#now = input.now ?? (() => new Date().toISOString());
     this.#newId = input.newId ?? randomUUID;
+    this.#workflow = input.workflow;
   }
 
   async launch(input: {
@@ -110,8 +121,17 @@ export class SessionService {
       revision: agent.revision,
       systemPrompt: agent.systemPrompt,
     } : null;
+    const workflow = await this.#workflow?.prepare({
+      teamId: input.actor.teamId,
+      taskId: task.id,
+      sessionId: request.sessionId,
+      workspaceId: workspace.taskWorkspaceId,
+    });
     const prompt = input.executionContextBootstrap
-      ? assembleTaskExecutionContextSystemPrompt({ runtime: runtime!, providerKey: request.providerKey, agentContext })
+      ? assembleTaskExecutionContextSystemPrompt({
+          runtime: runtime!, providerKey: request.providerKey, agentContext,
+          ...(workflow ? { workflow: workflow.prompt } : {}),
+        })
       : assembleSystemPrompt({
           runtime: runtime!,
           providerKey: request.providerKey,
@@ -119,6 +139,7 @@ export class SessionService {
           task: input.frozenTask ?? task,
           project: project ?? null,
           ...(request.context.manual ? { manualContext: request.context.manual } : {}),
+          ...(workflow ? { workflow: workflow.prompt } : {}),
         });
     const timestamp = this.#now();
     const session = sessionSchema.parse({
@@ -142,7 +163,10 @@ export class SessionService {
     });
     const events = this.#initialEvents(session, request, prompt, workspace, timestamp);
     try {
-      return await this.#db.createSessionWithEvents({ session, launchRequest: request, events });
+      return await this.#db.createSessionWithEvents({
+        session, launchRequest: request, events,
+        ...(workflow ? { workflowCapability: workflow.capability } : {}),
+      });
     } catch (error) {
       if (error instanceof RdbError && error.code === "RDB_CONFLICT") {
         throw new SessionFailure("session_conflict", "sessionId was reused with different launch inputs");

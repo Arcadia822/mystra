@@ -16,7 +16,8 @@ import {
 } from "@mystra/shared";
 import { z } from "zod";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
+import { createLinearEventsCapability } from "./linear-events";
 import { issueWorkspaceBranchDecision } from "./issue-workspace-branch";
 import type { IntegrationPlugin, IssueProvider } from "./types";
 
@@ -397,10 +398,11 @@ export function createLinearIntegration(input: {
     descriptor: {
       name: "linear",
       provider: "linear",
-      capabilities: ["issues"],
+      capabilities: ["issues", "events"],
     },
     capabilities: {
       issues: new LinearIssueProvider(input),
+      events: createLinearEventsCapability(),
     },
   };
 }

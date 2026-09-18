@@ -32,9 +32,20 @@ import {
   workspacePreparationAttemptSchema,
   taskExecutionContextSchema,
   taskStatusTransitionSchema,
+  taskWorkflowStateSchema,
+  taskWorkflowTransitionSchema,
+  sessionWorkflowCapabilitySchema,
+  workspaceSkillSourceSchema,
+  workspaceSkillProjectionSchema,
   type TaskExecutionContext,
   type TaskStatusTransition,
   type SkillManifestEntry,
+  type TaskWorkflowState,
+  type TaskWorkflowTransition,
+  type SessionWorkflowCapability,
+  type WorkspaceSkillSource,
+  type WorkspaceSkillProjection,
+  type IntegrationWebhookEndpoint,
 } from "@mystra/shared";
 
 import type {
@@ -58,6 +69,12 @@ import type {
   SkillRevision as PrismaSkillRevision,
   TaskExecutionContext as PrismaTaskExecutionContext,
   TaskStatusTransition as PrismaTaskStatusTransition,
+  TaskWorkflowState as PrismaTaskWorkflowState,
+  TaskWorkflowTransition as PrismaTaskWorkflowTransition,
+  SessionWorkflowCapability as PrismaSessionWorkflowCapability,
+  IntegrationWebhookEndpoint as PrismaIntegrationWebhookEndpoint,
+  WorkspaceSkillSource as PrismaWorkspaceSkillSource,
+  WorkspaceSkillProjection as PrismaWorkspaceSkillProjection,
 } from "../../generated/prisma/sqlite/client";
 import { RdbError } from "./prisma-errors";
 import type {
@@ -228,6 +245,26 @@ export function mapTaskStatusTransition(row: PrismaTaskStatusTransition): TaskSt
   });
 }
 
+export function mapTaskWorkflowState(row: PrismaTaskWorkflowState): TaskWorkflowState {
+  return taskWorkflowStateSchema.parse(row);
+}
+
+export function mapTaskWorkflowTransition(row: PrismaTaskWorkflowTransition): TaskWorkflowTransition {
+  return taskWorkflowTransitionSchema.parse(row);
+}
+
+export function mapSessionWorkflowCapability(row: PrismaSessionWorkflowCapability): SessionWorkflowCapability {
+  return sessionWorkflowCapabilitySchema.parse(row);
+}
+
+export function mapWorkspaceSkillSource(row: PrismaWorkspaceSkillSource): WorkspaceSkillSource {
+  return workspaceSkillSourceSchema.parse(row);
+}
+
+export function mapWorkspaceSkillProjection(row: PrismaWorkspaceSkillProjection): WorkspaceSkillProjection {
+  return workspaceSkillProjectionSchema.parse(row);
+}
+
 export function mapSession(row: PrismaSession): Session {
   return sessionSchema.parse({
     id: row.id,
@@ -388,6 +425,18 @@ export function mapTeamMembership(row: PrismaTeamMembership): TeamMembershipReco
     userId: row.userId,
     role: teamRoleSchema.parse(row.role),
     status: membershipStatusSchema.parse(row.status),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function mapIntegrationWebhookEndpoint(
+  row: PrismaIntegrationWebhookEndpoint,
+): IntegrationWebhookEndpoint {
+  return {
+    id: row.id,
+    teamId: row.teamId,
+    connectionId: row.connectionId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

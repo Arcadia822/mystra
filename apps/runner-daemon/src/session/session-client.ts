@@ -1,8 +1,11 @@
 import {
+  SKILL_MAX_ARCHIVE_BYTES,
   sessionClaimAssignmentSchema,
   sessionEventBatchSchema,
+  workflowSkillProjectionReportSchema,
   type SessionClaimAssignment,
   type SessionEventInput,
+  type WorkflowSkillProjectionReport,
 } from "@mystra/shared";
 
 export class SessionClientHttpError extends Error {
@@ -15,6 +18,8 @@ export class SessionClientHttpError extends Error {
 export interface SessionControlPlaneClient {
   claim(runtimeId: string, runnerId: string, waitSeconds: number): Promise<SessionClaimAssignment | undefined>;
   appendEvents(assignment: SessionClaimAssignment, events: SessionEventInput[]): Promise<void>;
+  downloadWorkflowSkill(assignment: SessionClaimAssignment, downloadPath: string): Promise<Buffer>;
+  reportWorkflowSkills(assignment: SessionClaimAssignment, report: WorkflowSkillProjectionReport): Promise<boolean>;
 }
 
 export class HttpSessionControlPlaneClient implements SessionControlPlaneClient {
@@ -63,5 +68,55 @@ export class HttpSessionControlPlaneClient implements SessionControlPlaneClient 
       if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 250));
     }
     throw lastError ?? new Error("Session event append failed");
+  }
+
+  async downloadWorkflowSkill(assignment: SessionClaimAssignment, downloadPath: string): Promise<Buffer> {
+    const response = await fetch(new URL(downloadPath, this.endpoint), {
+      headers: {
+        "x-mystra-team-id": assignment.session.teamId,
+        "x-mystra-lease-token": assignment.lease.leaseToken,
+      },
+    });
+    if (!response.ok || !response.body) throw new SessionClientHttpError(response.status);
+    const declared = Number(response.headers.get("content-length"));
+    if (!Number.isSafeInteger(declared) || declared < 1 || declared > SKILL_MAX_ARCHIVE_BYTES) {
+      await response.body.cancel();
+      throw new Error("Workflow Skill archive length is invalid");
+    }
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > declared || size > SKILL_MAX_ARCHIVE_BYTES) {
+        await reader.cancel();
+        throw new Error("Workflow Skill archive exceeds its declared bound");
+      }
+      chunks.push(value);
+    }
+    if (size !== declared) throw new Error("Workflow Skill archive length does not match its response");
+    return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), size);
+  }
+
+  async reportWorkflowSkills(assignment: SessionClaimAssignment, untrustedReport: WorkflowSkillProjectionReport): Promise<boolean> {
+    const report = workflowSkillProjectionReportSchema.parse(untrustedReport);
+    const response = await fetch(new URL(
+      `/api/runner/sessions/${encodeURIComponent(assignment.session.id)}/skills/report`,
+      this.endpoint,
+    ), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-mystra-team-id": assignment.session.teamId,
+        "x-mystra-lease-token": assignment.lease.leaseToken,
+      },
+      body: JSON.stringify(report),
+    });
+    await response.text();
+    if (response.status === 409) return false;
+    if (!response.ok) throw new SessionClientHttpError(response.status);
+    return true;
   }
 }

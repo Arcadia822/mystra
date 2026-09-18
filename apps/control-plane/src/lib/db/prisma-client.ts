@@ -30,6 +30,12 @@ import {
   type WorkspacePreparationAttempt,
   type TaskExecutionContext,
   type TaskStatusTransition,
+  type TaskWorkflowState,
+  type TaskWorkflowTransition,
+  type SessionWorkflowCapability,
+  type WorkspaceSkillSource,
+  type WorkspaceSkillProjection,
+  type IntegrationWebhookEndpoint,
 } from "../../generated/prisma/sqlite/client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 
@@ -61,6 +67,12 @@ type TaskUpdate = Partial<Pick<Task,
 >>;
 type TaskExecutionContextUpdate = Partial<Pick<TaskExecutionContext,
   "workspaceId" | "sessionId" | "capabilityRevokedAt" | "setupFailureCode" | "setupFailureMessage" | "updatedAt"
+>>;
+type TaskWorkflowStateUpdate = Partial<Pick<TaskWorkflowState,
+  "stageId" | "stateVersion" | "activeKey" | "disabledByUserId" | "disableCommandId" | "disabledAt" | "updatedAt"
+>>;
+type WorkspaceSkillProjectionUpdate = Partial<Pick<WorkspaceSkillProjection,
+  "skillRevisionId" | "relativePath" | "desiredGeneration" | "appliedGeneration" | "status" | "failureCode" | "updatedAt"
 >>;
 type TaskWorkspaceUpdate = Partial<Pick<
   TaskWorkspace,
@@ -121,9 +133,25 @@ export interface MystraPrismaDelegates {
       create: ProjectIssueSource;
       update: ProjectIssueSourceUpdate;
     }): Promise<ProjectIssueSource>;
-    findUnique(args: { where: { projectId_integration: Pick<ProjectIssueSource, "projectId" | "integration"> } }): Promise<ProjectIssueSource | null>;
+    findUnique(args: {
+      where:
+        | { projectId_integration: Pick<ProjectIssueSource, "projectId" | "integration"> }
+        | { teamId_integration_scopeType_scopeExternalId: Pick<ProjectIssueSource, "teamId" | "integration" | "scopeType" | "scopeExternalId"> };
+      include?: { project?: boolean; connection?: boolean };
+    }): Promise<(ProjectIssueSource & { project?: Project; connection?: IntegrationConnection }) | null>;
     findMany(args: { where: { connectionId: string; teamId?: string }; orderBy: OrderBy }): Promise<ProjectIssueSource[]>;
     deleteMany(args: { where: { projectId: string; integration: string; teamId?: string } }): Promise<CountResult>;
+  };
+  integrationWebhookEndpoint: {
+    create(args: { data: IntegrationWebhookEndpoint }): Promise<IntegrationWebhookEndpoint>;
+    findUnique(args: {
+      where: { id: string } | { connectionId: string };
+      include?: { connection?: boolean };
+    }): Promise<(IntegrationWebhookEndpoint & { connection?: IntegrationConnection }) | null>;
+    findFirst(args: {
+      where: { connectionId?: string; teamId?: string };
+    }): Promise<IntegrationWebhookEndpoint | null>;
+    deleteMany(args: { where: { connectionId: string } }): Promise<CountResult>;
   };
   task: {
     create(args: { data: Task }): Promise<Task>;
@@ -179,6 +207,20 @@ export interface MystraPrismaDelegates {
     findUnique(args: { where: { id: string } | { taskId_idempotencyKey: Pick<TaskStatusTransition, "taskId" | "idempotencyKey"> } }): Promise<TaskStatusTransition | null>;
     findMany(args: { where: { taskId: string; teamId?: string }; orderBy: Array<{ revision: SortOrder }>; take?: number }): Promise<TaskStatusTransition[]>;
   };
+  taskWorkflowState: {
+    create(args: { data: TaskWorkflowState }): Promise<TaskWorkflowState>;
+    updateMany(args: { where: { id: string; teamId?: string; activeKey?: string | null; stateVersion?: number; disableCommandId?: string }; data: TaskWorkflowStateUpdate }): Promise<CountResult>;
+    findUnique(args: { where: { id: string } | { taskId_activeKey: { taskId: string; activeKey: string } } | { taskId_enableCommandId: { taskId: string; enableCommandId: string } } }): Promise<TaskWorkflowState | null>;
+  };
+  taskWorkflowTransition: {
+    create(args: { data: TaskWorkflowTransition }): Promise<TaskWorkflowTransition>;
+    findUnique(args: { where: { id: string } | { workflowStateId_commandId: { workflowStateId: string; commandId: string } } }): Promise<TaskWorkflowTransition | null>;
+  };
+  sessionWorkflowCapability: {
+    create(args: { data: SessionWorkflowCapability }): Promise<SessionWorkflowCapability>;
+    updateMany(args: { where: { workflowStateId?: string; revokedAt?: null }; data: { revokedAt: string } }): Promise<CountResult>;
+    findUnique(args: { where: { sessionId: string } }): Promise<SessionWorkflowCapability | null>;
+  };
   taskWorkspace: {
     create(args: { data: TaskWorkspace }): Promise<TaskWorkspace>;
     updateMany(args: {
@@ -189,9 +231,21 @@ export interface MystraPrismaDelegates {
       where: { id: string } | { taskId_runtimeId: Pick<TaskWorkspace, "taskId" | "runtimeId"> };
     }): Promise<TaskWorkspace | null>;
     findMany(args: {
-      where?: { teamId?: string; runtimeId?: string; state?: string };
+      where?: { teamId?: string; taskId?: string; runtimeId?: string; state?: string };
       orderBy: OrderBy;
     }): Promise<TaskWorkspace[]>;
+  };
+  workspaceSkillSource: {
+    create(args: { data: WorkspaceSkillSource }): Promise<WorkspaceSkillSource>;
+    deleteMany(args: { where: { workspaceId: string; sourceKey?: { startsWith: string } } }): Promise<CountResult>;
+    findMany(args: { where: { workspaceId: string }; orderBy: Array<{ sourceKey: SortOrder } | { skillId: SortOrder }> }): Promise<WorkspaceSkillSource[]>;
+  };
+  workspaceSkillProjection: {
+    create(args: { data: WorkspaceSkillProjection }): Promise<WorkspaceSkillProjection>;
+    updateMany(args: { where: { workspaceId: string; skillId?: string; desiredGeneration?: number }; data: WorkspaceSkillProjectionUpdate }): Promise<CountResult>;
+    deleteMany(args: { where: { workspaceId: string; skillId?: { notIn: string[] } } }): Promise<CountResult>;
+    findUnique(args: { where: { workspaceId_skillId: { workspaceId: string; skillId: string } } }): Promise<WorkspaceSkillProjection | null>;
+    findMany(args: { where: { workspaceId: string }; orderBy: Array<{ skillId: SortOrder }> }): Promise<WorkspaceSkillProjection[]>;
   };
   workspacePreparationAttempt: {
     create(args: { data: WorkspacePreparationAttempt }): Promise<WorkspacePreparationAttempt>;
@@ -391,6 +445,7 @@ const modelMethods = {
   integrationConnection: ["upsert", "updateMany", "findUnique", "findMany", "deleteMany"],
   project: ["create", "updateMany", "findUnique", "findMany"],
   projectIssueSource: ["upsert", "findUnique", "findMany", "deleteMany"],
+  integrationWebhookEndpoint: ["create", "findUnique", "findFirst", "deleteMany"],
   task: ["create", "updateMany", "findUnique", "findMany"],
   session: ["create", "updateMany", "findUnique", "findMany"],
   sessionEvent: ["create", "findUnique", "findMany"],
@@ -399,7 +454,12 @@ const modelMethods = {
   sessionDispatchLease: ["create", "updateMany", "findUnique", "findMany", "deleteMany"],
   taskExecutionContext: ["create", "updateMany", "findUnique"],
   taskStatusTransition: ["create", "findUnique", "findMany"],
+  taskWorkflowState: ["create", "updateMany", "findUnique"],
+  taskWorkflowTransition: ["create", "findUnique"],
+  sessionWorkflowCapability: ["create", "updateMany", "findUnique"],
   taskWorkspace: ["create", "updateMany", "findUnique", "findMany"],
+  workspaceSkillSource: ["create", "deleteMany", "findMany"],
+  workspaceSkillProjection: ["create", "updateMany", "deleteMany", "findUnique", "findMany"],
   workspacePreparationAttempt: ["create", "updateMany", "findUnique", "findMany"],
   agent: ["create", "updateMany", "findUnique", "findMany"],
   runtime: ["create", "updateMany", "findUnique", "findMany"],

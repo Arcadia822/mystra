@@ -8,7 +8,7 @@ import {
 
 import type { RdbProvider } from "../db/rdb-provider";
 import type { SecretProvider } from "../secrets/secret-provider";
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import type { GitHubCredentialResolver } from "./github-credential";
 import { GitHubIntegrationProvider } from "./github";
 import { LinearIssueProvider } from "./linear";

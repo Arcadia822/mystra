@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 
 const cursorPayloadSchema = z.object({
   version: z.literal(1),

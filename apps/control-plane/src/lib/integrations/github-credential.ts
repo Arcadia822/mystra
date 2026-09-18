@@ -8,7 +8,7 @@ import { getDb } from "../db";
 import { getSecretProvider } from "../secrets";
 import type { SecretProvider } from "../secrets/secret-provider";
 import { assertGitHubAppAvailable } from "./deployment-capabilities";
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import type { GitHubAppService } from "./github-app";
 
 type CredentialDb = Pick<

@@ -7,3 +7,4 @@ export const agentCliBinDirectory = path.resolve(
 );
 
 export * from "./client.js";
+export * from "./workflow-materializer.js";

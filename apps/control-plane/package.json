@@ -8,11 +8,14 @@
     "predev": "pnpm --filter @mystra/shared build && pnpm --filter @mystra/ui build && pnpm run db:generate",
     "pretest": "pnpm --filter @mystra/shared build",
     "pretypecheck": "pnpm --filter @mystra/shared build && pnpm --filter @mystra/ui build",
-    "build": "next build --webpack",
+    "build": "next build --webpack && pnpm run build:server",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --packages=external --alias:@=./src --outfile=dist/server.js",
+    "build:server:dev": "esbuild server.ts --bundle --platform=node --format=esm --packages=external --alias:@=./src --outfile=dist/server.dev.js",
     "db:generate": "prisma generate --config prisma/sqlite/prisma.config.ts && prisma generate --config prisma/postgresql/prisma.config.ts",
     "db:test:postgresql": "vitest run src/lib/db/prisma-provider.postgresql.test.ts",
     "db:validate": "prisma validate --config prisma/sqlite/prisma.config.ts && prisma validate --config prisma/postgresql/prisma.config.ts",
-    "dev": "next dev",
+    "dev": "pnpm run build:server:dev && node dist/server.dev.js",
+    "start": "node dist/server.js",
     "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
@@ -33,6 +36,7 @@
     "pg": "8.16.3",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "ws": "8.21.3",
     "yaml": "2.9.0",
     "yauzl": "3.4.0",
     "zod": "^4.1.13"
@@ -43,10 +47,13 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/s3rver": "3.7.4",
+    "@types/ws": "8.18.1",
     "@types/yauzl": "3.4.0",
     "@types/yazl": "3.3.1",
+    "esbuild": "0.28.2",
     "prisma": "7.9.1",
     "s3rver": "3.7.1",
+    "tsx": "4.20.6",
     "yazl": "3.3.1"
   }
 }

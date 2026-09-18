@@ -35,9 +35,13 @@ The self-use Agent reads Linear through host-local `linctl` and creates its PR
 through host-local `gh`; Mystra does not proxy, credential, or verify either
 operation. PR/self-test text is Agent-reported and is not verified by Mystra.
 Attempt-owned heartbeat, event subscriptions, multiple Sessions, generic
-Artifact submission and verification are follow-up specifications. Product runtime MUST NOT depend on a
-general WorkflowProvider, configurable workflow blueprint, workflow node graph,
-or DSL outside that TaskExecutionContext.
+Artifact submission and verification are follow-up specifications. Feature 057
+introduces only the fixed, program-owned `mystra.workflow`: Human explicitly
+enables or disables it for a Task, its dedicated `TaskWorkflowState` drives
+Task-scoped stage transitions, and its current Stage drives source-aware Skill
+projection. The implementation keeps an internal replacement seam for a future
+Harness plugin specification, but this feature does not add generic Resources,
+attachments, registries, editable definitions or a plugin runtime.
 The approved GitHub App connection exception is hosted-only. It uses OAuth only
 to verify that an authenticated actor may bind an installation to a Team and
 uses short-lived installation tokens for both discovery and delivery. The

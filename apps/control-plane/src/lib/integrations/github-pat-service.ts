@@ -13,7 +13,7 @@ import type {
   RdbProvider,
 } from "../db/rdb-provider";
 import type { SecretProvider } from "../secrets/secret-provider";
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { validateGitHubPat, type GitHubPatValidation } from "./github-pat";
 
 type PatConnectionDb = Pick<

@@ -28,6 +28,7 @@ model IntegrationConnection {
   issueTasks               Task[]
   repositoryTaskWorkspaces TaskWorkspace[]      @relation("TaskWorkspaceRepositoryConnection")
   issueTaskWorkspaces      TaskWorkspace[]      @relation("TaskWorkspaceIssueConnection")
+  webhookEndpoint          IntegrationWebhookEndpoint?
   team                     Team                 @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([teamId, integration, provider, providerExternalId])
@@ -78,9 +79,23 @@ model ProjectIssueSource {
   team            Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([projectId, integration])
+  @@unique([teamId, integration, scopeType, scopeExternalId])
   @@index([teamId])
   @@index([connectionId])
   @@map("project_issue_sources")
+}
+
+model IntegrationWebhookEndpoint {
+  id           String                @id
+  teamId       String                @map("team_id")
+  connectionId String                @unique @map("connection_id")
+  createdAt    String                @map("created_at")
+  updatedAt    String                @map("updated_at")
+  connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team         Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([teamId])
+  @@map("integration_webhook_endpoints")
 }
 
 model Task {
@@ -112,6 +127,9 @@ model Task {
   sessions             Session[]
   executionContext     TaskExecutionContext?
   statusTransitions    TaskStatusTransition[]
+  workflowStates       TaskWorkflowState[]
+  workflowTransitions  TaskWorkflowTransition[]
+  workflowCapabilities SessionWorkflowCapability[]
 
   @@unique([teamId, idempotencyKey])
   @@unique([issueProvider, issueConnectionId, issueScopeExternalId, issueExternalId])
@@ -188,6 +206,60 @@ model TaskStatusTransition {
   @@map("task_status_transitions")
 }
 
+model TaskWorkflowState {
+  id                 String                   @id
+  teamId             String                   @map("team_id")
+  taskId             String                   @map("task_id")
+  workflowId         String                   @map("workflow_id")
+  stageId            String                   @map("stage_id")
+  stateVersion       Int                      @map("state_version")
+  activeKey          String?                  @map("active_key")
+  enabledByUserId    String                   @map("enabled_by_user_id")
+  enableCommandId    String                   @map("enable_command_id")
+  enabledAt          String                   @map("enabled_at")
+  disabledByUserId   String?                  @map("disabled_by_user_id")
+  disableCommandId   String?                  @map("disable_command_id")
+  disabledAt         String?                  @map("disabled_at")
+  updatedAt          String                   @map("updated_at")
+  team               Team                     @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  task               Task                     @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  enabledBy          User                     @relation("WorkflowEnabledBy", fields: [enabledByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  disabledBy         User?                    @relation("WorkflowDisabledBy", fields: [disabledByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  transitions        TaskWorkflowTransition[]
+  sessionCapabilities SessionWorkflowCapability[]
+
+  @@unique([taskId, activeKey])
+  @@unique([taskId, enableCommandId])
+  @@index([teamId, updatedAt])
+  @@map("task_workflow_states")
+}
+
+model TaskWorkflowTransition {
+  id               String            @id
+  workflowStateId  String            @map("workflow_state_id")
+  teamId           String            @map("team_id")
+  taskId           String            @map("task_id")
+  sessionId        String            @map("session_id")
+  commandId        String            @map("command_id")
+  payloadHash      String            @map("payload_hash")
+  actionId         String            @map("action_id")
+  fromStageId      String            @map("from_stage_id")
+  toStageId        String            @map("to_stage_id")
+  fromStateVersion Int               @map("from_state_version")
+  toStateVersion   Int               @map("to_state_version")
+  occurredAt       String            @map("occurred_at")
+  workflowState    TaskWorkflowState @relation(fields: [workflowStateId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team             Team              @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  task             Task              @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  session          Session           @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([workflowStateId, commandId])
+  @@unique([workflowStateId, toStateVersion])
+  @@index([teamId, occurredAt])
+  @@index([taskId, occurredAt])
+  @@map("task_workflow_transitions")
+}
+
 model TaskWorkspace {
   id                    String                        @id
   teamId                String                        @map("team_id")
@@ -222,6 +294,8 @@ model TaskWorkspace {
   team                  Team                          @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   attempts              WorkspacePreparationAttempt[]
   executionContext      TaskExecutionContext?
+  skillSources          WorkspaceSkillSource[]
+  skillProjections      WorkspaceSkillProjection[]
 
   @@unique([taskId, runtimeId])
   @@index([teamId, state, createdAt])
@@ -229,6 +303,45 @@ model TaskWorkspace {
   @@index([connectionId])
   @@index([issueConnectionId])
   @@map("task_workspaces")
+}
+
+model WorkspaceSkillSource {
+  workspaceId       String        @map("workspace_id")
+  sourceKey         String        @map("source_key")
+  skillId           String        @map("skill_id")
+  skillRevisionId   String        @map("skill_revision_id")
+  relativePath      String        @map("relative_path")
+  desiredGeneration Int           @map("desired_generation")
+  createdAt         String        @map("created_at")
+  updatedAt         String        @map("updated_at")
+  workspace         TaskWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  skill             Skill         @relation(fields: [skillId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  skillRevision     SkillRevision @relation(fields: [skillRevisionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([workspaceId, sourceKey, skillId])
+  @@index([workspaceId, skillId])
+  @@index([skillRevisionId])
+  @@map("workspace_skill_sources")
+}
+
+model WorkspaceSkillProjection {
+  workspaceId       String        @map("workspace_id")
+  skillId           String        @map("skill_id")
+  skillRevisionId   String        @map("skill_revision_id")
+  relativePath      String        @map("relative_path")
+  desiredGeneration Int           @map("desired_generation")
+  appliedGeneration Int?          @map("applied_generation")
+  status            String
+  failureCode       String?       @map("failure_code")
+  updatedAt         String        @map("updated_at")
+  workspace         TaskWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  skill             Skill         @relation(fields: [skillId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  skillRevision     SkillRevision @relation(fields: [skillRevisionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([workspaceId, skillId])
+  @@index([workspaceId, desiredGeneration])
+  @@index([skillRevisionId])
+  @@map("workspace_skill_projections")
 }
 
 model WorkspacePreparationAttempt {
@@ -335,6 +448,8 @@ model User {
   memberships           TeamMembership[]
   createdSkills         Skill[]         @relation("SkillCreatedBy")
   archivedSkills        Skill[]         @relation("SkillArchivedBy")
+  enabledWorkflowStates TaskWorkflowState[] @relation("WorkflowEnabledBy")
+  disabledWorkflowStates TaskWorkflowState[] @relation("WorkflowDisabledBy")
   createdSkillRevisions SkillRevision[] @relation("SkillRevisionCreatedBy")
 
   @@index([createdAt, id])
@@ -391,6 +506,10 @@ model Team {
   executionContexts      TaskExecutionContext[]
   taskStatusTransitions  TaskStatusTransition[]
   skills                 Skill[]
+  workflowStates         TaskWorkflowState[]
+  workflowTransitions    TaskWorkflowTransition[]
+  workflowCapabilities   SessionWorkflowCapability[]
+  webhookEndpoints       IntegrationWebhookEndpoint[]
 
   @@index([status])
   @@index([createdAt, id])
@@ -415,6 +534,8 @@ model Skill {
   archivedBy        User?           @relation("SkillArchivedBy", fields: [archivedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   currentRevision   SkillRevision?  @relation("SkillCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   revisions         SkillRevision[] @relation("SkillRevisions")
+  workspaceSources  WorkspaceSkillSource[]
+  workspaceProjections WorkspaceSkillProjection[]
 
   @@unique([teamId, activeName])
   @@index([teamId, status, updatedAt, id])
@@ -445,6 +566,8 @@ model SkillRevision {
   childRevisions        SkillRevision[] @relation("SkillRevisionLineage")
   currentForSkills      Skill[]         @relation("SkillCurrentRevision")
   createdBy             User            @relation("SkillRevisionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  workspaceSources      WorkspaceSkillSource[]
+  workspaceProjections  WorkspaceSkillProjection[]
 
   @@unique([skillId, sequence])
   @@unique([skillId, baseRevisionId, zipSha256])
@@ -481,11 +604,30 @@ model Session {
   eventStreams     SessionEventStream[]
   dispatchLease    SessionDispatchLease?
   executionContext TaskExecutionContext?
+  workflowCapability SessionWorkflowCapability?
+  workflowTransitions TaskWorkflowTransition[]
 
   @@index([teamId, updatedAt, id])
   @@index([taskId, updatedAt, id])
   @@index([runtimeId, state, createdAt, id])
   @@map("sessions")
+}
+
+model SessionWorkflowCapability {
+  sessionId       String            @id @map("session_id")
+  workflowStateId String            @map("workflow_state_id")
+  teamId          String            @map("team_id")
+  taskId          String            @map("task_id")
+  issuedAt        String            @map("issued_at")
+  revokedAt       String?           @map("revoked_at")
+  session         Session           @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  workflowState   TaskWorkflowState @relation(fields: [workflowStateId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team            Team              @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  task            Task              @relation(fields: [taskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([workflowStateId, revokedAt])
+  @@index([teamId, taskId])
+  @@map("session_workflow_capabilities")
 }
 
 model SessionEvent {

@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { authorizationErrorResponse, requireHumanSession, requireTeamPermission } from "../../../../../_auth";
 import { getDb } from "@/lib/db";
-import { integrationErrorResponse } from "@/lib/integrations/errors";
+import { integrationErrorResponse } from "@/lib/integrations/error-response"
 import { LinearApiKeyConnectionService } from "@/lib/integrations/linear-api-key-service";
 import { getSecretProvider } from "@/lib/secrets";
 

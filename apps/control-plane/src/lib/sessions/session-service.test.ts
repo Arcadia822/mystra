@@ -15,7 +15,7 @@ const agentId = "00000000-0000-4000-8000-000000000005";
 const sessionId = "00000000-0000-4000-8000-000000000006";
 const messageId = "00000000-0000-4000-8000-000000000007";
 
-function fixture() {
+function fixture(options: { workflow?: boolean } = {}) {
   const createSessionWithEvents = vi.fn(async (input: SessionLaunchPersistenceInput) => ({ session: input.session, created: true }));
   const db = {
     getTask: vi.fn(async (): Promise<TaskRecord | undefined> => ({ id: taskId, teamId, title: "Task", description: "Description", projectId, issue: null, status: "in_progress", metadata: {}, runtimeId, statusRevision: 2, statusNote: null, statusUpdatedAt: "2026-08-10T00:00:00.000Z", statusActor: { kind: "system", actorId: null, agentId: null, executionContextId: null, sessionId: null }, createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z" })),
@@ -56,10 +56,42 @@ function fixture() {
     })),
     resolveSessionAttachment: vi.fn(async () => ({ kind: "task" as const, taskWorkspaceId: "00000000-0000-4000-8000-000000000008", runtimeId, workspaceRef: "host-task-workspace:00000000-0000-4000-8000-000000000008", sharingMode: "shared-mutable" as const })),
   };
-  return { service: new SessionService({ db, workspace, runtimeResolver: async () => runtime, now: () => "2026-08-10T00:00:00.000Z", newId: vi.fn(() => crypto.randomUUID()) }), createSessionWithEvents, db, workspace };
+  const workflow = options.workflow ? {
+    prepare: vi.fn(async () => ({
+      prompt: "Run $MYSTRA_AGENT_PATH workflow current before work.",
+      capability: {
+        sessionId, workflowStateId: "00000000-0000-4000-8000-000000000030",
+        teamId, taskId, issuedAt: "2026-08-10T00:00:00.000Z", revokedAt: null,
+      },
+    })),
+  } : undefined;
+  return { service: new SessionService({ db, workspace, runtimeResolver: async () => runtime, now: () => "2026-08-10T00:00:00.000Z", newId: vi.fn(() => crypto.randomUUID()), ...(workflow ? { workflow } : {}) }), createSessionWithEvents, db, workspace, workflow };
 }
 
 describe("SessionService.launch", () => {
+  it("freezes active Workflow guidance and capability into the atomic launch", async () => {
+    const { service, createSessionWithEvents, workflow } = fixture({ workflow: true });
+    await service.launch({
+      actor: { actorId: "user-1", teamId, roles: ["owner"] },
+      request: {
+        sessionId, runtimeId, providerKey: "codex", agentId,
+        context: { taskId, projectId },
+        firstUserMessage: { messageId, content: [{ type: "text", text: "Execute" }] }, metadata: {},
+      },
+    });
+    const persisted = createSessionWithEvents.mock.calls[0]![0];
+    const evidence = persisted.events[1]!.payload as { components: Array<{ name: string }> };
+    expect(evidence.components.map(({ name }) => name)).toEqual([
+      "standard", "runtime", "provider", "workflow", "agent_context", "execution_context",
+    ]);
+    expect(persisted.workflowCapability).toMatchObject({
+      sessionId, workflowStateId: "00000000-0000-4000-8000-000000000030",
+    });
+    expect(workflow?.prepare).toHaveBeenCalledWith({
+      teamId, taskId, sessionId, workspaceId: "00000000-0000-4000-8000-000000000008",
+    });
+  });
+
   it("launches a TaskExecutionContext with frozen Agent and Task input plus the standard production bootstrap", async () => {
     const { service, createSessionWithEvents, db } = fixture();
     db.resolveActiveAgent.mockRejectedValue(new Error("current Agent must not be resolved"));

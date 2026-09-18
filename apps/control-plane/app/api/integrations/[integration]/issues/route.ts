@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { issueListRequestSchema } from "@mystra/shared";
 
-import { integrationErrorResponse } from "@/lib/integrations/errors";
+import { integrationErrorResponse } from "@/lib/integrations/error-response"
 import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
 import { resolveIssueRepositoryScope } from "@/lib/integrations/resolve-issue-scope";
 import { getDb } from "@/lib/db";

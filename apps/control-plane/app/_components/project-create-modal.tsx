@@ -23,7 +23,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useResource } from "../_lib/use-resource";
-import { SettingGroup, SettingRow } from "./setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 import { githubConnectionAccountLogin } from "./github-connection-model";
 
 const repositoryFields = [

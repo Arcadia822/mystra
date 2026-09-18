@@ -1,6 +1,6 @@
 import type { RepositorySnapshot } from "@mystra/shared";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import type { IntegrationRegistry } from "./registry";
 import type { IssueProvider } from "./types";
 

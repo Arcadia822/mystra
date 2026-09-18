@@ -19,7 +19,8 @@ describe("removed persistence surfaces", () => {
   it("persists the canonical Session ledger without obsolete execution models", () => {
     for (const provider of ["sqlite", "postgresql"]) {
       const source = readFileSync(path.join(process.cwd(), `prisma/${provider}/schema.prisma`), "utf8");
-      expect(source.match(/^model\s+/gmu)).toHaveLength(24);
+      expect(source.match(/^model\s+/gmu)).toHaveLength(30);
+      expect(source).toMatch(/model\s+IntegrationWebhookEndpoint\b/u);
       expect(source).toMatch(/model\s+Skill\b/u);
       expect(source).toMatch(/model\s+SkillRevision\b/u);
       expect(source).toMatch(/model\s+ProjectIssueSource\b/u);
@@ -32,6 +33,11 @@ describe("removed persistence surfaces", () => {
       expect(source).toMatch(/model\s+TaskExecutionContext\b/u);
       expect(source).not.toMatch(/model\s+Harness\b/u);
       expect(source).toMatch(/model\s+TaskStatusTransition\b/u);
+      expect(source).toMatch(/model\s+TaskWorkflowState\b/u);
+      expect(source).toMatch(/model\s+TaskWorkflowTransition\b/u);
+      expect(source).toMatch(/model\s+SessionWorkflowCapability\b/u);
+      expect(source).toMatch(/model\s+WorkspaceSkillSource\b/u);
+      expect(source).toMatch(/model\s+WorkspaceSkillProjection\b/u);
       expect(source).toMatch(/model\s+WorkspacePreparationAttempt\b/u);
       expect(source).toMatch(/model\s+Session\b/u);
       expect(source).toMatch(/model\s+SessionEvent\b/u);

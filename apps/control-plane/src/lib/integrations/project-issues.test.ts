@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { ProjectIssuesService } from "./project-issues";
 
 const teamId = "00000000-0000-4000-8000-000000000001";
