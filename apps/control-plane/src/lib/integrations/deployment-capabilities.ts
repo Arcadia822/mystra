@@ -1,4 +1,4 @@
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 
 export type DeploymentCapabilities = {
   githubApp: boolean;

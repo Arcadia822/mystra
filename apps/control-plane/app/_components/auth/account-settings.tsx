@@ -7,7 +7,7 @@ import { controlPlaneRequest, ControlPlaneApiError } from "../../_lib/control-pl
 import { useResource } from "../../_lib/use-resource";
 import { UiButton } from "../ui-actions";
 import { UiInput } from "../ui-fields";
-import { SettingGroup, SettingRow } from "../setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 import { PasswordChangeForm } from "./password-change-form";
 
 interface AccountResponse {

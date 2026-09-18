@@ -17,3 +17,4 @@ export * from "./auth.js";
 export * from "./agent.js";
 export * from "./task-execution-context.js";
 export * from "./workflow.js";
+export * from "./integration-events.js";

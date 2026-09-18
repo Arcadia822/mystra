@@ -10,6 +10,7 @@ import { normalizeDatabaseError } from "./prisma-errors";
 import { PrismaRdbProvider } from "./prisma-provider";
 import { parseRdbConfiguration, type RdbConfiguration } from "./rdb-config";
 import type { RdbProvider } from "./rdb-provider";
+export type { RdbProvider };
 
 let providerPromise: Promise<RdbProvider> | undefined;
 

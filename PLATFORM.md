@@ -75,6 +75,22 @@ TaskExecutionContext does not introduce a third synchronized lifecycle. Heartbea
 event subscriptions, multi-Session coordination and generic
 Artifact/Delivery profiles are deferred.
 
+Feature 058 is implemented inside the Control Plane and the existing
+`mystra-agent`: unified Integration webhook ingress, a program-owned Linear
+event capability, and Project-authorized online-only event subscriptions. Its
+single Node/Next composition root is `apps/control-plane/server.ts`, which owns
+the webhook handler, the event catalog route, the WebSocket transport and the
+volatile `EventRuntime`, delegating every other request to Next. Subscription
+authorization reuses the existing human AuthSession Bearer token and never
+widens workload execution codes or introduces TaskExecutionContext event
+subscriptions. Webhook identity is a stable, connection-bound
+`IntegrationWebhookEndpoint` UUID carried in the URL query; it is public routing
+identity with no token hash, rotation or revocation. `MYSTRA_PUBLIC_URL` is the
+trusted deployment origin for webhook URLs and must be HTTPS in production.
+Persistent event queues, replay, retry APIs, arbitrary callbacks and Issue
+write-back remain excluded. Feature artifacts live under
+`specs/058-event-subscription-protocol/`.
+
 ## Commands
 
 ```sh

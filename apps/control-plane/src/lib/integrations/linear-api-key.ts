@@ -1,7 +1,7 @@
 import { linearTeamListResponseSchema, type LinearTeamListResponse } from "@mystra/shared";
 import { z } from "zod";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 
 const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
 const DEFAULT_TIMEOUT_MS = 15_000;

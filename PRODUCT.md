@@ -226,6 +226,12 @@ In scope:
 - Thin CLI, MCP, and secondary Web clients over the canonical API.
 - Team-authorized, Session-scoped typed event history needed for execution,
   recovery and diagnosis.
+- Feature 058 explicitly admits built-in Integration webhook ingress and
+  Project-authorized, online-only Integration event subscriptions through the
+  existing `mystra-agent` CLI. This is an approved design boundary, not a claim
+  of shipped implementation. Linear remains the built-in read-only
+  IssueProvider; its webhook receiver is an additional Integration capability.
+  Subscription authentication is independent of workload execution codes.
 
 Out of scope:
 
@@ -237,9 +243,10 @@ Out of scope:
   arbitrary secret management, and managed hosted RDB provisioning or
   administration. Connection-scoped GitHub PAT storage is the narrow exception
   required by the active GitHub Integration contract.
-- Caller-login OAuth, webhooks, Issue write-back, a general-purpose Integration
-  management catalog beyond the GitHub connection surface, public hosted Team
-  administration, or GitLab as an enabled intake Integration.
+- Caller-login OAuth, webhook integrations beyond feature 058's unified ingress
+  and first Linear receiver, Issue write-back, a general-purpose Integration
+  management catalog beyond the approved connection surfaces, public hosted
+  Team administration, or GitLab as an enabled intake Integration.
 - Workflow DAG/node execution, remote Harness plugins, a Workflow marketplace,
   standing orders, arbitrary triggers, automatic routing, or configurable
   Production Recipes. Feature 057 is a narrow exception for the single fixed,
@@ -253,7 +260,10 @@ Out of scope:
   `context get`, and the scoped Task status commands.
 - Attempt-owned heartbeat/event subscriptions, multiple Sessions, automatic
   Session recovery, and configurable Production Recipes beyond Feature 057's
-  explicitly enabled fixed Workflow working protocol.
+  explicitly enabled fixed Workflow working protocol. Feature 058's
+  Project-authorized Integration subscriptions are separate from attempts and
+  do not expand `MYSTRA_EXECUTION_CODE`. Offline replay, persistent event queues,
+  retry API, arbitrary callback URLs and Issue write-back remain excluded.
 
 ## Success measures
 

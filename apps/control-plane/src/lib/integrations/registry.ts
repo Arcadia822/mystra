@@ -1,9 +1,10 @@
 import { integrationDescriptorSchema, type IntegrationDescriptor } from "@mystra/shared";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { createGitHubIntegration } from "./github";
 import { createLinearIntegration } from "./linear";
 import type {
+  IntegrationEventCapability,
   IntegrationPlugin,
   IssueProvider,
   RepoProvider,
@@ -23,6 +24,7 @@ export class IntegrationRegistry {
       const actualCapabilities = [
         ...(integration.capabilities.repositories ? ["repositories" as const] : []),
         ...(integration.capabilities.issues ? ["issues" as const] : []),
+        ...(integration.capabilities.events ? ["events" as const] : []),
       ];
       if (
         actualCapabilities.length !== descriptor.capabilities.length
@@ -63,6 +65,14 @@ export class IntegrationRegistry {
       });
     }
     return integration.capabilities.issues;
+  }
+  getEventCapability(name: string): IntegrationEventCapability | undefined {
+    const integration = this.integrations.get(name);
+    return integration?.capabilities.events;
+  }
+
+  getIntegration(name: string): IntegrationPlugin | undefined {
+    return this.integrations.get(name);
   }
 
   private requireIntegration(name: string): IntegrationPlugin {

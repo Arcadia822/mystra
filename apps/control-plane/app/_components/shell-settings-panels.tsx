@@ -3,7 +3,7 @@ import type { IntegrationConnectionListResponse } from "@mystra/shared";
 
 import type { AppearancePreferences, ControlPlaneThemeDefinition, ThemeVariant } from "../theme-system";
 import { getThemesByVariant } from "../theme-system";
-import { SettingGroup, SettingRow } from "./setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 import { SHELL_COPY, type ShellLocale } from "./shell-copy";
 import { UiActionLink, UiButton } from "./ui-actions";
 import { UiDropdown } from "./ui-dropdown";

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { repositoryListRequestSchema } from "@mystra/shared";
 
-import { integrationErrorResponse } from "@/lib/integrations/errors";
+import { integrationErrorResponse } from "@/lib/integrations/error-response"
 import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
 import { getDb } from "@/lib/db";
-import { IntegrationFailure } from "@/lib/integrations/errors";
+import { IntegrationFailure } from "@/lib/integrations/failure"
 import {
   authorizationErrorResponse,
   requireHumanSession,

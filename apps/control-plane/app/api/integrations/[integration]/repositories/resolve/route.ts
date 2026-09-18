@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/errors";
+import { IntegrationFailure, integrationErrorResponse } from "@/lib/integrations/error-response"
 import { defaultIntegrationRegistry } from "@/lib/integrations/registry";
 import { getDb } from "@/lib/db";
 import {

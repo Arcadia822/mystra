@@ -45,6 +45,7 @@ import {
   type SessionWorkflowCapability,
   type WorkspaceSkillSource,
   type WorkspaceSkillProjection,
+  type IntegrationWebhookEndpoint,
 } from "@mystra/shared";
 
 import type {
@@ -71,6 +72,7 @@ import type {
   TaskWorkflowState as PrismaTaskWorkflowState,
   TaskWorkflowTransition as PrismaTaskWorkflowTransition,
   SessionWorkflowCapability as PrismaSessionWorkflowCapability,
+  IntegrationWebhookEndpoint as PrismaIntegrationWebhookEndpoint,
   WorkspaceSkillSource as PrismaWorkspaceSkillSource,
   WorkspaceSkillProjection as PrismaWorkspaceSkillProjection,
 } from "../../generated/prisma/sqlite/client";
@@ -423,6 +425,18 @@ export function mapTeamMembership(row: PrismaTeamMembership): TeamMembershipReco
     userId: row.userId,
     role: teamRoleSchema.parse(row.role),
     status: membershipStatusSchema.parse(row.status),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function mapIntegrationWebhookEndpoint(
+  row: PrismaIntegrationWebhookEndpoint,
+): IntegrationWebhookEndpoint {
+  return {
+    id: row.id,
+    teamId: row.teamId,
+    connectionId: row.connectionId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

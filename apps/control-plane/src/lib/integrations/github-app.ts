@@ -8,7 +8,7 @@ import {
 } from "@mystra/shared";
 import { z } from "zod";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 
 const GITHUB_API_URL = "https://api.github.com";
 const GITHUB_OAUTH_URL = "https://github.com/login/oauth";

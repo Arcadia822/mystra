@@ -33,6 +33,7 @@ import type {
   RuntimeView,
   ResolvedAgentSnapshot,
   MembershipStatus,
+  IntegrationWebhookEndpoint,
   TaskWorkspaceTrusted,
   WorkspacePreparationAttempt,
   WorkspacePreparationReport,
@@ -424,6 +425,24 @@ export interface RdbProvider {
   getProjectIssueSource(projectId: string, integration: "linear", options?: { teamId?: string }): Promise<ProjectIssueSource | undefined>;
   listProjectIssueSourcesForConnection(id: string, options?: { teamId?: string }): Promise<ProjectIssueSource[]>;
   deleteProjectIssueSource(projectId: string, integration: "linear", options?: { teamId?: string }): Promise<boolean>;
+
+  getIntegrationWebhookEndpoint(connectionId: string, teamId: string): Promise<IntegrationWebhookEndpoint | undefined>;
+  getIntegrationWebhookEndpointById(id: string): Promise<{ endpoint: IntegrationWebhookEndpoint; connection: IntegrationConnectionRecord } | undefined>;
+  createIntegrationWebhookEndpoint(input: {
+    id?: string;
+    teamId: string;
+    connectionId: string;
+  }): Promise<IntegrationWebhookEndpoint>;
+  resolveProjectIssueSourceScope(input: {
+    teamId: string;
+    integration: string;
+    scopeType: string;
+    scopeExternalId: string;
+  }): Promise<{
+    source: ProjectIssueSource;
+    project: Project;
+    connection: IntegrationConnectionRecord;
+  } | undefined>;
 
   createSecretEnvelope(input: SecretEnvelopeWrite): Promise<void>;
   getSecretEnvelope(reference: string): Promise<SecretEnvelopeRecord | undefined>;

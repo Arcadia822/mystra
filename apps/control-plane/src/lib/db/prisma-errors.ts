@@ -12,7 +12,9 @@ export type RdbErrorCode =
   | "RDB_RELATION_CONFLICT"
   | "RDB_UNAVAILABLE"
   | "STALE_WORKSPACE_ATTEMPT"
-  | "TASK_WORKSPACE_CONFLICT";
+  | "TASK_WORKSPACE_CONFLICT"
+  | "WEBHOOK_PREREQUISITE_UNAVAILABLE"
+  | "ISSUE_SOURCE_SCOPE_CONFLICT";
 
 export class RdbError extends Error {
   readonly code: RdbErrorCode;

@@ -78,6 +78,7 @@ import {
   type TeamListItem,
   type TeamRole,
   normalizeUsername,
+  type IntegrationWebhookEndpoint,
 } from "@mystra/shared";
 import type {
   Runtime as PrismaRuntime,
@@ -93,6 +94,7 @@ import {
   mapAuthSession,
   mapHostRuntimeMetadata,
   mapIntegrationConnectionRecord,
+  mapIntegrationWebhookEndpoint,
   mapTaskExecutionContext,
   mapProviderCapability,
   mapProject,
@@ -1298,8 +1300,11 @@ export class PrismaRdbProvider implements RdbProvider {
 
   async deleteIntegrationConnection(id: string): Promise<boolean> {
     try {
-      const result = await this.#client.integrationConnection.deleteMany({ where: { id } });
-      return result.count > 0;
+      return await this.#client.transaction(async (transaction) => {
+        await transaction.integrationWebhookEndpoint.deleteMany({ where: { connectionId: id } });
+        const result = await transaction.integrationConnection.deleteMany({ where: { id } });
+        return result.count > 0;
+      });
     } catch (error) {
       throw normalizeDatabaseError(error, {
         relationCode: "INTEGRATION_CONNECTION_IN_USE",
@@ -1354,7 +1359,10 @@ export class PrismaRdbProvider implements RdbProvider {
       });
       return mapProjectIssueSource(row);
     } catch (error) {
-      throw normalizeDatabaseError(error);
+      throw normalizeDatabaseError(error, {
+        conflictCode: "ISSUE_SOURCE_SCOPE_CONFLICT",
+        conflictMessage: "The external scope is already bound to another Project",
+      });
     }
   }
 
@@ -1369,6 +1377,103 @@ export class PrismaRdbProvider implements RdbProvider {
     return row && (!options.teamId || row.teamId === options.teamId)
       ? mapProjectIssueSource(row)
       : undefined;
+  }
+
+  async getIntegrationWebhookEndpoint(
+    connectionId: string,
+    teamId: string,
+  ): Promise<IntegrationWebhookEndpoint | undefined> {
+    const row = await this.#client.integrationWebhookEndpoint.findFirst({
+      where: { connectionId, teamId },
+    });
+    return row ? mapIntegrationWebhookEndpoint(row) : undefined;
+  }
+
+  async getIntegrationWebhookEndpointById(
+    id: string,
+  ): Promise<{ endpoint: IntegrationWebhookEndpoint; connection: IntegrationConnectionRecord } | undefined> {
+    const row = await this.#client.integrationWebhookEndpoint.findUnique({
+      where: { id },
+      include: { connection: true },
+    });
+    if (!row || !row.connection) {
+      return undefined;
+    }
+    return {
+      endpoint: mapIntegrationWebhookEndpoint(row),
+      connection: mapIntegrationConnectionRecord(row.connection),
+    };
+  }
+
+  async createIntegrationWebhookEndpoint(input: {
+    id?: string;
+    teamId: string;
+    connectionId: string;
+  }): Promise<IntegrationWebhookEndpoint> {
+    const timestamp = this.#now();
+    const endpointId = input.id ?? this.#newId();
+    return await this.#client.transaction(async (transaction) => {
+      const connection = await transaction.integrationConnection.findUnique({
+        where: { id: input.connectionId },
+      });
+      if (!connection || connection.teamId !== input.teamId) {
+        throw new RdbError("RDB_NOT_FOUND", "Integration connection not found for team");
+      }
+      if (connection.status !== "active" || connection.credentialState !== "ready") {
+        throw new RdbError("WEBHOOK_PREREQUISITE_UNAVAILABLE", "Integration connection is not active or ready");
+      }
+      const existing = await transaction.integrationWebhookEndpoint.findUnique({
+        where: { connectionId: input.connectionId },
+      });
+      if (existing) {
+        return mapIntegrationWebhookEndpoint(existing);
+      }
+      const created = await transaction.integrationWebhookEndpoint.create({
+        data: {
+          id: endpointId,
+          teamId: input.teamId,
+          connectionId: input.connectionId,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      });
+      return mapIntegrationWebhookEndpoint(created);
+    });
+  }
+
+  async resolveProjectIssueSourceScope(input: {
+    teamId: string;
+    integration: string;
+    scopeType: string;
+    scopeExternalId: string;
+  }): Promise<{
+    source: ProjectIssueSource;
+    project: Project;
+    connection: IntegrationConnectionRecord;
+  } | undefined> {
+    const row = await this.#client.projectIssueSource.findUnique({
+      where: {
+        teamId_integration_scopeType_scopeExternalId: {
+          teamId: input.teamId,
+          integration: input.integration,
+          scopeType: input.scopeType,
+          scopeExternalId: input.scopeExternalId,
+        },
+      },
+      include: {
+        project: true,
+        connection: true,
+      },
+    });
+    if (!row || !row.project || !row.connection) {
+      return undefined;
+    }
+    const { project, connection, ...sourceRow } = row;
+    return {
+      source: mapProjectIssueSource(sourceRow),
+      project: mapProject(project),
+      connection: mapIntegrationConnectionRecord(connection),
+    };
   }
 
   async listProjectIssueSourcesForConnection(
@@ -1503,6 +1608,7 @@ export class PrismaRdbProvider implements RdbProvider {
         if (current.credentialRef !== reference) {
           throw new RdbError("RDB_CONFLICT", "Credential reference changed concurrently");
         }
+        await transaction.integrationWebhookEndpoint.deleteMany({ where: { connectionId: id } });
         const result = await transaction.integrationConnection.deleteMany({ where: { id } });
         if (result.count === 0) return false;
         await transaction.secretEnvelope.deleteMany({ where: { reference } });

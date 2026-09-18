@@ -6,7 +6,7 @@ import type {
 } from "@mystra/shared";
 import { type FormEvent, useMemo, useRef, useState } from "react";
 
-import { SettingGroup, SettingRow } from "./setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 import {
   githubConnectionAccountLogin,
   githubConnectionRepositorySelection,

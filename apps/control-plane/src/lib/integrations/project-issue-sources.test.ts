@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { RdbError } from "../db/prisma-errors";
 import { ProjectIssueSourceService } from "./project-issue-sources";
 
 const teamId = "00000000-0000-4000-8000-000000000001";
@@ -56,5 +57,27 @@ describe("ProjectIssueSourceService", () => {
     });
     await expect(service.upsert("mystra", teamId, { connectionId: linearConnectionId, linearTeamExternalId: "linear-team-1" }))
       .rejects.toMatchObject({ code: "INTEGRATION_CONNECTION_MISMATCH" });
+  });
+
+  it("maps a database reverse-unique conflict to ISSUE_SOURCE_SCOPE_CONFLICT", async () => {
+    const db = {
+      getProjectBySlug: vi.fn(async () => project),
+      getProjectIssueSource: vi.fn(async () => undefined),
+      getIntegrationConnectionRecord: vi.fn(async (id: string) => id === githubConnectionId ? connection(id, "github") : connection(id, "linear")),
+      upsertProjectIssueSource: vi.fn(async () => {
+        throw new RdbError("ISSUE_SOURCE_SCOPE_CONFLICT", "The external scope is already bound to another Project");
+      }),
+      deleteProjectIssueSource: vi.fn(),
+    };
+    const service = new ProjectIssueSourceService({
+      db: db as never,
+      secrets: { get: vi.fn(async () => "lin-key") } as never,
+      resolveTeam: vi.fn(async () => ({ id: "linear-team-1", key: "MYS", name: "Mystra", archivedAt: null })),
+    });
+
+    await expect(service.upsert("mystra", teamId, {
+      connectionId: linearConnectionId,
+      linearTeamExternalId: "linear-team-1",
+    })).rejects.toMatchObject({ code: "ISSUE_SOURCE_SCOPE_CONFLICT" });
   });
 });

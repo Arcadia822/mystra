@@ -102,7 +102,7 @@ export const issueListResponseSchema = z
   .strict();
 export type IssueListResponse = z.infer<typeof issueListResponseSchema>;
 
-export const integrationCapabilitySchema = z.enum(["repositories", "issues"]);
+export const integrationCapabilitySchema = z.enum(["repositories", "issues", "events"]);
 export type IntegrationCapability = z.infer<typeof integrationCapabilitySchema>;
 
 export const integrationDescriptorSchema = z
@@ -153,6 +153,8 @@ export const integrationErrorCodeSchema = z.enum([
   "INTEGRATION_UPSTREAM_ERROR",
   "INTEGRATION_INVALID_RESPONSE",
   "DISPATCH_CONFLICT",
+  "WEBHOOK_PREREQUISITE_UNAVAILABLE",
+  "ISSUE_SOURCE_SCOPE_CONFLICT",
 ]);
 export type IntegrationErrorCode = z.infer<typeof integrationErrorCodeSchema>;
 

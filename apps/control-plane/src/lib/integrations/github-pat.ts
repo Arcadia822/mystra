@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { z } from "zod";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 
 const GITHUB_API_URL = "https://api.github.com";
 const DEFAULT_TIMEOUT_MS = 15_000;

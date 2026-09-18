@@ -90,6 +90,34 @@ and explicitly feature-local experimental layout may remain prototype-owned.
 
 ## Amendment Notes
 
+- 2026-09-16: Feature 058 is the narrow, approved design exception to the
+  blanket webhook exclusions in Principle I and the 2026-08-05 amendment:
+  unified Integration webhook ingress, built-in Linear event parsing, and
+  Project-authorized online-only subscriptions in the existing `mystra-agent`
+  CLI. This amendment authorizes design and subsequent gated implementation;
+  it does not claim the feature is already shipped. The subscription command
+  family uses authentication independent of the workload execution code and
+  does not broaden that code's TaskExecutionContext authority. It is not
+  attempt-owned heartbeat/event subscription or a new Agent identity system.
+  Linear remains Mystra's built-in read-only IssueProvider, not a host-local
+  `linctl` adapter. Ingress is authorized by a stable, server-generated
+  endpoint UUID carried in the webhook URL query; the owner accepts that URL
+  possession authorizes ingress and does not authenticate Linear as sender.
+  The endpoint identifier is public routing identity with no token hash,
+  one-time plaintext, rotation, revocation or log redaction, and no
+  request-signature verification in the first version. Integration
+  registration is program-owned, not a remotely loadable plugin platform.
+  Arbitrary callback URLs, retry API, offline replay, persistent event queues,
+  Issue write-back, Agent/DSH adapters and automatic Task/Session/workflow
+  actions remain excluded. Principle III's attempt-scoped exclusions and all
+  historical amendment entries remain unchanged.
+- 2026-09-17: The owner simplified feature 058's webhook model to the stable
+  endpoint UUID model recorded in the 2026-09-16 entry. Fixed connection-bound
+  endpoint identity, repeated reads of the same URL, and no credential
+  lifecycle replace the earlier one-time-disclosure plan; capability URLs and
+  ingress logs are accepted as-is. The surrounding exclusions above are
+  unchanged and remain the boundary for implementation review.
+
 - 2026-08-24: Feature 057 introduces only the fixed, program-owned
   `mystra.workflow`, explicitly enabled or disabled per Task. Dedicated
   `TaskWorkflowState` contributes fixed Session guidance, workload-scoped stage
@@ -310,4 +338,4 @@ Use 5xP files for durable project context and Spec-Kit for feature-level work.
 
 This constitution overrides casual prompt preferences when repository behavior is at stake. Amendments require a documented reason, a migration note for affected specs/templates, and verification that existing docs do not contradict the new rule.
 
-**Version**: 2.16.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-08-17
+**Version**: 2.18.0 | **Ratified**: 2026-05-09 | **Last Amended**: 2026-09-17

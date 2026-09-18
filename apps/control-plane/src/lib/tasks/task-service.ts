@@ -7,7 +7,7 @@ import type {
 } from "@mystra/shared";
 
 import type { RdbProvider } from "../db/rdb-provider";
-import { IntegrationFailure } from "../integrations/errors";
+import { IntegrationFailure } from "../integrations/failure"
 import type { ProjectIssuesService } from "../integrations/project-issues";
 
 type TaskDb = Pick<

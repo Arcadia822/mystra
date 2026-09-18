@@ -8,7 +8,7 @@ import { controlPlaneRequest, ControlPlaneApiError } from "../_lib/control-plane
 import { useResource } from "../_lib/use-resource";
 import { UiButton } from "./ui-actions";
 import { UiInput, UiSelect } from "./ui-fields";
-import { SettingGroup, SettingRow } from "./setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 
 export function TeamMembers({ embedded = false }: { embedded?: boolean }) {
   const headingRef = useRef<HTMLHeadingElement>(null);

@@ -78,7 +78,7 @@ WorkingDirectory=$REMOTE_DIR
 Environment=HOME=/root
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=LC_ALL=C.UTF-8
-ExecStart=/usr/bin/bash -lc 'set -a; if [ -f /root/.mystra/proxy.env ]; then source /root/.mystra/proxy.env; fi; if [ -f /root/.mystra/sentry.env ]; then source /root/.mystra/sentry.env; fi; set +a; export SENTRY_DSN="\${SENTRY_CONTROL_PLANE_DSN:-\${SENTRY_DSN:-}}"; export SENTRY_ORG="\${SENTRY_ORG:-mystra}"; export SENTRY_PROJECT="\${SENTRY_PROJECT:-mystra-control-plane}"; export SENTRY_TRACES_SAMPLE_RATE="\${SENTRY_TRACES_SAMPLE_RATE:-1.0}"; export SENTRY_ENABLE_LOGS="\${SENTRY_ENABLE_LOGS:-1}"; export MYSTRA_ENABLE_DEBUG_ENDPOINTS="\${MYSTRA_ENABLE_DEBUG_ENDPOINTS:-1}"; pnpm --filter @mystra/control-plane exec next dev -H 0.0.0.0 -p 3000'
+ExecStart=/usr/bin/bash -lc 'set -a; if [ -f /root/.mystra/proxy.env ]; then source /root/.mystra/proxy.env; fi; if [ -f /root/.mystra/sentry.env ]; then source /root/.mystra/sentry.env; fi; set +a; export SENTRY_DSN="\${SENTRY_CONTROL_PLANE_DSN:-\${SENTRY_DSN:-}}"; export SENTRY_ORG="\${SENTRY_ORG:-mystra}"; export SENTRY_PROJECT="\${SENTRY_PROJECT:-mystra-control-plane}"; export SENTRY_TRACES_SAMPLE_RATE="\${SENTRY_TRACES_SAMPLE_RATE:-1.0}"; export SENTRY_ENABLE_LOGS="\${SENTRY_ENABLE_LOGS:-1}"; export MYSTRA_ENABLE_DEBUG_ENDPOINTS="\${MYSTRA_ENABLE_DEBUG_ENDPOINTS:-1}"; export MYSTRA_PUBLIC_URL="\${MYSTRA_PUBLIC_URL:-http://$HOST:3000}"; export HOSTNAME=0.0.0.0; export PORT=3000; cd apps/control-plane && pnpm run dev'
 Restart=always
 RestartSec=3
 

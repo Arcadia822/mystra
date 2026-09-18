@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { controlPlaneRequest, ControlPlaneApiError } from "../../_lib/control-plane-api";
 import { UiButton } from "../ui-actions";
 import { UiInput } from "../ui-fields";
-import { SettingGroup, SettingRow } from "../setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 
 export function PasswordChangeForm({ embedded = false, required = false }: { embedded?: boolean; required?: boolean }) {
   const router = useRouter();

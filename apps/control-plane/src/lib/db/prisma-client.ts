@@ -35,6 +35,7 @@ import {
   type SessionWorkflowCapability,
   type WorkspaceSkillSource,
   type WorkspaceSkillProjection,
+  type IntegrationWebhookEndpoint,
 } from "../../generated/prisma/sqlite/client";
 import { isDatabaseErrorCode, normalizeDatabaseError, RdbError } from "./prisma-errors";
 
@@ -132,9 +133,25 @@ export interface MystraPrismaDelegates {
       create: ProjectIssueSource;
       update: ProjectIssueSourceUpdate;
     }): Promise<ProjectIssueSource>;
-    findUnique(args: { where: { projectId_integration: Pick<ProjectIssueSource, "projectId" | "integration"> } }): Promise<ProjectIssueSource | null>;
+    findUnique(args: {
+      where:
+        | { projectId_integration: Pick<ProjectIssueSource, "projectId" | "integration"> }
+        | { teamId_integration_scopeType_scopeExternalId: Pick<ProjectIssueSource, "teamId" | "integration" | "scopeType" | "scopeExternalId"> };
+      include?: { project?: boolean; connection?: boolean };
+    }): Promise<(ProjectIssueSource & { project?: Project; connection?: IntegrationConnection }) | null>;
     findMany(args: { where: { connectionId: string; teamId?: string }; orderBy: OrderBy }): Promise<ProjectIssueSource[]>;
     deleteMany(args: { where: { projectId: string; integration: string; teamId?: string } }): Promise<CountResult>;
+  };
+  integrationWebhookEndpoint: {
+    create(args: { data: IntegrationWebhookEndpoint }): Promise<IntegrationWebhookEndpoint>;
+    findUnique(args: {
+      where: { id: string } | { connectionId: string };
+      include?: { connection?: boolean };
+    }): Promise<(IntegrationWebhookEndpoint & { connection?: IntegrationConnection }) | null>;
+    findFirst(args: {
+      where: { connectionId?: string; teamId?: string };
+    }): Promise<IntegrationWebhookEndpoint | null>;
+    deleteMany(args: { where: { connectionId: string } }): Promise<CountResult>;
   };
   task: {
     create(args: { data: Task }): Promise<Task>;
@@ -428,6 +445,7 @@ const modelMethods = {
   integrationConnection: ["upsert", "updateMany", "findUnique", "findMany", "deleteMany"],
   project: ["create", "updateMany", "findUnique", "findMany"],
   projectIssueSource: ["upsert", "findUnique", "findMany", "deleteMany"],
+  integrationWebhookEndpoint: ["create", "findUnique", "findFirst", "deleteMany"],
   task: ["create", "updateMany", "findUnique", "findMany"],
   session: ["create", "updateMany", "findUnique", "findMany"],
   sessionEvent: ["create", "findUnique", "findMany"],

@@ -3,7 +3,7 @@
 import type { Project, ProjectRepositoryBranchPage } from "@mystra/shared";
 import { useEffect, useState } from "react";
 
-import { SettingGroup, SettingRow } from "./setting-row";
+import { SettingGroup, SettingRow } from "@mystra/ui";
 import { UiButton } from "./ui-actions";
 import { UiInput, UiSelect } from "./ui-fields";
 import {

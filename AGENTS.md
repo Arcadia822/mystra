@@ -12,6 +12,19 @@
 - 可以使用省略号制造刻意停顿。
 - 不使用 emoji。
 
+## Feature 058 boundary
+
+Feature 058 is a narrow approved design exception to the webhook/event
+subscription exclusions below. It adds unified Integration webhook ingress and
+Project-authorized online-only subscriptions inside the existing Control Plane
+and `mystra-agent`, retains the built-in Linear GraphQL IssueProvider, and does
+not widen Task workload execution codes. The single composition root is
+`apps/control-plane/server.ts`; the webhook endpoint UUID is public routing
+identity with no rotation or revocation; `MYSTRA_PUBLIC_URL` must be HTTPS in
+production. Persistent queues, offline replay, retry APIs, arbitrary callbacks
+and Issue write-back remain excluded. Real-Linear and production deployment
+acceptance are still pending owner-provided test resources.
+
 ## Project Context Routing
 
 Use the 5xP files as the durable context map:
@@ -503,5 +516,7 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite 与 PostgreSQL/Supabase-backed PostgreSQL 通过 `RdbProvider` 保存元数据；单一 S3-compatible `S3SkillContentStore` 保存不可变 ZIP；无 filesystem adapter、RDB BLOB 或 per-file object source of truth (056-skill-library)
 - TypeScript 5.9，Node.js 24.14.0 + Next.js 16 Route Handlers、Zod 4、Prisma 7.9.1、Vitest 4、Feature 056 Skill Library、现有 runner-daemon/agent-cli (057-workflow-harness-runtime)
 - SQLite/PostgreSQL/Supabase-backed PostgreSQL behind `RdbProvider`；Skill ZIP 继续使用 Feature 056 S3-compatible store (057-workflow-harness-runtime)
+- TypeScript 5.9，Node.js 24.14.0 + Next.js 16.2.6、React 19、Zod 4、Prisma 7.9.1、Vitest 4、`@mystra/ui`、direct `ws` 8.21.3（双端）与 server bundle 的 esbuild 0.28.2 (058-event-subscription-protocol)
+- SQLite/PostgreSQL/Supabase-backed PostgreSQL 经 RdbProvider；新增 `IntegrationWebhookEndpoint`（connection 唯一）与 `ProjectIssueSource` 反向唯一约束 `(teamId, integration, scopeType, scopeExternalId)`；事件、订阅与去重仅进程内存 (058-event-subscription-protocol)
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider

@@ -1,11 +1,6 @@
-import { NextResponse } from "next/server";
-import {
-  integrationErrorResponseSchema,
-  type IntegrationErrorCode,
-} from "@mystra/shared";
-import { ZodError } from "zod";
+import type { IntegrationErrorCode } from "@mystra/shared";
 
-const statusByCode: Record<IntegrationErrorCode, number> = {
+export const integrationErrorStatusByCode: Record<IntegrationErrorCode, number> = {
   INTEGRATION_NOT_FOUND: 404,
   INTEGRATION_CONNECTION_NOT_FOUND: 404,
   INTEGRATION_CONNECTION_MISMATCH: 400,
@@ -35,8 +30,15 @@ const statusByCode: Record<IntegrationErrorCode, number> = {
   INTEGRATION_UPSTREAM_ERROR: 502,
   INTEGRATION_INVALID_RESPONSE: 502,
   DISPATCH_CONFLICT: 409,
+  WEBHOOK_PREREQUISITE_UNAVAILABLE: 409,
+  ISSUE_SOURCE_SCOPE_CONFLICT: 409,
 };
 
+/**
+ * Provider-neutral Integration failure. Deliberately free of any framework
+ * import so the event data plane (ingress, workers, CLI-facing services) can
+ * raise domain errors without pulling in Next.js.
+ */
 export class IntegrationFailure extends Error {
   readonly code: IntegrationErrorCode;
   readonly status: number;
@@ -53,50 +55,8 @@ export class IntegrationFailure extends Error {
     super(input.message);
     this.name = "IntegrationFailure";
     this.code = input.code;
-    this.status = input.status ?? statusByCode[input.code];
+    this.status = input.status ?? integrationErrorStatusByCode[input.code];
     this.retryAfterSeconds = input.retryAfterSeconds;
     this.details = input.details;
   }
-}
-
-export function integrationErrorResponse(error: unknown): NextResponse {
-  if (error instanceof IntegrationFailure) {
-    return NextResponse.json(
-      integrationErrorResponseSchema.parse({
-        error: {
-          code: error.code,
-          message: error.message,
-          ...(error.retryAfterSeconds !== undefined
-            ? { retryAfterSeconds: error.retryAfterSeconds }
-            : {}),
-          ...(error.details ? { details: error.details } : {}),
-        },
-      }),
-      { status: error.status },
-    );
-  }
-
-  if (error instanceof ZodError) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "INVALID_REQUEST",
-          message: "Request validation failed",
-          details: { issues: error.issues },
-        },
-      },
-      { status: 400 },
-    );
-  }
-
-  const message = error instanceof Error ? error.message : "Unknown dispatch failure";
-  const code = message.startsWith("PROJECT_NOT_FOUND")
-    ? "PROJECT_NOT_FOUND"
-    : message.startsWith("PROJECT_ARCHIVED")
-      ? "PROJECT_ARCHIVED"
-      : message.startsWith("INVALID_GITHUB_REPOSITORY")
-        ? "INVALID_GITHUB_REPOSITORY"
-        : "INVALID_DISPATCH";
-  const status = code === "PROJECT_NOT_FOUND" ? 404 : 400;
-  return NextResponse.json({ error: { code, message } }, { status });
 }

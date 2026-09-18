@@ -1,14 +1,38 @@
 # Integrations
 
 Integrations expose named, independently composable capabilities:
-`RepoProvider` discovers and resolves remote repositories, while
-`IssueProvider` lists and reads work items and owns deterministic working-branch
-policy for exact Issue references.
+`RepoProvider` discovers and resolves remote repositories, `IssueProvider`
+lists and reads work items and owns deterministic working-branch policy for
+exact Issue references, and `IntegrationEventCapability` (feature 058) parses
+provider webhooks and matches normalized events for online subscriptions.
 
 The default registry contains exactly:
 
 - GitHub: repositories and repository-scoped Issues.
-- Linear: read-only Issues.
+- Linear: read-only Issues plus the `linear.issue.state_changed` event capability.
+
+## Event capability and unified ingress
+
+- `IntegrationPlugin.capabilities.events` is an optional compile-time contract.
+  It is injected through the existing registry constructor; there is no dynamic
+  registration API, handler registry product or remote plugin runtime.
+- One provider-neutral ingress owns every webhook: `POST /api/webhooks?token=<endpointId>`.
+  The token is the stable, server-generated `IntegrationWebhookEndpoint` UUID
+  bound to exactly one connection; it is read repeatedly from
+  `GET /api/integration-connections/:id/webhook` and has no create, rotate,
+  revoke, regenerate or hash lifecycle.
+- The HTTP handler only authenticates the endpoint, reads a bounded allowlisted
+  body, admits the request into the bounded volatile `EventRuntime` inbox and
+  returns `200 {"received":true}`. Payload parsing, Project resolution,
+  organization checks, dedup and delivery all run asynchronously afterwards.
+- Events and subscriptions are process memory only: no event table, no offline
+  replay, no ACK/offset, and no delivery guarantee across restarts or windows.
+- Authorization for a subscription Upgrade is always an explicit human
+  AuthSession Bearer token. Cookie-only, webhook endpoint ids and workload
+  execution codes are never subscription credentials.
+- The subscription protocol (`mystra.events.v1`) is served by the same
+  composition root that owns ingress; `server.ts` is the only entry point, and
+  it keeps the Next dev HMR upgrade path separate.
 
 ## Invariants
 
@@ -57,6 +81,19 @@ The default registry contains exactly:
 - Self-hosted Linear credentials are explicit Team-owned API-key connections behind
   `SecretProvider`. Product request paths do not fall back to `LINEAR_API_KEY`; values are never
   included in API responses, events, evidence, or logs.
+- The event data plane imports no Next.js module. Provider failures live in
+  `failure.ts`; only the HTTP adapter `error-response.ts` depends on Next.
+- `MYSTRA_PUBLIC_URL` is the trusted deployment origin used to compose webhook
+  URLs. It is never derived from the request `Host` or `Forwarded` header, and
+  production must serve it over HTTPS.
+
+## Deployment origin and environment
+
+```text
+MYSTRA_PUBLIC_URL   Trusted deployment origin for webhook URLs (HTTPS in production;
+                    loopback HTTP is accepted only for local fixtures).
+```
+
 
 ## Hosted GitHub App deployment
 
@@ -98,6 +135,10 @@ POST /api/integration-connections/linear/api-key
 PUT  /api/integration-connections/linear/api-key/:id
 DELETE /api/integration-connections/linear/api-key/:id
 GET  /api/integration-connections/linear/api-key/:id/teams
+GET  /api/integration-connections/:id/webhook
+POST /api/webhooks?token=:endpointId
+GET  /api/events/catalog?teamId=:teamId
+GET  /api/events/stream?teamId=:teamId     (WebSocket upgrade, subprotocol mystra.events.v1)
 GET  /api/projects/:slug/issue-sources
 PUT  /api/projects/:slug/issue-sources/linear
 DELETE /api/projects/:slug/issue-sources/linear
@@ -111,6 +152,26 @@ GET  /api/integrations/:integration/issues/:identifier
 
 The operator CLI and Web Projects surface call these routes. They do not import
 provider implementations.
+
+## `mystra-agent events`
+
+The workload CLI's `events` family is a thin client of the routes above. It
+reuses the existing operator session store (`--session-file`, then
+`MYSTRA_OPERATOR_STATE_PATH`, then `~/.mystra/operator-session.json`) and never
+accepts `MYSTRA_EXECUTION_CODE` as a fallback credential.
+
+```sh
+mystra-agent events list --team <mystra-team-uuid>
+mystra-agent events subscribe --team <mystra-team-uuid> --project <project-uuid> \
+  --integration linear --event-type linear.issue.state_changed \
+  [--subscription-id <id>] [--filter key=value ...] [--control-stdin]
+```
+
+stdout carries only protocol JSON; diagnostics, reconnect backoff and the
+online-only loss window go to stderr. `--server` must equal the session file's
+normalized origin. Exit codes: 0 success/controlled stop, 2 usage or session
+configuration, 3 transport, 4 authentication or authorization, 130/143 on
+signal. The CLI does not start Agents and does not append Session events.
 
 Project creation binds only an exact IntegrationConnection and stable remote
 repository identity. Agent, Runtime, Provider and Context are independent

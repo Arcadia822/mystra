@@ -8,6 +8,7 @@ import {
 import { randomUUID } from "node:crypto";
 
 import { AgentCliFailure, AgentExecutionClient } from "./client.js";
+import { runEventsCommand } from "./events-cli.js";
 import { materializeWorkflowSkills, WorkflowMaterializationError } from "./workflow-materializer.js";
 
 type Io = { write(value: string): void };
@@ -21,6 +22,18 @@ export async function runAgentCli(input: {
   stderr: Io;
 }): Promise<number> {
   try {
+    const [commandFamily] = input.argv;
+    if (commandFamily === "events") {
+      return await runEventsCommand({
+        argv: input.argv.slice(1),
+        env: input.env,
+        ...(input.fetch ? { fetchImpl: input.fetch } : {}),
+        stdout: input.stdout,
+        stderr: input.stderr,
+        stdin: process.stdin,
+      });
+    }
+
     const endpoint = input.env.MYSTRA_CONTROL_PLANE_URL;
     const executionCode = input.env.MYSTRA_EXECUTION_CODE;
     if (!endpoint) throw new AgentCliFailure("invalid_request", "MYSTRA_CONTROL_PLANE_URL is required");

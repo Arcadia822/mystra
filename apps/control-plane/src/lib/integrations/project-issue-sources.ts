@@ -6,9 +6,14 @@ import {
 } from "@mystra/shared";
 
 import type { RdbProvider } from "../db/rdb-provider";
+import { RdbError } from "../db/prisma-errors";
 import type { SecretProvider } from "../secrets/secret-provider";
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { getLinearTeam } from "./linear-api-key";
+
+function isScopeConflict(error: unknown): boolean {
+  return error instanceof RdbError && error.code === "ISSUE_SOURCE_SCOPE_CONFLICT";
+}
 
 type SourceDb = Pick<
   RdbProvider,
@@ -79,14 +84,24 @@ export class ProjectIssueSourceService {
     if (team.archivedAt) {
       throw new IntegrationFailure({ code: "ISSUE_SCOPE_UNAVAILABLE", message: "Archived Linear Team cannot be configured" });
     }
-    await this.#db.upsertProjectIssueSource({
-      teamId,
-      projectId: project.id,
-      integration: "linear",
-      connectionId: connection.id,
-      scopeType: "linear-team",
-      scopeExternalId: team.id,
-    });
+    try {
+      await this.#db.upsertProjectIssueSource({
+        teamId,
+        projectId: project.id,
+        integration: "linear",
+        connectionId: connection.id,
+        scopeType: "linear-team",
+        scopeExternalId: team.id,
+      });
+    } catch (error) {
+      if (isScopeConflict(error)) {
+        throw new IntegrationFailure({
+          code: "ISSUE_SOURCE_SCOPE_CONFLICT",
+          message: "The Linear Team is already bound to another Project in this Team",
+        });
+      }
+      throw error;
+    }
     return this.get(slug, teamId);
   }
 

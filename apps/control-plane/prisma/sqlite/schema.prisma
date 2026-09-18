@@ -28,6 +28,7 @@ model IntegrationConnection {
   issueTasks               Task[]
   repositoryTaskWorkspaces TaskWorkspace[]      @relation("TaskWorkspaceRepositoryConnection")
   issueTaskWorkspaces      TaskWorkspace[]      @relation("TaskWorkspaceIssueConnection")
+  webhookEndpoint          IntegrationWebhookEndpoint?
   team                     Team                 @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([teamId, integration, provider, providerExternalId])
@@ -78,9 +79,23 @@ model ProjectIssueSource {
   team            Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([projectId, integration])
+  @@unique([teamId, integration, scopeType, scopeExternalId])
   @@index([teamId])
   @@index([connectionId])
   @@map("project_issue_sources")
+}
+
+model IntegrationWebhookEndpoint {
+  id           String                @id
+  teamId       String                @map("team_id")
+  connectionId String                @unique @map("connection_id")
+  createdAt    String                @map("created_at")
+  updatedAt    String                @map("updated_at")
+  connection   IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  team         Team                  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([teamId])
+  @@map("integration_webhook_endpoints")
 }
 
 model Task {
@@ -494,6 +509,7 @@ model Team {
   workflowStates         TaskWorkflowState[]
   workflowTransitions    TaskWorkflowTransition[]
   workflowCapabilities   SessionWorkflowCapability[]
+  webhookEndpoints       IntegrationWebhookEndpoint[]
 
   @@index([status])
   @@index([createdAt, id])

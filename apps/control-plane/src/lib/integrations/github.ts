@@ -20,7 +20,7 @@ import {
 } from "@mystra/shared";
 import { z } from "zod";
 
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import { issueWorkspaceBranchDecision } from "./issue-workspace-branch";
 import type {
   IntegrationPlugin,

@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 
 import { authorizationErrorResponse, requireHumanSession, requireTeamPermission } from "../../../../_auth";
 import { getDb } from "@/lib/db";
-import { integrationErrorResponse, IntegrationFailure } from "@/lib/integrations/errors";
+import { integrationErrorResponse, IntegrationFailure } from "@/lib/integrations/error-response"
 import { defaultGitHubCredentialResolver } from "@/lib/integrations/github-credential";
 import { ProjectIssuesService } from "@/lib/integrations/project-issues";
 import { getSecretProvider } from "@/lib/secrets";

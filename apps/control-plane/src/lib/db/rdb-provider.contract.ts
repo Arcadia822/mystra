@@ -2055,4 +2055,115 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     } while (afterSequence);
     expect(replayedEventCount).toBe(eventCount);
   }, 20_000);
+
+  it("manages stable IntegrationWebhookEndpoint lifecycle and enforces unique scope resolution", async () => {
+    const { initialTeam: teamRecord } = await tenant();
+    const secretRef1 = `linear-key/${randomUUID()}`;
+    const connection = await db.upsertIntegrationConnectionWithSecret(
+      {
+        id: randomUUID(),
+        teamId: teamRecord.id,
+        integration: "linear",
+        provider: "linear",
+        authMethod: "api-key",
+        providerExternalId: "linear-org-1",
+        providerSubject: { name: "Linear Org" },
+        connectionConfig: { workspaceId: "linear-org-1" },
+        capabilities: {
+          issues: { state: "enabled", config: {}, permissions: {}, accessSummary: {}, verifiedAt: null },
+          events: { state: "enabled", config: {}, permissions: {}, accessSummary: {}, verifiedAt: null },
+        },
+        status: "active",
+        credentialState: "ready",
+        credentialRef: secretRef1,
+      },
+      envelope(secretRef1),
+    );
+    const initial = await db.getIntegrationWebhookEndpoint(connection.id, teamRecord.id);
+    expect(initial).toBeUndefined();
+
+    // Create endpoint
+    const endpoint1 = await db.createIntegrationWebhookEndpoint({
+      teamId: teamRecord.id,
+      connectionId: connection.id,
+    });
+    expect(endpoint1.teamId).toBe(teamRecord.id);
+    expect(endpoint1.connectionId).toBe(connection.id);
+    expect(endpoint1.id).toBeDefined();
+
+    // Repeated create returns same endpoint ID
+    const endpoint2 = await db.createIntegrationWebhookEndpoint({
+      teamId: teamRecord.id,
+      connectionId: connection.id,
+    });
+    expect(endpoint2.id).toBe(endpoint1.id);
+
+    // Lookup by connection and by id
+    const fetched = await db.getIntegrationWebhookEndpoint(connection.id, teamRecord.id);
+    expect(fetched?.id).toBe(endpoint1.id);
+
+    const secretRef2 = `gh-pat/${randomUUID()}`;
+    const repoConn = await db.upsertIntegrationConnectionWithSecret(
+      {
+        id: randomUUID(),
+        teamId: teamRecord.id,
+        integration: "github",
+        provider: "github",
+        authMethod: "pat",
+        providerExternalId: "gh-user-1",
+        providerSubject: { login: "octocat" },
+        connectionConfig: { username: "octocat" },
+        capabilities: {
+          repositories: { state: "enabled", config: {}, permissions: {}, accessSummary: {}, verifiedAt: null },
+        },
+        status: "active",
+        credentialState: "ready",
+        credentialRef: secretRef2,
+      },
+      envelope(secretRef2),
+    );
+    const project1 = await db.createProject({
+      teamId: teamRecord.id,
+      name: "Project 1",
+      slug: `p1-${randomUUID().slice(0, 8)}`,
+      repositoryConnectionId: repoConn.id,
+      repositoryExternalId: "12345",
+      repositoryBaseBranch: "main",
+      metadata: {},
+    });
+
+    await db.upsertProjectIssueSource({
+      teamId: teamRecord.id,
+      projectId: project1.id,
+      connectionId: connection.id,
+      integration: "linear",
+      scopeType: "linear-team",
+      scopeExternalId: "team-linear-uuid-1",
+    });
+
+    const resolved = await db.resolveProjectIssueSourceScope({
+      teamId: teamRecord.id,
+      integration: "linear",
+      scopeType: "linear-team",
+      scopeExternalId: "team-linear-uuid-1",
+    });
+    expect(resolved).toBeDefined();
+    expect(resolved?.project.id).toBe(project1.id);
+    expect(resolved?.connection.id).toBe(connection.id);
+    expect(resolved?.source.scopeExternalId).toBe("team-linear-uuid-1");
+
+    // Unmatched scope returns undefined
+    const missing = await db.resolveProjectIssueSourceScope({
+      teamId: teamRecord.id,
+      integration: "linear",
+      scopeType: "linear-team",
+      scopeExternalId: "nonexistent-team",
+    });
+    expect(missing).toBeUndefined();
+
+    // Deleting connection cleans up endpoint
+    expect(await db.deleteProjectIssueSource(project1.id, "linear", { teamId: teamRecord.id })).toBe(true);
+    expect(await db.deleteIntegrationConnection(connection.id)).toBe(true);
+    expect(await db.getIntegrationWebhookEndpointById(endpoint1.id)).toBeUndefined();
+  });
 }

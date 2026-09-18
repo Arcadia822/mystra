@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import type { IntegrationConnectionRecord, IntegrationConnectionUpsert, RdbProvider } from "../db/rdb-provider";
 import type { SecretProvider } from "../secrets/secret-provider";
-import { IntegrationFailure } from "./errors";
+import { IntegrationFailure } from "./failure"
 import {
   listLinearTeams,
   validateLinearApiKey,
