@@ -13,7 +13,7 @@ import { IntegrationRegistry } from "@/lib/integrations/registry";
 import { EventCatalog } from "@/lib/events/catalog";
 import { EventRouter } from "@/lib/events/router";
 import { EventWsTransport, WS_CLOSE_SHUTDOWN } from "@/lib/events/ws-transport";
-import { authenticateRequest, assertPasswordChangeAllowed } from "@/lib/auth";
+import { authenticateRequest, assertPasswordChangeAllowed, hashSessionToken } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import type { IntegrationPlugin } from "@/lib/integrations/types";
 
@@ -100,7 +100,7 @@ describe("EventWsTransport", () => {
       passwordSalt: "s",
       passwordParams: "p",
       initialTeamDisplayName: "WS Team",
-      tokenHash: (await import("@/lib/auth")).hashSessionToken(ownerToken),
+      tokenHash: hashSessionToken(ownerToken),
       expiresAt: "2030-01-01T00:00:00.000Z",
     });
     ownerTeamId = owner.initialTeam.id;
@@ -111,7 +111,7 @@ describe("EventWsTransport", () => {
       passwordSalt: "s",
       passwordParams: "p",
       initialTeamDisplayName: "Other Team",
-      tokenHash: (await import("@/lib/auth")).hashSessionToken("ws-other-token-1234567890"),
+      tokenHash: hashSessionToken("ws-other-token-1234567890"),
       expiresAt: "2030-01-01T00:00:00.000Z",
     })).initialTeam.id;
 
