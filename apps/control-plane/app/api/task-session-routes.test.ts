@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_TASK_INITIAL_INSTRUCTION } from "@mystra/shared";
 
 import { getDb } from "@/lib/db";
 import { GET as getSession } from "./sessions/[id]/route";
@@ -110,7 +111,9 @@ describe("Task Session human routes", () => {
     }), { params: Promise.resolve({ id: taskId }) });
     expect(launched.status).toBe(201);
     expect(services.launch).toHaveBeenCalledWith({
-      actor: { actorId: userId, teamId, roles: ["member"] }, taskId, request: input,
+      actor: { actorId: userId, teamId, roles: ["member"] },
+      taskId,
+      request: { ...input, initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION },
     });
 
     const standardInput = { sessionId: randomUUID(), providerKey: "codex" };
@@ -123,7 +126,7 @@ describe("Task Session human routes", () => {
     expect(services.launch).toHaveBeenLastCalledWith({
       actor: { actorId: userId, teamId, roles: ["member"] },
       taskId,
-      request: { ...standardInput, agentId: null },
+      request: { ...standardInput, agentId: null, initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION },
     });
   });
 

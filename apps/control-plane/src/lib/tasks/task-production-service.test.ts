@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it, vi } from "vitest";
 import type { TaskExecutionContext } from "@mystra/shared";
+import { DEFAULT_TASK_INITIAL_INSTRUCTION } from "@mystra/shared";
 
 import { TaskProductionService } from "./task-production-service";
 import { getHostLivenessRegistry } from "../runtime/runtime-liveness";
@@ -62,13 +63,15 @@ describe("TaskProductionService", () => {
     expect(calls).toEqual(["assigned", "workspace"]);
     expect(result.executionContext).toMatchObject({ agentName: "Production Agent", agentRevision: 7, agentSystemPrompt: "Frozen Agent prompt.", taskTitle: "Frozen title", workspaceId: id("8") });
     expect(result.executionContext).toMatchObject({ plannedSessionId: id("20"), manualContextText: "Inspect the regression" });
+    expect(result.executionContext.initialInstruction).toBe(DEFAULT_TASK_INITIAL_INSTRUCTION);
     expect(updateExecutionContext).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: id("8") }));
   });
 
   it("launches the planned Session once when Workspace becomes ready", async () => {
     const executionContext = {
       id: id("1"), teamId: id("2"), taskId: id("3"), projectId: id("4"), agentId: id("5"), agentName: "Agent", agentRevision: 1,
-      agentSystemPrompt: "Prompt", taskTitle: "Task", taskDescription: null, taskIssue: null, manualContextText: null, runtimeId: id("6"), providerKey: "codex" as const,
+      agentSystemPrompt: "Prompt", taskTitle: "Task", taskDescription: null, taskIssue: null, manualContextText: null,
+      initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION, runtimeId: id("6"), providerKey: "codex" as const,
       workspaceId: null, plannedSessionId: id("7"), sessionId: null, firstMessageId: id("8"), assignIdempotencyKey: "assign-1",
       assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,
       createdAt: now, updatedAt: now,
@@ -103,6 +106,7 @@ describe("TaskProductionService", () => {
       expectedRevision: request.expectedRevision,
       plannedSessionId: null,
       manualContextText: null,
+      initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION,
     })).digest("hex");
     const task = {
       id: id("1"), teamId: actor.teamId, title: "Frozen title", description: null, projectId: id("3"), issue: null,
@@ -113,6 +117,7 @@ describe("TaskProductionService", () => {
     const executionContext: TaskExecutionContext = {
       id: id("9"), teamId: actor.teamId, taskId: task.id, projectId: task.projectId, agentId: request.agentId, agentName: "Agent", agentRevision: 1,
       agentSystemPrompt: "Frozen prompt", taskTitle: task.title, taskDescription: null, taskIssue: null, manualContextText: null,
+      initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION,
       runtimeId: request.runtimeId, providerKey: request.providerKey, workspaceId: null, plannedSessionId: id("10"), sessionId: null,
       firstMessageId: id("11"), assignIdempotencyKey: request.idempotencyKey, assignRequestFingerprint: requestFingerprint,
       capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: now, updatedAt: now,

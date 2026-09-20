@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_TASK_INITIAL_INSTRUCTION } from "@mystra/shared";
+
 import { TaskSessionLaunchService } from "./task-session-launch-service";
 
 const id = (suffix: string) => `00000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
@@ -29,6 +31,7 @@ describe("TaskSessionLaunchService", () => {
       id: id("6"), teamId: pending.teamId, taskId: pending.id, projectId: pending.projectId!,
       agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
       taskTitle: pending.title, taskDescription: null, taskIssue: null, manualContextText: "Inspect first",
+      initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION,
       runtimeId: runtime.id, providerKey: "codex" as const, workspaceId: id("7"),
       plannedSessionId: id("8"), sessionId: null, firstMessageId: id("9"),
       assignIdempotencyKey: id("8"), assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null,
@@ -102,6 +105,7 @@ describe("TaskSessionLaunchService", () => {
       id: id("14"), teamId: pending.teamId, taskId: pending.id, projectId: pending.projectId!,
       agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
       taskTitle: pending.title, taskDescription: null, taskIssue: null, manualContextText: null,
+      initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION,
       runtimeId: runtime.id, providerKey: "codex" as const, workspaceId: null,
       plannedSessionId: id("15"), sessionId: null, firstMessageId: id("16"),
       assignIdempotencyKey: id("15"), assignRequestFingerprint: "b".repeat(64), capabilityRevokedAt: null,
@@ -129,6 +133,7 @@ describe("TaskSessionLaunchService", () => {
       id: id("18"), teamId: locked.teamId, taskId: locked.id, projectId: locked.projectId!,
       agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
       taskTitle: locked.title, taskDescription: null, taskIssue: null, manualContextText: null,
+      initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION,
       runtimeId: runtime.id, providerKey: "codex" as const, workspaceId: id("19"),
       plannedSessionId: sessionId, sessionId, firstMessageId: id("20"),
       assignIdempotencyKey: sessionId, assignRequestFingerprint: "c".repeat(64), capabilityRevokedAt: null,
@@ -152,5 +157,41 @@ describe("TaskSessionLaunchService", () => {
       actor: { actorId: "owner", teamId: locked.teamId, roles: ["owner"] }, taskId: locked.id,
       request: { sessionId, providerKey: "codex" },
     })).resolves.toEqual({ state: "ready", session, created: false });
+  });
+
+  it("rejects a planned Session replayed with a different first instruction", async () => {
+    const sessionId = id("21");
+    const locked = task({ status: "in_progress", runtimeId: runtime.id, statusRevision: 2 });
+    const executionContext = {
+      id: id("22"), teamId: locked.teamId, taskId: locked.id, projectId: locked.projectId!,
+      agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
+      taskTitle: locked.title, taskDescription: null, taskIssue: null, manualContextText: null,
+      initialInstruction: "Write the design document.",
+      runtimeId: runtime.id, providerKey: "codex" as const, workspaceId: id("23"),
+      plannedSessionId: sessionId, sessionId: null, firstMessageId: id("24"),
+      assignIdempotencyKey: sessionId, assignRequestFingerprint: "d".repeat(64), capabilityRevokedAt: null,
+      setupFailureCode: null, setupFailureMessage: null, createdAt: now, updatedAt: now,
+    };
+    const service = new TaskSessionLaunchService({
+      db: {
+        getTask: vi.fn(async () => locked),
+        listRuntimes: vi.fn(async () => [runtime]),
+        getExecutionContextByTaskId: vi.fn(async () => executionContext),
+        getSession: vi.fn(),
+      } as never,
+      workspace: { setup: vi.fn() } as never,
+      sessions: { launchForTask: vi.fn() } as never,
+      production: { start: vi.fn(), continueAfterWorkspaceReady: vi.fn() } as never,
+      deriveRuntime: (candidate) => candidate,
+    });
+
+    await expect(service.launch({
+      actor: { actorId: "owner", teamId: locked.teamId, roles: ["owner"] }, taskId: locked.id,
+      request: { sessionId, providerKey: "codex" },
+    })).rejects.toMatchObject({ code: "session_conflict" });
+    await expect(service.launch({
+      actor: { actorId: "owner", teamId: locked.teamId, roles: ["owner"] }, taskId: locked.id,
+      request: { sessionId, providerKey: "codex", initialInstruction: "Write the release notes." },
+    })).rejects.toMatchObject({ code: "session_conflict" });
   });
 });

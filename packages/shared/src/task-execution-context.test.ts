@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_TASK_INITIAL_INSTRUCTION,
   DEFAULT_WORKLOAD_CAPABILITIES,
   taskExecutionContextSchema,
   taskStartRequestSchema,
@@ -27,6 +28,7 @@ describe("TaskExecutionContext contracts", () => {
       id: ids[0], teamId: ids[1], taskId: ids[2], projectId: ids[3],
       agentId: ids[4], agentName: "Reviewer", agentRevision: 2, agentSystemPrompt: "Implement the change.",
       taskTitle: "Frozen title", taskDescription: null, taskIssue: null,
+      initialInstruction: "Deliver the design document.",
       runtimeId: ids[5], providerKey: "codex", workspaceId: null,
       plannedSessionId: ids[6], sessionId: null, firstMessageId: ids[7],
       assignIdempotencyKey: "assign-1", assignRequestFingerprint: "a".repeat(64),
@@ -42,10 +44,22 @@ describe("TaskExecutionContext contracts", () => {
     const base = {
       runtimeId: ids[5], providerKey: "codex", expectedRevision: 1, idempotencyKey: "start-052",
     };
-    expect(taskStartRequestSchema.parse(base)).toEqual({ ...base, agentId: null });
-    expect(taskStartRequestSchema.parse({ ...base, agentId: null })).toEqual({ ...base, agentId: null });
+    const neutral = { ...base, agentId: null, initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION };
+    expect(taskStartRequestSchema.parse(base)).toEqual(neutral);
+    expect(taskStartRequestSchema.parse({ ...base, agentId: null })).toEqual(neutral);
     expect(taskStartRequestSchema.parse({ ...base, agentId: ids[4] }).agentId).toBe(ids[4]);
     expect(() => taskStartRequestSchema.parse({ ...base, agentId: "" })).toThrow();
+  });
+
+  it("resolves one platform-owned neutral first instruction at the request boundary", () => {
+    const base = {
+      runtimeId: ids[5], providerKey: "codex", expectedRevision: 1, idempotencyKey: "start-059",
+    };
+    expect(taskStartRequestSchema.parse(base).initialInstruction).toBe(DEFAULT_TASK_INITIAL_INSTRUCTION);
+    expect(taskStartRequestSchema.parse({ ...base, initialInstruction: "  Write the design document.  " }).initialInstruction)
+      .toBe("Write the design document.");
+    expect(() => taskStartRequestSchema.parse({ ...base, initialInstruction: "   " })).toThrow();
+    expect(() => taskStartRequestSchema.parse({ ...base, initialInstruction: "x".repeat(64 * 1024 + 1) })).toThrow();
   });
 
   it("requires the optional TaskExecutionContext Agent snapshot to be wholly present or absent", () => {
@@ -53,6 +67,7 @@ describe("TaskExecutionContext contracts", () => {
       id: ids[0], teamId: ids[1], taskId: ids[2], projectId: ids[3],
       agentId: ids[4], agentName: "Reviewer", agentRevision: 2, agentSystemPrompt: "Review precisely.",
       taskTitle: "Frozen title", taskDescription: null, taskIssue: null,
+      initialInstruction: "Deliver the design document.",
       runtimeId: ids[5], providerKey: "codex", workspaceId: null,
       plannedSessionId: ids[6], sessionId: null, firstMessageId: ids[7],
       assignIdempotencyKey: "start-052", assignRequestFingerprint: "a".repeat(64),

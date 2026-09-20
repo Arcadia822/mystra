@@ -1,0 +1,1 @@
+ALTER TABLE "task_execution_contexts" ADD COLUMN "initial_instruction" TEXT NOT NULL DEFAULT 'Complete this Task. Read the Task title, description, and any referenced Issue, then deliver exactly what the Task asks for in the attached Workspace. Report the Task production status when the work is complete, or report blocked with a concrete reason when it cannot continue.';

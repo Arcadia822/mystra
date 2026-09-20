@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_TASK_INITIAL_INSTRUCTION } from "./task-execution-context.js";
 import {
   applySessionEventProjection,
   effectiveSystemPromptEvidenceSchema,
@@ -150,12 +151,26 @@ describe("canonical Session contract", () => {
       sessionId,
       providerKey: "codex",
       manualContext: { text: "  Inspect the failing test.  " },
-    })).toMatchObject({ agentId: null, manualContext: { text: "Inspect the failing test." } });
+    })).toMatchObject({
+      agentId: null,
+      manualContext: { text: "Inspect the failing test." },
+      initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION,
+    });
+    expect(taskSessionLaunchInputSchema.parse({
+      sessionId,
+      providerKey: "codex",
+      initialInstruction: "  Write the design document.  ",
+    }).initialInstruction).toBe("Write the design document.");
     expect(() => taskSessionLaunchInputSchema.parse({
       sessionId,
       providerKey: "codex",
       agentId: "00000000-0000-4000-8000-000000000004",
       manualContext: { text: "   " },
+    })).toThrow();
+    expect(() => taskSessionLaunchInputSchema.parse({
+      sessionId,
+      providerKey: "codex",
+      initialInstruction: "   ",
     })).toThrow();
   });
 

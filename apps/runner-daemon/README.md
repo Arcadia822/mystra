@@ -28,6 +28,44 @@ provider CLIs are `codex` and `copilot`. A `MYSTRA_<PROVIDER>_PATH` variable
 (for example `MYSTRA_COPILOT_PATH`) explicitly selects an executable and never
 falls back when the selected path is unavailable.
 
+## Runtime type
+
+`MYSTRA_RUNNER_RUNTIME_TYPE` selects the execution backend and defaults to
+`host`. A host Runtime discovers `codex` and `copilot`. The AgentOS Runtime
+requires the explicit pair below; it must use its own `MYSTRA_RUNNER_ID_PATH`,
+because the control plane rejects re-registering one runner id under a second
+Runtime type.
+
+```sh
+MYSTRA_RUNNER_RUNTIME_TYPE=agentos
+# Absolute path to the deployed pi-agentos-shim.mjs; never resolved from PATH.
+MYSTRA_PI_PATH=/opt/agentos/pi-agentos-shim.mjs
+# Optional: AgentOS Session state root, default /root/.mystra/agentos-sessions.
+MYSTRA_AGENTOS_SESSION_STATE_ROOT=/root/.mystra/agentos-sessions
+# Optional: model configuration JSON, default /opt/agentos/task-config.json.
+MYSTRA_AGENTOS_MODEL_CONFIG=/opt/agentos/task-config.json
+# Optional: per-Session deadline and idle bounds, seconds.
+MYSTRA_AGENTOS_DEADLINE_SECONDS=900
+MYSTRA_AGENTOS_IDLE_SECONDS=180
+# Optional: host directory projected read-only into the guest as the workload CLI;
+# default is the guest-bin directory next to the deployed adapter (/opt/agentos/guest-bin).
+MYSTRA_AGENTOS_GUEST_BIN=/opt/agentos/guest-bin
+```
+
+Startup fails when `MYSTRA_PI_PATH` is set without
+`MYSTRA_RUNNER_RUNTIME_TYPE=agentos`, or when `agentos` is selected without
+`MYSTRA_PI_PATH`; a silent host fallback would register an AgentOS deployment as
+a host Runtime and report `pi` as unavailable.
+
+The AgentOS guest receives one writable Task Workspace, a read-only workload CLI
+projection, and a read-only empty shadow over `<workspace>/.pi/extensions` so
+repository content cannot execute while the ephemeral model credential exists.
+Model credentials are written to an ephemeral in-guest mount and removed before
+the first caller-controlled prompt; guest egress is denied by default and
+allowed only for the configured model endpoint's `tcp://<host>:<port>` resource,
+so `model.baseUrl` must be an HTTPS URL without embedded credentials. See
+`specs/059-agentos-pi-runtime/research.md` for the measured pattern semantics.
+
 ## Task Workspace materialization
 
 The daemon advertises `task-repository` / `shared-mutable`, claims only work

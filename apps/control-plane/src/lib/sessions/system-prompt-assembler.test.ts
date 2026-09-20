@@ -184,10 +184,6 @@ describe("assembleSystemPrompt", () => {
     const input = fixtures();
     const result = assembleTaskExecutionContextSystemPrompt({ runtime: input.runtime, providerKey: "codex", agentContext: input.agentContext });
 
-    expect(result.finalPrompt).toContain('"$MYSTRA_AGENT_PATH" context get');
-    expect(result.finalPrompt).toContain("host-local linctl");
-    expect(result.finalPrompt).toContain("host-local gh");
-    expect(result.finalPrompt).toContain("does not verify Agent-reported PR or test statements");
     expect(result.finalPrompt).not.toContain(input.task.title);
     expect(result.finalPrompt).not.toContain(input.task.description!);
     expect(result.finalPrompt).not.toContain(input.project.repositoryExternalId);

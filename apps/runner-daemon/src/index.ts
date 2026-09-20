@@ -6,8 +6,11 @@ import {
   hostRuntimeRegistrationResponseSchema,
   type HostRuntimeRegistration,
   type ProviderCapability,
+  type RuntimeType,
+  runtimeTypeSchema,
 } from "@mystra/shared";
 
+import { discoverAgentOsPiCapability } from "./agentos-provider.js";
 import { discoverProviderCapabilities } from "./provider-discovery.js";
 import {
   buildHostRuntimeRegistrationPayload,
@@ -27,6 +30,7 @@ export const DEFAULT_RETRY_INTERVAL_SECONDS = 5;
 interface RunnerConfig {
   endpoint: string;
   name: string;
+  runtimeType: RuntimeType;
   runnerIdPath: string;
   heartbeatIntervalSeconds: number;
   discoveryIntervalSeconds: number;
@@ -79,6 +83,25 @@ function boundedNonNegativeIntEnv(name: string, fallback: number, maximum: numbe
   return parsed;
 }
 
+/**
+ * The AgentOS Runtime is selected only by `MYSTRA_RUNNER_RUNTIME_TYPE`; a runner started
+ * without it registers as a `host` Runtime and never probes the Pi shim, so a misconfigured
+ * AgentOS deployment would silently report an unavailable `pi` Provider instead of failing.
+ */
+export function resolveRuntimeType(environment: NodeJS.ProcessEnv = process.env): RuntimeType {
+  const runtimeType = runtimeTypeSchema.parse(environment.MYSTRA_RUNNER_RUNTIME_TYPE ?? "host");
+  const piPath = environment.MYSTRA_PI_PATH?.trim();
+  if (piPath && runtimeType !== "agentos") {
+    throw new Error(
+      "MYSTRA_PI_PATH is set but MYSTRA_RUNNER_RUNTIME_TYPE is not agentos; this runner would start as a host Runtime",
+    );
+  }
+  if (!piPath && runtimeType === "agentos") {
+    throw new Error("MYSTRA_RUNNER_RUNTIME_TYPE=agentos requires MYSTRA_PI_PATH to identify the AgentOS Pi shim");
+  }
+  return runtimeType;
+}
+
 function readConfig(): RunnerConfig {
   const endpoint = endpointFromArgs()
     ?? process.env.MYSTRA_RUNNER_ENDPOINT
@@ -89,6 +112,7 @@ function readConfig(): RunnerConfig {
   return {
     endpoint,
     name: process.env.MYSTRA_RUNNER_NAME ?? hostname(),
+    runtimeType: resolveRuntimeType(),
     runnerIdPath: process.env.MYSTRA_RUNNER_ID_PATH ?? defaultRunnerIdPath,
     heartbeatIntervalSeconds: positiveIntEnv(
       "MYSTRA_RUNNER_HEARTBEAT_INTERVAL_SECONDS",
@@ -178,6 +202,7 @@ async function register(
   const payload: HostRuntimeRegistration = buildHostRuntimeRegistrationPayload({
     runnerId,
     name: config.name,
+    type: config.runtimeType,
     platform: `${process.platform}/${process.arch}`,
     providers,
   });
@@ -205,7 +230,10 @@ export async function runDaemon(
   signal: AbortSignal,
 ): Promise<void> {
   const runnerId = await getStableRunnerId({ filePath: config.runnerIdPath });
-  let providers = await discoverProviderCapabilities();
+  const discoverProviders = config.runtimeType === "agentos"
+    ? () => discoverAgentOsPiCapability()
+    : () => discoverProviderCapabilities({ providerKeys: ["codex", "copilot"] });
+  let providers = await discoverProviders();
   const providerExecutables = new Map<string, string>();
   for (const provider of providers) {
     if (provider.available && provider.resolvedPath) {
@@ -274,7 +302,7 @@ export async function runDaemon(
     }
 
     if (Date.now() >= nextDiscoveryAt) {
-      const nextProviders = await discoverProviderCapabilities();
+      const nextProviders = await discoverProviders();
       if (providerSetChanged(providers, nextProviders)) {
         providers = nextProviders;
         providerExecutables.clear();

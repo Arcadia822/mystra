@@ -401,6 +401,36 @@ describe("operator CLI Task and Session commands", () => {
       return response({ task: { id: taskId }, created: true });
     });
     expect(started.exitCode).toBe(EXIT_CODES.OK);
+    const instructed = await execute([
+      "tasks", "start", taskId,
+      "--runtime-id", runtimeId,
+      "--provider", "codex",
+      "--initial-instruction", "Write the design document for the Runtime boundary.",
+      "--expected-revision", "1",
+      "--idempotency-key", "start-059-1",
+      "--json",
+    ], async (url, init) => {
+      expect(url).toBe(`http://localhost:3000/api/tasks/${taskId}/production/start`);
+      expect(JSON.parse(String(init?.body))).toEqual({
+        runtimeId,
+        providerKey: "codex",
+        expectedRevision: 1,
+        idempotencyKey: "start-059-1",
+        initialInstruction: "Write the design document for the Runtime boundary.",
+      });
+      return response({ task: { id: taskId }, created: true });
+    });
+    expect(instructed.exitCode).toBe(EXIT_CODES.OK);
+    expect(parseArgs([
+      "tasks", "start", taskId, "--runtime-id", runtimeId, "--provider", "codex",
+      "--expected-revision", "1", "--idempotency-key", "start-059-1",
+      "--initial-instruction", "   ",
+    ])).toMatchObject({ ok: false });
+    expect(parseArgs([
+      "tasks", "start", taskId, "--runtime-id", runtimeId, "--provider", "codex",
+      "--expected-revision", "1", "--idempotency-key", "start-059-1",
+      "--initial-instruction", "x".repeat(65_537),
+    ])).toMatchObject({ ok: false });
     expect(parseArgs(["tasks", "start", taskId, "--runtime-id", runtimeId, "--provider", "codex"]))
       .toMatchObject({ ok: false });
   });

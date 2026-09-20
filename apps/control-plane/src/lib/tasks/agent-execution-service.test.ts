@@ -11,6 +11,7 @@ function resolved(expiresAt = "2026-08-11T03:00:00.000Z") {
     id: id("1"), teamId: id("2"), taskId: id("3"), projectId: id("4"), agentId: id("5"), agentRevision: 2,
     agentName: "Agent", agentSystemPrompt: "Prompt", taskTitle: "Frozen task", taskDescription: "Frozen description",
     taskIssue: { provider: "linear" as const, connectionId: id("6"), scopeExternalId: "team", externalId: "issue", identifier: "ENG-1" }, manualContextText: null,
+    initialInstruction: "Write the design document.",
     runtimeId: id("7"), providerKey: "codex" as const, workspaceId: id("8"), plannedSessionId: id("9"), sessionId: id("9"), firstMessageId: id("10"),
     assignIdempotencyKey: "assign-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null,
     setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-11T00:00:00.000Z", updatedAt: "2026-08-11T00:00:00.000Z",

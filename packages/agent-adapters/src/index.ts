@@ -1,6 +1,6 @@
-import { z } from "zod";
-
 export const agentAdaptersPackageName = "@mystra/agent-adapters";
+
+import { z } from "zod";
 
 export const providerExecutionRequestSchema = z.object({
   prompt: z.string().min(1),
@@ -195,6 +195,41 @@ export class CopilotProviderAdapter implements ProviderAdapter {
     return parseProcessResult(result).exitCode === 0;
   }
 }
+export class PiProviderAdapter implements ProviderAdapter {
+  readonly providerName = "pi";
+
+  constructor(private readonly options: {
+    piPath?: string;
+    timeoutSeconds?: number;
+  } = {}) {}
+
+  buildCommand(input: ProviderExecutionRequest): string[] {
+    const request = parseExecutionRequest(input);
+    return [this.options.piPath ?? "pi", "--cd", request.workingDirectory, request.prompt];
+  }
+
+  buildEnvironment(input: ProviderExecutionRequest): Record<string, string> {
+    const request = parseExecutionRequest(input);
+    return {
+      ...(this.options.timeoutSeconds ? { PI_TIMEOUT_SECONDS: String(this.options.timeoutSeconds) } : {}),
+      PI_WORKING_DIR: request.workingDirectory,
+    };
+  }
+
+  parseOutput(result: ProviderProcessResult): ProviderParsedResult {
+    const parsed = parseProcessResult(result);
+    return {
+      success: this.isSuccess(parsed),
+      ...(parsed.exitCode === 0 ? {} : { errorMessage: parsed.stderr.trim() || parsed.stdout.trim() || `pi exited with ${parsed.exitCode}` }),
+      metadata: { provider: "pi" },
+    };
+  }
+
+  isSuccess(result: ProviderProcessResult): boolean {
+    return parseProcessResult(result).exitCode === 0;
+  }
+}
+
 
 export function createProviderAdapterRegistry(
   adapters: Record<string, ProviderAdapter>,

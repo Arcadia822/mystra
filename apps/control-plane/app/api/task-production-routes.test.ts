@@ -51,7 +51,7 @@ beforeEach(() => {
   services.start.mockResolvedValue({
     task,
     transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: task.statusActor, note: null, idempotencyKey: "assign-1", requestFingerprint: "a".repeat(64), occurredAt: timestamp },
-    executionContext: { id: executionContextId, teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: "Task", taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: sessionId, sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: timestamp, updatedAt: timestamp },
+    executionContext: { id: executionContextId, teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: "Task", taskDescription: null, taskIssue: null, initialInstruction: "Write the design document.", runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: sessionId, sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: timestamp, updatedAt: timestamp },
     created: true,
   });
   services.humanGet.mockResolvedValue({ taskId, status: "in_progress", statusRevision: 2, statusNote: null, statusUpdatedAt: timestamp, allowedTransitions: ["canceled"] });

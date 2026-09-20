@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_TASK_INITIAL_INSTRUCTION } from "@mystra/shared";
 
 import { getDb } from "@/lib/db";
 import { POST } from "./route";
@@ -98,7 +99,7 @@ beforeEach(() => {
   startProduction.mockResolvedValue({
     task: { ...task, status: "in_progress", statusRevision: 2 },
     transition: { id: randomUUID(), teamId, taskId, fromStatus: "pending", toStatus: "in_progress", revision: 2, actor: { kind: "human", actorId: userId, agentId: null, executionContextId: randomUUID(), sessionId: null }, note: null, idempotencyKey: "start-mcp-1", requestFingerprint: "a".repeat(64), occurredAt: "2026-08-07T00:00:00.000Z" },
-    executionContext: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
+    executionContext: { id: randomUUID(), teamId, taskId, projectId, agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null, taskTitle: task.title, taskDescription: null, taskIssue: null, initialInstruction: "Write the design document.", runtimeId, providerKey: "codex", workspaceId: null, plannedSessionId: randomUUID(), sessionId: null, firstMessageId: randomUUID(), assignIdempotencyKey: "start-mcp-1", assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null, createdAt: "2026-08-07T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z" },
     created: true,
   });
   for (const mock of Object.values(skillServices)) mock.mockReset();
@@ -329,9 +330,11 @@ describe("MCP human session authorization", () => {
 
   it("lists and calls canonical Start production without Agent Context", async () => {
     const listed = await POST(rpcRequest(call("tools/list")));
-    const listedPayload = await listed.json() as { result: { tools: Array<{ name: string; inputSchema: { required?: string[] } }> } };
+    const listedPayload = await listed.json() as { result: { tools: Array<{ name: string; inputSchema: { required?: string[]; properties?: Record<string, unknown> } }> } };
     const tool = listedPayload.result.tools.find(({ name }) => name === "mystra_start_task_production");
     expect(tool?.inputSchema.required).not.toContain("agentId");
+    expect(tool?.inputSchema.required).not.toContain("initialInstruction");
+    expect(tool?.inputSchema.properties).toHaveProperty("initialInstruction");
 
     const response = await POST(rpcRequest(toolCall("mystra_start_task_production", {
       taskId,
@@ -344,7 +347,35 @@ describe("MCP human session authorization", () => {
     expect(startProduction).toHaveBeenCalledWith({
       actor: { actorId: userId, teamId },
       taskId,
-      request: { agentId: null, runtimeId, providerKey: "codex", expectedRevision: 1, idempotencyKey: "start-mcp-1" },
+      request: {
+        agentId: null,
+        runtimeId,
+        providerKey: "codex",
+        expectedRevision: 1,
+        idempotencyKey: "start-mcp-1",
+        initialInstruction: DEFAULT_TASK_INITIAL_INSTRUCTION,
+      },
+    });
+
+    await POST(rpcRequest(toolCall("mystra_start_task_production", {
+      taskId,
+      runtimeId,
+      providerKey: "codex",
+      expectedRevision: 1,
+      idempotencyKey: "start-mcp-2",
+      initialInstruction: "Write the design document about the Runtime boundary.",
+    })));
+    expect(startProduction).toHaveBeenLastCalledWith({
+      actor: { actorId: userId, teamId },
+      taskId,
+      request: {
+        agentId: null,
+        runtimeId,
+        providerKey: "codex",
+        expectedRevision: 1,
+        idempotencyKey: "start-mcp-2",
+        initialInstruction: "Write the design document about the Runtime boundary.",
+      },
     });
   });
 

@@ -37,6 +37,7 @@ const migrationDirectories = [
   "20260812090000_standard_agent_context",
   "20260824090000_skill_library",
   "20260825190000_fixed_task_workflow",
+  "20260920000000_task_initial_instruction",
 ];
 
 export async function createSessionE2eFixture() {

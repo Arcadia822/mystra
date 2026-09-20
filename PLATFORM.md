@@ -177,6 +177,19 @@ pnpm lsp:typescript
   Provider availability, and reports heartbeat/status; online/offline is judged
   by server receive time. Task dispatch, Context, and Agent config are separate
   follow-up boundaries.
+- Runtime `type` is `host` or `agentos`. An AgentOS Runtime wraps the AgentOS SDK
+  and exposes its Pi Provider; it enrolls through the same TypeScript
+  `mystra-runner` with `MYSTRA_RUNNER_RUNTIME_TYPE=agentos` and an absolute
+  `MYSTRA_PI_PATH` to the deployed `pi-agentos-shim.mjs`, and must use its own
+  `MYSTRA_RUNNER_ID_PATH` because the control plane rejects re-registering one
+  runner id under a second Runtime type. A machine is not a Runtime: one host may
+  carry several independent Runtimes. Inside the AgentOS guest, the model
+  credential exists only in an ephemeral mount and is removed before the first
+  caller-controlled prompt, repository-supplied Pi extensions are shadowed
+  read-only, and egress is denied by default except for the configured model
+  endpoint's `tcp://<host>:<port>` resource; `model.baseUrl` must be HTTPS.
+  Environment reference and measured semantics: `apps/runner-daemon/README.md`
+  and `specs/059-agentos-pi-runtime/research.md`.
 - Runtime secrets are injected through environment variables or read-only files.
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core production is direct and Task-bound: Start, optionally with Agent Context, creates a

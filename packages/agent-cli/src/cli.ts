@@ -47,7 +47,7 @@ export async function runAgentCli(input: {
       const context = await client.context();
       result = workloadExecutionContextSchema.parse({
         ...context,
-        workspace: { ...context.workspace, root: input.cwd() },
+        workspace: { ...context.workspace, root: input.env.MYSTRA_WORKSPACE_ROOT ?? input.cwd() },
       });
     } else if (first === "task" && second === "status" && third === "get" && rest.length === 0) {
       result = await client.taskStatus();

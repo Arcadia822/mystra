@@ -282,9 +282,9 @@ export interface MystraPrismaDelegates {
     create(args: { data: Runtime }): Promise<Runtime>;
     updateMany(args: { where: { id: string }; data: RuntimeUpdate }): Promise<CountResult>;
     findUnique(args: { where: { id: string } }): Promise<Runtime | null>;
-    findMany(args: {
+    findMany(args?: {
       where?: { type?: string };
-      orderBy: Array<{ updatedAt: SortOrder } | { id: SortOrder }>;
+      orderBy?: Array<{ updatedAt: SortOrder } | { id: SortOrder }>;
     }): Promise<Runtime[]>;
   };
   runtimeProvider: {

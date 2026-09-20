@@ -12,7 +12,9 @@ import type { RdbProvider } from "../db/rdb-provider";
 import { RdbError } from "../db/prisma-errors";
 import type { SessionService } from "../sessions/session-service";
 import type { TaskWorkspaceService } from "../task-workspaces/task-workspace-service";
+import { TaskWorkspaceFailure } from "../task-workspaces/task-workspace-errors";
 import { withDerivedHostLiveness } from "../runtime/runtime-liveness";
+import { SessionFailure } from "../sessions/session-errors";
 import { TaskProductionFailure } from "./task-production-errors";
 
 type ProductionDb = Pick<RdbProvider,
@@ -65,6 +67,7 @@ export class TaskProductionService {
       expectedRevision: request.expectedRevision,
       plannedSessionId: input.launch?.sessionId ?? null,
       manualContextText: input.launch?.manualContextText ?? null,
+      initialInstruction: request.initialInstruction,
     });
     if (!task.projectId || task.status !== "pending") {
       const replay = await this.#db.getExecutionContextByTaskId(task.id, { teamId: input.actor.teamId });
@@ -118,6 +121,7 @@ export class TaskProductionService {
       taskDescription: task.description,
       taskIssue: task.issue,
       manualContextText: input.launch?.manualContextText ?? null,
+      initialInstruction: request.initialInstruction,
       runtimeId: runtime.id,
       providerKey: request.providerKey,
       workspaceId: null,
@@ -203,13 +207,15 @@ export class TaskProductionService {
         setupFailureMessage: null,
       }) ?? current;
       return current;
-    } catch {
+    } catch (error) {
       return await this.#db.updateExecutionContext({
         executionContextId: current.id,
         teamId: input.teamId,
         workspaceId: workspace.id,
-        setupFailureCode: "session_launch_failed",
-        setupFailureMessage: "Workspace is ready but the TaskExecutionContext Session could not be launched",
+        setupFailureCode: error instanceof SessionFailure ? error.code : "session_launch_failed",
+        setupFailureMessage: error instanceof SessionFailure
+          ? error.message
+          : "Workspace is ready but the TaskExecutionContext Session could not be launched",
       }) ?? current;
     }
   }
@@ -232,12 +238,15 @@ export class TaskProductionService {
       return setup.workspace.state === "ready"
         ? await this.continueAfterWorkspaceReady({ teamId, taskId: executionContext.taskId }) ?? bound
         : bound;
-    } catch {
+    } catch (error) {
+      const failure = error instanceof TaskWorkspaceFailure
+        ? { code: error.code, message: error.message }
+        : { code: "workspace_setup_failed", message: "Task Workspace setup could not be requested" };
       return await this.#db.updateExecutionContext({
         executionContextId: executionContext.id,
         teamId,
-        setupFailureCode: "workspace_setup_failed",
-        setupFailureMessage: "Task Workspace setup could not be requested",
+        setupFailureCode: failure.code,
+        setupFailureMessage: failure.message,
       }) ?? executionContext;
     }
   }

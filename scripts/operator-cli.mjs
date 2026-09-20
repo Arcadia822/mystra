@@ -120,7 +120,7 @@ function usage() {
   pnpm operator:cli -- tasks create --title TEXT [--description TEXT] [--project PROJECT_ID] [--idempotency-key UUID] [--json]
   pnpm operator:cli -- tasks inspect <task-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- tasks update <task-id> [--title TEXT] [--description TEXT] [--json]
-  pnpm operator:cli -- tasks start <task-id> --runtime-id UUID --provider NAME [--agent-context-id UUID] --expected-revision N --idempotency-key KEY [--json]
+  pnpm operator:cli -- tasks start <task-id> --runtime-id UUID --provider NAME [--agent-context-id UUID] [--initial-instruction TEXT] --expected-revision N --idempotency-key KEY [--json]
   pnpm operator:cli -- tasks workflow enable <task-id> --command-id UUID [--json]
   pnpm operator:cli -- tasks workflow disable <task-id> --expected-revision N --command-id UUID [--json]
   pnpm operator:cli -- sessions list <task-id> [--json] [--control-plane-url URL]
@@ -313,6 +313,7 @@ function parseArgs(argv) {
       ["--expected-revision", "expectedRevision"],
       ["--runtime-id", "runtimeId"],
       ["--agent-context-id", "agentContextId"],
+      ["--initial-instruction", "instruction"],
       ["--revision", "revision"],
       ["--path", "path"],
       ["--output", "output"],
@@ -453,6 +454,9 @@ function parseArgs(argv) {
       return { ok: false, message: "tasks start requires --runtime-id, --provider, positive --expected-revision, and --idempotency-key" };
     }
     flags.expectedRevision = revision;
+    if (flags.instruction !== undefined && (flags.instruction.trim() === "" || flags.instruction.length > 65536)) {
+      return { ok: false, message: "--initial-instruction must be non-empty and at most 65536 characters" };
+    }
   }
   if (group === "tasks" && ["workflow-enable", "workflow-disable"].includes(command)) {
     if (!flags.commandId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(flags.commandId)) {
@@ -546,6 +550,7 @@ function parseArgs(argv) {
       ...(flags.expectedRevision !== undefined ? { expectedRevision: flags.expectedRevision } : {}),
       ...(flags.runtimeId ? { runtimeId: flags.runtimeId } : {}),
       ...(flags.agentContextId ? { agentContextId: flags.agentContextId } : {}),
+      ...(flags.instruction !== undefined ? { instruction: flags.instruction } : {}),
       ...(flags.revision ? { revision: flags.revision } : {}),
       ...(flags.path ? { path: flags.path } : {}),
       ...(flags.output ? { output: flags.output } : {}),
@@ -1432,6 +1437,7 @@ async function executeCommand(command, fetchImpl, deps = {}) {
         expectedRevision: command.expectedRevision,
         idempotencyKey: command.idempotencyKey,
         ...(command.agentContextId ? { agentId: command.agentContextId } : {}),
+        ...(command.instruction !== undefined ? { initialInstruction: command.instruction } : {}),
       }),
     });
   }

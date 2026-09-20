@@ -16,9 +16,9 @@ for review and download independently of Runtime delivery.
 
 ```text
 apps/control-plane    API, MCP, Web, integrations, Skill/workflow services, RDB and Session coordination
-apps/runner-daemon    host Runtime enrollment, Workspace/Skill materialization and Session execution
+apps/runner-daemon    Host/AgentOS Runtime enrollment, Workspace/Skill materialization and Session execution
 packages/shared       canonical Zod contracts, Session events and projection reducer
-packages/agent-adapters  Codex/Copilot CLI command and continuation adapters
+packages/agent-adapters  Codex/Copilot/Pi command and durable continuation adapters
 packages/agent-cli    workload-local mystra-agent context, Task-status and workflow client
 plugins/mystra        MCP-facing Agent skills
 ```
@@ -27,14 +27,17 @@ plugins/mystra        MCP-facing Agent skills
 
 1. Create a manual Task through HTTP/MCP/CLI/Web, optionally with Project
    context, or create/open the one Task for an exact Project-scoped Issue.
-2. Select a Provider for the first Session. Mystra deterministically resolves
-   an eligible online Runtime, atomically locks `Task.runtimeId`, moves
-   `pending` to `in_progress`, and creates the Task's unique TaskExecutionContext.
+2. Start production with an optional caller-controlled initial instruction and
+   select a Provider for the first Session. Mystra freezes that instruction,
+   deterministically resolves an eligible online Runtime, atomically locks
+   `Task.runtimeId`, moves `pending` to `in_progress`, and creates the Task's
+   unique TaskExecutionContext.
 3. Session launch automatically prepares or reuses the shared-mutable
    `<Task, Runtime>` Workspace; ready continuation creates the Task-bound Session.
-4. The enrolled host Runtime claims the Session, injects a Session-scoped
-   execution code and the authoritative `MYSTRA_AGENT_PATH`, then runs
-   Codex/Copilot in the Workspace while appending validated typed Session events.
+4. The enrolled Runtime claims the Session and appends validated typed events.
+   Host Runtime runs Codex/Copilot directly; AgentOS Runtime runs Pi in an
+   isolated VM while a restricted host binding exposes only the granted
+   `mystra-agent` capabilities and keeps the execution code outside the guest.
 5. The Agent uses local authenticated `linctl` and `gh`, then reports `blocked`
    or resumes `in_progress` through `mystra-agent`; Mystra does not proxy or
    verify those external commands or the PR/self-test note.
@@ -56,15 +59,16 @@ plugins/mystra        MCP-facing Agent skills
   Project/exact Issue context, an independent five-state `status`/history, and a
   first-write immutable Runtime context; it
   never mirrors the external requirements lifecycle or Session state.
-- TaskExecutionContext freezes optional Agent, Task, Runtime and Provider inputs,
-  coordinates Workspace preparation, and remembers only the first Autopilot
-  Session; later Task Sessions share its capability boundary without replacing it.
+- TaskExecutionContext freezes the initial instruction plus optional Agent,
+  Task, Runtime and Provider inputs, coordinates Workspace preparation, and
+  remembers only the first Autopilot Session; later Task Sessions share its
+  capability boundary without replacing it.
 - Session is a Team-scoped sibling that independently selects Runtime, Provider,
   Agent and Context; 049 currently requires a Task and its ready Workspace.
 - Session has no Turn/SessionTurn. `messageId` is command idempotency and event
   correlation only; `ready` is stable and reusable, while `closed|failed` are terminal.
-- Runtime enrollment owns host health and Provider availability. Session leases
-  express execution ownership/auth only; current platform capacity is unrestricted.
+- Runtime enrollment owns Runtime health, type and Provider availability.
+  Session leases express execution ownership/auth only; current platform capacity is unrestricted.
 - SessionEvent is a Session-scoped typed fact ledger, not a global activity or
   arbitrary stdout/stderr log surface.
 - API is canonical; MCP/operator CLI/Web are thin management clients, while
@@ -103,3 +107,5 @@ Use `specs/056-skill-library/` for Skill CRUD, immutable Revision, ZIP validatio
 S3-compatible storage, preview, download, and archive semantics.
 Use `specs/057-workflow-harness-runtime/` for the fixed Task workflow,
 allowlisted transitions, workload CLI commands, and generated Skill projection.
+Use `specs/059-agentos-pi-runtime/` for AgentOS Runtime identity, Pi Provider
+execution, restricted guest bindings, and durable cross-VM Session continuation.

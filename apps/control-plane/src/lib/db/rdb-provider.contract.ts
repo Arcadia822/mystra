@@ -553,6 +553,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
       taskDescription: task.description,
       taskIssue: task.issue,
       manualContextText: null,
+      initialInstruction: "Deliver the design document.",
       runtimeId: runtime.id,
       providerKey: "codex" as const,
       workspaceId: null,
@@ -710,6 +711,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
           taskDescription: task.description,
           taskIssue: task.issue,
           manualContextText: null,
+          initialInstruction: "Deliver the design document.",
           runtimeId: runtime.id,
           providerKey: "codex" as const,
           workspaceId: null,
@@ -903,6 +905,20 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
     expect(await db.registerHostRuntime(registration)).toEqual(registered);
     expect(await db.getRuntime(registered.id)).toEqual(registered);
     expect(await db.listRuntimes()).toEqual([registered]);
+
+    await expect(db.registerHostRuntime({
+      ...registration,
+      type: "agentos",
+      providers: [{
+        provider: "pi",
+        discovered: true,
+        available: true,
+        source: "env-override",
+        resolvedPath: "/opt/mystra/pi-agentos-shim.mjs",
+        version: "pi 0.2.7 (@agentos-software/pi) agentos-core 0.2.19 (@rivet-dev/agentos-core)",
+        unavailableReason: null,
+      }],
+    })).rejects.toMatchObject({ code: "RDB_CONFLICT" });
 
     const reported = await db.reportHostProviders(registration.runnerId, [{
       provider: "codex",
@@ -1144,6 +1160,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
           taskDescription: task.description,
           taskIssue: task.issue,
           manualContextText: null,
+          initialInstruction: "Deliver the design document.",
           runtimeId: runtime.id,
           providerKey: "codex",
           workspaceId: null,
@@ -1557,6 +1574,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         agentId: null, agentName: null, agentRevision: null, agentSystemPrompt: null,
         taskTitle: task.title, taskDescription: task.description, taskIssue: task.issue,
         manualContextText: null,
+        initialInstruction: "Deliver the design document.",
         runtimeId: runtime.id, providerKey: "codex", workspaceId: null, plannedSessionId: sessionId,
         sessionId: null, firstMessageId: messageId, assignIdempotencyKey: assignKey,
         assignRequestFingerprint: assignFingerprint, capabilityRevokedAt: null,
