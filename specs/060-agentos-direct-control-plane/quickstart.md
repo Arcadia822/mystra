@@ -177,7 +177,9 @@ pnpm --filter @mystra/runner-daemon build:agentos-cli
 | `sh` 包装脚本内 `exec node …` | `exit 127`（`node` 是 AgentOS 内核命令，不是文件，嵌套 shell 无法解析） |
 | `vm.process.exec(path, { args: ['whoami'] })` | `args` 不会被转发，CLI 收到空 argv，回答 `Invalid mystra-agent command` |
 
-结论（当前状态）：guest 内**通过 `node <bundle> …` 调用是唯一稳定可用的形式**；依赖 shebang 的直接执行在读投影上不稳定。因为程序所有的标准提示词要求 Agent 运行 `"$MYSTRA_AGENT_PATH" context get`（直接执行），FR-006 的"沙箱内可用"尚未收敛：
+根因（2026-09-22 追加实测）：guest 内 `/usr/bin/env` 是指向 busybox 的符号链接，`/bin/node` 是 32 字节的 **内核命令 stub**（不是可执行文件）。因此任何经 `execve` 链的 shebang 执行都会以 `Exec format error` 失败——包括把 bundle 复制到 guest 本地可写目录后 `chmod 0755` 再执行、以及指向该副本的符号链接；`sh` 包装内 `exec node …` 同样不可用（嵌套 shell 解析不到内核命令，exit 127）。只有 **Agent 的 shell 自身能把 `node` 当作内核命令解析**，所以 `node "$MYSTRA_AGENT_PATH" …` 是唯一稳定形式（实测多次成功，CLI 正常解析 argv 并到达控制面）。
+
+结论（当前状态）：guest 内**通过 `node <bundle> …` 调用是唯一可用形式**；依赖 shebang 的直接执行在读投影上不稳定。因为程序所有的标准提示词要求 Agent 运行 `"$MYSTRA_AGENT_PATH" context get`（直接执行），FR-006 的"沙箱内可用"尚未收敛：
 
 - 适配器已实现并在 host-c1 验证的部分：guest 可达控制面（`loopbackExemptPorts` + `tcp://127.0.0.1:3000`）、durable session env 注入四个 `MYSTRA_*` 键、投影失败/能力不可达时**在写模型凭据前失败关闭**（实测该闸门按设计生效，未泄漏任何 code）。
-- 待决：把 Agent 的调用形式改为 `node "$MYSTRA_AGENT_PATH" …`（同时影响 059 的标准提示词与 057 的 workflow 指令），需 owner 批准该提示词合同变更后再继续。在此之前 AgentOS Session 会按设计失败关闭。
+- 已批准的方向（owner 2026-09-22）：**上下文级提示词只描述"做什么"，不再写具体命令；具体命令由 Runtime 注入**。AgentOS Runtime 的片段使用 `node "$MYSTRA_AGENT_PATH" …` 形式，host Runtime 使用直接执行形式；057 的 workflow 指令一并移入该片段。在此之前 AgentOS Session 会按设计失败关闭。
