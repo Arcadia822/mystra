@@ -30,7 +30,14 @@ import { createSkillServices } from "@/lib/skills/skill-service-factory";
 import { requireHumanSession, requireTeamPermission } from "../_auth";
 import { createWorkflowManagementService } from "@/lib/workflows/workflow-management-service-factory";
 import { WorkflowFailure } from "@/lib/workflows/workflow-errors";
-
+import { createSessionService } from "@/lib/sessions/session-service-factory";
+import { SessionFailure } from "@/lib/sessions/session-errors";
+import {
+  sessionResponseSchema,
+  taskSessionPageSchema,
+  sessionSendMessageHttpInputSchema,
+  sessionSendMessageResponseSchema,
+} from "@mystra/shared";
 const jsonRpcRequestSchema = z.object({
   jsonrpc: z.literal("2.0").optional(),
   id: z.union([z.string(), z.number(), z.null()]).optional(),
@@ -109,6 +116,16 @@ const skillPreviewToolSchema = skillRevisionArgumentSchema.extend({
 }).strict();
 const skillArchiveToolSchema = skillIdArgumentSchema.extend({
   expectedRevision: z.number().int().positive(),
+}).strict();
+
+const sessionListTaskSessionsToolSchema = z.object({
+  taskId: z.string().uuid(),
+  limit: z.number().int().positive().max(50).default(20),
+  cursor: z.string().uuid().optional(),
+}).strict();
+
+const sessionSendMessageToolSchema = sessionSendMessageHttpInputSchema.extend({
+  sessionId: z.string().uuid(),
 }).strict();
 
 const tools = [
@@ -212,6 +229,49 @@ const tools = [
     name: "mystra_task_workflow_disable",
     description: "Disable the fixed Mystra Workflow with state-version protection.",
     inputSchema: { type: "object", required: ["taskId", "commandId", "expectedStateVersion"], properties: { taskId: { type: "string", format: "uuid" }, commandId: { type: "string", format: "uuid" }, expectedStateVersion: { type: "integer", minimum: 1 } }, additionalProperties: false },
+  },
+  {
+    name: "mystra_get_session",
+    description: "Inspect one Session, including runtime state, locked runtime, provider, and active/last messages.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "string", format: "uuid" } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "mystra_list_task_sessions",
+    description: "List Sessions associated with a Task in the active Team.",
+    inputSchema: {
+      type: "object",
+      required: ["taskId"],
+      properties: {
+        taskId: { type: "string", format: "uuid" },
+        limit: { type: "integer", minimum: 1, maximum: 50 },
+        cursor: { type: "string", format: "uuid" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "mystra_send_session_message",
+    description: "Send a follow-up user message when the Session is idle; active Providers currently reject append.",
+    inputSchema: {
+      type: "object",
+      required: ["sessionId", "content"],
+      properties: {
+        sessionId: { type: "string", format: "uuid" },
+        content: {
+          oneOf: [
+            { type: "string" },
+            { type: "array", items: { type: "object" } },
+          ],
+        },
+        inReplyToMessageId: { type: "string", format: "uuid" },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "skills_list",
@@ -401,6 +461,56 @@ export async function POST(request: Request) {
       return jsonRpc(rpc.id, textToolResult(await createWorkflowManagementService(db).disable({
         teamId: active.team.id, taskId, actor: { userId: actorId, role: active.role }, request: workflowRequest,
       })));
+    }
+    if (call.name === "mystra_get_session") {
+      const parsed = parseArguments(rpc.id, call.name, idArgumentSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      try {
+        const session = await createSessionService(db).get({
+          actor: { actorId, teamId: active.team.id, roles: [active.role] },
+          sessionId: parsed.data.id,
+        });
+        return jsonRpc(rpc.id, textToolResult(sessionResponseSchema.parse({ session })));
+      } catch (error) {
+        if (error instanceof SessionFailure && error.code === "session_not_found") {
+          return jsonRpc(rpc.id, textToolResult({ error: { code: "SESSION_NOT_FOUND", message: error.message } }));
+        }
+        throw error;
+      }
+    }
+    if (call.name === "mystra_list_task_sessions") {
+      const parsed = parseArguments(rpc.id, call.name, sessionListTaskSessionsToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const rows = await createSessionService(db).list({
+        actor: { actorId, teamId: active.team.id, roles: [active.role] },
+        taskId: parsed.data.taskId,
+        limit: parsed.data.limit + 1,
+        ...(parsed.data.cursor ? { cursor: parsed.data.cursor } : {}),
+      });
+      const hasMore = rows.length > parsed.data.limit;
+      const sessions = rows.slice(0, parsed.data.limit);
+      return jsonRpc(rpc.id, textToolResult(taskSessionPageSchema.parse({
+        sessions,
+        ...(hasMore && sessions.length > 0 ? { nextCursor: sessions.at(-1)!.id } : {}),
+      })));
+    }
+    if (call.name === "mystra_send_session_message") {
+      const parsed = parseArguments(rpc.id, call.name, sessionSendMessageToolSchema, call.arguments);
+      if (!parsed.ok) return parsed.response;
+      const { sessionId, ...request } = parsed.data;
+      try {
+        const result = await createSessionService(db).sendMessage({
+          actor: { actorId, teamId: active.team.id, roles: [active.role] },
+          sessionId,
+          request,
+        });
+        return jsonRpc(rpc.id, textToolResult(sessionSendMessageResponseSchema.parse(result)));
+      } catch (error) {
+        if (error instanceof SessionFailure) {
+          return jsonRpc(rpc.id, textToolResult({ error: { code: error.code, message: error.message } }));
+        }
+        throw error;
+      }
     }
     if (call.name === "skills_list") {
       const parsed = parseArguments(rpc.id, call.name, skillListQuerySchema, call.arguments);

@@ -10,6 +10,8 @@ import {
   sessionLaunchRequestSchema,
   sessionSchema,
   sessionStateSchema,
+  sessionSendMessageHttpInputSchema,
+  sessionSendMessageResponseSchema,
   taskSessionLaunchInputSchema,
   taskSessionListQuerySchema,
   type Session,
@@ -174,6 +176,30 @@ describe("canonical Session contract", () => {
       providerKey: "codex",
       initialInstruction: "   ",
     })).toThrow();
+  });
+
+  it("validates sessionSendMessageHttpInputSchema with optional messageId and tolerant content", () => {
+    const parsed1 = sessionSendMessageHttpInputSchema.parse({
+      content: "Hello world",
+    });
+    expect(parsed1.messageId).toBeUndefined();
+    expect(parsed1.content).toEqual([{ type: "text", text: "Hello world" }]);
+
+    const parsed2 = sessionSendMessageHttpInputSchema.parse({
+      messageId,
+      content: [{ type: "text", text: "Array content" }],
+    });
+    expect(parsed2.messageId).toBe(messageId);
+    expect(parsed2.content).toEqual([{ type: "text", text: "Array content" }]);
+
+    const response = sessionSendMessageResponseSchema.parse({
+      session: baseSession(),
+      created: true,
+      delivery: "dispatch",
+      messageId,
+    });
+    expect(response.delivery).toBe("dispatch");
+    expect(response.created).toBe(true);
   });
 
   it("allows exactly one bounded human event window mode", () => {

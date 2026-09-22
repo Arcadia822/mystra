@@ -298,7 +298,7 @@ describe("SessionService.sendMessage", () => {
     });
     await expect(service.sendMessage({
       actor: { actorId: "user-1", teamId, roles: ["owner"] }, sessionId, request: nextMessage,
-    })).resolves.toMatchObject({ created: true, session: { state: "message_pending" } });
+    })).resolves.toMatchObject({ created: true, delivery: "dispatch", session: { state: "message_pending" } });
 
     db.getSession.mockResolvedValue({ ...readySession, state: "message_pending", activeMessageId: nextMessage.messageId });
     db.listSessionEvents.mockResolvedValue({ events: [{
@@ -309,7 +309,7 @@ describe("SessionService.sendMessage", () => {
     }] });
     await expect(service.sendMessage({
       actor: { actorId: "user-1", teamId, roles: ["owner"] }, sessionId, request: nextMessage,
-    })).resolves.toMatchObject({ created: false });
+    })).resolves.toMatchObject({ created: false, delivery: "dispatch" });
     expect(db.appendSessionEvents).toHaveBeenCalledTimes(1);
   });
 
@@ -320,6 +320,8 @@ describe("SessionService.sendMessage", () => {
     await expect(service.sendMessage({
       actor: { actorId: "user-1", teamId, roles: ["owner"] }, sessionId, request: nextMessage,
     })).rejects.toMatchObject({ code: "session_busy" });
+    expect(db.appendSessionEvents).not.toHaveBeenCalled();
+
     db.getSession.mockResolvedValue({ ...readySession, state: "closed" });
     await expect(service.sendMessage({
       actor: { actorId: "user-1", teamId, roles: ["owner"] }, sessionId, request: nextMessage,
