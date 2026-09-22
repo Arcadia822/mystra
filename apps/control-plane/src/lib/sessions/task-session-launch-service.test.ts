@@ -19,7 +19,7 @@ function task(overrides: Record<string, unknown> = {}) {
 
 const runtime = {
   id: id("4"), name: "host-a", type: "host" as const, status: "online" as const, lastSeenAt: now,
-  metadata: { runnerId: id("5"), platform: "darwin/arm64", workspaceMaterialization: { version: 1 as const, kinds: ["task-repository"] as const, sharingModes: ["shared-mutable"] as const } },
+  metadata: { runnerId: id("5"), platform: "darwin/arm64", workspaceMaterialization: { version: 1 as const, kinds: ["task-repository"] as const, sharingModes: ["shared-mutable"] as const }, workloadInstruction: 'Execute "$MYSTRA_AGENT_PATH" <args>' },
   providers: [{ provider: "codex", discovered: true, available: true, source: "path", resolvedPath: "/usr/bin/codex", version: "1", unavailableReason: null }],
   createdAt: now, updatedAt: now,
 };

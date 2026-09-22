@@ -218,19 +218,19 @@ export const standardExecutionPromptSchema = z.object({
 export type StandardExecutionPrompt = z.infer<typeof standardExecutionPromptSchema>;
 
 const systemPromptComponentSchema = z.object({
-  name: z.enum(["standard", "runtime", "provider", "workflow", "agent_context", "execution_context"]),
+  name: z.enum(["standard", "runtime", "runtime_workload", "provider", "workflow", "agent_context", "execution_context"]),
   content: normalTextSchema,
 }).strict();
 
 export const effectiveSystemPromptEvidenceSchema = z.object({
   standardPrompt: standardExecutionPromptSchema,
   agentContext: agentContextSnapshotSchema.nullable(),
-  components: z.array(systemPromptComponentSchema).min(4).max(6),
+  components: z.array(systemPromptComponentSchema).min(5).max(7),
   finalPrompt: normalTextSchema,
 }).strict().superRefine((value, context) => {
   const hasWorkflow = value.components.some((component) => component.name === "workflow");
   const expected = [
-    "standard", "runtime", "provider",
+    "standard", "runtime", "runtime_workload", "provider",
     ...(hasWorkflow ? ["workflow"] : []),
     ...(value.agentContext ? ["agent_context"] : []),
     "execution_context",

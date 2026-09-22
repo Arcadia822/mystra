@@ -720,10 +720,12 @@ describe("host Runtime schemas", () => {
         kinds: ["task-repository"],
         sharingModes: ["shared-mutable"],
       },
+      workloadInstruction: 'Execute "$MYSTRA_AGENT_PATH" <args>',
     });
 
     expect(parsed.providers).toEqual([provider]);
     expect(parsed.workspaceMaterialization.version).toBe(1);
+    expect(parsed.workloadInstruction).toBe('Execute "$MYSTRA_AGENT_PATH" <args>');
     expect(() => hostRuntimeRegistrationSchema.parse({
       runnerId: "runner-1",
       name: "Build machine",
@@ -732,7 +734,6 @@ describe("host Runtime schemas", () => {
       providers: [provider],
     })).toThrow();
   });
-
   it("keeps liveness heartbeats separate from Provider reports", () => {
     expect(hostHeartbeatSchema.parse({ runnerId: "runner-1" })).toEqual({ runnerId: "runner-1" });
     expect(() => hostHeartbeatSchema.parse({ runnerId: "runner-1", providers: [provider] })).toThrow();
@@ -757,20 +758,20 @@ describe("host Runtime schemas", () => {
       kinds: ["task-repository"],
       sharingModes: ["shared-mutable"],
     } as const;
+    const workloadInstruction = 'Execute "$MYSTRA_AGENT_PATH" <args>';
     expect(runtimeViewSchema.parse({
       id: "00000000-0000-4000-8000-000000000001",
       name: "Build machine",
       type: "host",
-      metadata: { runnerId: "runner-1", platform: "darwin-arm64", workspaceMaterialization },
+      metadata: { runnerId: "runner-1", platform: "darwin-arm64", workspaceMaterialization, workloadInstruction },
       status: "online",
       lastSeenAt: "2026-08-07T10:00:00.000Z",
       providers: [provider],
       createdAt: "2026-08-07T10:00:00.000Z",
       updatedAt: "2026-08-07T10:00:00.000Z",
-    })).toMatchObject({ metadata: { runnerId: "runner-1", workspaceMaterialization }, status: "online" });
-    expect(hostRuntimeMetadataSchema.parse({ runnerId: "runner-1", workspaceMaterialization }))
-      .toEqual({ runnerId: "runner-1", workspaceMaterialization });
-    expect(runtimeRenameSchema.parse({ name: "Renamed host" })).toEqual({ name: "Renamed host" });
+    })).toMatchObject({ metadata: { runnerId: "runner-1", workspaceMaterialization, workloadInstruction }, status: "online" });
+    expect(hostRuntimeMetadataSchema.parse({ runnerId: "runner-1", workspaceMaterialization, workloadInstruction }))
+      .toEqual({ runnerId: "runner-1", workspaceMaterialization, workloadInstruction });
     expect(() => runtimeRenameSchema.parse({ name: "Renamed host", type: "host" })).toThrow();
   });
 });

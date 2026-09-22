@@ -126,6 +126,7 @@ export async function createSessionE2eFixture() {
       kinds: ["task-repository"],
       sharingModes: ["shared-mutable"],
     },
+    workloadInstruction: 'Execute "$MYSTRA_AGENT_PATH" <args>',
   });
   const reportedRuntime = (await db.reportHostProviders(runnerId, [{
     provider: "codex",

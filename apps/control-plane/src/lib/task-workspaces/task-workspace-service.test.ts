@@ -43,6 +43,7 @@ const runtime = {
       kinds: ["task-repository"] as const,
       sharingModes: ["shared-mutable"] as const,
     },
+    workloadInstruction: 'Execute "$MYSTRA_AGENT_PATH" <args>',
   },
   status: "online" as const,
   lastSeenAt: "2026-08-10T00:00:00.000Z",

@@ -65,6 +65,21 @@ describe("buildHostRuntimeRegistrationPayload", () => {
       kinds: ["task-repository"],
       sharingModes: ["shared-mutable"],
     });
+    expect(payload.workloadInstruction).toContain('"$MYSTRA_AGENT_PATH" context get');
+    expect(payload.workloadInstruction).not.toContain('node "$MYSTRA_AGENT_PATH"');
+    expect(hostRuntimeRegistrationSchema.parse(payload)).toEqual(payload);
+  });
+
+  it("builds the agentos registration payload with agentos workload instructions", () => {
+    const payload = buildHostRuntimeRegistrationPayload({
+      runnerId: "b1de8827-6325-47b3-b391-77b2f397b9e7",
+      name: "agentos-runner",
+      type: "agentos",
+      platform: "linux/x64",
+      providers: [],
+    });
+
+    expect(payload.workloadInstruction).toContain('node "$MYSTRA_AGENT_PATH" context get');
     expect(hostRuntimeRegistrationSchema.parse(payload)).toEqual(payload);
   });
 });

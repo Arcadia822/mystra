@@ -106,6 +106,7 @@ describe("canonical Session contract", () => {
       components: [
         { name: "standard", content: "Always complete and self-test the Task." },
         { name: "runtime", content: "Runtime facts" },
+        { name: "runtime_workload", content: "Runtime workload instructions" },
         { name: "provider", content: "Provider facts" },
         { name: "execution_context", content: "Task facts" },
       ],
@@ -114,7 +115,7 @@ describe("canonical Session contract", () => {
     const evidence = effectiveSystemPromptEvidenceSchema.parse(parsed.payload);
     expect(evidence.agentContext).toBeNull();
     expect(evidence.components.map((component) => component.name)).toEqual([
-      "standard", "runtime", "provider", "execution_context",
+      "standard", "runtime", "runtime_workload", "provider", "execution_context",
     ]);
     expect(() => event("session.system_prompt_configured", {
       ...evidence,
@@ -129,18 +130,19 @@ describe("canonical Session contract", () => {
       components: [
         { name: "standard", content: "Standard" },
         { name: "runtime", content: "Runtime" },
+        { name: "runtime_workload", content: "Runtime workload instructions" },
         { name: "provider", content: "Provider" },
-        { name: "workflow", content: "Run mystra-agent workflow current." },
+        { name: "workflow", content: "Drive the fixed workflow through the Runtime workload CLI." },
         { name: "execution_context", content: "Execution" },
       ],
       finalPrompt: "Frozen prompt",
     });
     expect(evidence.components.map(({ name }) => name)).toEqual([
-      "standard", "runtime", "provider", "workflow", "execution_context",
+      "standard", "runtime", "runtime_workload", "provider", "workflow", "execution_context",
     ]);
     expect(() => effectiveSystemPromptEvidenceSchema.parse({
       ...evidence,
-      components: [evidence.components[0], evidence.components[1], evidence.components[2], evidence.components[4], evidence.components[3]],
+      components: [evidence.components[0], evidence.components[1], evidence.components[2], evidence.components[3], evidence.components[5], evidence.components[4]],
     })).toThrow();
   });
 
