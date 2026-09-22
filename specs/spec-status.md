@@ -54,6 +54,7 @@
 | 057-workflow-harness-runtime       | ✓     | ✓  | ✓   | ✓ Complete |
 | 058-event-subscription-protocol    | ✓     | ✓  | ✓   | ● 32/33 (96%) |
 | 059-agentos-pi-runtime             | ✓     | ✓  | ✓   | ● 26/27 (96%) |
+| 060-coordinator-flow-myst-7        | ✓     | ✓  | ✓   | ● 13/14 (93%) |
 | 060-agentos-direct-control-plane   | ✓     | ✓  | ✓   | ● 19/26 (73%) |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
@@ -107,4 +108,5 @@
 <!-- feature: 057-workflow-harness-runtime has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=47 tasks_completed=47 checklist_files=requirements.md -->
 <!-- feature: 058-event-subscription-protocol has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=33 tasks_completed=32 checklist_files=requirements.md -->
 <!-- feature: 059-agentos-pi-runtime has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=27 tasks_completed=26 checklist_files=requirements.md -->
+<!-- feature: 060-coordinator-flow-myst-7 has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=false has_quickstart=false has_contracts=true has_checklists=true tasks_total=14 tasks_completed=13 checklist_files=requirements.md -->
 <!-- feature: 060-agentos-direct-control-plane has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=26 tasks_completed=19 checklist_files=requirements.md -->
