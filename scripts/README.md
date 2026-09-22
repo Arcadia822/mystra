@@ -4,6 +4,38 @@
 HTTP adapter over the canonical control-plane API and does not import provider,
 persistence, or Integration implementations.
 
+## Preset assets
+
+`presets/` holds the Agent Profiles and Skills that Mystra hosts and distributes.
+They are product assets, not scripts; the scripts below only move them.
+
+`publish-presets.mjs` publishes them through the canonical management API using
+the operator session store, so repository maintenance needs no second credential
+format. It is idempotent: an unchanged asset is skipped, and a changed asset is
+published as a new revision rather than overwritten.
+
+```sh
+node scripts/publish-presets.mjs                 # Agent Profiles + Skills
+node scripts/publish-presets.mjs --only=agents   # Agent Profiles only
+node scripts/publish-presets.mjs --only=skills   # Skills only
+```
+
+Agent Profiles and Skills have different infrastructure dependencies: Skill
+publication needs a reachable S3-compatible endpoint, Agent publication does not.
+Use `--only` when only one side is provisioned instead of running a publish that
+is known to fail halfway.
+
+`e2e-publish-presets.mjs` verifies the publish path against a real server: it
+boots the production bundle on a throwaway SQLite database, registers a real
+operator, publishes, and reads the result back. It also proves the idempotent and
+minimal-update behaviour by re-publishing and by publishing a drifted copy.
+
+```sh
+pnpm --filter @mystra/control-plane build   # dist/server.js needs the .next build
+node scripts/e2e-publish-presets.mjs
+node scripts/e2e-publish-presets.mjs --with-skills   # once storage is reachable
+```
+
 `prewarm-project.sh` prepares disposable local caches manually. Automatic
 prewarm remains a future SandboxProvider capability.
 
