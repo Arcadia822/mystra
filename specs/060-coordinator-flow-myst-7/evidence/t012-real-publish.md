@@ -20,7 +20,7 @@ host-c1 (100.89.186.36, Tailscale) — http://100.89.186.36:3000
 ```sh
 node scripts/e2e-publish-presets.mjs \
   --control-plane-url http://100.89.186.36:3000 \
-  --session-token 0NsF5lUEibwiu4wpXwgOSbUivdLibiDLVa8RNQaJDgM \
+  --session-token <REDACTED_SESSION_TOKEN> \
   --with-skills
 ```
 
@@ -51,8 +51,8 @@ teams/55177907-18a5-4a3b-8b35-6db529f22bd6/skills/f434106e-8a22-4aa8-a24e-83e482
 2. **TLS 证书**：`/root/.mystra/minio/certs/{private.key,public.crt}`（自签，有效期 10 年，SAN 包含 127.0.0.1、host-c1、localhost）。
 3. **控制面环境变量**（`/root/.mystra/runner.env`）：
    - `MYSTRA_SKILL_STORAGE_ENDPOINT=https://127.0.0.1:9000`
-   - `MYSTRA_SKILL_STORAGE_ACCESS_KEY_ID=mystra-skill-admin`
-   - `MYSTRA_SKILL_STORAGE_SECRET_ACCESS_KEY=mystra-skill-admin-secret`
+   - `MYSTRA_SKILL_STORAGE_ACCESS_KEY_ID=<REDACTED_STORAGE_ACCESS_KEY_ID>`
+   - `MYSTRA_SKILL_STORAGE_SECRET_ACCESS_KEY=<REDACTED_STORAGE_SECRET_ACCESS_KEY>`
    - `MYSTRA_SKILL_STORAGE_FORCE_PATH_STYLE=true`
    - `NODE_EXTRA_CA_CERTS=/root/.mystra/minio/certs/public.crt`
 4. **控制面服务**：重启一次加载新环境变量（无停机故障）。

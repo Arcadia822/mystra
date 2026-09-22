@@ -147,9 +147,9 @@ export async function publishPresets(options = {}) {
   const headers = { authorization: `Bearer ${session.sessionToken}` };
   const report = { only, agents: [], skills: [] };
 
+  const existingAgents = only === "skills" ? [] : await listAllAgents(fetchImpl, baseUrl, headers);
   for (const agent of only === "skills" ? [] : readAgentPresets(options.presetsRoot)) {
-    const list = await requestJson(fetchImpl, new URL("/api/agents", baseUrl), { headers });
-    const existing = (list.agents ?? []).find((candidate) => candidate.name === agent.name);
+    const existing = existingAgents.find((candidate) => candidate.name === agent.name);
     if (!existing) {
       const created = await requestJson(fetchImpl, new URL("/api/agents", baseUrl), {
         method: "POST",
@@ -170,7 +170,6 @@ export async function publishPresets(options = {}) {
     });
     report.agents.push({ name: agent.name, id: updated.agent.id, outcome: "updated" });
   }
-
   for (const skill of only === "agents" ? [] : readSkillPresets(options.presetsRoot)) {
     const zip = buildSkillZip(skill.files);
     const listing = await requestJson(
@@ -198,7 +197,9 @@ export async function publishPresets(options = {}) {
       });
       continue;
     }
-    if (manifestsMatch(existing.currentRevision.manifest, skill.files)) {
+    const detail = await requestJson(fetchImpl, new URL(`/api/skills/${existing.id}`, baseUrl), { headers });
+    const currentManifest = detail.skill?.currentRevision?.manifest ?? existing.currentRevision?.manifest;
+    if (manifestsMatch(currentManifest, skill.files)) {
       report.skills.push({
         name: skill.name,
         id: existing.id,
@@ -226,6 +227,19 @@ export async function publishPresets(options = {}) {
 
   return report;
 }
+async function listAllAgents(fetchImpl, baseUrl, headers) {
+  const agents = [];
+  let cursor = null;
+  do {
+    const url = new URL("/api/agents", baseUrl);
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const page = await requestJson(fetchImpl, url, { headers });
+    agents.push(...(page.agents ?? []));
+    cursor = page.nextCursor ?? null;
+  } while (cursor);
+  return agents;
+}
+
 
 function manifestsMatch(manifest, files) {
   if (!Array.isArray(manifest) || manifest.length !== files.length) return false;

@@ -25,6 +25,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import https from "node:https";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -75,7 +76,8 @@ function request(target, method, pathname, options = {}) {
   const url = new URL(pathname, target);
   const payload = options.body === undefined ? undefined : JSON.stringify(options.body);
   return new Promise((resolve, reject) => {
-    const req = http.request(
+    const transport = url.protocol === "https:" ? https : http;
+    const req = transport.request(
       {
         host: url.hostname,
         port: url.port || (url.protocol === "https:" ? 443 : 80),
@@ -244,7 +246,10 @@ async function main() {
 
   if (withSkills) {
     const skills = await publishPresets({ sessionStore, only: "skills" });
-    record("skill publish", { skills: skills.skills }, true);
+    const skillEntries = skills.skills ?? [];
+    const skillOk = skillEntries.length > 0
+      && skillEntries.every((entry) => ["created", "published", "unchanged"].includes(entry.outcome));
+    record("skill publish", { skills: skillEntries }, skillOk);
   }
 
   const report = {

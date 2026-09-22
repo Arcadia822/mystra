@@ -88,10 +88,14 @@ describe("Mystra flow presets", () => {
         return json({ agent: { ...agent, id: "33333333-3333-4333-8333-333333333333", name: proposed.name } });
       }
       if (url.pathname.startsWith("/api/agents/")) return json({ agent: { ...agent, systemPrompt: "updated" } });
-      if (url.pathname === "/api/skills") return json({ items: [skill] });
+      if (url.pathname === "/api/skills" && method === "GET") {
+        return json({ items: [{ ...skill, currentRevision: { sequence: 1 } }] });
+      }
+      if (url.pathname === `/api/skills/${skill.id}` && method === "GET") {
+        return json({ skill });
+      }
       return json({ skill, revision: { sequence: 2 } });
     };
-
     const report = await publishPresets({
       fetchImpl: fetchImpl as never,
       sessionStore: { read: async () => ({ controlPlaneUrl: "https://control.example.test", sessionToken: "t" }) } as never,
@@ -138,5 +142,48 @@ describe("Mystra flow presets", () => {
       sessionStore,
       only: "everything",
     })).rejects.toThrow(/Unsupported preset section/u);
+  });
+
+  it("paginates agents until nextCursor is null and does not duplicate existing agents on later pages", async () => {
+    const agentOnPage2 = {
+      id: "77777777-7777-4777-8777-777777777777",
+      name: "coordinator",
+      revision: 1,
+      systemPrompt: (readAgentPresets() as { name: string; systemPrompt: string }[])
+        .find((a) => a.name === "coordinator")!.systemPrompt,
+    };
+    const agentOnPage1 = {
+      id: "88888888-8888-4888-8888-888888888888",
+      name: "other-agent",
+      revision: 1,
+      systemPrompt: "prompt",
+    };
+
+    const createdNames: string[] = [];
+    const fetchImpl = async (url: URL, init?: { method?: string; body?: unknown }) => {
+      const method = init?.method ?? "GET";
+      if (url.pathname === "/api/agents" && method === "GET") {
+        if (!url.searchParams.get("cursor")) {
+          return json({ agents: [agentOnPage1], nextCursor: "cursor-1" });
+        }
+        return json({ agents: [agentOnPage2], nextCursor: null });
+      }
+      if (url.pathname === "/api/agents" && method === "POST") {
+        const payload = JSON.parse(String(init?.body)) as { name: string };
+        createdNames.push(payload.name);
+        return json({ agent: { id: "99999999-9999-4999-8999-999999999999", ...payload, revision: 1 } });
+      }
+      return json({});
+    };
+
+    const report = await publishPresets({
+      fetchImpl: fetchImpl as never,
+      sessionStore: { read: async () => ({ controlPlaneUrl: "https://control.example.test", sessionToken: "t" }) } as never,
+      only: "agents",
+    }) as { agents: { name: string; outcome: string }[] };
+
+    expect(createdNames).toEqual(["requirement-designer"]);
+    expect(report.agents).toContainEqual({ name: "coordinator", id: agentOnPage2.id, outcome: "unchanged" });
+    expect(report.agents).toContainEqual({ name: "requirement-designer", id: "99999999-9999-4999-8999-999999999999", outcome: "created" });
   });
 });

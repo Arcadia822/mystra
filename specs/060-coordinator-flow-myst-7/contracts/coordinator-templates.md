@@ -9,7 +9,8 @@
   "arguments": {
     "title": "[需求设计] MYST-4：用户旅程 1 飞书触发与 Taco 评审",
     "description": "由飞书 Thread (root_id: om_xxx) 触发的需求设计任务。目标 Issue: MYST-4",
-    "projectId": "00000000-0000-4000-8000-000000000041"
+    "projectId": "00000000-0000-4000-8000-000000000041",
+    "idempotencyKey": "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d"
   }
 }
 ```
@@ -21,7 +22,7 @@
   "arguments": {
     "taskId": "c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
     "runtimeId": "00000000-0000-4000-8000-000000000061",
-    "provider": "pi",
+    "providerKey": "pi",
     "initialInstruction": "【第一阶段：需求设计与 Taco 评审】\n目标 Issue: MYST-4\n执行要求：\n1. 检出分支 feature/myst-4-req-design，提关联目标 Issue 的 Draft PR；\n2. 研读仓库规范，编写 specs/060-coordinator-flow-myst-7/spec.md；\n3. 执行 taco-cli publish 发布独立评审链接；\n4. 调用 linctl 将 Issue 状态置为 In Review 并回填 Taco URL；\n5. 输出 Taco URL 与 Draft PR 链接供人类评审。",
     "expectedRevision": 1,
     "idempotencyKey": "9e8d7c6b-5a4f-3e2d-1c0b-a9b8c7d6e5f4"
