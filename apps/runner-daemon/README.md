@@ -47,10 +47,13 @@ MYSTRA_AGENTOS_MODEL_CONFIG=/opt/agentos/task-config.json
 # Optional: per-Session deadline and idle bounds, seconds.
 MYSTRA_AGENTOS_DEADLINE_SECONDS=900
 MYSTRA_AGENTOS_IDLE_SECONDS=180
-# Optional: host directory projected read-only into the guest as the workload CLI;
-# default is the guest-bin directory next to the deployed adapter (/opt/agentos/guest-bin).
-MYSTRA_AGENTOS_GUEST_BIN=/opt/agentos/guest-bin
-```
+# Optional: host directory projected read-only into the guest as the workload CLI bundle;
+# default is <package>/dist/agentos (produced by `pnpm --filter @mystra/runner-daemon run build:agentos-cli` -> dist/agentos/mystra-agent.cjs).
+MYSTRA_AGENTOS_GUEST_CLI_DIR=/opt/agentos/agent-cli
+# Optional: guest-reachable Control Plane origin, default matches runner MYSTRA_CONTROL_PLANE_URL.
+# On a single host, this must be http://127.0.0.1:<port> because the guest reaches the host
+# loopback through AgentOS loopbackExemptPorts; the adapter derives the exempted port from this URL.
+MYSTRA_AGENTOS_CONTROL_PLANE_URL=http://127.0.0.1:3000
 
 Startup fails when `MYSTRA_PI_PATH` is set without
 `MYSTRA_RUNNER_RUNTIME_TYPE=agentos`, or when `agentos` is selected without
@@ -58,22 +61,31 @@ Startup fails when `MYSTRA_PI_PATH` is set without
 a host Runtime and report `pi` as unavailable.
 
 The AgentOS guest receives one writable Task Workspace, a read-only workload CLI
-projection, and a read-only empty shadow over `<workspace>/.pi/extensions` so
-repository content cannot execute while the ephemeral model credential exists.
-Model credentials are written to an ephemeral in-guest mount and removed before
-the first caller-controlled prompt; guest egress is denied by default and
-allowed only for the configured model endpoint's `tcp://<host>:<port>` resource,
-so `model.baseUrl` must be an HTTPS URL without embedded credentials. See
-`specs/059-agentos-pi-runtime/research.md` for the measured pattern semantics.
+bundle projection at `/opt/mystra-agent-cli/mystra-agent.cjs`, and a read-only empty
+shadow over `<workspace>/.pi/extensions` so repository content cannot execute while the
+ephemeral model credential exists. Model credentials are written to an ephemeral in-guest
+mount and removed before the first caller-controlled prompt; guest egress is denied by
+default and allowed only for the configured model endpoint's `tcp://<host>:<port>`
+resource (so `model.baseUrl` must be an HTTPS URL without embedded credentials) and the
+local Control Plane's `tcp://127.0.0.1:<port>`. See `specs/059-agentos-pi-runtime/research.md`
+and `specs/060-agentos-direct-control-plane/research.md` for measured pattern semantics.
 
-The adapter probes the guest workload-binding channel before it writes any model
-credential and fails the Session closed when the guest cannot reach it, because a
-Session without its Session-scoped capability would otherwise look successful
-while never reporting status. Exceeding the deadline or idle bound aborts the
-response as a resumable `response_canceled` (not a terminal failure); only a
-genuine Provider failure ends the Session. `MYSTRA_AGENTOS_DEADLINE_SECONDS` and
-`MYSTRA_AGENTOS_IDLE_SECONDS` must be positive integers and are validated at
-startup.
+By explicit architectural decision (Linear MYST-23 / GitHub #44), the Session-scoped
+execution code now enters the guest to allow direct communication with the Control Plane.
+The credential is strictly bounded: short-lived, capability-scoped to the active Session,
+and carried solely in the durable Session env (`MYSTRA_AGENT_PATH`, `MYSTRA_CONTROL_PLANE_URL`,
+`MYSTRA_EXECUTION_CODE`, and `MYSTRA_WORKSPACE_ROOT`), never written to a guest file, argv,
+event payload, or log output. The 059 host binding and its `guest-bin` wrapper were deleted
+as unusable in agentos-core 0.2.19. The guest reaches the Control Plane directly over the
+exempted loopback port (`loopbackExemptPorts: [<port>]`) combined with the `tcp://127.0.0.1:<port>`
+egress rule.
+
+Before writing any model credential, the adapter executes `"$MYSTRA_AGENT_PATH" whoami`
+inside the guest with the injected environment. If this probe fails or times out, the Session
+fails closed immediately without leaving model credentials in the sandbox. Exceeding the
+deadline or idle bound aborts the response as a resumable `response_canceled` (not a terminal
+failure); only a genuine Provider failure ends the Session. `MYSTRA_AGENTOS_DEADLINE_SECONDS`
+and `MYSTRA_AGENTOS_IDLE_SECONDS` must be positive integers and are validated at startup.
 
 ## Task Workspace materialization
 

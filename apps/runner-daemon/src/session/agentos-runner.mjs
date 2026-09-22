@@ -4,7 +4,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AgentOs } from '@rivet-dev/agentos-core';
 import pi from '@agentos-software/pi';
-import { mystraBinding } from './mystra-binding.mjs';
 
 function positiveSecondsEnvironment(name, fallback) {
   const value = process.env[name];
@@ -16,23 +15,37 @@ function positiveSecondsEnvironment(name, fallback) {
 const DEADLINE_SECONDS = positiveSecondsEnvironment('MYSTRA_AGENTOS_DEADLINE_SECONDS', 900);
 const IDLE_SECONDS = positiveSecondsEnvironment('MYSTRA_AGENTOS_IDLE_SECONDS', 180);
 const IDLE_POLL_MS = 15_000;
-/** Bounded guest-side capability probe; a wedged shell must not hold the Session open. */
-const BINDING_CHECK_TIMEOUT_MS = 30_000;
-/** Binding collection name; becomes the guest command `agentos-mystra`. */
-const MYSTRA_BINDING_COLLECTION = 'mystra';
+/** Bounded guest-side capability probe; a wedged process must not hold the Session open. */
+const WORKLOAD_PROBE_TIMEOUT_MS = 30_000;
 const STATE_ROOT = process.env.MYSTRA_AGENTOS_SESSION_STATE_ROOT ?? '/root/.mystra/agentos-sessions';
 const MODEL_CONFIG_PATH = process.env.MYSTRA_AGENTOS_MODEL_CONFIG ?? '/opt/agentos/task-config.json';
-const GUEST_BIN_DIRECTORY = process.env.MYSTRA_AGENTOS_GUEST_BIN
-  ?? path.join(path.dirname(fileURLToPath(import.meta.url)), 'guest-bin');
+/**
+ * Host directory holding the bundled workload CLI that is projected read-only into the
+ * guest. Default resolves beside the deployed adapter (`<package>/dist/agentos`); a
+ * deployment may override it with `MYSTRA_AGENTOS_GUEST_CLI_DIR`.
+ */
+function guestCliDirectory() {
+  return process.env.MYSTRA_AGENTOS_GUEST_CLI_DIR
+    ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/agentos');
+}
+const GUEST_CLI_BUNDLE_NAME = 'mystra-agent.cjs';
 
-// Guest-visible layout. The host Runtime owns a single writable Task Workspace and a
-// read-only workload CLI projection; the guest never sees a host path.
+// Guest-visible layout. The host Runtime owns a single writable Task Workspace, a
+// read-only workload CLI projection, and one guest-reachable Control Plane origin.
 const GUEST_WORKSPACE = '/home/agentos/workspace';
-const GUEST_BIN_MOUNT = '/usr/local/sbin';
+const GUEST_CLI_MOUNT = '/opt/mystra-agent-cli';
 const GUEST_AGENT_CONFIG = '/home/agentos/.pi/agent';
 const GUEST_MODEL_CONFIG = `${GUEST_AGENT_CONFIG}/models.json`;
 const GUEST_WORKSPACE_EXTENSIONS = `${GUEST_WORKSPACE}/.pi/extensions`;
-const GUEST_WORKLOAD_CLI = `${GUEST_BIN_MOUNT}/mystra-agent`;
+const GUEST_WORKLOAD_CLI = `${GUEST_CLI_MOUNT}/${GUEST_CLI_BUNDLE_NAME}`;
+/**
+ * Guest-local copy of the bundle. The AgentOS `host_dir` projection does not reliably carry
+ * the executable bit across VM instances (measured on host-c1: the same read-only
+ * projection executed in one VM and failed with exit 126 in the next), and a read-only
+ * projection cannot be chmod'ed in place. Each VM therefore gets its own copy with an
+ * explicit mode before any credential exists or any prompt is dispatched.
+ */
+const GUEST_CLI_LOCAL = '/tmp/mystra-agent-cli/mystra-agent.cjs';
 const SESSION_MODES = new Set(['start', 'continue']);
 
 function requireSessionScopedCapability(input) {
@@ -49,8 +62,12 @@ function requireSessionScopedCapability(input) {
   if (typeof input.workspaceDirectory !== 'string' || !path.isAbsolute(input.workspaceDirectory)) {
     throw new Error('AgentOS Pi requires an absolute Task Workspace directory');
   }
-  if (!existsSync(path.join(GUEST_BIN_DIRECTORY, 'mystra-agent'))) {
-    throw new Error(`AgentOS Pi workload CLI projection is missing from ${GUEST_BIN_DIRECTORY}`);
+  const bundle = path.join(guestCliDirectory(), GUEST_CLI_BUNDLE_NAME);
+  if (!existsSync(bundle)) {
+    throw new Error(
+      `AgentOS Pi workload CLI bundle is missing from ${bundle};`
+      + ' build it with the runner-daemon "build:agentos-cli" script',
+    );
   }
 }
 
@@ -95,20 +112,28 @@ async function withinGrace(promise, graceMs, fallback) {
 
 /**
  * AgentOS matches a pattern-scope rule against the canonical resource string, not the bare
- * host: an outbound HTTPS request is `tcp://<hostname>:<port>`. A host-only pattern such as
+ * host: an outbound request is `tcp://<hostname>:<port>`. A host-only pattern such as
  * `example.com` never matches and silently denies every request (verified against
- * agentos-core 0.2.19 locally and on host-c1). The model endpoint is the single approved
- * egress destination; `default: "deny"` blocks everything else.
+ * agentos-core 0.2.19 locally and on host-c1). The model endpoint and the guest-reachable
+ * Control Plane origin are the only approved egress destinations; `default: "deny"` blocks
+ * everything else.
  */
-export function permissionsForModelEndpoint(baseUrl) {
-  let endpoint;
+export function permissionsForEndpoints(modelBaseUrl, controlPlaneUrl) {
+  let model;
   try {
-    endpoint = new URL(baseUrl);
+    model = new URL(modelBaseUrl);
   } catch {
     throw new Error('AgentOS Pi model baseUrl must be an absolute URL');
   }
-  if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password) {
+  if (model.protocol !== 'https:' || model.username || model.password) {
     throw new Error('AgentOS Pi model baseUrl must be HTTPS and must not contain credentials');
+  }
+  const controlPlane = new URL(controlPlaneUrl);
+  if (controlPlane.protocol !== 'http:' && controlPlane.protocol !== 'https:') {
+    throw new Error('AgentOS Pi Control Plane URL must be HTTP or HTTPS');
+  }
+  if (controlPlane.username || controlPlane.password) {
+    throw new Error('AgentOS Pi Control Plane URL must not contain credentials');
   }
   return {
     // AgentOS Core 0.2.19 forwards a supplied policy verbatim; it does not merge omitted
@@ -121,11 +146,38 @@ export function permissionsForModelEndpoint(baseUrl) {
     network: {
       default: 'deny',
       rules: [
-        { mode: 'allow', operations: ['*'], patterns: [`tcp://${endpoint.hostname}:${endpoint.port || '443'}`] },
+        { mode: 'allow', operations: ['*'], patterns: [`tcp://${model.hostname}:${model.port || '443'}`] },
+        { mode: 'allow', operations: ['*'], patterns: [canonicalResourceFor(controlPlane)] },
       ],
     },
   };
 }
+
+/**
+ * The canonical resource string for an HTTP(S) origin. `URL` drops the default port, so
+ * the effective port has to be reconstructed or the rule silently never matches.
+ */
+function canonicalResourceFor(endpoint) {
+  const port = endpoint.port || (endpoint.protocol === 'https:' ? '443' : '80');
+  return `tcp://${endpoint.hostname}:${port}`;
+}
+
+/**
+ * AgentOS blocks guest requests to loopback unless the port is exempted from its SSRF
+ * checks; the exemption is what lets the sandbox reach the Control Plane on the host
+ * (verified on host-c1: the rule alone still fails, the exemption plus the rule answers
+ * with an HTTP status). Non-loopback origins need no exemption.
+ */
+export function loopbackExemptPortsFor(controlPlaneUrl) {
+  const endpoint = new URL(controlPlaneUrl);
+  // `URL.hostname` keeps the brackets of an IPv6 literal.
+  const hostname = endpoint.hostname.replace(/^\[|\]$/g, '');
+  if (!LOOPBACK_HOSTS.has(hostname)) return [];
+  const port = Number(endpoint.port || (endpoint.protocol === 'https:' ? '443' : '80'));
+  return Number.isInteger(port) && port > 0 ? [port] : [];
+}
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 
 async function configurePiModel(vm, model, onLog) {
   await vm.filesystem.writeFile(GUEST_MODEL_CONFIG, JSON.stringify({
@@ -173,31 +225,44 @@ async function assertSessionRestored(vm, sessionId, mode, aborted) {
 }
 
 /**
- * FR-006 requires the sandboxed Agent to reach its Session-scoped capability through the
- * Runtime-provided workload CLI. AgentOS projects `agentos` / `agentos-<collection>` command
- * stubs into the guest, but agentos-core 0.2.19 dispatches them only through the host-side
- * `execFile` path: inside the guest the shell answers `command not found` (measured on
- * host-c1, exit 127). A Session that silently lost every capability call would look
- * successful while never reporting status, so the guest channel is verified before any
- * model credential is written and the Session fails closed with the measured reason.
+ * FR-006 requires the sandboxed Agent to reach its Session-scoped capability from inside
+ * the guest. The workload CLI is copied to a guest-local path with an explicit executable
+ * mode and then asked to resolve its own Session through the injected execution code, so
+ * this probe exercises the exact path the Agent will use - projection, interpreter,
+ * execution code, egress policy and Control Plane reachability - before any model
+ * credential is written. Any failure fails the Session closed with the measured reason.
  */
-async function assertGuestWorkloadBinding(vm, onLog, aborted) {
-  const result = await bounded(
-    vm.process.exec('agentos list-bindings', {
-      timeoutMs: BINDING_CHECK_TIMEOUT_MS,
+async function prepareGuestWorkloadCli(vm, capabilityEnvironment, onLog, aborted) {
+  const prepare = await bounded(
+    vm.process.exec(
+      `mkdir -p ${path.posix.dirname(GUEST_CLI_LOCAL)} && cp ${GUEST_WORKLOAD_CLI} ${GUEST_CLI_LOCAL} && chmod 0755 ${GUEST_CLI_LOCAL}`,
+      { timeoutMs: WORKLOAD_PROBE_TIMEOUT_MS, output: { capture: 'all' } },
+    ),
+    aborted,
+  );
+  if (prepare?.exitCode !== 0) {
+    throw new Error(
+      'AgentOS Pi could not stage the Runtime-provided workload CLI inside the guest'
+      + ` (exit ${prepare?.exitCode ?? 'unknown'}: ${String(prepare?.stderr ?? '').trim().slice(0, 300) || 'no stderr'})`,
+    );
+  }
+  const probe = await bounded(
+    vm.process.exec(`${GUEST_CLI_LOCAL} whoami`, {
+      env: capabilityEnvironment,
+      timeoutMs: WORKLOAD_PROBE_TIMEOUT_MS,
       output: { capture: 'all' },
     }),
     aborted,
   );
-  const stdout = String(result?.stdout ?? '');
-  if (result?.exitCode !== 0 || !stdout.includes(`"${MYSTRA_BINDING_COLLECTION}"`)) {
+  if (probe?.exitCode !== 0) {
     throw new Error(
-      `AgentOS Pi cannot reach the Runtime-provided workload binding from inside the guest`
-      + ` (agentos list-bindings exit ${result?.exitCode ?? 'unknown'}); this Session would run`
-      + ' without its Session-scoped capability',
+      'AgentOS Pi cannot reach the Runtime-provided workload CLI from inside the guest'
+      + ` (${GUEST_CLI_LOCAL} whoami exit ${probe?.exitCode ?? 'unknown'}:`
+      + ` ${String(probe?.stderr ?? '').trim().slice(0, 300) || 'no stderr'});`
+      + ' this Session would run without its Session-scoped capability',
     );
   }
-  onLog('[agentos-pi] guest workload binding reachable');
+  onLog('[agentos-pi] guest workload CLI resolved its Session capability');
 }
 
 async function cancelActivePrompt(vm, sessionId, onLog) {
@@ -234,6 +299,11 @@ export async function runPiInAgentOs({
   }
   const workload = { agentPath, controlPlaneUrl, executionCode, capabilities, workspaceDirectory };
   requireSessionScopedCapability(workload);
+  const guestControlPlaneUrl = process.env.MYSTRA_AGENTOS_CONTROL_PLANE_URL?.trim() || controlPlaneUrl;
+  const controlPlaneEndpoint = new URL(guestControlPlaneUrl);
+  if (controlPlaneEndpoint.username || controlPlaneEndpoint.password) {
+    throw new Error('AgentOS Pi Control Plane URL must not contain credentials');
+  }
 
   const config = JSON.parse(await readFile(modelConfigPath, 'utf8'));
   const model = requireModelConfig(config);
@@ -249,10 +319,16 @@ export async function runPiInAgentOs({
   }
   await mkdir(stateDirectory, { recursive: true, mode: 0o700 });
 
-  // The guest has no route to the Control Plane and no execution code. The host Runtime
-  // exposes its workload CLI as a binding and mounts the wrapper read-only where the guest
-  // PATH resolves it; only the non-secret CLI path travels into the durable session env.
-  const bindings = [mystraBinding({ ...workload, guestWorkspaceDirectory: GUEST_WORKSPACE })];
+  // The guest holds the Session-scoped execution code and reaches the Control Plane
+  // directly, so the host Runtime and the AgentOS Runtime deliver the same workload
+  // contract. The code lives only in the durable Session environment: never a guest file,
+  // argv, event or log.
+  const capabilityEnvironment = {
+    MYSTRA_AGENT_PATH: GUEST_CLI_LOCAL,
+    MYSTRA_CONTROL_PLANE_URL: guestControlPlaneUrl,
+    MYSTRA_EXECUTION_CODE: executionCode,
+    MYSTRA_WORKSPACE_ROOT: GUEST_WORKSPACE,
+  };
   const mounts = [
     {
       path: GUEST_WORKSPACE,
@@ -274,10 +350,11 @@ export async function runPiInAgentOs({
       readOnly: false,
       plugin: { id: 'memory', config: {} },
     },
+    // The workload CLI is one self-contained bundle; the guest never sees the repository.
     {
-      path: GUEST_BIN_MOUNT,
+      path: GUEST_CLI_MOUNT,
       readOnly: true,
-      plugin: { id: 'host_dir', config: { hostPath: GUEST_BIN_DIRECTORY, readOnly: true } },
+      plugin: { id: 'host_dir', config: { hostPath: guestCliDirectory(), readOnly: true } },
     },
   ];
 
@@ -300,11 +377,11 @@ export async function runPiInAgentOs({
     vm = await bounded(AgentOs.create({
       software: [pi],
       database: { type: 'sqlite_file', path: databasePath },
-      bindings,
       mounts,
-      permissions: permissionsForModelEndpoint(model.baseUrl),
+      permissions: permissionsForEndpoints(model.baseUrl, guestControlPlaneUrl),
+      loopbackExemptPorts: loopbackExemptPortsFor(guestControlPlaneUrl),
     }), aborted);
-    await assertGuestWorkloadBinding(vm, onLog, aborted);
+    await prepareGuestWorkloadCli(vm, capabilityEnvironment, onLog, aborted);
     await bounded(configurePiModel(vm, model, onLog), aborted);
 
     onLog(`[agentos-pi] opening ${mode} pi session ${sessionId} in ${GUEST_WORKSPACE}`);
@@ -313,8 +390,8 @@ export async function runPiInAgentOs({
       agent: 'pi',
       cwd: GUEST_WORKSPACE,
       // AgentOS persists this env in the durable session record and reapplies it on
-      // restore: non-secret, guest-visible values only.
-      env: { MYSTRA_AGENT_PATH: GUEST_WORKLOAD_CLI },
+      // restore, so later turns and rebuilt VMs resolve the same Session capability.
+      env: capabilityEnvironment,
       permissionPolicy: 'allow_all',
       additionalInstructions: systemPrompt,
     }), aborted);

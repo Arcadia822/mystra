@@ -187,14 +187,15 @@ pnpm lsp:typescript
   credential exists only in an ephemeral mount and is removed before the first
   caller-controlled prompt, repository-supplied Pi extensions are shadowed
   read-only, and egress is denied by default except for the configured model
-  endpoint's `tcp://<host>:<port>` resource; `model.baseUrl` must be HTTPS.
-  Environment reference and measured semantics: `apps/runner-daemon/README.md`
-  and `specs/059-agentos-pi-runtime/research.md`. Deadline or idle aborts are
-  resumable response cancellations, not terminal Session failures, and an
-  AgentOS Session fails closed before any model credential is written when the
-  guest cannot reach the Runtime-provided workload binding (measured limitation
-  of agentos-core 0.2.19: binding commands dispatch only through the host-side
-  `execFile` path, not from inside the guest).
+  endpoint's `tcp://<host>:<port>` and the local Control Plane's `tcp://127.0.0.1:<port>`.
+  The guest holds the short-lived execution code in its durable Session env and
+  calls the Control Plane directly through an exempted loopback port (`loopbackExemptPorts`).
+  The 059 host binding and guest wrapper were deleted as unusable in agentos-core 0.2.19,
+  and the adapter probes `"$MYSTRA_AGENT_PATH" whoami` in-guest before writing any model
+  credential, failing closed if unreachable. Environment reference and measured semantics:
+  `apps/runner-daemon/README.md`, `specs/059-agentos-pi-runtime/research.md`, and
+  `specs/060-agentos-direct-control-plane/`. Deadline or idle aborts are resumable
+  response cancellations, not terminal Session failures.
 - Runtime secrets are injected through environment variables or read-only files.
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core production is direct and Task-bound: Start, optionally with Agent Context, creates a
