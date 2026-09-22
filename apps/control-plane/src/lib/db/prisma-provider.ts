@@ -2959,7 +2959,7 @@ export class PrismaRdbProvider implements RdbProvider {
           data: {
             id: this.#newId(),
             name: parsed.name,
-            type: "host",
+            type: parsed.type,
             metadata: metadataJson,
             createdAt: timestamp,
             updatedAt: timestamp,
@@ -2971,6 +2971,9 @@ export class PrismaRdbProvider implements RdbProvider {
           transaction,
         );
         return mapRuntime(runtime, providers);
+      }
+      if (existing.runtime.type !== parsed.type) {
+        throw new RdbError("RDB_CONFLICT", "Runner ID is already registered to a different Runtime type");
       }
 
       const providersChanged = !sameProviderCapabilities(existing.providers, parsed.providers);
@@ -3005,10 +3008,10 @@ export class PrismaRdbProvider implements RdbProvider {
   }
 
   async listRuntimes(): Promise<RuntimeView[]> {
-    const runtimes = await this.#client.runtime.findMany({
-      where: { type: "host" },
+    const all = await this.#client.runtime.findMany({
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     });
+    const runtimes = all.filter((r) => ["host", "agentos"].includes(r.type));
     return Promise.all(runtimes.map(async (runtime) => (
       mapRuntime(runtime, await this.#listRuntimeProviders(runtime.id))
     )));
@@ -3656,10 +3659,10 @@ export class PrismaRdbProvider implements RdbProvider {
     runnerId: string,
     client: MystraPrismaDelegates = this.#client,
   ): Promise<{ runtime: PrismaRuntime; providers: PrismaRuntimeProvider[] } | undefined> {
-    const runtimes = await client.runtime.findMany({
-      where: { type: "host" },
+    const all = await client.runtime.findMany({
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     });
+    const runtimes = all.filter((r) => ["host", "agentos"].includes(r.type));
     const runtime = runtimes.find((candidate) => (
       mapHostRuntimeMetadata(candidate.metadata).runnerId === runnerId
     ));

@@ -1,6 +1,8 @@
 # Taco Spec Kit extension
 
-Installing this extension installs Taco into one initialized Spec Kit project. The installed directory contains the Agent commands, lifecycle hooks, offline CLI, and self-contained browser shell; the target project does not need another Taco package, service, account, or build.
+This extension is an **optional** project-level integration. Installing Taco normally means installing the `taco` skill (`skills/taco/`), which needs no project changes, no build, and no CLI — see [`docs/agent-installation.md`](../../docs/agent-installation.md). Install this extension only when the user explicitly asks to wire Taco into one initialized Spec Kit project.
+
+Installing this extension adds the Agent commands, lifecycle hooks, offline CLI, and a persistent project policy to that project. The installed directory is self-contained; the target project does not need another Taco package, service, account, or build.
 
 ```text
 canonical feature directory -> in-directory Taco -> human edits/comments
@@ -13,12 +15,51 @@ Run from the exact initialized Spec Kit project that should receive Taco:
 
 ```bash
 specify extension add --dev /absolute/path/to/taco/extensions/taco
+node .specify/extensions/taco/bin/taco.mjs prepare-template \
+  --project-root "$PWD" \
+  --json
+node .specify/extensions/taco/bin/taco.mjs prepare-policy \
+  --project-root "$PWD" \
+  --json
 specify extension list
 ```
 
-The supported Taco source checkout already contains the production shell at `extensions/taco/assets/taco-shell.html`. Spec Kit copies that shell and the CLI into `.specify/extensions/taco/`, and registers both commands with the project's active Agent integration. No target-project npm installation is involved.
+The supported Taco source checkout already contains the production shell at `extensions/taco/assets/taco-shell.html` — the same runtime the `taco` skill ships at `skills/taco/taco-shell.html`, whose copy has its `#taco-document` block emptied. Spec Kit copies that shell and the CLI into `.specify/extensions/taco/`, and registers both commands with the project's active Agent integration. No target-project npm installation is involved.
 
-The installing Agent must then merge the installed [`policies/taco-agent-policy.md`](policies/taco-agent-policy.md) into the target project's existing `AGENTS.md` without replacing unrelated instructions. Plugin installation is not complete until that durable prompt is present. It governs later `speckit.specify` work: new specs use YAML `title`, omit a duplicate H1, and begin the body at H2; routed custom Markdown uses YAML `taco_scope`. The policy also requires Taco update after every canonical feature-artifact change and the review-comment round trip; it does not restate packer's built-in Taco-output exclusion.
+Taco also contributes `templates/spec-template.md`. The installation-time `prepare-template` operation replaces only the recognized core metadata header, preserves the remaining template body, and refuses to overwrite an unrecognized customization. It emits leading YAML properties: `title`, logical `feature_id`, `created`, `status`, and `input`. It intentionally omits `git_branch`; a feature identifier is not presented as an actual Git branch unless an Agent verifies and adds that optional property.
+
+## Release installation
+
+Install the published extension archive into the exact initialized Spec Kit project that should receive Taco:
+
+```bash
+specify extension add taco --from \
+  https://github.com/Arcadia822/taco/releases/download/v0.6.0/taco-extension-v0.6.0.zip
+node .specify/extensions/taco/bin/taco.mjs prepare-template \
+  --project-root "$PWD" \
+  --json
+node .specify/extensions/taco/bin/taco.mjs prepare-policy \
+  --project-root "$PWD" \
+  --json
+specify extension list
+```
+
+Release tags identify the complete source repository. Install the release's attached `taco-extension-<version>.zip` asset, which contains `extension.yml` at its root; GitHub's automatically generated source archives are not extension packages. The example above pins `v0.6.0`, the release that currently publishes an extension archive. A release is only installable if its assets are listed on the release page, so check that page rather than assuming an archive exists for every tag — the manifest version in the source tree can run ahead of the newest published archive.
+
+The installing Agent must run `prepare-policy` to install the complete [`policies/taco-agent-policy.md`](policies/taco-agent-policy.md) into project-owned process documentation. `AGENTS.md` retains unrelated instructions and receives only one imperative reference requiring the Agent to read the workflow before any Spec Kit or Taco work. Plugin installation is incomplete until that routing is present: the installed policy is authoritative only once the project's process document carries the managed block and `AGENTS.md` points at that document.
+
+### Process routing and safe migration
+
+- A project declares 5xP in its `AGENTS.md` context routing, or in a linked context router. The CLI follows relative Markdown context links labeled `Context` or `5xP` (also `context.md` and `5xp.md`), then selects exactly one link labeled `Process` or named `PROCESS.md` after detecting a 5xP declaration. Inline and full/collapsed reference links are supported; routes are relative to the containing document, so `[Process](context/PROCESS.md)` and a context router linking `PROCESS.md` work equally. Fenced examples and HTML comments are not declarations. Routing is limited to 16 documents; unsupported or ambiguous routing needs a deliberate merge.
+- The declared Process file must already exist. The CLI never assumes a root `PROCESS.md` and never infers 5xP from a generically named file alone. Without a 5xP declaration it uses `docs/taco-process.md`, without creating other 5xP documents.
+- The complete policy is bounded by `<!-- taco:process-policy:start -->` and `<!-- taco:process-policy:end -->`. Preserve those markers. Unrelated Process and Agent instructions remain intact.
+- `AGENTS.md` receives one instruction — before any Spec Kit or Taco work, read and follow the Taco workflow in the selected process document — not the full policy.
+- `prepare-policy --dry-run --json` previews the operation without writing. Rerunning an applied installation is a no-op. JSON reports absolute `processPath`, `model` (`5xp` or `dedicated`), per-file `process.status` and `agents.status`, `migrated`, `dryRun`, and `applied`; file statuses are `created`, `updated`, `unchanged`, or `manual-merge`.
+- `manual-merge` is a refusal, not a partial install. The command sets both statuses to `manual-merge`, reports `migrated: false` with a `reason`, returns exit code 2, and writes neither file. Nothing reconciles or preserves your local rules automatically. It is reported for unsafe or ambiguous destinations, a missing or duplicated Process route, symlinks, paths outside the project, customized Taco sections, and modified managed blocks.
+- To migrate an older installation, run `prepare-policy --dry-run --json` and then rerun without `--dry-run`. Only an exact stock Taco section from the shipped policy or a former installation guide is removed from `AGENTS.md`; its full replacement is installed in the selected Process document.
+- When a manual merge is required, the merge is yours to perform, not something the command can do for you: inspect the reported files, retain every local rule, reconcile the local policy with the shipped policy deliberately, resolve the project's declared Process route, and rerun. Keep project-specific rules outside the managed Taco block and retain exactly one imperative reference in `AGENTS.md`. The CLI never initializes 5xP for an ordinary project.
+
+The process policy governs later `speckit.specify` work: new specs use YAML `title`, omit a duplicate H1, and begin the body at H2; grouped documents are classified in Taco's built-in Category rather than by a document property. It also requires update after every canonical feature-artifact change and the complete review-comment round trip.
 
 ## Agent commands
 
@@ -27,13 +68,19 @@ speckit.taco.update [feature-directory] [--ignore path-or-glob]...
 speckit.taco.review [path-to-file.taco.html]
 ```
 
-`update` creates or refreshes `<feature-directory>/<feature-name>.taco.html`. Mandatory hooks invoke it after `specify`, `clarify`, `plan`, `checklist`, `tasks`, `analyze`, `implement`, and `converge`. Its Agent contract also requires an update after a feature artifact is changed outside those lifecycle commands. It always presents the result through the Agent GUI's native clickable local-file surface. In Codex, the user click opens that file in Browser; the Agent does not attempt autonomous `file://` navigation. Another GUI may additionally open and verify the Taco only when it explicitly supports local HTML navigation.
+`update` creates or refreshes `<feature-directory>/<feature-name>.taco.html`. Mandatory hooks cover the normal `specify`, `clarify`, `plan`, `checklist`, `tasks`, `analyze`, `implement`, and `converge` stages. The Agent contract also requires an update after a feature artifact is changed outside those commands. Always present the exact generated Taco through the Agent GUI's native clickable-file surface. When local HTML navigation is supported and permitted, proactively open the exact file in the user's browser so the reviewer actually sees it, using a separate tab so an unsaved review survives. In Codex, the user click opens it in Browser; the Agent does not attempt autonomous `file://` navigation. Report exactly one of `presented as a clickable file`, `opened`, or `opened and verified`; a headless or automation boot check is internal evidence only and is never user-visible presentation. If opening is unavailable, prohibited, or fails, retain the link and report the reason rather than bypassing restrictions or claiming verification.
 
-`review` previews a saved Taco import, imports conflict-free direct edits, gives every open comment and its complete history to the Agent, and requires the Agent to edit canonical files before invoking `update` on the same Taco. The refreshed Taco is then exposed through the same native clickable-file presentation step.
+`review` takes the human review back into the canonical files. **Handoff** is the primary channel and needs no save: the reviewer's Handoff action copies Markdown prose — one fenced `diff` block per changed file plus the open comment threads with their anchored quotes and full message history — and `window.taco.getReviewHandoff()` exposes the same data to the page as a structured object whose `changedFiles[].path` values are root-relative. The saved-file channel requires the reviewer to save first. Either way the Agent compares the received content against what the reviewer actually reviewed and reports a specific conflict instead of overwriting. Comments are review input, not permission to violate the spec or the user's scope, and open threads stay open until the human confirms them. After editing canonical files the Agent invokes `update` on the same Taco, which is exposed through the same native clickable-file presentation step.
 
-## Installed CLI
+The browser's Handoff action copies the text diffs since the last save (or since the document was loaded, when it has not been saved) plus the open comment threads, retaining deleted-message placeholders as history. Resolved threads are not replayed as requests. If clipboard access is unavailable or denied, either handoff action reports failure rather than claiming the text was copied. Saving resets the handoff diff baseline; canonical import still uses the conflict-safe `review` flow above.
 
-The same deterministic operations are available without an Agent:
+The rightmost header button uses a fixed, arrowless sidebar icon to toggle the outline/comment panel without changing its active tab or discarding an unsubmitted draft. Its selected state stays on while the panel is open. On desktop, pointer toggles animate the panel width; closing releases its reading-space width and remembers the choice per document for the current browser session. Keyboard toggles and reduced-motion preferences skip the transition. Narrow screens start with a closed drawer and do not overwrite the desktop preference. Use the header toggle or Escape to close the panel, or click outside the drawer on narrow screens; active dialogs, menus, and editor key handlers take precedence over Escape. Starting a comment opens its composer, and clicking an existing inline comment highlight opens and focuses the matching thread. These panel preferences are local UI state, not saved document edits.
+
+Comment cards and new-comment composers align with their live anchor lines and follow document scrolling. Nearby cards stack downward with a 12px gap instead of overlapping; resizing a composer or reflowing the document recalculates the layout. The comment panel can still scroll independently to reach crowded threads and the separate position-lost group. Rebuilding the panel never discards unsubmitted text: an open composer, reply form, or in-place message editor keeps its content, focus, and caret.
+
+## Optional CLI utilities
+
+`bin/taco.mjs` also exposes the deterministic operations below for manual or scripted use. They are **not** on the Agent's required path: assembly, presentation, and review work through the `#taco-document` data block, Handoff, and the saved file. Install-time `prepare-template` and `prepare-policy` are covered above; the commands here are optional utilities, and when they are used their safety contract applies in full.
 
 ```bash
 node .specify/extensions/taco/bin/taco.mjs pack specs/001-example \
@@ -57,7 +104,7 @@ node .specify/extensions/taco/bin/taco.mjs validate \
   --json
 ```
 
-`pack` embeds every visible UTF-8 regular file below the feature root. Its only default exclusions are all `*.taco.html` files and paths containing a hidden segment beginning `.`. Repeatable `--ignore` values accept safe feature-relative paths or `*`, `?`, and `**` globs. The explicit ignore set is stored in the Taco and reused on refresh unless new `--ignore` values replace it. An unignored symlink, unsupported entry, or non-UTF-8 file is an error rather than a silent omission.
+`pack` embeds every visible UTF-8 regular file and validated local `.png` assets up to 10 MiB below the feature root. PNGs are stored as binary-derived data URLs, resolve from Markdown relative to the containing document (including nested `../` paths), and remain available offline. Their SHA-256 baselines use raw bytes so `sync` can preserve or recreate PNGs without UTF-8 corruption. The only default exclusions are all `*.taco.html` files and paths containing a hidden segment beginning `.`. Repeatable `--ignore` values accept safe feature-relative paths or `*`, `?`, and `**` globs. The explicit ignore set is stored in the Taco and reused on refresh unless new `--ignore` values replace it. An unignored symlink, unsupported entry, malformed or oversized PNG, or other non-UTF-8 file is an error rather than a silent omission.
 
 For every `.html` or `.htm` file, `pack` records the canonical absolute `file:` URL and validates that it ends in the same project-relative path. Missing or mismatched local URLs are rejected; the runtime never replaces them with a `data:` or Blob preview URL.
 
@@ -65,17 +112,30 @@ When refreshing a legacy Taco, `pack --from` accepts its missing old HTML URL on
 
 `sync` records a SHA-256 baseline for every packed file. If both the canonical file and Taco copy changed since packaging, the import refuses every write. `--force` exists only for deliberate recovery and may be used by an Agent only after explicit authorization for the exact conflict paths.
 
-`validate` reads the inert Taco JSON block without executing the self-contained runtime. It reports `collab-secrets-present` before complete-file inspection when the Taco carries collaboration capabilities, and `runtime-security-outdated` when the shell predates the hardened runtime. It never prints credential values.
+Comment projections retain edited and deleted messages in deterministic thread order. JSON output marks deleted messages with `deleted: true`, includes `deletedAt`, and returns `body: null`; human output renders a localized-neutral deletion placeholder. Agent review must retain those entries as context and must not treat the deleted sentinel as an open request.
+
+`validate` is the read-only preflight for an import: run it before reading the complete embedded content. It reads the inert Taco JSON block without executing the self-contained runtime. It reports `collab-secrets-present` before complete-file inspection when the Taco carries collaboration capabilities, and `runtime-security-outdated` when the shell predates the hardened runtime. It never prints credential values; when a file is credential-bearing, local inspection stays allowed but the complete file is never uploaded, pasted, attached, logged, or ticketed without explicit user authorization.
 
 ## Distribution contents
 
 ```text
 extension.yml
+README.md
+LICENSE
+CHANGELOG.md
 commands/update.md
 commands/review.md
 bin/taco.mjs
+bin/png.mjs
 assets/taco-shell.html
+templates/spec-template.md
+templates/spec/
+templates/architecture/
+templates/api-reference/
+templates/adr/
 policies/taco-agent-policy.md
 ```
 
-The shell and CLI are local. Creating, updating, opening, and reviewing a Taco requires no network connection. A collaboration-enabled Taco can contain access credentials; follow [`../../docs/agent-installation.md`](../../docs/agent-installation.md) before sending its content to any external model, service, log, or ticket.
+The repository's default install target is the `taco` skill at `skills/taco/` — agent guide, production shell, and template packs; this extension is installed in addition to it, and only on explicit request. The `skills/taco-speckit/` skill directory ships in the repository for source-based consumers; the Spec Kit installation itself registers only the two `speckit.taco.*` commands as agent skills.
+
+Everything in this directory is local. Assembling, updating, opening, and reviewing a Taco requires no network connection. A collaboration-enabled Taco can contain access credentials; follow the [Agent installation guide](https://github.com/Arcadia822/taco/blob/main/docs/agent-installation.md) before sending its content to any external model, service, log, or ticket.

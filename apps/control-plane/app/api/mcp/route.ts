@@ -187,7 +187,7 @@ const tools = [
   { name: "mystra_update_task", description: "Update Task-owned title or description.", inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string", format: "uuid" }, title: { type: "string", minLength: 1, maxLength: 500 }, description: { type: ["string", "null"], maxLength: 100000 } }, additionalProperties: false } },
   {
     name: "mystra_start_task_production",
-    description: "Start Task production with the Standard Execution Prompt and optional Agent Context.",
+    description: "Start Task production with the Standard Execution Prompt, an optional caller Instruction, and optional Agent Context.",
     inputSchema: {
       type: "object",
       required: ["taskId", "runtimeId", "providerKey", "expectedRevision", "idempotencyKey"],
@@ -198,6 +198,7 @@ const tools = [
         agentId: { type: ["string", "null"], format: "uuid" },
         expectedRevision: { type: "integer", minimum: 1 },
         idempotencyKey: { type: "string", minLength: 1, maxLength: 200 },
+        initialInstruction: { type: "string", minLength: 1, maxLength: 65536 },
       },
       additionalProperties: false,
     },

@@ -5,6 +5,8 @@ import path from "node:path";
 import {
   CodexProviderAdapter,
   CopilotProviderAdapter,
+  PI_SESSION_ID_ENVIRONMENT_KEY,
+  PiProviderAdapter,
   createProviderSessionAdapter,
   type ProviderSessionCommand,
   type ProviderProcessResult,
@@ -62,6 +64,7 @@ export async function executeSessionAssignment(input: {
       ? adapter.buildContinueCommand({
           mystraSessionId: assignment.session.id,
           providerSessionId: assignment.lease.providerSessionId,
+          systemPrompt: assignment.systemPrompt,
           userMessage: message,
           workingDirectory: resolved.directory,
         })
@@ -77,6 +80,15 @@ export async function executeSessionAssignment(input: {
     command = {
       ...command,
       argv: [input.providerExecutable, ...command.argv.slice(1)],
+      environment: {
+        ...command.environment,
+        // The Pi adapter carries AgentOS session identity itself and, on the continue path,
+        // deliberately passes the Provider session id. Only supply the Mystra Session id
+        // when the adapter did not, so its continue contract stays reachable.
+        ...(command.environment?.[PI_SESSION_ID_ENVIRONMENT_KEY]
+          ? {}
+          : { [PI_SESSION_ID_ENVIRONMENT_KEY]: assignment.session.id }),
+      },
     };
     if (assignment.execution) {
       if (!input.controlPlaneUrl) throw new Error("Control Plane URL is unavailable");
@@ -88,6 +100,7 @@ export async function executeSessionAssignment(input: {
           MYSTRA_AGENT_PATH: path.join(agentCliBinDirectory, "mystra-agent"),
           MYSTRA_CONTROL_PLANE_URL: input.controlPlaneUrl,
           MYSTRA_EXECUTION_CODE: assignment.execution.code,
+          MYSTRA_WORKLOAD_CAPABILITIES: assignment.execution.capabilities.join(","),
         },
       };
     }
@@ -128,7 +141,7 @@ export async function executeSessionAssignment(input: {
     : undefined;
   if (assignment.lease.providerSessionId) {
     await publishResponseStarted();
-  } else if (assignment.session.providerKey === "copilot") {
+  } else if (assignment.session.providerKey === "copilot" || assignment.session.providerKey === "pi") {
     await publishResponseStarted(assignment.session.id);
   }
   let result: ProviderProcessResult;
@@ -168,9 +181,19 @@ export async function executeSessionAssignment(input: {
   if (assistantMessage) {
     events.push(event("session.agent_message_chunk", { text: assistantMessage.slice(0, 32_768) }, assignment.message.messageId));
   }
+  const boundedAgentOsAbort = assignment.session.providerKey === "pi" && result.exitCode === 124;
   events.push(parsed.success
     ? event("session.response_completed", { stopReason: "end_turn" }, assignment.message.messageId)
-    : event("session.response_failed", { code: "provider_failed", message: `Provider execution failed with exit code ${result.exitCode}` }, assignment.message.messageId));
+    : boundedAgentOsAbort
+      ? event("session.response_canceled", {
+          reason: redactExecutionCode(parsed.errorMessage, assignment.execution?.code)?.slice(0, 500)
+            ?? "AgentOS Pi response exceeded its execution bound",
+        }, assignment.message.messageId)
+      : event("session.response_failed", {
+          code: "provider_failed",
+          message: redactExecutionCode(parsed.errorMessage, assignment.execution?.code)?.slice(0, 500)
+            ?? `Provider execution failed with exit code ${result.exitCode}`,
+        }, assignment.message.messageId));
   await input.client.appendEvents(assignment, events);
 }
 
@@ -207,6 +230,9 @@ function cancellationEvents(assignment: SessionClaimAssignment): SessionEventInp
 }
 
 function extractAssistantMessage(providerKey: string, stdout: string): string | undefined {
+  if (providerKey === "pi") {
+    return stdout.trim() || undefined;
+  }
   if (providerKey === "copilot") {
     const assistantOutput = stdout.split(/\n{2,}Changes\s/u, 1)[0]?.trim();
     return assistantOutput || undefined;
@@ -259,6 +285,11 @@ function baseAdapter(providerKey: string) {
       configDir: process.env.XDG_CONFIG_HOME ?? path.join(home, ".config"),
       cacheDir: process.env.XDG_CACHE_HOME ?? path.join(home, ".cache"),
       cliConfigDir: process.env.COPILOT_CLI_CONFIG_DIR ?? path.join(home, ".copilot"),
+    });
+  }
+  if (providerKey === "pi") {
+    return new PiProviderAdapter({
+      ...(process.env.MYSTRA_PI_PATH ? { piPath: process.env.MYSTRA_PI_PATH } : {}),
     });
   }
   throw new Error(`Unsupported Provider ${providerKey}`);

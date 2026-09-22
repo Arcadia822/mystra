@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { CodexProviderAdapter, CopilotProviderAdapter } from "./index.js";
+import { CodexProviderAdapter, CopilotProviderAdapter, PiProviderAdapter } from "./index.js";
 import { createProviderSessionAdapter } from "./session.js";
-
 const copilot = new CopilotProviderAdapter({
   cliConfigDir: "/config/copilot",
   homeDir: "/home/runner",
@@ -62,6 +61,36 @@ describe("ProviderSessionAdapter", () => {
     expect(start.argv).toContain("550e8400-e29b-41d4-a716-446655440000");
     expect(start.workingDirectory).toBe("/workspace");
     expect(continuation.argv).toContain("--session-id");
+    expect(adapter.parseResult({ exitCode: 0, stdout: "done", stderr: "" }).providerSessionId)
+      .toBe("550e8400-e29b-41d4-a716-446655440000");
+  });
+
+  it("hands Pi the user message and carries the Session contract out of band", () => {
+    const adapter = createProviderSessionAdapter(new PiProviderAdapter());
+    const start = adapter.buildStartCommand({
+      mystraSessionId: "550e8400-e29b-41d4-a716-446655440000",
+      systemPrompt: "System contract",
+      userMessage: "Write a function",
+      workingDirectory: "/workspace",
+    });
+
+    expect(start.argv).toEqual(["pi", "--cd", "/workspace", "Write a function"]);
+    expect(start.environment.MYSTRA_SESSION_ID).toBe("550e8400-e29b-41d4-a716-446655440000");
+    expect(start.environment.MYSTRA_SESSION_MODE).toBe("start");
+    expect(start.environment.MYSTRA_SESSION_SYSTEM_PROMPT).toBe("System contract");
+
+    const continuation = adapter.buildContinueCommand({
+      mystraSessionId: "550e8400-e29b-41d4-a716-446655440000",
+      providerSessionId: "550e8400-e29b-41d4-a716-446655440000",
+      systemPrompt: "System contract",
+      userMessage: "Now document it",
+      workingDirectory: "/workspace",
+    });
+
+    expect(continuation.argv).toEqual(["pi", "--cd", "/workspace", "Now document it"]);
+    expect(continuation.environment.MYSTRA_SESSION_ID).toBe("550e8400-e29b-41d4-a716-446655440000");
+    expect(continuation.environment.MYSTRA_SESSION_MODE).toBe("continue");
+    expect(continuation.environment.MYSTRA_SESSION_SYSTEM_PROMPT).toBe("System contract");
     expect(adapter.parseResult({ exitCode: 0, stdout: "done", stderr: "" }).providerSessionId)
       .toBe("550e8400-e29b-41d4-a716-446655440000");
   });

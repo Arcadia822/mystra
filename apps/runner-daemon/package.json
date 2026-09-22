@@ -14,9 +14,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@agentos-software/pi": "0.2.7",
     "@mystra/agent-adapters": "workspace:*",
     "@mystra/agent-cli": "workspace:*",
     "@mystra/shared": "workspace:*",
+    "@rivet-dev/agentos-core": "0.2.19",
     "@sentry/node": "^10.51.0",
     "zod": "^4.1.13"
   },

@@ -30,8 +30,38 @@ export type ProviderSessionContinueRequest = {
   mystraSessionId: string;
   providerSessionId: string;
   userMessage: string;
+  /**
+   * Program-owned system prompt for Providers that take instructions out of band.
+   * Providers that front-load instructions into the first user message ignore it.
+   */
+  systemPrompt?: string;
   workingDirectory: string;
 };
+
+/**
+ * Environment contract between the Provider session adapter and the AgentOS Pi
+ * shim (`apps/runner-daemon/src/session/pi-agentos-shim.mjs`). The user message
+ * stays the single argv positional; the session identity, the start/continue
+ * intent, and the system prompt travel in the Provider process environment so
+ * the shim never has to guess them and no credential enters argv.
+ */
+export const PI_SESSION_ID_ENVIRONMENT_KEY = "MYSTRA_SESSION_ID";
+export const PI_SESSION_MODE_ENVIRONMENT_KEY = "MYSTRA_SESSION_MODE";
+export const PI_SESSION_SYSTEM_PROMPT_ENVIRONMENT_KEY = "MYSTRA_SESSION_SYSTEM_PROMPT";
+
+type PiSessionMode = "start" | "continue";
+
+function piSessionEnvironment(input: {
+  sessionId: string;
+  mode: PiSessionMode;
+  systemPrompt?: string | undefined;
+}): Record<string, string> {
+  return {
+    [PI_SESSION_ID_ENVIRONMENT_KEY]: input.sessionId,
+    [PI_SESSION_MODE_ENVIRONMENT_KEY]: input.mode,
+    ...(input.systemPrompt ? { [PI_SESSION_SYSTEM_PROMPT_ENVIRONMENT_KEY]: input.systemPrompt } : {}),
+  };
+}
 
 export type ProviderSessionCommand = {
   argv: string[];
@@ -79,11 +109,11 @@ function extractCodexThreadId(stdout: string): string | undefined {
 }
 
 export function createProviderSessionAdapter(adapter: ProviderAdapter): ProviderSessionAdapter {
-  if (adapter.providerName !== "codex" && adapter.providerName !== "copilot") {
+  if (adapter.providerName !== "codex" && adapter.providerName !== "copilot" && adapter.providerName !== "pi") {
     throw new Error(`Provider ${adapter.providerName} does not support durable Sessions`);
   }
 
-  let copilotSessionId: string | undefined;
+  let stableSessionId: string | undefined;
 
   return {
     providerName: adapter.providerName,
@@ -98,7 +128,25 @@ export function createProviderSessionAdapter(adapter: ProviderAdapter): Provider
           ...parts,
         };
       }
-      copilotSessionId = input.mystraSessionId;
+      if (adapter.providerName === "pi") {
+        stableSessionId = input.mystraSessionId;
+        const piParts = executionParts(adapter, input.userMessage, input.workingDirectory);
+        const argv = adapter.buildCommand({ prompt: input.userMessage, workingDirectory: input.workingDirectory });
+        return {
+          argv,
+          workingDirectory: input.workingDirectory,
+          ...piParts,
+          environment: {
+            ...piParts.environment,
+            ...piSessionEnvironment({
+              sessionId: input.mystraSessionId,
+              mode: "start",
+              systemPrompt: input.systemPrompt,
+            }),
+          },
+        };
+      }
+      stableSessionId = input.mystraSessionId;
       const argv = adapter.buildCommand({ prompt, workingDirectory: input.workingDirectory });
       argv.splice(1, 0, "--session-id", input.mystraSessionId);
       return { argv, workingDirectory: input.workingDirectory, ...parts };
@@ -113,10 +161,28 @@ export function createProviderSessionAdapter(adapter: ProviderAdapter): Provider
           ...parts,
         };
       }
+      if (adapter.providerName === "pi") {
+        stableSessionId = input.providerSessionId;
+        const piParts = executionParts(adapter, input.userMessage, input.workingDirectory);
+        const argv = adapter.buildCommand({ prompt: input.userMessage, workingDirectory: input.workingDirectory });
+        return {
+          argv,
+          workingDirectory: input.workingDirectory,
+          ...piParts,
+          environment: {
+            ...piParts.environment,
+            ...piSessionEnvironment({
+              sessionId: input.providerSessionId,
+              mode: "continue",
+              systemPrompt: input.systemPrompt,
+            }),
+          },
+        };
+      }
       if (input.providerSessionId !== input.mystraSessionId) {
         throw new Error("Copilot provider session id must equal the Mystra Session id");
       }
-      copilotSessionId = input.providerSessionId;
+      stableSessionId = input.providerSessionId;
       const argv = adapter.buildCommand({ prompt: input.userMessage, workingDirectory: input.workingDirectory });
       argv.splice(1, 0, "--session-id", input.providerSessionId);
       return { argv, workingDirectory: input.workingDirectory, ...parts };
@@ -126,7 +192,7 @@ export function createProviderSessionAdapter(adapter: ProviderAdapter): Provider
       const parsed = adapter.parseOutput(parsedProcess);
       const providerSessionId = adapter.providerName === "codex"
         ? extractCodexThreadId(parsedProcess.stdout)
-        : copilotSessionId;
+        : stableSessionId;
       return { ...parsed, ...(providerSessionId ? { providerSessionId } : {}) };
     },
   };

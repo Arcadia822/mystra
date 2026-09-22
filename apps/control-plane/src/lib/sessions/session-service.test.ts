@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { RuntimeView, TaskRecord, TaskWorkspaceView } from "@mystra/shared";
-import { effectiveSystemPromptEvidenceSchema } from "@mystra/shared";
+import { DEFAULT_TASK_INITIAL_INSTRUCTION, effectiveSystemPromptEvidenceSchema } from "@mystra/shared";
 import type { SessionLaunchPersistenceInput } from "../db/rdb-provider";
 import { RdbError } from "../db/prisma-errors";
 
@@ -92,12 +92,13 @@ describe("SessionService.launch", () => {
     });
   });
 
-  it("launches a TaskExecutionContext with frozen Agent and Task input plus the standard production bootstrap", async () => {
+  it("launches a TaskExecutionContext with frozen Agent and Task input plus the frozen first instruction", async () => {
     const { service, createSessionWithEvents, db } = fixture();
     db.resolveActiveAgent.mockRejectedValue(new Error("current Agent must not be resolved"));
     const executionContext = {
       id: "00000000-0000-4000-8000-000000000020", teamId, taskId, projectId, agentId, agentRevision: 2,
       agentName: "Production Agent", agentSystemPrompt: "Frozen production Agent prompt.", taskTitle: "Frozen executionContext title", taskDescription: "Frozen executionContext description", taskIssue: null, manualContextText: null,
+      initialInstruction: "Write the design document for this Task.",
       runtimeId, providerKey: "codex" as const, workspaceId: "00000000-0000-4000-8000-000000000008",
       plannedSessionId: sessionId, sessionId: null, firstMessageId: messageId, assignIdempotencyKey: "assign-1",
       assignRequestFingerprint: "a".repeat(64), capabilityRevokedAt: null, setupFailureCode: null, setupFailureMessage: null,
@@ -114,6 +115,11 @@ describe("SessionService.launch", () => {
     expect(prompt).not.toContain("Frozen executionContext description");
     expect(prompt).not.toContain("MYSTRA_EXECUTION_CODE");
     expect(db.resolveActiveAgent).not.toHaveBeenCalled();
+    expect(persisted.events[3]!.payload).toEqual({
+      content: [{ type: "text", text: "Write the design document for this Task." }],
+    });
+    expect(prompt).not.toContain("Write the design document for this Task.");
+    expect(persisted.launchRequest.firstUserMessage.messageId).toBe(messageId);
   });
 
   it("persists Session plus the prompt, Workspace, and first user message atomically", async () => {
@@ -200,7 +206,7 @@ describe("SessionService.launchForTask", () => {
     const result = await service.launchForTask({
       actor: { actorId: "user-1", teamId, roles: ["owner"] },
       taskId,
-      request: { sessionId, providerKey: "codex", agentId, manualContext: { text: "Check the regression" } },
+      request: { sessionId, providerKey: "codex", agentId, manualContext: { text: "Check the regression" }, initialInstruction: "Investigate the regression." },
     });
     expect(result.session).toMatchObject({ id: sessionId, runtimeId, projectId, state: "queued" });
     expect(createSessionWithEvents).toHaveBeenCalledTimes(1);
@@ -213,7 +219,19 @@ describe("SessionService.launchForTask", () => {
       context: { taskId, projectId, manual: { text: "Check the regression" } },
     });
     expect(launch.firstUserMessage).toMatchObject({
-      content: [{ type: "text", text: expect.stringContaining("frozen context") }],
+      content: [{ type: "text", text: "Investigate the regression." }],
+    });
+  });
+
+  it("uses the neutral platform instruction when a new Task Session omits its own", async () => {
+    const { service, createSessionWithEvents } = fixture();
+    await service.launchForTask({
+      actor: { actorId: "user-1", teamId, roles: ["owner"] },
+      taskId,
+      request: { sessionId, providerKey: "codex" },
+    });
+    expect(createSessionWithEvents.mock.calls[0]![0].launchRequest.firstUserMessage).toMatchObject({
+      content: [{ type: "text", text: DEFAULT_TASK_INITIAL_INSTRUCTION }],
     });
   });
 

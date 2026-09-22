@@ -60,6 +60,7 @@ export class TaskSessionLaunchService {
         || executionContext.providerKey !== request.providerKey
         || executionContext.agentId !== request.agentId
         || executionContext.manualContextText !== (request.manualContext?.text ?? null)
+        || executionContext.initialInstruction !== request.initialInstruction
       ) {
         throw new SessionFailure("session_conflict", "sessionId was reused with different launch inputs");
       }
@@ -88,6 +89,7 @@ export class TaskSessionLaunchService {
           providerKey: request.providerKey,
           expectedRevision: task.statusRevision,
           idempotencyKey: request.sessionId,
+          initialInstruction: request.initialInstruction,
         },
         launch: {
           sessionId: request.sessionId,

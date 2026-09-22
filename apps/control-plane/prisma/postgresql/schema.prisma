@@ -156,6 +156,7 @@ model TaskExecutionContext {
   taskDescription          String?        @map("task_description")
   taskIssue                String?        @map("task_issue")
   manualContextText        String?        @map("manual_context_text")
+  initialInstruction       String         @map("initial_instruction")
   runtimeId                String         @map("runtime_id")
   providerKey              String         @map("provider_key")
   workspaceId              String?        @unique @map("workspace_id")

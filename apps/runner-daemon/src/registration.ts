@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import type { HostRuntimeRegistration, ProviderCapability } from "@mystra/shared";
+import type { HostRuntimeRegistration, ProviderCapability, RuntimeType } from "@mystra/shared";
 
 export interface RunnerIdStore {
   read(filePath: string): Promise<string>;
@@ -50,13 +50,14 @@ export async function getStableRunnerId(options: {
 export function buildHostRuntimeRegistrationPayload(input: {
   runnerId: string;
   name: string;
+  type?: RuntimeType;
   platform: string;
   providers: ProviderCapability[];
 }): HostRuntimeRegistration {
   return {
     runnerId: input.runnerId,
     name: input.name,
-    type: "host",
+    type: input.type ?? "host",
     platform: input.platform,
     providers: input.providers,
     workspaceMaterialization: {

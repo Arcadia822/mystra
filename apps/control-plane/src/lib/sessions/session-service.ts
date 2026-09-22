@@ -202,7 +202,7 @@ export class SessionService {
         },
         firstUserMessage: {
           messageId: input.executionContext.firstMessageId,
-          content: [{ type: "text", text: "Complete this Task: implement the code change, self-test it, create the PR with gh, and report the Task production status." }],
+          content: [{ type: "text", text: input.executionContext.initialInstruction }],
         },
         metadata: { executionContextId: input.executionContext.id, mode: "goal-autopilot" },
       },
@@ -245,7 +245,7 @@ export class SessionService {
           messageId: this.#newId(),
           content: [{
             type: "text",
-            text: "Execute this Task using its frozen context and Workspace. Complete the requested work and report the result.",
+            text: request.initialInstruction,
           }],
         },
         metadata: {},

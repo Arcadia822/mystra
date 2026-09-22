@@ -7,6 +7,7 @@ import { controlPlaneRequest } from "../_lib/control-plane-api";
 import { safeReturnDestination } from "../_lib/auth-ui-model";
 import { AppShell } from "./app-shell";
 import { UiButton } from "./ui-actions";
+import { initialControlPlaneGateState, type ControlPlaneGateState } from "./control-plane-gate-model";
 
 interface SessionResponse {
   user: { requirePasswordChange: boolean };
@@ -18,10 +19,10 @@ export function ControlPlaneGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [state, setState] = useState<"loading" | "authenticated" | "unauthenticated" | "unavailable">("loading");
-  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const isAuthPath = authPaths.has(pathname);
   const isPasswordPath = pathname === "/account/password";
+  const [state, setState] = useState<ControlPlaneGateState>(() => initialControlPlaneGateState(isAuthPath));
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
 
   useEffect(() => {
     let active = true;

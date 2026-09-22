@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { retryUntilReachable } from "./index.js";
+import { resolveRuntimeType, retryUntilReachable } from "./index.js";
+
+describe("resolveRuntimeType", () => {
+  it("requires MYSTRA_PI_PATH and MYSTRA_RUNNER_RUNTIME_TYPE to agree", () => {
+    expect(resolveRuntimeType({})).toBe("host");
+    expect(resolveRuntimeType({ MYSTRA_RUNNER_RUNTIME_TYPE: "agentos", MYSTRA_PI_PATH: "/opt/agentos/pi-agentos-shim.mjs" }))
+      .toBe("agentos");
+    // A Pi shim without the agentos type would register as a host Runtime and never probe it.
+    expect(() => resolveRuntimeType({ MYSTRA_PI_PATH: "/opt/agentos/pi-agentos-shim.mjs" }))
+      .toThrow(/MYSTRA_RUNNER_RUNTIME_TYPE is not agentos/u);
+    expect(() => resolveRuntimeType({ MYSTRA_RUNNER_RUNTIME_TYPE: "agentos" }))
+      .toThrow(/requires MYSTRA_PI_PATH/u);
+    for (const [name, value] of [
+      ["MYSTRA_AGENTOS_DEADLINE_SECONDS", ""],
+      ["MYSTRA_AGENTOS_DEADLINE_SECONDS", "soon"],
+      ["MYSTRA_AGENTOS_DEADLINE_SECONDS", "1.5"],
+      ["MYSTRA_AGENTOS_IDLE_SECONDS", "0"],
+      ["MYSTRA_AGENTOS_IDLE_SECONDS", "NaN"],
+    ] as const) {
+      expect(() => resolveRuntimeType({
+        MYSTRA_RUNNER_RUNTIME_TYPE: "agentos",
+        MYSTRA_PI_PATH: "/opt/agentos/pi-agentos-shim.mjs",
+        [name]: value,
+      })).toThrow(`${name} must be a positive integer`);
+    }
+  });
+});
 
 describe("retryUntilReachable", () => {
   it("retries an unavailable control-plane endpoint without terminating the daemon", async () => {

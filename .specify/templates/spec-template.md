@@ -1,9 +1,11 @@
-# Feature Specification: [FEATURE NAME]
-
-**Feature Branch**: `[###-feature-name]`  
-**Created**: [DATE]  
-**Status**: Draft  
-**Input**: User description: "$ARGUMENTS"
+---
+title: '[FEATURE NAME]'
+feature_id: '[###-feature-name]'
+created: '[DATE]'
+status: 'Draft'
+input: |-
+  User description: "$ARGUMENTS"
+---
 
 ## User Scenarios & Testing *(mandatory)*
 

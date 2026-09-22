@@ -5,7 +5,7 @@ import {
   repositorySnapshotSchema,
 } from "./repository.js";
 
-export const providerNameSchema = z.enum(["codex", "copilot"]);
+export const providerNameSchema = z.enum(["codex", "copilot", "pi"]);
 export type ProviderName = z.infer<typeof providerNameSchema>;
 
 export const providerSourceSchema = z.enum(["path", "login-shell", "env-override"]);
@@ -66,11 +66,14 @@ export type WorkspaceMaterializationCapability = z.infer<
   typeof workspaceMaterializationCapabilitySchema
 >;
 
+export const runtimeTypeSchema = z.enum(["host", "agentos"]);
+export type RuntimeType = z.infer<typeof runtimeTypeSchema>;
+
 export const hostRuntimeRegistrationSchema = z
   .object({
     runnerId: z.string().min(1),
     name: z.string().min(1),
-    type: z.literal("host"),
+    type: runtimeTypeSchema.default("host"),
     platform: z.string().min(1),
     providers: z.array(providerCapabilitySchema).default([]),
     workspaceMaterialization: workspaceMaterializationCapabilitySchema,
@@ -117,7 +120,7 @@ export const runtimeViewSchema = z
   .object({
     id: z.string().uuid(),
     name: z.string().min(1),
-    type: z.literal("host"),
+    type: runtimeTypeSchema,
     metadata: hostRuntimeMetadataSchema,
     status: runtimeStatusSchema,
     lastSeenAt: z.string().datetime().nullable(),

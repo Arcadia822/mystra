@@ -3,18 +3,37 @@ schema_version: '1.0'
 extension:
   id: 'taco'
   name: 'Taco Review'
-  version: '0.3.1'
-  description: 'Installs Taco into a Spec Kit project, keeps feature review files current, and syncs human edits and comments back.'
+  version: '0.7.0'
+  description: 'Packages Spec Kit features for human review and syncs edits and comments back.'
+  author: 'Arcadia822'
+  repository: 'https://github.com/Arcadia822/taco'
+  homepage: 'https://github.com/Arcadia822/taco#readme'
   category: 'integration'
   effect: 'read-write'
   license: 'MIT'
 
 requires:
-  speckit_version: '>=0.16.0,<1.0.0'
+  speckit_version: '>=0.16.0,<2.0.0'
   commands:
     - 'speckit.specify'
 
 provides:
+  templates:
+    - name: 'spec-template'
+      file: 'templates/spec-template.md'
+      description: 'Spec Kit feature specification template with canonical Taco YAML metadata.'
+    - name: 'spec-pack'
+      file: 'templates/spec'
+      description: 'Self-contained template pack for feature specifications with a ready-to-open empty Taco.'
+    - name: 'architecture-pack'
+      file: 'templates/architecture'
+      description: 'Self-contained template pack for architecture documents with a ready-to-open empty Taco.'
+    - name: 'api-reference-pack'
+      file: 'templates/api-reference'
+      description: 'Self-contained template pack for API reference documents with a ready-to-open empty Taco.'
+    - name: 'adr-pack'
+      file: 'templates/adr'
+      description: 'Self-contained template pack for architecture decision records with a ready-to-open empty Taco.'
   commands:
     - name: 'speckit.taco.update'
       file: 'commands/update.md'
@@ -25,7 +44,7 @@ provides:
   scripts:
     - name: 'taco-cli'
       file: 'bin/taco.mjs'
-      description: 'Offline pack, sync, and comment inspection CLI for Taco files.'
+      description: 'Optional offline CLI for Taco files (prepare-template, prepare-policy, and pack/sync/validate utilities). The Agent workflow uses the shell and bundle JSON directly and does not require this CLI.'
 
 hooks:
   after_specify:

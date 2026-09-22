@@ -153,6 +153,21 @@ describe("mystra-agent CLI", () => {
     expect(JSON.parse(stdout.read()).workspace.root).toBe("/tmp/workspace");
     expect(stdout.read()).not.toContain("secret-code");
     expect(stderr.read()).toBe("");
+
+    const projectedStdout = io();
+    expect(await runAgentCli({
+      argv: ["context", "get"],
+      env: {
+        MYSTRA_CONTROL_PLANE_URL: "http://localhost:3000",
+        MYSTRA_EXECUTION_CODE: "secret-code",
+        MYSTRA_WORKSPACE_ROOT: "/home/agentos/workspace",
+      },
+      cwd: () => "/host/task/workspace",
+      fetch: fetchMock as typeof fetch,
+      stdout: projectedStdout,
+      stderr: io(),
+    })).toBe(0);
+    expect(JSON.parse(projectedStdout.read()).workspace.root).toBe("/home/agentos/workspace");
   });
 
   it("sends only allowlisted status fields and emits stable JSON errors", async () => {

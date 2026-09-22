@@ -1,0 +1,43 @@
+{
+  "format": "taco/files",
+  "version": 1,
+  "docId": "architecture-template",
+  "title": "Architecture Design",
+  "root": "architecture",
+  "files": [
+    {
+      "id": "arch-overview",
+      "path": "architecture/overview.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'System Architecture Overview'\nstatus: 'Proposed'\n---\n\n## 1. High-Level Topology\n\n```mermaid\nflowchart TD\n  Client[Client Application] --> Gateway[API Gateway]\n  Gateway --> Core[Core Engine]\n  Core --> Storage[(Database)]\n```\n\n## 2. Key Components\n\n- **Client**: Web / Agent interface\n- **Gateway**: Routing and auth termination\n- **Core**: Domain business logic\n"
+    },
+    {
+      "id": "arch-data-model",
+      "path": "architecture/data-model.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'Data Model & Flow'\n---\n\n## Data Entities\n\nDefine key entities and storage representations here.\n"
+    },
+    {
+      "id": "arch-tradeoffs",
+      "path": "architecture/tradeoffs.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'Tradeoffs & Alternatives'\n---\n\n## Technical Tradeoffs\n\nDocument rejected alternatives and decisions.\n"
+    }
+  ],
+  "navigation": {
+    "version": 1,
+    "entry": "architecture/overview.md",
+    "groups": [
+      {
+        "id": "group-overview",
+        "title": "System Topology",
+        "paths": ["architecture/overview.md"]
+      },
+      {
+        "id": "group-details",
+        "title": "Design Details",
+        "paths": ["architecture/data-model.md", "architecture/tradeoffs.md"]
+      }
+    ]
+  }
+}

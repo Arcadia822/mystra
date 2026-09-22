@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { agentDisplayNameSchema, agentSystemPromptSchema } from "./agent.js";
 import { providerNameSchema } from "./schemas.js";
+import { SESSION_TEXT_MAX_LENGTH } from "./session-limits.js";
 import {
   taskDescriptionSchema,
   taskIssueReferenceSchema,
@@ -11,6 +12,13 @@ import {
   taskTitleSchema,
   taskStatusTransitionSchema,
 } from "./task.js";
+
+export const DEFAULT_TASK_INITIAL_INSTRUCTION = [
+  "Complete this Task. Read the Task title, description, and any referenced Issue, then deliver exactly what the Task asks for in the attached Workspace.",
+  "Report the Task production status when the work is complete, or report blocked with a concrete reason when it cannot continue.",
+].join(" ");
+
+export const taskInitialInstructionSchema = z.string().trim().min(1).max(SESSION_TEXT_MAX_LENGTH);
 
 export const workloadCapabilitySchema = z.enum([
   "context:read",
@@ -56,6 +64,7 @@ export const taskExecutionContextSchema = z.object({
   taskDescription: taskDescriptionSchema,
   taskIssue: taskIssueReferenceSchema.nullable(),
   manualContextText: z.string().trim().min(1).max(64 * 1024).nullable().default(null),
+  initialInstruction: taskInitialInstructionSchema,
   runtimeId: z.string().uuid(),
   providerKey: providerNameSchema,
   workspaceId: z.string().uuid().nullable(),
@@ -88,6 +97,7 @@ export const taskStartRequestSchema = z.object({
   providerKey: providerNameSchema,
   expectedRevision: z.number().int().positive(),
   idempotencyKey: taskStatusIdempotencyKeySchema,
+  initialInstruction: taskInitialInstructionSchema.default(DEFAULT_TASK_INITIAL_INSTRUCTION),
 }).strict();
 export type TaskStartRequest = z.input<typeof taskStartRequestSchema>;
 export type ParsedTaskStartRequest = z.output<typeof taskStartRequestSchema>;

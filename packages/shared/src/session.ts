@@ -3,15 +3,19 @@ import { z } from "zod";
 import {
   agentContextSnapshotSchema,
   sessionExecutionCapabilitySchema,
+  taskInitialInstructionSchema,
+  DEFAULT_TASK_INITIAL_INSTRUCTION,
 } from "./task-execution-context.js";
 
+import { SESSION_TEXT_MAX_LENGTH } from "./session-limits.js";
 import { sessionWorkspaceAttachmentSchema } from "./task-workspace.js";
 import { workflowSkillProjectionAssignmentSchema } from "./workflow.js";
+
+export { SESSION_TEXT_MAX_LENGTH };
 
 export const SESSION_EVENT_MAX_BYTES = 64 * 1024;
 export const SESSION_EVENT_BATCH_MAX_BYTES = 256 * 1024;
 export const SESSION_EVENT_BATCH_MAX_COUNT = 100;
-export const SESSION_TEXT_MAX_LENGTH = 64 * 1024;
 export const SESSION_CHUNK_MAX_LENGTH = 16 * 1024;
 
 const sensitiveKeyPattern = /^(authorization|cookie|credential|password|secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|private[_-]?key)$/iu;
@@ -400,6 +404,7 @@ export const taskSessionLaunchInputSchema = z.object({
   manualContext: z.object({
     text: z.string().trim().min(1).max(SESSION_TEXT_MAX_LENGTH),
   }).strict().optional(),
+  initialInstruction: taskInitialInstructionSchema.default(DEFAULT_TASK_INITIAL_INSTRUCTION),
 }).strict();
 export type TaskSessionLaunchInput = z.input<typeof taskSessionLaunchInputSchema>;
 export type ParsedTaskSessionLaunchInput = z.output<typeof taskSessionLaunchInputSchema>;
