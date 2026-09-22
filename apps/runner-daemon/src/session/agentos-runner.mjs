@@ -114,11 +114,10 @@ async function withinGrace(promise, graceMs, fallback) {
  * AgentOS matches a pattern-scope rule against the canonical resource string, not the bare
  * host: an outbound request is `tcp://<hostname>:<port>`. A host-only pattern such as
  * `example.com` never matches and silently denies every request (verified against
- * agentos-core 0.2.19 locally and on host-c1). The model endpoint and the guest-reachable
- * Control Plane origin are the only approved egress destinations; `default: "deny"` blocks
- * everything else.
+ * agentos-core 0.2.19 locally and on host-c1). Only the model, Control Plane, and
+ * explicitly configured Taco origin are approved; `default: "deny"` blocks everything else.
  */
-export function permissionsForEndpoints(modelBaseUrl, controlPlaneUrl) {
+export function permissionsForEndpoints(modelBaseUrl, controlPlaneUrl, tacoHostUrl) {
   let model;
   try {
     model = new URL(modelBaseUrl);
@@ -135,6 +134,19 @@ export function permissionsForEndpoints(modelBaseUrl, controlPlaneUrl) {
   if (controlPlane.username || controlPlane.password) {
     throw new Error('AgentOS Pi Control Plane URL must not contain credentials');
   }
+  let taco;
+  if (tacoHostUrl !== undefined) {
+    try {
+      taco = new URL(tacoHostUrl);
+    } catch {
+      throw new Error('AgentOS Taco host must be a HTTPS origin');
+    }
+    if (taco.protocol !== 'https:' || taco.username || taco.password
+      || taco.pathname !== '/' || taco.search || taco.hash
+      || !/^[a-z0-9.-]+$/i.test(taco.hostname)) {
+      throw new Error('AgentOS Taco host must be a HTTPS origin without credentials, path, query, fragment, or wildcards');
+    }
+  }
   return {
     // AgentOS Core 0.2.19 forwards a supplied policy verbatim; it does not merge omitted
     // scopes with its documented defaults, so every scope is stated explicitly.
@@ -148,6 +160,7 @@ export function permissionsForEndpoints(modelBaseUrl, controlPlaneUrl) {
       rules: [
         { mode: 'allow', operations: ['*'], patterns: [`tcp://${model.hostname}:${model.port || '443'}`] },
         { mode: 'allow', operations: ['*'], patterns: [canonicalResourceFor(controlPlane)] },
+        ...(taco ? [{ mode: 'allow', operations: ['*'], patterns: [canonicalResourceFor(taco)] }] : []),
       ],
     },
   };
@@ -313,6 +326,16 @@ export async function runPiInAgentOs({
 
   const config = JSON.parse(await readFile(modelConfigPath, 'utf8'));
   const model = requireModelConfig(config);
+  const tacoHostUrl = process.env.MYSTRA_AGENTOS_TACO_HOST_URL;
+  const permissions = permissionsForEndpoints(model.baseUrl, guestControlPlaneUrl, tacoHostUrl);
+  const tacoPackagePath = path.join(guestCliDirectory(), 'taco-cli.aospkg');
+  if (tacoHostUrl !== undefined) {
+    for (const file of ['taco-cli.aospkg', 'taco-skill/SKILL.md', 'taco-skill/taco-shell.html']) {
+      if (!existsSync(path.join(guestCliDirectory(), file))) {
+        throw new Error(`AgentOS Taco artifact missing: ${file}; run build:agentos-cli before enabling Taco`);
+      }
+    }
+  }
 
   // The durable Session database lives OUTSIDE the task repository working tree, so a
   // rebuilt sandbox resumes the exact conversation without polluting the repository.
@@ -334,6 +357,10 @@ export async function runPiInAgentOs({
     MYSTRA_CONTROL_PLANE_URL: guestControlPlaneUrl,
     MYSTRA_EXECUTION_CODE: executionCode,
     MYSTRA_WORKSPACE_ROOT: GUEST_WORKSPACE,
+    ...(tacoHostUrl !== undefined ? {
+      TACO_HOST_URL: new URL(tacoHostUrl).origin,
+      TACO_SKILL_PATH: `${GUEST_CLI_MOUNT}/taco-skill`,
+    } : {}),
   };
   const mounts = [
     {
@@ -381,10 +408,10 @@ export async function runPiInAgentOs({
 
   try {
     vm = await bounded(AgentOs.create({
-      software: [pi],
+      software: tacoHostUrl !== undefined ? [pi, { packagePath: tacoPackagePath }] : [pi],
       database: { type: 'sqlite_file', path: databasePath },
       mounts,
-      permissions: permissionsForEndpoints(model.baseUrl, guestControlPlaneUrl),
+      permissions,
       loopbackExemptPorts: loopbackExemptPortsFor(guestControlPlaneUrl),
     }), aborted);
     await prepareGuestWorkloadCli(vm, capabilityEnvironment, onLog, aborted);
@@ -399,7 +426,14 @@ export async function runPiInAgentOs({
       // restore, so later turns and rebuilt VMs resolve the same Session capability.
       env: capabilityEnvironment,
       permissionPolicy: 'allow_all',
-      additionalInstructions: systemPrompt,
+      additionalInstructions: tacoHostUrl === undefined ? systemPrompt : [
+        systemPrompt,
+        'This Runtime preinstalls taco-cli 0.1.3 on PATH. Run taco-cli help for its version and commands.',
+        'For local Taco authoring, read "$TACO_SKILL_PATH/SKILL.md" and use "$TACO_SKILL_PATH/taco-shell.html". Template packs are not installed.',
+        'Use taco-cli publish <file> --dry-run before publishing. TACO_HOST_URL selects the approved host.',
+        'Publication is public and unauthenticated. Publish only content explicitly authorized for sharing. Never upload credentials or private repository/session data.',
+        'This CLI has no bundle command; assemble locally with the skill. Network update is not implemented. Do not claim a new publication updates an existing Taco.',
+      ].join('\n'),
     }), aborted);
     // `sessions.open` loads Pi's model registry. Remove the only guest-readable copy
     // before any caller-controlled prompt can run; failure to remove it fails closed.

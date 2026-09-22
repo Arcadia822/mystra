@@ -24,10 +24,12 @@ beforeEach(async () => {
   await writeFile(path.join(cliDirectory, "mystra-agent.cjs"), "#!/usr/bin/env node\n");
   process.env.MYSTRA_AGENTOS_GUEST_CLI_DIR = cliDirectory;
   delete process.env.MYSTRA_AGENTOS_CONTROL_PLANE_URL;
+  vi.stubEnv("MYSTRA_AGENTOS_TACO_HOST_URL", undefined);
 });
 
 afterEach(async () => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   restoreEnvironment();
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
@@ -121,6 +123,36 @@ function assignment(overrides: Record<string, unknown> = {}) {
 }
 
 describe("AgentOS guest egress policy", () => {
+  it("adds only the explicitly configured Taco HTTPS origin", () => {
+    const policy = permissionsForEndpoints(
+      "https://model.example.test/v1",
+      "http://127.0.0.1:3000",
+      "https://taco.example.test:8443",
+    );
+    expect(policy.network.default).toBe("deny");
+    expect(policy.network.rules.flatMap((rule: { patterns: string[] }) => rule.patterns)).toEqual([
+      "tcp://model.example.test:443",
+      "tcp://127.0.0.1:3000",
+      "tcp://taco.example.test:8443",
+    ]);
+  });
+
+  it.each([
+    "",
+    "http://taco.example.test",
+    "https://user:secret@taco.example.test",
+    "https://*.example.test",
+    "https://taco.example.test/upload",
+    "https://taco.example.test?token=secret",
+    "https://taco.example.test#fragment",
+  ])("rejects unsafe Taco origin %s", (origin) => {
+    expect(() => permissionsForEndpoints(
+      "https://model.example.test",
+      "http://127.0.0.1:3000",
+      origin,
+    )).toThrow("Taco");
+  });
+
   it("allows the model endpoint and the guest-reachable Control Plane origin only", () => {
     expect(permissionsForEndpoints("https://model.example.test:8443/v1", "http://127.0.0.1:3000")).toEqual({
       fs: "allow",
@@ -167,6 +199,13 @@ describe("AgentOS guest egress policy", () => {
 });
 
 describe("AgentOS Pi isolation", () => {
+  it("fails closed before VM creation when enabled Taco artifacts are absent", async () => {
+    vi.stubEnv("MYSTRA_AGENTOS_TACO_HOST_URL", "https://taco.example.test");
+    await expect(runPiInAgentOs(assignment({ modelConfigPath: await modelConfigPath() })))
+      .rejects.toThrow("AgentOS Taco artifact missing");
+    expect(agentOs.create).not.toHaveBeenCalled();
+  });
+
   it("injects the Session capability, projects the CLI, and removes the model credential before prompting", async () => {
     const order: string[] = [];
     const vm = workloadVm({ order });
