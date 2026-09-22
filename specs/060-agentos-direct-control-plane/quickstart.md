@@ -183,3 +183,22 @@ pnpm --filter @mystra/runner-daemon build:agentos-cli
 
 - 适配器已实现并在 host-c1 验证的部分：guest 可达控制面（`loopbackExemptPorts` + `tcp://127.0.0.1:3000`）、durable session env 注入四个 `MYSTRA_*` 键、投影失败/能力不可达时**在写模型凭据前失败关闭**（实测该闸门按设计生效，未泄漏任何 code）。
 - 已批准的方向（owner 2026-09-22）：**上下文级提示词只描述"做什么"，不再写具体命令；具体命令由 Runtime 注入**。AgentOS Runtime 的片段使用 `node "$MYSTRA_AGENT_PATH" …` 形式，host Runtime 使用直接执行形式；057 的 workflow 指令一并移入该片段。在此之前 AgentOS Session 会按设计失败关闭。
+
+### 4.5 2026-09-22 host-c1 最终验收（通过）
+
+部署一致性：adapter `95882e24b0f54e3ffbef778ba2681ac8`，guest bundle `5ca9bcf3b0038c43376d5591b961d8b4`；`mystra-control-plane`、`mystra-agentos-runner` 均 active；Runtime `b5797837-160d-4340-8371-8820af16d830`（type `agentos`）注册，`pi 0.2.7 / agentos-core 0.2.19` available。
+
+**Round 1（Task `4a013712-20d0-49ca-8287-c3bd6e4ff5bd`，Session `b20376e0-0f6e-4d87-9b90-fc15c2c1e40b`）**
+- pre-flight 在 guest 内通过：日志 `[agentos-pi] guest workload CLI resolved its Session capability`。
+- Agent 在 guest 内实际执行（均 exit 0）：`whoami`（返回本次 execution 身份与 capabilities）、`context get`（返回 team/task/project/workspace root 与 branch）、`task status get`（`in_progress` rev 2）、`task status set blocked --expected-revision 2`（→ `blocked` rev 3）、`task status set in_progress --expected-revision 3`（→ `in_progress` rev 4）；原始输出同时写入工作区 `docs/060-CAPABILITY.md`。
+- 数据库真值：`tasks.status=in_progress`、`status_revision=4`；`task_status_transitions` 三条：`pending→in_progress` rev2、`→blocked` rev3、`→in_progress` rev4（即写通道确实改动了 Task 状态）。
+
+**Round 2（续接）**：新 VM 重建后 pre-flight 再次通过（`session ready` 同一 sessionId，durable 会话恢复），Agent 仍可调用 CLI。
+
+**负向**：篡改 execution code 后 `whoami` 返回 `{"error":{"code":"capability_expired",...}}`，exit 1，失败关闭。
+
+**泄漏审计**：execution code 在 `session_events`、工作区文件、runner journal 中出现 0 次；在 AgentOS `agentos_core_sessions.env_json` 中出现 1 次（设计如此），`agentos_core_events/prompts/fs chunks` 均 0 次。
+
+**清理**：临时验收用户与 membership 已删除；Task、Session、事件与工作区证据保留。
+
+**结论**：FR-006 达成——沙箱内 Agent 可获取并使用本 Session 能力（读上下文、按 expected-revision 报状态），且不把 execution code 泄漏到事件/产物/日志。

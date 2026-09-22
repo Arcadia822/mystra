@@ -8,7 +8,7 @@ status: "待实施"
 ## Phase 1: 规范、契约与审查 (Spec & Design Review)
 
 - [x] T001 [Spec] 确立 Feature 060 正式规范 `spec.md` 与契约 `contracts/agentos-guest-capability.md`，明确取代 059 隔离决定，关闭 059 T027 阻断与 FR-006 缺口。
-- [ ] T002 [Review] 组织独立设计审查，锁定基于 `loopbackExemptPorts`、单文件 CJS bundle 与直连预检的完整架构。
+- [x] T002 [Review] 组织独立设计审查，锁定基于 `loopbackExemptPorts`、单文件 CJS bundle 与直连预检的完整架构。
 
 ## Phase 2: CLI 打包脚本与核心运行时改造 (Build & Runner Implementation)
 
@@ -24,7 +24,7 @@ status: "待实施"
   - `MYSTRA_EXECUTION_CODE`
   - `MYSTRA_WORKSPACE_ROOT: '/home/agentos/workspace'`
   - *验收与证据*：代码中注入字段完整，无多余未授权环境变量。
-- [ ] T007 [Runner] 新增真实直连能力预检函数 `assertGuestWorkloadDirectCapability`，通过 `vm.process.exec('"$MYSTRA_AGENT_PATH" whoami', { env: {...}, timeoutMs: 30000 })` 探测。
+- [x] T007 [Runner] 新增真实直连能力预检函数 `assertGuestWorkloadDirectCapability`，通过 `vm.process.exec('"$MYSTRA_AGENT_PATH" whoami', { env: {...}, timeoutMs: 30000 })` 探测。
   - *验收与证据*：探测失败（非零退出码或超时）立即抛错失败关闭，阻止模型凭据写入。
 - [x] T008 [Runner] 审查并更新 `apps/runner-daemon/src/session/pi-agentos-shim.mjs`，确保参数完整透传至 `runPiInAgentOs`。
   - *验收与证据*：shim 提取并传递字段无误。
@@ -53,11 +53,11 @@ status: "待实施"
 
 - [x] T016 [Deploy] 在 host-c1 构建 CLI bundle 并部署更新后的 Runner 守护进程。
   - *验收与证据*：Runner 正常启动并成功注册 `type: 'agentos'` Runtime。
-- [ ] T017 [E2E-Round1] 发起真实 Task，验证沙箱内 Agent 真实调用 `"$MYSTRA_AGENT_PATH" context get` 读取上下文，并调用 `"$MYSTRA_AGENT_PATH" task status set in_progress`。
+- [x] T017 [E2E-Round1] 发起真实 Task，验证沙箱内 Agent 真实调用 `"$MYSTRA_AGENT_PATH" context get` 读取上下文，并调用 `"$MYSTRA_AGENT_PATH" task status set in_progress`。
   - *验收与证据*：控制面 Task 状态成功变为 `in_progress`，`statusRevision` 发生递增，上下文根目录脱敏为 `/home/agentos/workspace`。
-- [ ] T018 [E2E-Round2] 主动销毁沙箱 VM，发起 Session 续接（mode=`continue`），验证 Agent 在全新 VM 中再次调用 `"$MYSTRA_AGENT_PATH" task status set blocked --note "..."` 成功。
+- [x] T018 [E2E-Round2] 主动销毁沙箱 VM，发起 Session 续接（mode=`continue`），验证 Agent 在全新 VM 中再次调用 `"$MYSTRA_AGENT_PATH" task status set blocked --note "..."` 成功。
   - *验收与证据*：控制面 Task 状态变为 `blocked`，`statusRevision` 再次单调递增，备注成功持久化。
-- [ ] T019 [E2E-Negative] 执行负向安全矩阵测试：
+- [x] T019 [E2E-Negative] 执行负向安全矩阵测试：
   - (a) 网络规则存在但缺少 `loopbackExemptPorts`，验证预检拦截（返回 `control_plane_unavailable`）并失败关闭；
   - (b) 非法 `MYSTRA_EXECUTION_CODE`，验证返回 `capability_expired`；
   - (c) 访问外部 LAN/公网，验证连接被拒。
