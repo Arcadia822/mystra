@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import type { HostRuntimeRegistration, ProviderCapability, RuntimeType } from "@mystra/shared";
-
+import { resolveRuntimeWorkloadInstruction } from "./runtime-instructions.js";
 export interface RunnerIdStore {
   read(filePath: string): Promise<string>;
   write(filePath: string, value: string): Promise<void>;
@@ -53,11 +53,13 @@ export function buildHostRuntimeRegistrationPayload(input: {
   type?: RuntimeType;
   platform: string;
   providers: ProviderCapability[];
+  workloadInstruction?: string;
 }): HostRuntimeRegistration {
+  const runtimeType = input.type ?? "host";
   return {
     runnerId: input.runnerId,
     name: input.name,
-    type: input.type ?? "host",
+    type: runtimeType,
     platform: input.platform,
     providers: input.providers,
     workspaceMaterialization: {
@@ -65,5 +67,6 @@ export function buildHostRuntimeRegistrationPayload(input: {
       kinds: ["task-repository"],
       sharingModes: ["shared-mutable"],
     },
+    workloadInstruction: input.workloadInstruction ?? resolveRuntimeWorkloadInstruction(runtimeType),
   };
 }

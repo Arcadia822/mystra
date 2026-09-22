@@ -77,6 +77,7 @@ export const hostRuntimeRegistrationSchema = z
     platform: z.string().min(1),
     providers: z.array(providerCapabilitySchema).default([]),
     workspaceMaterialization: workspaceMaterializationCapabilitySchema,
+    workloadInstruction: z.string().min(1),
   })
   .strict();
 export type HostRuntimeRegistration = z.infer<typeof hostRuntimeRegistrationSchema>;
@@ -112,6 +113,7 @@ export const hostRuntimeMetadataSchema = z
     runnerId: z.string().min(1),
     platform: z.string().min(1).optional(),
     workspaceMaterialization: workspaceMaterializationCapabilitySchema,
+    workloadInstruction: z.string().min(1),
   })
   .strict();
 export type HostRuntimeMetadata = z.infer<typeof hostRuntimeMetadataSchema>;

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { effectiveSystemPromptEvidenceSchema } from "@mystra/shared";
 
 import { createSessionE2eFixture } from "../../../test/session-e2e-support";
 import { AgentExecutionService } from "../tasks/agent-execution-service";
@@ -37,8 +38,16 @@ describe("fixed Workflow SQLite E2E", () => {
     expect(assignment).toBeDefined();
     expect(assignment?.workflowSkills?.generation).toBe(1);
     expect(assignment?.execution?.capabilities).toContain("workflow:transition");
-    expect(assignment?.systemPrompt).toContain("workflow current");
+    expect(assignment?.systemPrompt).toContain("read the current Workflow stage using the Runtime-provided workload CLI");
     expect(assignment?.systemPrompt).not.toContain(enabled.workflow.stateId);
+    const promptEvidence = effectiveSystemPromptEvidenceSchema.parse(
+      (await fixture.db.listSessionEvents({ sessionId: assignment!.session.id, teamId: fixture.actor.teamId, limit: 100 }))
+        .events.find((event) => event.kind === "session.system_prompt_configured")?.payload,
+    );
+    expect(promptEvidence.components.find((component) => component.name === "standard")?.content)
+      .not.toContain('"$MYSTRA_AGENT_PATH"');
+    expect(promptEvidence.components.find((component) => component.name === "runtime_workload")?.content)
+      .toContain('"$MYSTRA_AGENT_PATH"');
 
     const execution = new AgentExecutionService({ db: fixture.db });
     const workload = new WorkflowWorkloadService({

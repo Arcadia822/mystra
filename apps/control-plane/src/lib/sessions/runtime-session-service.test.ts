@@ -51,6 +51,7 @@ describe("RuntimeSessionService claim and event ingest", () => {
           components: [
             { name: "standard", content: "Standard" },
             { name: "runtime", content: "Runtime" },
+            { name: "runtime_workload", content: "Runtime workload" },
             { name: "provider", content: "Provider" },
             { name: "agent_context", content: "Supplemental" },
             { name: "execution_context", content: "Context" },
@@ -118,6 +119,7 @@ describe("RuntimeSessionService claim and event ingest", () => {
           standardPrompt: { version: `sha256:${"a".repeat(64)}`, content: "Standard" }, agentContext: null,
           components: [
             { name: "standard", content: "Standard" }, { name: "runtime", content: "Runtime" },
+            { name: "runtime_workload", content: "Runtime workload" },
             { name: "provider", content: "Provider" }, { name: "workflow", content: "Workflow" },
             { name: "execution_context", content: "Context" },
           ], finalPrompt: "Frozen prompt",

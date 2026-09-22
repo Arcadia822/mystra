@@ -21,12 +21,13 @@ const workspaceMaterialization = {
   kinds: ["task-repository"] as ["task-repository"],
   sharingModes: ["shared-mutable"] as ["shared-mutable"],
 };
+const workloadInstruction = 'Execute "$MYSTRA_AGENT_PATH" <args>';
 
 const runtime = {
   id: runtimeId,
   name: "Build host",
   type: "host" as const,
-  metadata: { runnerId, platform: "darwin/arm64", workspaceMaterialization },
+  metadata: { runnerId, platform: "darwin/arm64", workspaceMaterialization, workloadInstruction },
   status: "offline" as const,
   lastSeenAt: null,
   providers: [],
@@ -103,6 +104,7 @@ describe("host Runtime routes", () => {
       platform: "darwin/arm64",
       providers: [],
       workspaceMaterialization,
+      workloadInstruction,
     }));
 
     expect(response.status).toBe(200);
@@ -172,10 +174,10 @@ describe("host Runtime routes", () => {
     await registerRuntime(runnerRequest("/api/runner/register", {
       runnerId,
       name: "Build host",
-      type: "host",
       platform: "darwin/arm64",
       providers: [],
       workspaceMaterialization,
+      workloadInstruction,
     }));
     vi.mocked(getDb).mockClear();
 
