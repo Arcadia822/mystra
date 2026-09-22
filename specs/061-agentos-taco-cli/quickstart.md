@@ -59,9 +59,9 @@ MYSTRA_AGENTOS_TACO_HOST_URL=https://tacobin.arcadia-han.com
 - 浏览器已加载发布页面，DOM 中的标题和正文与样例一致。截图工具先报告零宽度，调整 viewport 后截图超时；不声称截图验收成功。
 - c1 保留合成 HTML 和 `verification.json`：`/opt/agentos/tasks/myst25-public-smoke/`。
 
-## 未完成的最终门禁
+## 验收记录与门禁豁免
 
-普通授权 Task/Session 的首轮已通过，SC-004 / T008 仅剩同 Session 续接与新 VM 恢复验证。续接的 HTTP/MCP/CLI 入口由尚未完成的 MYST-28 提供；不直接写事件表替代入口。
+普通授权 Task/Session 的首轮已通过。SC-004 / T008 中同 Session 续接与新 VM 恢复验证原依赖 MYST-28；2026-09-22 负责人在 PR #56 审查后明确要求“收口吧 不等”，批准本特性不等待该验证。该场景仍未执行，随 MYST-28 后续验证，不直接写事件表替代入口。
 
 初始 401 已解决：用户授权注册独立测试账号，并选择用现有 `gh` 身份通过正式 API 配置独立测试 Project。API 注册和登录成功，CLI 读取会话及创建 Task 成功；未修改数据库授权、冒用既有用户或抽取 execution code。
 
@@ -91,9 +91,9 @@ MYSTRA_AGENTOS_TACO_HOST_URL=https://tacobin.arcadia-han.com
 - 独立读取公开 blob，确认唯一文件 `myst-25-acceptance/document.md` 只含合成标题和正文 `MYST-25 normal Session acceptance. Public synthetic content only; no repository data or credentials.`；无仓库内容、凭据或评论。
 - 在该 Session durable 事件中检查 38 个唯一工具调用输入：未匹配 `git push`、`gh issue create`、`gh pr create` 或 GitHub Issue/PR API 地址。没有执行远端写入测试。
 
-### 尚未完成：同 Session 续接
+### 后续验证：同 Session 续接（已豁免本 PR 门禁）
 
-[MYST-28](https://linear.app/castrel/issue/MYST-28) 当前为 Todo，明确记录 `SessionService.sendMessage` 尚无 HTTP/MCP/CLI 外部入口；LSP references 也仅找到实现及测试。待该入口落地后向上述 ready Session 发新消息，验证新 VM 中命令、Skill、dry-run 和原 Session capability preflight，再关闭 T008。未通过直接数据库写入或临时冒充外部入口来绕过这一依赖。
+[MYST-28](https://linear.app/castrel/issue/MYST-28) 在本次验收时为 Todo，明确记录 `SessionService.sendMessage` 尚无 HTTP/MCP/CLI 外部入口；LSP references 也仅找到实现及测试。待该入口落地后向上述 ready Session 发新消息，验证新 VM 中命令、Skill、dry-run 和原 Session capability preflight。本特性 T008 按负责人豁免决定收口，不把该场景标为通过；未通过直接数据库写入或临时冒充外部入口来绕过依赖。
 
 ## 回滚
 
@@ -101,4 +101,6 @@ MYSTRA_AGENTOS_TACO_HOST_URL=https://tacobin.arcadia-han.com
 
 ## 审查结论
 
-实现复用现有 readonly mount、software 与出口生成路径，不新增服务/API/DB，不向 Task 暴露任意权限配置。构建依赖版本与 Skill 来源固定；失败不走在线安装或宿主命令兜底。普通 Pi Session 首轮发布已通过；同 Session 续接依赖 MYST-28，因此当前仍不能声明全部验收完成。
+实现复用现有 readonly mount、software 与出口生成路径，不新增服务/API/DB，不向 Task 暴露任意权限配置。构建依赖版本与 Skill 来源固定；失败不走在线安装或宿主命令兜底。普通 Pi Session 首轮发布已通过；同 Session 续接验证经负责人批准移出本 PR 门禁，特性按该明确例外收口。
+
+本次 PR 审查实际重跑：`build:agentos-cli` 成功，Runner 定向 17/17、全包 13 文件 / 63 测试通过，typecheck 通过；Taco 四份源文档及 SHA-256 一致。GitNexus 按 `0d9bd14` 重建 PDG，影响链为出口策略 → Runner → Pi shim，风险 LOW；未发现可确认的新代码缺陷。本次审查未重跑 c1 发布或真实续接，不将此前线上记录当成本次执行结果。

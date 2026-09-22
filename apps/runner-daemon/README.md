@@ -121,7 +121,7 @@ repository, Session, or credential data.
 Unset the Taco host and restart the AgentOS runner to disable the software
 and additional egress. Host Runtime behavior is unchanged. See
 `specs/061-agentos-taco-cli/quickstart.md` for deployment evidence and the
-remaining normal authenticated Task/Session acceptance gate.
+owner-approved waiver deferring same-Session continuation verification to MYST-28.
 
 ## Task Workspace materialization
 

@@ -1,7 +1,7 @@
 ---
 title: "061 实施计划与工程审查"
 spec: "spec.md"
-status: "工程审查通过，待实施验证"
+status: "实施及审查完成；续接门禁经负责人豁免后收口"
 ---
 
 ## 概要
@@ -63,6 +63,8 @@ GitNexus 本工作树索引与 main `a66bb12` 一致；注册名 mystra 有多�
 3. 通过正式适配器实际 Session 路径发布无秘密样例，验证返回 URL 和公开内容；再重建 VM 验证 CLI 仍存在。
 4. guest 对未授权目标失败；未配置 Taco 时原有规则不变。
 5. Runner 定向测试、typecheck、代码审查；不重启无关服务、不改已有数据库。
+
+2026-09-22 PR #56 审查：实际重跑构建、Runner 13 文件 / 63 测试、typecheck 均通过；Taco 四份源文档及哈希一致。GitNexus 在 head `0d9bd14` 重建 PDG，两个变更函数 upstream 为 LOW，未发现可确认的新缺陷。负责人随后明确要求“收口吧 不等”：同 Session 在新 VM 的续接验证随 MYST-28 后续处理，不再阻塞本 PR，也不宣称该验证通过。
 
 ## 不在范围内
 

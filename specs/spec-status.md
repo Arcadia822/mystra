@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=3e768ebc1cbdbb4447d124111411fcf60747fdd0 updated=2026-09-22T07:52:12Z -->
+<!-- spec-status: project=mystra commit=0d9bd14105e6a12c03d798b926920ddcfaaec75c updated=2026-09-22T09:54:04Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -55,6 +55,7 @@
 | 058-event-subscription-protocol    | ✓     | ✓  | ✓   | ● 32/33 (96%) |
 | 059-agentos-pi-runtime             | ✓     | ✓  | ✓   | ● 26/27 (96%) |
 | 060-agentos-direct-control-plane   | ✓     | ✓  | ✓   | ● 19/26 (73%) |
+| 061-agentos-taco-cli               | ✓     | ✓  | ✓   | ✓ Complete |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -108,3 +109,4 @@
 <!-- feature: 058-event-subscription-protocol has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=33 tasks_completed=32 checklist_files=requirements.md -->
 <!-- feature: 059-agentos-pi-runtime has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=27 tasks_completed=26 checklist_files=requirements.md -->
 <!-- feature: 060-agentos-direct-control-plane has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=26 tasks_completed=19 checklist_files=requirements.md -->
+<!-- feature: 061-agentos-taco-cli has_spec=true has_plan=true has_tasks=true has_research=false has_data_model=false has_quickstart=true has_contracts=false has_checklists=false tasks_total=8 tasks_completed=8 checklist_files= -->
