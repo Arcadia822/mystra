@@ -8,9 +8,9 @@ import {
 
 export const FIXED_WORKFLOW_BASE_PROMPT = [
   "This Task uses the fixed Mystra workflow.",
-  "Before beginning or resuming work, run \"$MYSTRA_AGENT_PATH\" workflow current.",
-  "Treat that command as the authority for the current Stage, instructions, required Skills, and available Actions.",
-  "After completing the Stage, run \"$MYSTRA_AGENT_PATH\" workflow transition <action-id> with an Action returned by current.",
+  "Before beginning or resuming work, read the current Workflow stage using the Runtime-provided workload CLI.",
+  "Treat that response as the authority for the current Stage, instructions, required Skills, and available Actions.",
+  "After completing the Stage, transition the Workflow stage through the Runtime-provided workload CLI with an Action returned by the current stage.",
   "Do not infer, select, or directly modify Workflow state.",
 ].join("\n");
 

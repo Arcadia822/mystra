@@ -2948,6 +2948,7 @@ export class PrismaRdbProvider implements RdbProvider {
       runnerId: parsed.runnerId,
       platform: parsed.platform,
       workspaceMaterialization: parsed.workspaceMaterialization,
+      workloadInstruction: parsed.workloadInstruction,
     });
     const metadataJson = serializeJson(metadata);
 

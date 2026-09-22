@@ -32,7 +32,7 @@ function fixture(options: { workflow?: boolean } = {}) {
   };
   const runtime = {
     id: runtimeId, name: "host", type: "host", status: "online", lastSeenAt: "2026-08-10T00:00:00.000Z",
-    metadata: { runnerId: "runner-1", platform: "darwin/arm64", workspaceMaterialization: { version: 1, kinds: ["task-repository"], sharingModes: ["shared-mutable"] } },
+    metadata: { runnerId: "runner-1", platform: "darwin/arm64", workspaceMaterialization: { version: 1, kinds: ["task-repository"], sharingModes: ["shared-mutable"] }, workloadInstruction: 'Execute "$MYSTRA_AGENT_PATH" <args>' },
     providers: [{ provider: "codex", discovered: true, available: true, source: "path", resolvedPath: "/usr/bin/codex", version: "1", unavailableReason: null }],
     createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
   } satisfies RuntimeView;
@@ -82,7 +82,7 @@ describe("SessionService.launch", () => {
     const persisted = createSessionWithEvents.mock.calls[0]![0];
     const evidence = persisted.events[1]!.payload as { components: Array<{ name: string }> };
     expect(evidence.components.map(({ name }) => name)).toEqual([
-      "standard", "runtime", "provider", "workflow", "agent_context", "execution_context",
+      "standard", "runtime", "runtime_workload", "provider", "workflow", "agent_context", "execution_context",
     ]);
     expect(persisted.workflowCapability).toMatchObject({
       sessionId, workflowStateId: "00000000-0000-4000-8000-000000000030",
@@ -106,9 +106,18 @@ describe("SessionService.launch", () => {
     };
     await service.launchExecutionContext({ actor: { actorId: `executionContext:${executionContext.id}`, teamId, roles: ["owner"] }, executionContext });
     const persisted = createSessionWithEvents.mock.calls[0]![0];
-    const prompt = persisted.events[1]!.payload.finalPrompt;
+    const evidence = persisted.events[1]!.payload as {
+      finalPrompt: string;
+      components: Array<{ name: string; content: string }>;
+    };
+    const prompt = evidence.finalPrompt;
     expect(prompt).toContain("Frozen production Agent prompt");
-    expect(prompt).toContain('"$MYSTRA_AGENT_PATH" context get');
+    expect(evidence.components.find((c) => c.name === "standard")?.content)
+      .toContain("Read Task context from the Runtime before reading or changing the Task");
+    expect(evidence.components.find((c) => c.name === "standard")?.content)
+      .not.toContain('"$MYSTRA_AGENT_PATH"');
+    expect(evidence.components.find((c) => c.name === "runtime_workload")?.content)
+      .toContain('"$MYSTRA_AGENT_PATH"');
     expect(prompt).toContain("linctl");
     expect(prompt).toContain("gh");
     expect(prompt).not.toContain("Frozen executionContext title");
@@ -166,6 +175,7 @@ describe("SessionService.launch", () => {
       components: [
         { name: "standard" },
         { name: "runtime" },
+        { name: "runtime_workload" },
         { name: "provider" },
         { name: "execution_context" },
       ],

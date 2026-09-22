@@ -32,6 +32,7 @@ function workspaceRuntimeRegistration(name: string) {
       kinds: ["task-repository"] as ["task-repository"],
       sharingModes: ["shared-mutable"] as ["shared-mutable"],
     },
+    workloadInstruction: 'Execute "$MYSTRA_AGENT_PATH" <args>',
   };
 }
 
@@ -887,6 +888,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         kinds: ["task-repository"] as ["task-repository"],
         sharingModes: ["shared-mutable"] as ["shared-mutable"],
       },
+      workloadInstruction: 'Execute "$MYSTRA_AGENT_PATH" <args>',
     };
     const registered = await db.registerHostRuntime(registration);
 
@@ -897,6 +899,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         runnerId: registration.runnerId,
         platform: registration.platform,
         workspaceMaterialization: registration.workspaceMaterialization,
+        workloadInstruction: registration.workloadInstruction,
       },
       status: "offline",
       lastSeenAt: null,
@@ -1664,6 +1667,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         components: [
           { name: "standard", content: "standard" },
           { name: "runtime", content: "runtime" },
+          { name: "runtime_workload", content: "runtime workload" },
           { name: "provider", content: "provider" },
           { name: "agent_context", content: `optional ${agent.systemPrompt}` },
           { name: "execution_context", content: "execution context" },
@@ -1870,6 +1874,7 @@ export function runRdbProviderContract(openProvider: () => Promise<RdbProvider>)
         components: [
           { name: "standard", content: "standard" },
           { name: "runtime", content: "runtime" },
+          { name: "runtime_workload", content: "runtime workload" },
           { name: "provider", content: "provider" },
           { name: "execution_context", content: "execution context" },
         ],

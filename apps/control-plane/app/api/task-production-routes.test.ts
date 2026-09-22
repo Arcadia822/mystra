@@ -116,6 +116,7 @@ describe("Task production routes", () => {
           components: [
             { name: "standard", content: "Standard" },
             { name: "runtime", content: "Runtime" },
+            { name: "runtime_workload", content: "Runtime workload" },
             { name: "provider", content: "Provider" },
             { name: "execution_context", content: "Context" },
           ],
