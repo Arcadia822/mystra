@@ -6,7 +6,7 @@
   "scripts": {
     "prebuild": "pnpm --filter @mystra/agent-adapters build && pnpm --filter @mystra/agent-cli build",
     "build": "tsc -p tsconfig.json",
-    "build:agentos-cli": "node scripts/build-agentos-cli.mjs",
+    "build:agentos-cli": "node scripts/build-agentos-cli.mjs && node scripts/build-agentos-taco.mjs",
     "dev": "tsx src/index.ts",
     "lint": "tsc --noEmit",
     "pretest": "pnpm --filter @mystra/agent-adapters build && pnpm --filter @mystra/agent-cli build",
@@ -24,7 +24,9 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "tsx": "^4.20.6",
-    "esbuild": "0.28.2"
+    "@rivet-dev/agentos-toolchain": "0.2.19",
+    "@tacobin/cli": "0.1.3",
+    "esbuild": "0.28.2",
+    "tsx": "^4.20.6"
   }
 }

@@ -54,6 +54,10 @@ MYSTRA_AGENTOS_GUEST_CLI_DIR=/opt/agentos/agent-cli
 # On a single host, this must be http://127.0.0.1:<port> because the guest reaches the host
 # loopback through AgentOS loopbackExemptPorts; the adapter derives the exempted port from this URL.
 MYSTRA_AGENTOS_CONTROL_PLANE_URL=http://127.0.0.1:3000
+# Optional: enables preinstalled Taco CLI/Skill and one exact additional HTTPS egress origin.
+# Omit to retain the existing model + Control Plane-only policy.
+MYSTRA_AGENTOS_TACO_HOST_URL=https://tacobin.arcadia-han.com
+```
 
 Startup fails when `MYSTRA_PI_PATH` is set without
 `MYSTRA_RUNNER_RUNTIME_TYPE=agentos`, or when `agentos` is selected without
@@ -67,7 +71,7 @@ ephemeral model credential exists. Model credentials are written to an ephemeral
 mount and removed before the first caller-controlled prompt; guest egress is denied by
 default and allowed only for the configured model endpoint's `tcp://<host>:<port>`
 resource (so `model.baseUrl` must be an HTTPS URL without embedded credentials) and the
-local Control Plane's `tcp://127.0.0.1:<port>`. See `specs/059-agentos-pi-runtime/research.md`
+local Control Plane's `tcp://127.0.0.1:<port>`, plus the explicit Taco origin when enabled. See `specs/059-agentos-pi-runtime/research.md`
 and `specs/060-agentos-direct-control-plane/research.md` for measured pattern semantics.
 
 By explicit architectural decision (Linear MYST-23 / GitHub #44), the Session-scoped
@@ -80,12 +84,44 @@ as unusable in agentos-core 0.2.19. The guest reaches the Control Plane directly
 exempted loopback port (`loopbackExemptPorts: [<port>]`) combined with the `tcp://127.0.0.1:<port>`
 egress rule.
 
-Before writing any model credential, the adapter executes `"$MYSTRA_AGENT_PATH" whoami`
+Before writing any model credential, the adapter executes `node "$MYSTRA_AGENT_PATH" whoami`
 inside the guest with the injected environment. If this probe fails or times out, the Session
 fails closed immediately without leaving model credentials in the sandbox. Exceeding the
 deadline or idle bound aborts the response as a resumable `response_canceled` (not a terminal
 failure); only a genuine Provider failure ends the Session. `MYSTRA_AGENTOS_DEADLINE_SECONDS`
 and `MYSTRA_AGENTOS_IDLE_SECONDS` must be positive integers and are validated at startup.
+
+### Optional Taco capability
+
+Run `pnpm --filter @mystra/runner-daemon build:agentos-cli` with the pinned
+toolchain and network access during deployment. Alongside `mystra-agent.cjs`, it
+builds `dist/agentos/taco-cli.aospkg` using `@tacobin/cli@0.1.3` and the official
+`@rivet-dev/agentos-toolchain@0.2.19`. The build fetches `SKILL.md` and
+`taco-shell.html` from immutable upstream commit
+`410a425e50bcc10b7c89ad6015c4b67e7dc7d418` into `dist/agentos/taco-skill/`.
+Deploy all three artifacts under `MYSTRA_AGENTOS_GUEST_CLI_DIR`; guests never
+download or install them. Template packs are not included.
+
+With `MYSTRA_AGENTOS_TACO_HOST_URL` set, every new VM loads the canonical
+`.aospkg` through AgentOS `software`, exposing `taco-cli` directly on PATH.
+An intermediate toolchain `.tar` is not a valid `.aospkg`. The Skill is
+read-only at `$TACO_SKILL_PATH`; `$TACO_HOST_URL` carries the approved origin.
+Only HTTPS origins without credentials, path, query, fragment, or wildcards
+are accepted. Missing artifacts fail closed before VM creation.
+
+The Runtime adds operational instructions to use `taco-cli help` for
+`binaryVersion`, assemble locally with the Skill, and run `publish --dry-run`
+before publication. This is not an Agent Context override. Version 0.1.3 has
+no `bundle` command and no implemented network `update`. The approved host
+currently accepts public unauthenticated publication: no Taco token, Project
+credential, or execution code is supplied as publication authentication.
+Only explicitly shareable content may be published; do not upload private
+repository, Session, or credential data.
+
+Unset the Taco host and restart the AgentOS runner to disable the software
+and additional egress. Host Runtime behavior is unchanged. See
+`specs/061-agentos-taco-cli/quickstart.md` for deployment evidence and the
+owner-approved waiver deferring same-Session continuation verification to MYST-28.
 
 ## Task Workspace materialization
 

@@ -151,6 +151,12 @@ importers:
         specifier: ^4.1.13
         version: 4.4.1
     devDependencies:
+      '@rivet-dev/agentos-toolchain':
+        specifier: 0.2.19
+        version: 0.2.19
+      '@tacobin/cli':
+        specifier: 0.1.3
+        version: 0.1.3
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -1177,7 +1183,6 @@ packages:
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-linuxmusl-x64@0.34.5':
     resolution: {integrity: sha512-Jg8wNT1MUzIvhBFxViqrEhWDGzqymo3sV7z7ZsaWbZNDLXRJZoRGrjulp60YYtV4wfY8VIKcWidjojlLcWrd8Q==}
@@ -1334,6 +1339,7 @@ packages:
   '@mariozechner/pi-agent-core@0.60.0':
     resolution: {integrity: sha512-1zQcfFp8r0iwZCxCBQ9/ccFJoagns68cndLPTJJXl1ZqkYirzSld1zBOPxLAgeAKWIz3OX8dB2WQwTJFhmEojQ==}
     engines: {node: '>=20.0.0'}
+    deprecated: please use @earendil-works/pi-agent-core instead going forward
 
   '@mariozechner/pi-ai@0.60.0':
     resolution: {integrity: sha512-OiMuXQturnEDPmA+ho7eLe4G8plO2z21yjNMs9niQREauoblWOz7Glv58I66KPzczLED4aZTlQLTRdU6t1rz8A==}
@@ -1350,6 +1356,7 @@ packages:
   '@mariozechner/pi-tui@0.60.0':
     resolution: {integrity: sha512-ZAK5gxYhGmfJqMjfWcRBjB8glITltDbTrYJXvcDtfengbKTZN0p39p5uO5pvUB8/PiAWKTRS06yaNMhf/LG26g==}
     engines: {node: '>=20.0.0'}
+    deprecated: please use @earendil-works/pi-tui instead going forward
 
   '@mistralai/mistralai@1.14.1':
     resolution: {integrity: sha512-IiLmmZFCCTReQgPAT33r7KQ1nYo5JPdvGkrkZqA8qQ2qB1GHgs5LoP5K2ICyrjnpw2n8oSxMM/VP+liiKcGNlQ==}
@@ -1854,6 +1861,10 @@ packages:
     resolution: {integrity: sha512-Ar+ZYb2xxjIBMS/3OWNCOr2JM4CpYMAp0Iw8ulDpMoyhoG8RVzrTvAfGDzrEs/xkM68qastNMYQuaOZtnkBnvA==}
     engines: {node: '>=20'}
 
+  '@rivet-dev/agentos-toolchain@0.2.19':
+    resolution: {integrity: sha512-Eblz64yDZhW9lsgknwftDTr7PDVYx9OlbbXpwbboWUmbrHjueZK4YMDIa3e2vXu/iXLPNTFxplvVaeGF6vP3GA==}
+    hasBin: true
+
   '@rivetkit/bare-ts@0.6.2':
     resolution: {integrity: sha512-3qndQUQXLdwafMEqfhz24hUtDPcsf1Bu3q52Kb8MqeH8JUh3h6R4HYW3ZJXiQsLcyYyFM68PuIwlLRlg1xDEpg==}
     engines: {node: ^14.18.0 || >=16.0.0}
@@ -2304,6 +2315,10 @@ packages:
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
+
+  '@tacobin/cli@0.1.3':
+    resolution: {integrity: sha512-9+gMnqkg5MuvA6bBwOuPkNMRwDMNRIMmu8l6oTV8yrqp6FjB9bQ71x0lm4B3lTB3YTFJk0JKwZInktlu8Jr0RQ==}
+    hasBin: true
 
   '@tokenizer/inflate@0.4.1':
     resolution: {integrity: sha512-2mAv+8pkG6GIZiF1kNg1jAjh27IDxEPKwdGul3snfztFerfPGI1LjDezZp3i7BElXompqEtPmoPx6c2wgtWsOA==}
@@ -5013,6 +5028,7 @@ packages:
 
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   valibot@1.4.2:
@@ -6977,6 +6993,10 @@ snapshots:
       '@rivet-dev/agentos-sidecar-linux-arm64-gnu': 0.2.19
       '@rivet-dev/agentos-sidecar-linux-x64-gnu': 0.2.19
 
+  '@rivet-dev/agentos-toolchain@0.2.19':
+    dependencies:
+      '@rivetkit/bare-ts': 0.6.2
+
   '@rivetkit/bare-ts@0.6.2': {}
 
   '@rolldown/binding-android-arm64@1.0.0-rc.17':
@@ -7403,6 +7423,8 @@ snapshots:
   '@swc/helpers@0.5.15':
     dependencies:
       tslib: 2.8.1
+
+  '@tacobin/cli@0.1.3': {}
 
   '@tokenizer/inflate@0.4.1':
     dependencies:

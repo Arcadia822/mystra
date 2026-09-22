@@ -36,8 +36,10 @@ plugins/mystra        MCP-facing Agent skills
    `<Task, Runtime>` Workspace; ready continuation creates the Task-bound Session.
 4. The enrolled Runtime claims the Session and appends validated typed events.
    Host Runtime runs Codex/Copilot directly; AgentOS Runtime runs Pi in an
-   isolated VM while a restricted host binding exposes only the granted
-   `mystra-agent` capabilities and keeps the execution code outside the guest.
+   isolated VM. Feature 060 supplies the Session-scoped execution code through
+   the guest environment; `mystra-agent` calls the Control Plane directly through
+   the restricted egress policy. The workload preflight runs before model
+   credential setup, and the model credential file is removed before prompting.
 5. The Agent uses local authenticated `linctl` and `gh`, then reports `blocked`
    or resumes `in_progress` through `mystra-agent`; Mystra does not proxy or
    verify those external commands or the PR/self-test note.
@@ -108,4 +110,12 @@ S3-compatible storage, preview, download, and archive semantics.
 Use `specs/057-workflow-harness-runtime/` for the fixed Task workflow,
 allowlisted transitions, workload CLI commands, and generated Skill projection.
 Use `specs/059-agentos-pi-runtime/` for AgentOS Runtime identity, Pi Provider
-execution, restricted guest bindings, and durable cross-VM Session continuation.
+execution and durable Session storage. Feature 060
+(`specs/060-agentos-direct-control-plane/`) replaces the original restricted
+host-binding path with direct guest workload CLI calls.
+Use `specs/061-agentos-taco-cli/` for opt-in Taco CLI 0.1.3, the read-only local
+Skill/shell, canonical `.aospkg` packaging and one configured HTTPS TCP egress
+endpoint. Ordinary Session first-turn publication and independent VM rebuilding
+were verified; same-Session continuation on a new VM remains unverified and was
+explicitly waived as a PR #56 merge gate by the owner on 2026-09-22, with later
+verification tied to MYST-28.
