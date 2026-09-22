@@ -286,22 +286,32 @@ export class SessionService {
     });
   }
 
-  async sendMessage(input: { actor: SessionSubject; sessionId: string; request: unknown }): Promise<{ session: Session; created: boolean }> {
-    const request = sessionSendMessageRequestSchema.parse(input.request);
+  async sendMessage(input: {
+    actor: SessionSubject;
+    sessionId: string;
+    request: unknown;
+  }): Promise<{ session: Session; created: boolean; delivery: "dispatch"; messageId: string }> {
+    const raw = (input.request && typeof input.request === "object") ? { ...(input.request as Record<string, unknown>) } : {};
+    if (!raw.messageId) {
+      raw.messageId = this.#newId();
+    }
+    const request = sessionSendMessageRequestSchema.parse(raw);
     const session = await this.get({ actor: input.actor, sessionId: input.sessionId });
     const page = await this.#db.listSessionEvents({ sessionId: session.id, teamId: input.actor.teamId, messageId: request.messageId, limit: 2 });
     const previous = page.events.find((event) => event.kind === "session.user_message_submitted" && event.messageId === request.messageId);
     if (previous) {
       if (JSON.stringify(previous.payload) === JSON.stringify({ content: request.content, ...(request.inReplyToMessageId ? { inReplyToMessageId: request.inReplyToMessageId } : {}) })) {
-        return { session, created: false };
+        return { session, created: false, delivery: "dispatch", messageId: request.messageId };
       }
       throw new SessionFailure("session_conflict", "messageId was reused with different content");
     }
     if (session.state === "closed" || session.state === "failed") {
       throw new SessionFailure("session_terminal", "Terminal Session cannot accept messages");
     }
-    if (session.state !== "ready" && !(session.state === "interrupted" && session.continuationMode === "new_message")) {
-      throw new SessionFailure("session_busy", "Session is already processing a message");
+
+    const canDispatch = session.state === "ready" || (session.state === "interrupted" && session.continuationMode === "new_message");
+    if (!canDispatch) {
+      throw new SessionFailure("session_busy", "Session Provider cannot append while execution is active");
     }
     const event: SessionEventInput = {
       eventId: this.#newId(),
@@ -316,9 +326,12 @@ export class SessionService {
       occurredAt: this.#now(),
     };
     try {
+      const appended = await this.#db.appendSessionEvents({ sessionId: session.id, teamId: input.actor.teamId, events: [event] });
       return {
-        session: (await this.#db.appendSessionEvents({ sessionId: session.id, teamId: input.actor.teamId, events: [event] })).session,
+        session: appended.session,
         created: true,
+        delivery: "dispatch",
+        messageId: request.messageId,
       };
     } catch (error) {
       if (error instanceof RdbError && error.code === "RDB_CONFLICT") {

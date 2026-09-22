@@ -593,4 +593,38 @@ describe("operator CLI Task and Session commands", () => {
     expect(JSON.parse(failure.stdout).result.errorCode).toBe("QUALITY_FAILED");
     expect(result.stdout).not.toContain("events");
   });
+  it("sends a message and reports the Provider delivery mode", async () => {
+    const textRun = await execute(
+      ["sessions", "send-message", sessionId, "--content", "Hello operator"],
+      async (url, init) => {
+        expect(url).toBe(`http://localhost:3000/api/sessions/${sessionId}/messages`);
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(init?.body as string)).toEqual({ content: "Hello operator" });
+        return response({
+          session: { id: sessionId, state: "message_pending" },
+          created: true,
+          delivery: "dispatch",
+          messageId: "00000000-0000-4000-8000-000000000055",
+        }, 202);
+      },
+    );
+    expect(textRun.exitCode).toBe(EXIT_CODES.OK);
+    expect(textRun.stdout).toContain(`Session ${sessionId} message 00000000-0000-4000-8000-000000000055: dispatch`);
+
+    const jsonRun = await execute(
+      ["sessions", "send-message", sessionId, "--content", "Hello operator", "--json"],
+      async () => response({
+        session: { id: sessionId, state: "message_pending" },
+        created: false,
+        delivery: "dispatch",
+        messageId: "00000000-0000-4000-8000-000000000056",
+      }, 202),
+    );
+    expect(jsonRun.exitCode).toBe(EXIT_CODES.OK);
+    expect(JSON.parse(jsonRun.stdout)).toMatchObject({
+      created: false,
+      delivery: "dispatch",
+      messageId: "00000000-0000-4000-8000-000000000056",
+    });
+  });
 });

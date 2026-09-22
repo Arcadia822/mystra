@@ -16,7 +16,11 @@ export function sessionErrorResponse(
       error instanceof Error && error.name === "SessionFailure" && "code" in error
     )) {
       const failure = error as SessionFailure;
-      const status = failure.code.endsWith("_not_found") ? 404 : 409;
+      const status = failure.code.endsWith("_not_found")
+        ? 404
+        : failure.code === "session_terminal"
+          ? 400
+          : 409;
       return noStore(NextResponse.json({ error: { code: failure.code, message: failure.message } }, { status }));
     }
     if (error instanceof ZodError) {

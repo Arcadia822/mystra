@@ -36,6 +36,16 @@ vi.mock("@/lib/workflows/workflow-management-service-factory", () => ({
   createWorkflowManagementService: vi.fn(() => workflowServices),
 }));
 
+const sessionServices = vi.hoisted(() => ({
+  get: vi.fn(),
+  list: vi.fn(),
+  sendMessage: vi.fn(),
+}));
+
+vi.mock("@/lib/sessions/session-service-factory", () => ({
+  createSessionService: vi.fn(() => sessionServices),
+}));
+
 const userId = randomUUID();
 const teamId = randomUUID();
 const otherTeamId = randomUUID();
@@ -528,5 +538,54 @@ describe("MCP human session authorization", () => {
       tasks: { total: 2 },
     });
     expect(listTasks).toHaveBeenCalledWith({ teamId });
+  });
+  it("provides mystra_get_session, mystra_list_task_sessions, and mystra_send_session_message tools", async () => {
+    const sessionId = randomUUID();
+    const sessionObj = {
+      id: sessionId,
+      teamId,
+      taskId,
+      projectId: null,
+      runtimeId,
+      providerKey: "codex",
+      agentId: null,
+      agentRevision: null,
+      state: "ready" as const,
+      activeMessageId: null,
+      lastMessageId: null,
+      interruptKind: null,
+      continuationMode: null,
+      failureCode: null,
+      metadata: {},
+      createdAt: "2026-08-07T00:00:00.000Z",
+      updatedAt: "2026-08-07T00:00:00.000Z",
+    };
+
+    sessionServices.get.mockResolvedValueOnce(sessionObj);
+    const getRes = await POST(rpcRequest(toolCall("mystra_get_session", { id: sessionId })));
+    expect(getRes.status).toBe(200);
+    const getPayload = await getRes.json() as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(getPayload.result.content[0]!.text)).toEqual({ session: sessionObj });
+    expect(sessionServices.get).toHaveBeenCalledWith(expect.objectContaining({ sessionId }));
+
+    sessionServices.list.mockResolvedValueOnce([sessionObj]);
+    const listRes = await POST(rpcRequest(toolCall("mystra_list_task_sessions", { taskId })));
+    expect(listRes.status).toBe(200);
+    const listPayload = await listRes.json() as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(listPayload.result.content[0]!.text)).toEqual({ sessions: [sessionObj] });
+
+    sessionServices.sendMessage.mockResolvedValueOnce({
+      session: sessionObj,
+      created: true,
+      delivery: "dispatch",
+      messageId: randomUUID(),
+    });
+    const sendRes = await POST(rpcRequest(toolCall("mystra_send_session_message", {
+      sessionId,
+      content: "Continue working",
+    })));
+    expect(sendRes.status).toBe(200);
+    const sendPayload = await sendRes.json() as { result: { content: Array<{ text: string }> } };
+    expect(JSON.parse(sendPayload.result.content[0]!.text)).toMatchObject({ created: true, delivery: "dispatch" });
   });
 });

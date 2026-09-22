@@ -129,7 +129,8 @@ function usage() {
   pnpm operator:cli -- sessions wait <session-id> [--interval-seconds N] [--timeout-seconds N] [--json]
   pnpm operator:cli -- sessions cancel <session-id> [--json] [--control-plane-url URL]
   pnpm operator:cli -- sessions result <session-id> [--json] [--control-plane-url URL]
-  pnpm operator:cli -- sessions failure <session-id> [--json] [--control-plane-url URL]`;
+  pnpm operator:cli -- sessions failure <session-id> [--json] [--control-plane-url URL]
+  pnpm operator:cli -- sessions send-message <session-id> --content TEXT [--in-reply-to UUID] [--json] [--control-plane-url URL]`;
 }
 
 function isObject(value) {
@@ -320,6 +321,8 @@ function parseArgs(argv) {
       ["--username", "username"],
       ["--interval-seconds", "intervalSeconds"],
       ["--timeout-seconds", "timeoutSeconds"],
+      ["--content", "content"],
+      ["--in-reply-to", "inReplyTo"],
     ]);
     if (valueFlags.has(arg)) {
       const value = argv[index + 1];
@@ -358,7 +361,7 @@ function parseArgs(argv) {
     (group === "agents" && ["inspect", "update", "archive"].includes(command)) ||
     (group === "skills" && ["show", "upload", "publish", "preview", "download", "archive"].includes(command)) ||
     (group === "teams" && command === "use") ||
-    (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command))
+    (group === "sessions" && ["list", "create", "inspect", "wait", "cancel", "result", "failure", "send-message"].includes(command))
   );
   if (needsTarget && !target) {
     return { ok: false, message: `Missing target for ${group} ${command}` };
@@ -397,7 +400,7 @@ function parseArgs(argv) {
   if (group === "tasks" && !["list", "create", "inspect", "update", "start", "workflow-enable", "workflow-disable"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
   }
-  if (group === "sessions" && !["list", "create", "inspect", "wait", "cancel", "result", "failure"].includes(command)) {
+  if (group === "sessions" && !["list", "create", "inspect", "wait", "cancel", "result", "failure", "send-message"].includes(command)) {
     return { ok: false, message: `Unknown ${group} command: ${command}` };
   }
   if (group === "issues" && !["list", "get", "dispatch"].includes(command)) {
@@ -472,6 +475,9 @@ function parseArgs(argv) {
   }
   if (group === "sessions" && command === "create" && (!flags.title || !flags.objective)) {
     return { ok: false, message: "sessions create requires --title and --objective" };
+  }
+  if (group === "sessions" && command === "send-message" && !flags.content) {
+    return { ok: false, message: "sessions send-message requires --content" };
   }
   if (group === "agents" && command === "create" && (!flags.name || !flags.systemPrompt)) {
     return { ok: false, message: "agents create requires --name and --system-prompt" };
@@ -554,6 +560,8 @@ function parseArgs(argv) {
       ...(flags.revision ? { revision: flags.revision } : {}),
       ...(flags.path ? { path: flags.path } : {}),
       ...(flags.output ? { output: flags.output } : {}),
+      ...(flags.content ? { content: flags.content } : {}),
+      ...(flags.inReplyTo ? { inReplyTo: flags.inReplyTo } : {}),
       ...(flags.includeArchived ? { includeArchived: true } : {}),
       ...(group === "sessions" && command === "wait"
         ? {
@@ -1078,6 +1086,9 @@ function formatSuccess(command, payload, jsonMode) {
   if (command.group === "sessions" && command.command === "failure") {
     return `${formatFailure(payload)}\n`;
   }
+  if (command.group === "sessions" && command.command === "send-message") {
+    return `Session ${payload.session?.id ?? command.target} message ${payload.messageId ?? ""}: ${payload.delivery}\n`;
+  }
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
@@ -1511,6 +1522,19 @@ async function executeCommand(command, fetchImpl, deps = {}) {
     );
   }
 
+  if (command.group === "sessions" && command.command === "send-message") {
+    return await readJson(
+      new URL(`/api/sessions/${encodeURIComponent(command.target)}/messages`, baseUrl),
+      fetchImpl,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          content: command.content,
+          ...(command.inReplyTo ? { inReplyToMessageId: command.inReplyTo } : {}),
+        }),
+      },
+    );
+  }
   const snapshot = await readJson(new URL(`/api/sessions/${encodeURIComponent(command.target)}`, baseUrl), fetchImpl);
   if (!snapshot.ok) {
     return snapshot;

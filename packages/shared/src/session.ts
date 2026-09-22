@@ -168,10 +168,32 @@ export const sessionLaunchRequestSchema = z.object({
 export type SessionLaunchRequest = z.input<typeof sessionLaunchRequestSchema>;
 export type ParsedSessionLaunchRequest = z.output<typeof sessionLaunchRequestSchema>;
 
+export const sessionSendMessageHttpInputSchema = z.object({
+  messageId: z.string().uuid().optional(),
+  content: z.union([
+    z.string().trim().min(1).max(SESSION_TEXT_MAX_LENGTH).transform((text) => [{ type: "text" as const, text }]),
+    z.array(userMessageContentPartSchema).min(1).max(64),
+  ]),
+  inReplyToMessageId: z.string().uuid().optional(),
+}).strict();
+export type SessionSendMessageHttpInput = z.input<typeof sessionSendMessageHttpInputSchema>;
+export type ParsedSessionSendMessageHttpInput = z.output<typeof sessionSendMessageHttpInputSchema>;
+
 export const sessionSendMessageRequestSchema = userMessageInputSchema.extend({
   inReplyToMessageId: z.string().uuid().optional(),
 }).strict();
 export type SessionSendMessageRequest = z.infer<typeof sessionSendMessageRequestSchema>;
+
+export const sessionMessageDeliverySchema = z.enum(["dispatch", "queue", "steer"]);
+export type SessionMessageDelivery = z.infer<typeof sessionMessageDeliverySchema>;
+
+export const sessionSendMessageResponseSchema = z.object({
+  session: sessionSchema,
+  created: z.boolean(),
+  delivery: sessionMessageDeliverySchema,
+  messageId: z.string().uuid(),
+}).strict();
+export type SessionSendMessageResponse = z.infer<typeof sessionSendMessageResponseSchema>;
 
 export const sessionEventKindSchema = z.enum([
   "session.created",

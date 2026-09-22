@@ -287,7 +287,7 @@ describe("active Agent routes", () => {
 });
 
 describe("active MCP surface", () => {
-  it("exposes Task tools and omits temporarily removed persistence surfaces", async () => {
+  it("exposes Task and Session tools while omitting internal Runner and Context surfaces", async () => {
     const response = await callMcp(jsonRequest("http://localhost/api/mcp", {
       jsonrpc: "2.0",
       id: 1,
@@ -309,6 +309,9 @@ describe("active MCP surface", () => {
       "mystra_start_task_production",
       "mystra_task_workflow_enable",
       "mystra_task_workflow_disable",
+      "mystra_get_session",
+      "mystra_list_task_sessions",
+      "mystra_send_session_message",
       "skills_list",
       "skill_get",
       "skill_revisions_list",
@@ -317,6 +320,6 @@ describe("active MCP surface", () => {
       "skill_archive",
       "mystra_health",
     ]);
-    expect(names.some((name) => /session|runner|context/i.test(name))).toBe(false);
+    expect(names.some((name) => /runner|context/i.test(name))).toBe(false);
   });
 });
