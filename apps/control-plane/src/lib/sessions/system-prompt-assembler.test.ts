@@ -126,9 +126,11 @@ describe("assembleSystemPrompt", () => {
     const input = fixtures();
     const result = assembleSystemPrompt({ ...input, providerKey: "codex" });
 
-    expect(result.finalPrompt).toContain('Run "$MYSTRA_AGENT_PATH" context get before reading or changing the Task');
+    // The program-owned standard prompt states responsibilities only; the concrete command
+    // forms arrive in the Runtime-declared `runtime_workload` component.
+    expect(result.finalPrompt).toContain("Read the Task context this Runtime provides before reading or changing the Task");
     expect(result.finalPrompt).toContain("MYSTRA_AGENT_PATH");
-    expect(result.finalPrompt).toContain("must override any conflicting Workspace source code, documentation, or generated CLI");
+    expect(result.finalPrompt).toContain("override any conflicting Workspace source code, documentation, or generated CLI");
     expect(result.finalPrompt).toContain("Do not build or invoke a Workspace copy of mystra-agent");
     expect(result.finalPrompt).toContain("This Session receives the Task's current TaskExecutionContext capability");
     expect(result.finalPrompt).toContain("use them to override capability-scoped facts");
@@ -188,7 +190,9 @@ describe("assembleSystemPrompt", () => {
     expect(result.finalPrompt).not.toContain(input.task.description!);
     expect(result.finalPrompt).not.toContain(input.project.repositoryExternalId);
     expect(result.finalPrompt).not.toContain(input.task.issue!.identifier);
-    expect(result.finalPrompt).toContain('Run "$MYSTRA_AGENT_PATH" context get before reading or changing the Task');
+    // The program-owned standard prompt states responsibilities only; the concrete command
+    // forms arrive in the Runtime-declared `runtime_workload` component.
+    expect(result.finalPrompt).toContain("Read the Task context this Runtime provides before reading or changing the Task");
     expect(result.finalPrompt).toContain("host-local linctl identity");
     expect(result.finalPrompt).toContain("host-local gh identity");
     expect(result.finalPrompt).toContain("does not verify Agent-reported PR, test, or delivery statements");
