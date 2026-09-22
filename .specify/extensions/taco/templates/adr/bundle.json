@@ -1,0 +1,37 @@
+{
+  "format": "taco/files",
+  "version": 1,
+  "docId": "adr-template",
+  "title": "Architecture Decision Records",
+  "root": "adr",
+  "files": [
+    {
+      "id": "adr-index",
+      "path": "adr/index.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'Architecture Decision Records'\n---\n\n## Decision Log\n\n- [ADR-001: Record Architecture Decisions](001-record-architecture-decisions.md) - *Accepted*\n"
+    },
+    {
+      "id": "adr-001",
+      "path": "adr/001-record-architecture-decisions.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'ADR-001: Record Architecture Decisions'\nstatus: 'Accepted'\ndate: '2026-09-16'\n---\n\n## Context\n\nWe need to record technical decisions to prevent context loss.\n\n## Decision\n\nWe will use MADR style ADR documents stored alongside the codebase.\n\n## Consequences\n\n- Improved visibility into architectural choices.\n"
+    }
+  ],
+  "navigation": {
+    "version": 1,
+    "entry": "adr/index.md",
+    "groups": [
+      {
+        "id": "group-index",
+        "title": "Index",
+        "paths": ["adr/index.md"]
+      },
+      {
+        "id": "group-accepted",
+        "title": "Accepted Decisions",
+        "paths": ["adr/001-record-architecture-decisions.md"]
+      }
+    ]
+  }
+}

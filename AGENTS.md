@@ -29,11 +29,11 @@ acceptance are still pending owner-provided test resources.
 
 Use the 5xP files as the durable context map:
 
-- `PRODUCT.md`: what Mystra is, who it serves, and what is out of scope.
-- `PLATFORM.md`: stack, architecture constraints, commands, and runner facts.
-- `PROCESS.md`: workflow, Spec-Kit usage, quality gates, and git discipline.
-- `PROFILE.md`: collaboration style and owner preferences.
-- `AGENTS.md`: agent persona, routing, and top-level principles.
+- Product: [`PRODUCT.md`](PRODUCT.md) — what Mystra is, who it serves, and what is out of scope.
+- Platform: [`PLATFORM.md`](PLATFORM.md) — stack, architecture constraints, commands, and runner facts.
+- Process: [`PROCESS.md`](PROCESS.md) — workflow, Spec-Kit usage, quality gates, and git discipline.
+- Profile: [`PROFILE.md`](PROFILE.md) — collaboration style and owner preferences.
+- Agent instructions: [`AGENTS.md`](AGENTS.md) — agent persona, routing, and top-level principles.
 
 For feature-level work, use Spec-Kit artifacts under `.specify/` and `specs/`.
 
@@ -78,44 +78,6 @@ Feature-specific artifacts belong in `specs/<feature>/`. Durable project rules b
   `PrototypeShell`; do not begin from a blank standalone HTML file.
 - A screenshot or static artifact may supplement the interactive route, but it
   does not replace the shared-code prototype requirement.
-
-## Taco Spec Kit authoring and review
-
-- Write new Spec Kit Markdown metadata as leading YAML frontmatter. Put the
-  document title in the `title` property between `---` delimiters. Never imitate
-  metadata with headings such as `## title: "..."` or bold prose.
-- When `speckit.specify` or another authoring command creates `spec.md`, do not
-  add an ATX or Setext H1 that repeats the YAML title. Begin the Markdown body at
-  H2 (`##`) or lower. Preserve an existing authored H1 during unrelated edits;
-  do not silently migrate legacy content.
-- Core files and known Spec Kit convention paths are routed automatically. For
-  any other Markdown file that needs an explicit Taco stage, add `taco_scope`
-  to its YAML frontmatter. Offer `spec`, `plan`, and `tasks`; preserve other
-  text values as authored, but do not treat them as valid routes or create a
-  custom stage. Do not generate the legacy `**Taco scope**: ...` form.
-
-- Keep each Spec Kit feature directory canonical. Store its review file at
-  `<feature-directory>/<feature-name>.taco.html` and update it only through the
-  installed Taco commands.
-- Do not backfill Taco files for historical specs merely because Taco is
-  installed. Create or refresh a Taco when future work creates or changes that
-  feature, or when the owner explicitly requests one.
-- After changing any feature artifact—including spec, plan, tasks, research,
-  contracts, checklists, or recorded implementation progress—invoke
-  `speckit.taco.update` before reporting the operation complete. In Codex this
-  command is `$speckit-taco-update`.
-- After a successful update, present the exact generated Taco through the Agent
-  GUI's native clickable file or artifact surface. In Codex, return a clickable
-  absolute file link and let the user's click open it in Browser; do not attempt
-  autonomous `file://` navigation. Other GUIs may open and verify it directly
-  only when they explicitly support local HTML navigation.
-- Import a saved human review through `speckit.taco.review` (in Codex,
-  `$speckit-taco-review`). Preview before writing, stop on conflicts, and never
-  use `--force` without explicit authorization for the exact paths.
-- Read every open comment and its complete history, modify canonical files to
-  address actionable feedback, then update the same Taco for the next review.
-- Treat collaboration-enabled Taco files as potentially credential-bearing;
-  do not send their contents to external services without user authorization.
 
 ## Spec-Kit Skill Routing
 
@@ -520,3 +482,5 @@ This project is indexed by GitNexus as **mystra**. Use the GitNexus MCP tools to
 - SQLite/PostgreSQL/Supabase-backed PostgreSQL 经 RdbProvider；新增 `IntegrationWebhookEndpoint`（connection 唯一）与 `ProjectIssueSource` 反向唯一约束 `(teamId, integration, scopeType, scopeExternalId)`；事件、订阅与去重仅进程内存 (058-event-subscription-protocol)
 ## Recent Changes
 - 002-runtime-profile-context: Added TypeScript 5.9, Node.js 24 runtime assumptions + Next.js 16, React 19, Zod 4, Vitest 4, existing `better-sqlite3` provider
+
+Before any Spec Kit or Taco work, read and follow the Taco workflow in [PROCESS.md](<PROCESS.md>).

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { MAX_PNG_SIZE, PNG_DATA_URL_PREFIX, decodePng, validatePngBytes } from './png.mjs'
+
 import { createHash, randomUUID } from 'node:crypto'
 import {
   access,
@@ -9,6 +11,7 @@ import {
   readdir,
   realpath,
   rename,
+  unlink,
   writeFile,
 } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
@@ -20,10 +23,15 @@ const DATA_BLOCK = /<script\b(?=[^>]*\bid=["']taco-document["'])[^>]*>[\s\S]*?<\
 const DATA_CONTENT = /(<script\b(?=[^>]*\bid=["']taco-document["'])[^>]*>)([\s\S]*?)(<\/script>)/i
 const here = dirname(fileURLToPath(import.meta.url))
 const defaultShell = resolve(here, '../assets/taco-shell.html')
+const defaultSpecTemplate = resolve(here, '../templates/spec-template.md')
+const LEGACY_SPEC_TEMPLATE_HEADER =
+  /^# Feature Specification: \[FEATURE NAME\]\r?\n\r?\n\*\*Feature Branch\*\*: `\[###-feature-name\]`\r?\n\r?\n\*\*Created\*\*: \[DATE\]\r?\n\r?\n\*\*Status\*\*: Draft\r?\n\r?\n\*\*Input\*\*: User description: "\$ARGUMENTS"\r?\n\r?\n/
 
 const usage = `Taco CLI
 
 Usage:
+  taco prepare-template [--project-root <dir>] [--json]
+  taco prepare-policy [--project-root <dir>] [--dry-run] [--json]
   taco pack <feature-directory> [--output <file>] [--project-root <dir>]
             [--title <title>] [--from <existing.taco.html>] [--shell <file>]
             [--ignore <relative-path-or-glob>]... [--json]
@@ -84,6 +92,7 @@ const mediaType = (path) => {
   if (lower.endsWith('.svg')) return 'image/svg+xml'
   if (lower.endsWith('.xml')) return 'application/xml'
   if (lower.endsWith('.toml')) return 'application/toml'
+  if (lower.endsWith('.png')) return 'image/png'
   return 'text/plain'
 }
 
@@ -146,6 +155,15 @@ const tacoFileBase = (path) =>
   basename(path)
     .replace(/\.taco\.html$/i, '')
     .replace(/\.html$/i, '')
+
+// Mirror of the runtime's defaultFile fallback order (README.md, spec.md,
+// first Markdown, first file) so pack infers the bundle title from the
+// document the shell will open by default.
+const headingEntry = (files, rootPath) => {
+  const byPath = (name) => files.find((file) => file.path === `${rootPath}/${name}`)
+  const firstMarkdown = () => files.find((file) => /\.md$/i.test(file.path))
+  return byPath('README.md') ?? byPath('spec.md') ?? firstMarkdown() ?? files[0] ?? null
+}
 
 const parseOptions = (argv) => {
   const positional = []
@@ -287,6 +305,7 @@ export const validateBundle = (bundle, { allowLegacyHtmlSourceUrl = false } = {}
     if (!html && file.sourceUrl !== undefined) {
       throw new Error(`sourceUrl is only valid for HTML files: ${file.path}`)
     }
+    if (file.mediaType === 'image/png') decodePng(file.content, file.path)
     paths.add(file.path)
   }
   if (bundle.comments !== undefined && !Array.isArray(bundle.comments))
@@ -316,16 +335,19 @@ const embedBundle = (shell, bundle) => {
   const json = encodeBundle(bundle)
   const withBundle = shell.replace(
     DATA_BLOCK,
-    `<script type="application/taco+json" id="taco-document">\n${json}\n</script>`,
+    () => `<script type="application/taco+json" id="taco-document">\n${json}\n</script>`,
   )
   const escapedTitle = `${bundle.title} — Taco`
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
   if (/<title\b[^>]*>[\s\S]*?<\/title>/i.test(withBundle)) {
-    return withBundle.replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, `<title>${escapedTitle}</title>`)
+    return withBundle.replace(
+      /<title\b[^>]*>[\s\S]*?<\/title>/i,
+      () => `<title>${escapedTitle}</title>`,
+    )
   }
-  return withBundle.replace('</head>', `<title>${escapedTitle}</title></head>`)
+  return withBundle.replace('</head>', () => `<title>${escapedTitle}</title></head>`)
 }
 
 const collectFiles = async (featureDir, rootPath, existingByPath, ignorePatterns) => {
@@ -364,25 +386,37 @@ const collectFiles = async (featureDir, rootPath, existingByPath, ignorePatterns
           `Unsupported filesystem entry in feature directory: ${relativePath}; exclude it with --ignore`,
         )
       }
+      const type = mediaType(relativePath)
+      const isPng = type === 'image/png'
       let content
-      try {
-        content = decoder.decode(await readFile(absolute))
-      } catch {
-        throw new Error(`File is not valid UTF-8: ${relativePath}; exclude it with --ignore`)
+      let rawBuffer = null
+      if (isPng) {
+        const size = (await lstat(absolute)).size
+        if (size > MAX_PNG_SIZE) {
+          throw new Error(`PNG image exceeds 10 MiB limit: ${relativePath} (${size} bytes); optimize or exclude with --ignore`)
+        }
+        rawBuffer = await readFile(absolute)
+        validatePngBytes(rawBuffer, relativePath)
+        content = `${PNG_DATA_URL_PREFIX}${rawBuffer.toString('base64')}`
+      } else {
+        try {
+          content = decoder.decode(await readFile(absolute))
+        } catch {
+          throw new Error(`File is not valid UTF-8: ${relativePath}; exclude it with --ignore`)
+        }
       }
       const path = `${rootPath}/${relativePath}`
       const previous = existingByPath.get(path)
-      const type = mediaType(relativePath)
       files.push({
         ...(previous?.id ? { id: previous.id } : {}),
         title: type === 'text/markdown'
           ? titleFrom(content, entry.name)
-          : previous?.title || titleFrom(content, entry.name),
+          : previous?.title || (isPng ? entry.name : titleFrom(content, entry.name)),
         path,
         mediaType: type,
         content,
         ...(type === 'text/html' ? { sourceUrl: pathToFileURL(absolute).href } : {}),
-        sourceHash: sha256(content),
+        sourceHash: sha256(rawBuffer || content),
       })
     }
   }
@@ -405,8 +439,6 @@ export const pack = async ({
   if (!isWithin(rootDirectory, featureDir) || featureDir === rootDirectory) {
     throw new Error('Feature directory must be a child of the project root')
   }
-  if (!(await pathExists(join(featureDir, 'spec.md'))))
-    throw new Error(`No spec.md found in ${featureDir}`)
 
   const rootPath = posix(relative(rootDirectory, featureDir))
   if (!isSafeRelativePath(rootPath))
@@ -448,8 +480,6 @@ export const pack = async ({
   const ignorePatterns = (ignore.length ? ignore : (priorBundle?.packOptions?.ignore ?? [])).map(
     normalizeIgnorePattern,
   )
-  if (ignoreMatcher(ignorePatterns)('spec.md'))
-    throw new Error('spec.md cannot be excluded with --ignore')
   const existingByPath = new Map((priorBundle?.files ?? []).map((file) => [file.path, file]))
   const { files, defaultIgnored, explicitIgnored } = await collectFiles(
     featureDir,
@@ -459,10 +489,10 @@ export const pack = async ({
   )
   if (!files.length) throw new Error(`No UTF-8 text files found in ${featureDir}`)
 
-  const spec = files.find((file) => file.path === `${rootPath}/spec.md`)
   const outputBase = tacoFileBase(outputPath)
-  const inheritedTitle =
-    priorBundle?.title || titleFrom(spec?.content ?? '', featureDir.split(sep).at(-1))
+  const fallbackTitle =
+    titleFrom(headingEntry(files, rootPath)?.content ?? '', featureDir.split(sep).at(-1))
+  const inheritedTitle = priorBundle?.title || fallbackTitle
   if (title && portableTitleBase(title) !== outputBase) {
     throw new Error(
       `Taco title requires filename ${portableTitleBase(title)}.taco.html, not ${basename(outputPath)}`,
@@ -559,11 +589,16 @@ export const describeComments = (bundle, status = 'all') => {
         location: located && file ? positionFor(file.content, located.start) : null,
         stale: !located,
         messages: Array.isArray(thread.messages)
-          ? thread.messages.map((message) => ({
+          ? [...thread.messages]
+            .sort((left, right) => String(left.createdAt).localeCompare(String(right.createdAt)) || String(left.id).localeCompare(String(right.id)))
+            .map((message) => ({
               id: message.id,
               author: message.author,
-              body: message.body,
+              body: message.deletedAt ? null : message.body,
               createdAt: message.createdAt,
+              ...(message.updatedAt ? { updatedAt: message.updatedAt } : {}),
+              deleted: Boolean(message.deletedAt),
+              ...(message.deletedAt ? { deletedAt: message.deletedAt } : {}),
             }))
           : [],
         createdAt: thread.createdAt,
@@ -605,9 +640,20 @@ export const sync = async ({
       throw new Error(`Taco file escapes feature root: ${file.path}`)
     await assertNoSymlinkPath(rootDirectory, target)
     const exists = await pathExists(target)
-    const current = exists ? await readFile(target, 'utf8') : null
-    const currentHash = current === null ? null : sha256(current)
-    const tacoHash = sha256(file.content)
+    const isPng = file.mediaType === 'image/png'
+    let currentHash = null
+    let tacoHash = null
+    if (isPng) {
+      if (exists) {
+        const diskBuffer = await readFile(target)
+        currentHash = sha256(diskBuffer)
+      }
+      tacoHash = sha256(decodePng(file.content, file.path))
+    } else {
+      const current = exists ? await readFile(target, 'utf8') : null
+      currentHash = current === null ? null : sha256(current)
+      tacoHash = sha256(file.content)
+    }
     const baselineHash =
       typeof file.sourceHash === 'string' && /^[a-f0-9]{64}$/.test(file.sourceHash)
         ? file.sourceHash
@@ -623,6 +669,7 @@ export const sync = async ({
       state,
       baselineKnown: Boolean(baselineHash),
       content: file.content,
+      mediaType: file.mediaType,
     })
   }
 
@@ -632,7 +679,11 @@ export const sync = async ({
       if (change.state !== 'created' && change.state !== 'updated') continue
       await mkdir(dirname(change.target), { recursive: true })
       const temporary = `${change.target}.taco-${process.pid}-${randomUUID()}.tmp`
-      await writeFile(temporary, change.content, 'utf8')
+      if (change.mediaType === 'image/png') {
+        await writeFile(temporary, decodePng(change.content, change.path))
+      } else {
+        await writeFile(temporary, change.content, 'utf8')
+      }
       await rename(temporary, change.target)
     }
   }
@@ -661,7 +712,7 @@ const humanComments = (comments) => {
     .map((thread) => {
       const location = thread.location ? `:${thread.location.line}:${thread.location.column}` : ''
       const messages = thread.messages
-        .map((message) => `  ${message.author}: ${message.body}`)
+        .map((message) => `  ${message.author}: ${message.deleted ? '[message deleted]' : message.body}`)
         .join('\n')
       return `[${thread.status}] ${thread.path}${location}\n  > ${thread.quote}\n${messages}`
     })
@@ -687,6 +738,17 @@ const printResult = (result, json) => {
       process.stdout.write(`Preserved ${result.commentsPreserved} comment threads.\n`)
     return
   }
+  if (result.command === 'prepare-policy') {
+    process.stdout.write(`Taco process: ${result.processPath ?? 'undetermined'} (${result.process.status}); AGENTS.md: ${result.agents.status}.\n`)
+    if (result.reason) process.stdout.write(`${result.reason}\nNo policy files were written.\n`)
+    return
+  }
+  if (result.command === 'prepare-template') {
+    process.stdout.write(
+      `${result.changed ? 'Prepared' : 'Verified'} Taco YAML spec template at ${result.template}.\n`,
+    )
+    return
+  }
   if (result.command === 'sync') {
     const label = result.dryRun ? 'Previewed' : result.applied ? 'Synced' : 'Refused'
     process.stdout.write(
@@ -704,6 +766,299 @@ const printResult = (result, json) => {
   }
 }
 
+
+const POLICY_START = '<!-- taco:process-policy:start -->'
+const POLICY_END = '<!-- taco:process-policy:end -->'
+const POLICY_HEADING = '## Taco Spec Kit authoring and review'
+// Exact shipped v0.4 policy and installation-guide variant, before process routing.
+const LEGACY_POLICY_HASHES = new Set([
+  'a96f7e2283c26e20dfe28f876cccfe0412d68f53eeff18cf329cd216f58dd651',
+  '316f0dcb802eeb05f880af44eff53eb116facd3bdfed3642feaf4ddd48d63ea6',
+  // v0.7.0 policy, which still routed explicit stages through `taco_scope`.
+  'bb9369b605f7df2ba9da5fd26f0133b486ea745a209e503c16f333034e03a4bb',
+])
+const ROUTE_PREFIX = 'Before any Spec Kit or Taco work, read and follow the Taco workflow in '
+
+// Read only local, regular files, including every parent component. In particular,
+// access() is insufficient: it hides dangling symlinks as nonexistent paths.
+const readPolicyFile = async (root, target) => {
+  await assertNoSymlinkPath(root, target)
+  try {
+    const info = await lstat(target)
+    if (!info.isFile()) throw new Error(`Not a regular policy file: ${target}`)
+    return { content: await readFile(target, 'utf8'), mode: info.mode }
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { content: null, mode: 0o644 }
+    throw error
+  }
+}
+
+const policyProse = (content) => {
+  let fence = null
+  let comment = false
+  const lines = content.split(/\r?\n/).map((line) => {
+    if (fence) {
+      const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/)
+      if (closing && closing[1][0] === fence[0] && closing[1].length >= fence.length) fence = null
+      return ''
+    }
+    let prose = ''
+    let remaining = line
+    while (remaining) {
+      if (comment) {
+        const end = remaining.indexOf('-->')
+        if (end < 0) return prose
+        remaining = remaining.slice(end + 3)
+        comment = false
+      } else {
+        const start = remaining.indexOf('<!--')
+        if (start < 0) {
+          prose += remaining
+          break
+        }
+        prose += remaining.slice(0, start)
+        remaining = remaining.slice(start + 4)
+        comment = true
+      }
+    }
+    const opening = prose.match(/^ {0,3}(`{3,}|~{3,})(.*)$/)
+    if (opening && (opening[1][0] !== '`' || !opening[2].includes('`'))) {
+      fence = opening[1]
+      return ''
+    }
+    return prose
+  })
+  if (fence || comment) throw new Error('Unclosed Markdown fence or HTML comment in policy routing; merge manually')
+  return lines.join('\n')
+}
+
+const routeLinks = (content) => {
+  const prose = policyProse(content)
+  const definitions = new Map([...prose.matchAll(/^ {0,3}\[([^\]]+)\]:\s*<?([^\s>]+)>?/gm)]
+    .map((match) => [match[1].toLowerCase(), match[2]]))
+  const links = [...prose.matchAll(/\[([^\]]+)\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+"[^"]*")?\s*\)/g)]
+    .map((match) => ({ label: match[1], path: match[2] ?? match[3] }))
+  for (const match of prose.matchAll(/\[([^\]]+)\]\[([^\]]*)\]/g)) {
+    const path = definitions.get((match[2] || match[1]).toLowerCase())
+    if (path) links.push({ label: match[1], path })
+  }
+  return { prose, links }
+}
+
+const selectProcessPath = async (root, agents) => {
+  const pending = [{ path: join(root, 'AGENTS.md'), content: agents }]
+  const visited = new Set()
+  const candidates = new Set()
+  let declared = false
+  const routingErrors = []
+  while (pending.length) {
+    const document = pending.shift()
+    if (visited.has(document.path)) continue
+    visited.add(document.path)
+    if (visited.size > 16) {
+      routingErrors.push('Context routing exceeds 16 documents; merge manually')
+      break
+    }
+    const { prose, links } = routeLinks(document.content)
+    const declaration = prose.replace(/\]\([^)]*\)/g, ']')
+      .replace(/^ {0,3}\[[^\]]+\]:.*$/gm, '')
+      .split(/\r?\n/).filter((line) => !/(?:\b(?:not|without|never|no)\b|未采用|不使用|未使用|不采用)[^.!?。]*\b5xP\b/i.test(line)).join('\n')
+    declared ||= /\b5xP\b/i.test(declaration)
+    for (const link of links) {
+      const isProcess = /\bprocess\b/i.test(link.label) || /(?:^|\/)process\.md(?:#.*)?$/i.test(link.path)
+      const isContext = /\b(context|5xP)\b/i.test(link.label) || /(?:^|\/)(context|5xp)\.md$/i.test(link.path)
+      if (!isProcess && !isContext) continue
+      try {
+        const local = decodeURIComponent(link.path.split('#')[0])
+        if (!local || /^[a-z][a-z\d+.-]*:/i.test(local) || isAbsolute(local) || local.includes('\\') || local.includes('\0'))
+          throw new Error(`Context routing must use a local relative Markdown link: ${link.path}`)
+        const target = resolve(dirname(document.path), local)
+        if (!isWithin(root, target) || target === root || !/\.md$/i.test(target))
+          throw new Error(`Unsafe context routing destination: ${link.path}`)
+        if (isProcess) candidates.add(target)
+        if (isContext && !isProcess && !visited.has(target)) {
+          const context = await readPolicyFile(root, target)
+          if (context.content === null) throw new Error(`Missing declared context document: ${target}`)
+          pending.push({ path: target, content: context.content })
+        }
+      } catch (error) {
+        routingErrors.push(error.message)
+      }
+    }
+  }
+  if (!declared) return { path: join(root, 'docs/taco-process.md'), model: 'dedicated' }
+  if (routingErrors.length) throw new Error(routingErrors.join('; '))
+  if (candidates.size !== 1) throw new Error('Declared 5xP context must route to exactly one Process document; merge manually')
+  const path = [...candidates][0]
+  if (path === join(root, 'AGENTS.md')) throw new Error('The Process document must be separate from AGENTS.md')
+  return { path, model: '5xp' }
+}
+
+const appendPolicyText = (content, addition) =>
+  `${content}${content && !content.endsWith('\n') ? '\n' : ''}${content && !content.endsWith('\n\n') ? '\n' : ''}${addition}\n`
+
+export const prepareProjectPolicy = async (options = {}) => {
+  const result = {
+    command: 'prepare-policy', processPath: null, model: null,
+    process: { path: null, status: 'manual-merge' },
+    agents: { path: null, status: 'manual-merge' },
+    dryRun: Boolean(options.dryRun), applied: false, migrated: false,
+  }
+  try {
+    const root = await realpath(resolve(options.projectRoot ?? process.cwd()))
+    const specify = join(root, '.specify')
+    await assertNoSymlinkPath(root, specify)
+    if (!(await lstat(specify)).isDirectory()) throw new Error(`Not an initialized Spec Kit project: ${root}`)
+    const agentsPath = join(root, 'AGENTS.md')
+    result.agents.path = agentsPath
+    const agents = await readPolicyFile(root, agentsPath)
+    const selected = await selectProcessPath(root, agents.content ?? '')
+    result.processPath = selected.path
+    result.process.path = selected.path
+    result.model = selected.model
+    const destination = await readPolicyFile(root, selected.path)
+    if (selected.model === '5xp' && destination.content === null)
+      throw new Error(`Declared Process document does not exist: ${selected.path}`)
+    const stock = (await readFile(resolve(here, '../policies/taco-agent-policy.md'), 'utf8')).trim()
+    const policyBody = stock.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n\s*/, '')
+    const block = `${POLICY_START}\n${policyBody}\n${POLICY_END}`
+    let nextAgents = agents.content ?? '---\ntitle: "Agent instructions"\n---\n'
+    // Only an exact stock section may be removed. A following H2 belongs to the
+    // project and is preserved; local additions under the Taco heading refuse.
+    const headings = [...nextAgents.matchAll(/^## Taco Spec Kit authoring and review[^\r\n]*\r?$/gm)]
+    if (headings.length > 1) throw new Error('Multiple legacy Taco sections in AGENTS.md; merge manually')
+    if (headings.length) {
+      const start = headings[0].index
+      const tail = nextAgents.slice(start + headings[0][0].length)
+      const boundary = tail.search(/^#{1,2} /m)
+      const end = boundary < 0 ? nextAgents.length : start + headings[0][0].length + boundary
+      const legacy = nextAgents.slice(start, end).trim().replace(/\r\n/g, '\n')
+      if (legacy !== policyBody.replace(/\r\n/g, '\n') && !LEGACY_POLICY_HASHES.has(sha256(legacy)))
+        throw new Error('Customized Taco policy in AGENTS.md; preserve it and merge manually')
+      nextAgents = nextAgents.slice(0, start) + nextAgents.slice(end)
+      result.migrated = true
+    }
+    const relativePath = posix(relative(root, selected.path))
+    const route = `${ROUTE_PREFIX}[${relativePath}](<${relativePath}>).`
+    const existingRoutes = policyProse(nextAgents).split(/\r?\n/).filter((line) => line.startsWith(ROUTE_PREFIX))
+    if (existingRoutes.length > 1 || (existingRoutes.length === 1 && existingRoutes[0] !== route))
+      throw new Error('Customized or duplicate Taco routing instruction in AGENTS.md; merge manually')
+    if (!existingRoutes.length) nextAgents = appendPolicyText(nextAgents, route)
+    let nextProcess = destination.content ?? '---\ntitle: "Taco workflow"\n---\n'
+    const starts = nextProcess.split(POLICY_START).length - 1
+    const ends = nextProcess.split(POLICY_END).length - 1
+    if (starts || ends) {
+      if (starts !== 1 || ends !== 1 || !nextProcess.includes(block))
+        throw new Error('Customized or malformed Taco process block; preserve it and merge manually')
+      const outside = nextProcess.replace(block, '')
+      if (outside.includes(POLICY_HEADING)) throw new Error('Duplicate Taco process section; merge manually')
+    } else {
+      if (nextProcess.includes(POLICY_HEADING)) throw new Error('Unmanaged Taco process section; merge manually')
+      nextProcess = appendPolicyText(nextProcess, block)
+    }
+    const files = [
+      { path: selected.path, before: destination, next: nextProcess, report: result.process },
+      { path: agentsPath, before: agents, next: nextAgents, report: result.agents },
+    ]
+    for (const file of files) file.report.status = file.before.content === file.next ? 'unchanged' : file.before.content === null ? 'created' : 'updated'
+    if (options.dryRun) return result
+    // Stage both outputs before replacing either canonical file. Recheck sources
+    // and link safety immediately before commit, and roll back any partial commit.
+    const staged = []
+    const committed = []
+    try {
+      for (const file of files.filter((file) => file.report.status !== 'unchanged')) {
+        await assertNoSymlinkPath(root, file.path)
+        await mkdir(dirname(file.path), { recursive: true })
+        const temporary = `${file.path}.taco-${randomUUID()}.tmp`
+        await writeFile(temporary, file.next, { encoding: 'utf8', mode: file.before.mode, flag: 'wx' })
+        staged.push({ ...file, temporary })
+      }
+      for (const file of files) {
+        const current = await readPolicyFile(root, file.path)
+        if (current.content !== file.before.content) throw new Error(`Policy file changed during preparation: ${file.path}`)
+      }
+      for (const file of staged) {
+        await rename(file.temporary, file.path)
+        committed.push(file)
+      }
+    } catch (error) {
+      for (const file of committed.reverse()) {
+        if (file.before.content === null) await unlink(file.path)
+        else {
+          await writeFile(file.temporary, file.before.content, { encoding: 'utf8', mode: file.before.mode, flag: 'wx' })
+          await rename(file.temporary, file.path)
+        }
+      }
+      throw error
+    } finally {
+      for (const file of staged) await unlink(file.temporary).catch(() => {})
+    }
+    result.applied = true
+    return result
+  } catch (error) {
+    result.process.status = 'manual-merge'
+    result.agents.status = 'manual-merge'
+    result.migrated = false
+    result.reason = error.message
+    return result
+  }
+}
+
+export const prepareSpecTemplate = async (options = {}) => {
+  const projectRoot = await realpath(resolve(options.projectRoot ?? process.cwd()))
+  const specifyDirectory = join(projectRoot, '.specify')
+  if (!(await pathExists(specifyDirectory)))
+    throw new Error(`Spec Kit project directory was not found: ${specifyDirectory}`)
+  const specifyInfo = await lstat(specifyDirectory)
+  if (!specifyInfo.isDirectory() || specifyInfo.isSymbolicLink())
+    throw new Error(`Unsafe Spec Kit project directory: ${specifyDirectory}`)
+  const target = join(specifyDirectory, 'templates/spec-template.md')
+  if (!(await pathExists(target)))
+    throw new Error(`Spec Kit spec template was not found: ${target}`)
+  const targetInfo = await lstat(target)
+  if (!targetInfo.isFile() || targetInfo.isSymbolicLink())
+    throw new Error(`Unsafe Spec Kit spec template: ${target}`)
+
+  const [source, current] = await Promise.all([
+    readFile(defaultSpecTemplate, 'utf8'),
+    readFile(target, 'utf8'),
+  ])
+  const canonicalHeader = source.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n\r?\n/)?.[0]
+  if (!canonicalHeader) throw new Error('Installed Taco spec template has invalid YAML frontmatter')
+
+  const existingFrontmatter = current.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n\r?\n/)
+  const firstH2 = current.search(/^## /m)
+  if (
+    existingFrontmatter &&
+    /^title[ \t]*:/m.test(existingFrontmatter[1]) &&
+    /^feature_id[ \t]*:/m.test(existingFrontmatter[1]) &&
+    firstH2 >= existingFrontmatter[0].length &&
+    !/^#\s/m.test(current.slice(existingFrontmatter[0].length, firstH2))
+  ) {
+    return { command: 'prepare-template', template: target, changed: false }
+  }
+
+  if (!LEGACY_SPEC_TEMPLATE_HEADER.test(current)) {
+    throw new Error(
+      `Refusing to overwrite a customized Spec Kit template: ${target}; merge Taco YAML metadata manually`,
+    )
+  }
+
+  const next = current.replace(LEGACY_SPEC_TEMPLATE_HEADER, () => canonicalHeader)
+  const temporary = `${target}.taco-${randomUUID()}.tmp`
+  try {
+    await writeFile(temporary, next, 'utf8')
+    await rename(temporary, target)
+  } catch (error) {
+    try {
+      await unlink(temporary)
+    } catch {}
+    throw error
+  }
+  return { command: 'prepare-template', template: target, changed: true }
+}
+
 const main = async () => {
   const [command, ...argv] = process.argv.slice(2)
   if (command === '--help' || command === '-h') {
@@ -713,6 +1068,19 @@ const main = async () => {
   const parsed = parseOptions(argv)
   if (!command || parsed.flag('help') || command === 'help') {
     process.stdout.write(`${usage}\n`)
+    return
+  }
+
+  if (command === 'prepare-policy') {
+    const result = await prepareProjectPolicy({ projectRoot: parsed.option('project-root'), dryRun: parsed.flag('dry-run') })
+    printResult(result, parsed.flag('json'))
+    if (result.reason) process.exitCode = 2
+    return
+  }
+
+  if (command === 'prepare-template') {
+    const result = await prepareSpecTemplate({ projectRoot: parsed.option('project-root') })
+    printResult(result, parsed.flag('json'))
     return
   }
 

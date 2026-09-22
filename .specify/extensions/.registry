@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "extensions": {
     "taco": {
-      "version": "0.3.1",
+      "version": "0.7.0",
       "source": "local",
-      "manifest_hash": "sha256:15ee832cc8a8a00601bd27dd7adba87b0f26854462ea057cdf1d444d0ada3017",
+      "manifest_hash": "sha256:1f3aa3ca95c35073a34d17d1518e5bfe4006260c6cab40cf2a221a9a71e0fe5c",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
@@ -14,7 +14,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-08-14T03:28:58.934013+00:00"
+      "installed_at": "2026-09-22T03:41:10.783205+00:00"
     }
   }
 }

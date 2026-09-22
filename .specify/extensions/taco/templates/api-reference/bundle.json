@@ -1,0 +1,43 @@
+{
+  "format": "taco/files",
+  "version": 1,
+  "docId": "api-reference-template",
+  "title": "API Reference",
+  "root": "api",
+  "files": [
+    {
+      "id": "api-overview",
+      "path": "api/overview.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'API Overview & Auth'\nversion: 'v1'\n---\n\n## Base URL\n\n`https://api.example.com/v1`\n\n## Authentication\n\nBearer token via Authorization header.\n"
+    },
+    {
+      "id": "api-endpoints",
+      "path": "api/endpoints.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'Endpoints Reference'\n---\n\n## GET /items\n\nReturns list of items.\n\n## POST /items\n\nCreates a new item.\n"
+    },
+    {
+      "id": "api-schemas",
+      "path": "api/schemas.yaml",
+      "mediaType": "application/yaml",
+      "content": "components:\n  schemas:\n    Item:\n      type: object\n      properties:\n        id:\n          type: string\n        name:\n          type: string\n"
+    }
+  ],
+  "navigation": {
+    "version": 1,
+    "entry": "api/overview.md",
+    "groups": [
+      {
+        "id": "group-guide",
+        "title": "Guide & Auth",
+        "paths": ["api/overview.md"]
+      },
+      {
+        "id": "group-specs",
+        "title": "Endpoints & Schemas",
+        "paths": ["api/endpoints.md", "api/schemas.yaml"]
+      }
+    ]
+  }
+}

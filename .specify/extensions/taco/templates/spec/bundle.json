@@ -1,0 +1,48 @@
+{
+  "format": "taco/files",
+  "version": 1,
+  "docId": "spec-template",
+  "title": "Feature Specification",
+  "root": "spec",
+  "files": [
+    {
+      "id": "spec-md",
+      "path": "spec/spec.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'New Feature Specification'\nfeature_id: '001-feature'\ncreated: '2026-09-16'\nstatus: 'Draft'\ninput: |-\n  User description: \"...\"\n---\n\n## User Scenarios & Testing\n\n### User Story 1 - Core Flow (Priority: P1)\n\n**Given** system is initialized, **When** user triggers action, **Then** result is displayed.\n\n## Requirements\n\n- **FR-001**: System MUST perform core operation.\n"
+    },
+    {
+      "id": "plan-md",
+      "path": "spec/plan.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'Technical Implementation Plan'\n---\n\n## Architecture & Approach\n\nOutline technical architecture and key milestones here.\n"
+    },
+    {
+      "id": "tasks-md",
+      "path": "spec/tasks.md",
+      "mediaType": "text/markdown",
+      "content": "---\ntitle: 'Task Breakdown'\n---\n\n## Tasks\n\n- [ ] T001 Implement core data model\n- [ ] T002 Build UI presentation\n"
+    }
+  ],
+  "navigation": {
+    "version": 1,
+    "entry": "spec/spec.md",
+    "groups": [
+      {
+        "id": "group-specify",
+        "title": "Specify",
+        "paths": ["spec/spec.md"]
+      },
+      {
+        "id": "group-plan",
+        "title": "Plan",
+        "paths": ["spec/plan.md"]
+      },
+      {
+        "id": "group-tasks",
+        "title": "Tasks",
+        "paths": ["spec/tasks.md"]
+      }
+    ]
+  }
+}
