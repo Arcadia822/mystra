@@ -115,8 +115,7 @@ Runner 所在宿主重启或沙箱 VM 因资源回收被销毁后，维护者/�
 - **Execution Code 刚好过期**：当 Agent 在任务中期调用 CLI 时若 Code 已超时被控制面作废，CLI 必须返回结构化 `capability_expired` 错误，Agent 能够捕获并决定是结束还是报告 blocked。
 - **控制面返回 5xx 错误**：Guest CLI 应返回 `internal_error` 并指出是否可重试（`retryable`），不能导致 Guest Node 进程未捕获异常崩溃。
 - **并发状态竞争**：多进程或同一 Session 重复执行状态转换时，利用 `expectedRevision` 与 `idempotencyKey` 防重，不出现状态覆盖。
-- **Guest Node 版本兼容性**：AgentOS 镜像内的 Node 版本固定为 v22，单文件 CJS bundle（`mystra-agent.cjs`）具备原生 Shebang，无需宿主外部额外依赖。
-
+- **Guest 内 Node 执行机制与内核 Stub 约束**：在 host-c1 实测中发现，AgentOS 镜像内的 `/bin/node` 并不是常规可执行 ELF 文件，而是一个 32 字节的内核命令桩（kernel command stub）；guest 系统的 `/usr/bin/env` 软链接至 `/bin/busybox`。因此，通过 shebang 或 `execve` 链式调用（如 `execve("/opt/mystra-agent-cli/mystra-agent.cjs")`）会触发内核错误 `Exec format error`；通过 `sh` 脚本包装也无法解析 `node`（`exit 127`）。只有沙箱内部 Agent 所运行的交互式 shell 才能正确分派 `node` 命令。因此，AgentOS 沙箱内部对 CLI 的具体调用形式必须为 `node "$MYSTRA_AGENT_PATH" <args>`，而 Host Runtime 则是直接执行 `"$MYSTRA_AGENT_PATH" <args>`。
 ## 需求
 
 ### 功能需求
@@ -146,7 +145,14 @@ Runner 所在宿主重启或沙箱 VM 因资源回收被销毁后，维护者/�
 - **FR-060-007**：System MUST 在 Execution Code 过期、被撤销或能力不匹配时，由 Guest CLI 返回稳定的结构化 JSON 错误响应（`capability_expired` 或 `forbidden`），并在退出码为非 0 时退出，禁止静默忽略或降级为无能力运行。
 - **FR-060-008**：System MUST 保证沙箱 VM 销毁重建后（mode=`continue`），在全新 VM 中重新打开该 Session 时，利用 AgentOS SDK 原生对 `env_json` 的持久化与回放能力，使 Guest 内的直连控制面能力依然立即可用。
 - **FR-060-009**：System MUST 在规范中明确声明取代 Feature 059 中关于“Execution Code 绝不进入沙箱”的隔离决策，并将 059 遗留的未闭环任务 T027 及 FR-006 缺口在此特性完全闭环。
-
+- **FR-060-010**：System MUST 将上下文系统提示词（System Prompt）进行“职责与调用形式”解耦：平台拥有的通用上下文提示词（Standard Execution Prompt）只声明“做什么（WHAT to do）”，绝不包含具体的命令行语法或调用形式；每个 Runtime 独立声明其专属的工作负载调用指令（Workload Instructions）。
+- **FR-060-011**：System MUST 在 Runner 侧独立模块（`apps/runner-daemon/src/runtime-instructions.ts`）中定义各 Runtime 的具体指令片段：
+  - AgentOS Runtime 片段声明使用 `node "$MYSTRA_AGENT_PATH" <args>`；
+  - Host Runtime 片段声明使用 `"$MYSTRA_AGENT_PATH" <args>`；
+  - 该指令在 Runtime 注册及心跳上报时传递给控制面并完成持久化存储。
+- **FR-060-012**：System MUST 在控制面组装 Session 系统提示词时（`system-prompt-assembler.ts`），将 Runtime 声明的指令作为独立组件 `runtime_workload` 注入，其装配顺序位于 `runtime` 之后、`provider` 之前。
+- **FR-060-013**：System MUST 将 Feature 057 中固定工作流（Workflow）的提示词指令从 `fixed-workflow-definition.ts` 中移出，重构为与具体命令语法解耦的“纯义务约束声明（Command-free obligations）”，具体的 workflow 命令形式统一纳入上述 `runtime_workload` 片段。
+- **FR-060-014**：System MUST 在验收产物中提供两套清晰可读、作为正式验收比对基准的 Runtime 提示词片段（Host 片段与 AgentOS 片段），并证明控制面组装出的完整提示词无语法冲突或重复命令说明。
 ### 关键实体与不变量
 
 - **AgentOS Session Env**：绑定于特定 Session 的环境配置字典。

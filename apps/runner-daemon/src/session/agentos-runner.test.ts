@@ -211,7 +211,7 @@ describe("AgentOS Pi isolation", () => {
     expect(prepareCall[0]).toContain("cp /opt/mystra-agent-cli/mystra-agent.cjs /tmp/mystra-agent-cli/mystra-agent.cjs");
     expect(prepareCall[0]).toContain("chmod 0755");
     const probeCall = vm.process.exec.mock.calls[1] as unknown as [string, { env: Record<string, string> }];
-    expect(probeCall[0]).toBe("/tmp/mystra-agent-cli/mystra-agent.cjs whoami");
+    expect(probeCall[0]).toBe("node /tmp/mystra-agent-cli/mystra-agent.cjs whoami");
     expect(probeCall[1]).toMatchObject({ env: openOptions[0].env });
     expect(vm.filesystem.remove).toHaveBeenCalledOnce();
   });

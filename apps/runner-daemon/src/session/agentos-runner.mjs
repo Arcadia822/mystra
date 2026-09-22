@@ -227,10 +227,16 @@ async function assertSessionRestored(vm, sessionId, mode, aborted) {
 /**
  * FR-006 requires the sandboxed Agent to reach its Session-scoped capability from inside
  * the guest. The workload CLI is copied to a guest-local path with an explicit executable
- * mode and then asked to resolve its own Session through the injected execution code, so
- * this probe exercises the exact path the Agent will use - projection, interpreter,
- * execution code, egress policy and Control Plane reachability - before any model
- * credential is written. Any failure fails the Session closed with the measured reason.
+ * mode and then asked to resolve its own Session through the injected execution code.
+ *
+ * Measured platform fact: In the AgentOS guest, `node` exists only as a 32-byte kernel command
+ * stub, never as an executable file. Any `execve` chain through a shebang (such as directly
+ * executing `${GUEST_CLI_LOCAL}`) or a `sh` wrapper fails with `Exec format error` or
+ * `command not found: node` (exit 126/127). Only the Agent's own shell resolves `node`.
+ * Hence the pre-flight probe must run `node <guest bundle path> whoami` to reliably test
+ * projection, interpreter, execution code, egress policy, and Control Plane reachability
+ * before any model credential is written. Any failure fails the Session closed with the
+ * measured reason.
  */
 async function prepareGuestWorkloadCli(vm, capabilityEnvironment, onLog, aborted) {
   const prepare = await bounded(
@@ -247,7 +253,7 @@ async function prepareGuestWorkloadCli(vm, capabilityEnvironment, onLog, aborted
     );
   }
   const probe = await bounded(
-    vm.process.exec(`${GUEST_CLI_LOCAL} whoami`, {
+    vm.process.exec(`node ${GUEST_CLI_LOCAL} whoami`, {
       env: capabilityEnvironment,
       timeoutMs: WORKLOAD_PROBE_TIMEOUT_MS,
       output: { capture: 'all' },
@@ -257,7 +263,7 @@ async function prepareGuestWorkloadCli(vm, capabilityEnvironment, onLog, aborted
   if (probe?.exitCode !== 0) {
     throw new Error(
       'AgentOS Pi cannot reach the Runtime-provided workload CLI from inside the guest'
-      + ` (${GUEST_CLI_LOCAL} whoami exit ${probe?.exitCode ?? 'unknown'}:`
+      + ` (node ${GUEST_CLI_LOCAL} whoami exit ${probe?.exitCode ?? 'unknown'}:`
       + ` ${String(probe?.stderr ?? '').trim().slice(0, 300) || 'no stderr'});`
       + ' this Session would run without its Session-scoped capability',
     );

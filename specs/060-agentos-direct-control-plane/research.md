@@ -68,8 +68,17 @@ spec: "spec.md"
    ```
    产物大小约 900 KB，单文件自包含。
    **注意**：严禁传 `--banner:js`。因为 `bin/mystra-agent` 原生已包含 `#!/usr/bin/env node`，传入 banner 会导致首行重复生成两条 shebang，从而破坏脚本解析。
-3. **Guest 运行验证**：
-   - 验证 Shebang 脚本与直接 node 调用（`SHEBANG_ENV_OK`、`PLAIN_NODE_OK` 全部通过）。
+3. **Guest 内 Node 执行机制根因与 Shebang/execve 限制实测**：
+   在 host-c1 进一步测量发现：
+   - **文件本质**：Guest 内部的 `/bin/node` 并不是一个普通的二进制 ELF 可执行文件，而是一个 32 字节的内核命令桩（kernel command stub）。
+   - **环境变量解释器**：Guest 内的 `/usr/bin/env` 是指向 `/bin/busybox` 的符号链接。
+   - **Shebang 链式失效**：当尝试直接执行带有 shebang 的脚本（如 `./mystra-agent.cjs` 或直接调用可执行文件路径）时，操作系统内核在 `execve` 阶段尝试解析 shebang 并加载解释器 `/usr/bin/env node`，由于 busybox 与 node 内核桩的交互限制，内核直接抛出 `Exec format error`。
+   - **包装尝试全军覆没**：在 guest 内无论是将 bundle 复制到本地、建立符号链接，还是编写 `sh` 脚本包装（例如 `#!/bin/sh\nnode "$@"`），`sh` 均返回 `exit 127: node not found`，因为 `sh` 内部同样无法通过标准 `execve` 找到并执行内核命令桩。
+   - **交互式 Shell 成功**：实测唯独沙箱内部 Agent（Pi）运行的宿主/交互式 shell 能够原生分派 `node` 命令桩。
+   - **结论**：直接以 `node "$MYSTRA_AGENT_PATH" <args>` 方式分派是 AgentOS 沙箱中唯一可靠的执行路径；而在宿主环境（Host Runtime）下，则是直接执行 `"$MYSTRA_AGENT_PATH" <args>`。
+   - **架构推导**：具体的 CLI 调用形式是 **Runtime 专属特性（Runtime-specific）**，绝不能在通用的 Standard Execution Prompt 中硬编码。平台提示词必须只声明义务和行为约束（WHAT to do），具体命令形式由各 Runtime 自行声明注入。
+
+4. **Guest 环境变量验证与启动输出**：
    - 无环境变量启动时输出：
      ```json
      {"error":{"code":"invalid_request","message":"MYSTRA_CONTROL_PLANE_URL is required"}}

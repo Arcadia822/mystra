@@ -98,10 +98,14 @@ const vm = await AgentOs.create({
 
 ## 5. Workload CLI 命令与交互界面
 
-Guest Agent 在沙箱内通过命令行与控制面通信，所有命令均以非零退出码表示失败，并向 `stdout` 输出结构化 JSON（成功时）或向 `stderr` 输出结构化错误（失败时）。
+Guest Agent 在沙箱内通过命令行与控制面通信。在 AgentOS 沙箱中，由于内核命令桩与 busybox env 交互限制，调用命令的具体形式必须由 Agent 的交互式 shell 显式分派为：
+```bash
+node "$MYSTRA_AGENT_PATH" <args>
+```
+该调用形式由 AgentOS Runtime 独立声明（`apps/runner-daemon/src/runtime-instructions.ts`）并通过控制面提示词组件 `runtime_workload` 注入，**不是通用 Standard Prompt 的一部分**。所有命令均以非零退出码表示失败，并向 `stdout` 输出结构化 JSON（成功时）或向 `stderr` 输出结构化错误（失败时）。
 
 ### 5.1 获取上下文 (`context get`)
-- **命令**：`"$MYSTRA_AGENT_PATH" context get`
+- **命令**：`node "$MYSTRA_AGENT_PATH" context get`
 - **输入依赖**：`MYSTRA_CONTROL_PLANE_URL`, `MYSTRA_EXECUTION_CODE`, `MYSTRA_WORKSPACE_ROOT`。
 - **成功输出 (stdout, exit 0)**：
   ```json
@@ -124,7 +128,7 @@ Guest Agent 在沙箱内通过命令行与控制面通信，所有命令均以�
 ### 5.2 上报任务状态 (`task status set`)
 - **命令**：
   ```bash
-  "$MYSTRA_AGENT_PATH" task status set <status> \
+  node "$MYSTRA_AGENT_PATH" task status set <status> \
     --expected-revision <number> \
     [--idempotency-key <string>] \
     [--note <string>]

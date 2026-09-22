@@ -66,15 +66,22 @@ status: "规划中"
 ### 3. `apps/runner-daemon/src/session/pi-agentos-shim.mjs`
 - 审查参数透传与环境变量映射，确保从上层 session-worker 接收到的 `controlPlaneUrl`、`executionCode` 等属性完整透传至 `runPiInAgentOs`。
 
-### 4. 移除的文件
+### 4. Runtime 指令与提示词解耦相关文件
+- `apps/runner-daemon/src/runtime-instructions.ts`（新增）：定义各 Runtime 专属的工作负载调用指令（Host 声明 `"$MYSTRA_AGENT_PATH" <args>`，AgentOS 声明 `node "$MYSTRA_AGENT_PATH" <args>`）。
+- Runner 注册合同与控制面持久化映射（`apps/runner-daemon` 与 `apps/control-plane`）：在 Runtime 注册与心跳负载中携带 `workloadInstructions` 并持久化。
+- `apps/control-plane/src/session/system-prompt-assembler.ts`（更新）：在组装系统提示词时插入独立组件 `runtime_workload`（排在 `runtime` 之后、`provider` 之前）。
+- `packages/shared/src/prompts/standard-execution-prompt.ts`（更新）：重写为仅声明“做什么（WHAT to do）”的纯职责提示词，移除所有具体命令行语法。
+- `packages/shared/src/workflow/fixed-workflow-definition.ts`（更新）：移出硬编码的 CLI 命令示例，改为命令中立的纯阶段与状态转换义务声明。
+- 受影响的单元测试与提示词快照测试。
+
+### 5. 移除的文件
 - `apps/runner-daemon/src/session/mystra-binding.mjs`（彻底删除）。
 - `apps/runner-daemon/src/session/mystra-binding.test.ts`（彻底删除）。
 - `apps/runner-daemon/src/session/guest-bin/`（彻底删除整个目录，包含其中的 `mystra-agent` bash wrapper 等）。
 
-### 5. 文档更新
+### 6. 文档更新
 - `apps/runner-daemon/README.md`：清理 `MYSTRA_AGENTOS_GUEST_BIN`，记录 `MYSTRA_AGENTOS_GUEST_CLI_DIR`、`build:agentos-cli` 构建步骤、`loopbackExemptPorts` 机制。
 - `PLATFORM.md`：更新 AgentOS 架构段落，删除“binding 限制”描述，记录直连控制面与出口放行设计。
-
 ## 验证策略
 
 ### 1. 单元与构建测试（开发侧）
@@ -111,7 +118,7 @@ status: "规划中"
 | 构建脚本添加了 `--banner:js` | 首行 shebang 重复导致脚本解析损坏 | 禁用 `--banner:js`，esbuild 原生保留入口文件的 shebang |
 | Code 过期导致中期中断 | 任务未能完成状态上报 | CLI 返回结构化 `capability_expired`，Agent 捕获并记录日志 |
 | 环境变量泄漏 | 凭据暴露给未授权代码 | 执行凭据仅在 Session 打开时注入给 AgentOS 运行时，不写入任何 guest 文件，宿主日志严格脱敏 |
-
+| Agent 的调用形式随 Runtime 不同（如 guest 无法直接 shebang 执行 bundle） | Agent 调用 CLI 遇到 `Exec format error` 或找不到命令退出 127 | 将具体调用语法从 Standard Prompt 剥离；AgentOS Runtime 在 `runtime_workload` 指令片段中明确指导使用 `node "$MYSTRA_AGENT_PATH" <args>`，Host Runtime 指导直接执行 `"$MYSTRA_AGENT_PATH" <args>` |
 ## 部署与回滚
 
 - **部署依赖**：执行 `pnpm --filter @mystra/runner-daemon build:agentos-cli` 生成 bundle。

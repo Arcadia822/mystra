@@ -63,6 +63,23 @@ status: "待实施"
   - (c) 访问外部 LAN/公网，验证连接被拒。
   - *验收与证据*：全部符合预期，无任何 `models.json` 残留。
 
+## Phase 6: Runtime 指令解耦与提示词重构 (Prompt Decoupling & Re-acceptance)
+
+- [ ] T020 [Runner] 在 `apps/runner-daemon/src/runtime-instructions.ts` 中实现 Runtime 工作负载指令声明模块，针对 Host 声明 `"$MYSTRA_AGENT_PATH" <args>`，针对 AgentOS 声明 `node "$MYSTRA_AGENT_PATH" <args>`。
+  - *验收与证据*：单元测试覆盖两个 Runtime 类型的指令导出，无语法错误。
+- [ ] T021 [Contract] 更新 Runner 注册契约与控制面模型映射，使 Runtime 注册与心跳载荷支持携带 `workloadInstructions` 并持久化到数据库。
+  - *验收与证据*：Prisma/Rdb 映射测试通过，心跳不丢弃指令字段。
+- [ ] T022 [ControlPlane] 在 `apps/control-plane/src/session/system-prompt-assembler.ts` 中新增 `runtime_workload` 组件，插入在 `runtime` 之后、`provider` 之前。
+  - *验收与证据*：快照测试证明组装后的系统提示词严格包含对应 Runtime 的指令片段。
+- [ ] T023 [Prompt] 重构 `packages/shared/src/prompts/standard-execution-prompt.ts`，彻底剥离所有具体 CLI 命令语法（如 `mystra-agent task status ...`），改为仅声明“做什么（WHAT to do）”的职责要求。
+  - *验收与证据*：Standard Prompt 中不存在任何 `$MYSTRA_` 或具体命令字符串，测试通过。
+- [ ] T024 [Workflow] 重构 `packages/shared/src/workflow/fixed-workflow-definition.ts`，将工作流提示词中的硬编码 CLI 命令迁移为命令无关的纯义务声明（Command-free obligations）。
+  - *验收与证据*：Workflow 提示词不再指导具体的 CLI flag，义务约束依然完整。
+- [ ] T025 [Test] 更新受影响的提示词组装单测、快照测试与 CLI 调用校验测试。
+  - *验收与证据*：`pnpm test` 相关受影响测试套件全部 pass。
+- [ ] T026 [E2E-Reacceptance] 在 host-c1 上重新运行真实双轮 Task 验收，验证 AgentOS 沙箱 Agent 按照新的 `runtime_workload` 指导调用 `node "$MYSTRA_AGENT_PATH" <args>` 完成上下文读取与状态变更。
+  - *验收与证据*：Agent 成功使用 node 前缀分派 CLI，Task 状态与 revision 真实变更，两套 Runtime 的提示词片段作为正式验收比对基准归档。
+
 ---
 
 ## 依赖与并发边界
@@ -71,4 +88,5 @@ status: "待实施"
   - Phase 1（Spec/Plan）冻结后方可开始 Phase 2 与 Phase 3。
   - Phase 2（核心实现与打包）与 Phase 3（清理）由 Runner 维护者同一分支串行实施，避免文件冲突。
   - Phase 4（文档）可在 Phase 2 完成后并行进行。
-  - Phase 5（host-c1 验收）依赖 Phase 2、3、4 全部合并与部署。
+  - Phase 5（host-c1 初始验收）依赖 Phase 2、3、4 合并与部署。
+  - Phase 6（提示词解耦与二次验收）依赖 Phase 2、3 运行时就绪，解耦完成后在 host-c1 上执行 T026 最终验收。
