@@ -66,6 +66,15 @@ allowed only for the configured model endpoint's `tcp://<host>:<port>` resource,
 so `model.baseUrl` must be an HTTPS URL without embedded credentials. See
 `specs/059-agentos-pi-runtime/research.md` for the measured pattern semantics.
 
+The adapter probes the guest workload-binding channel before it writes any model
+credential and fails the Session closed when the guest cannot reach it, because a
+Session without its Session-scoped capability would otherwise look successful
+while never reporting status. Exceeding the deadline or idle bound aborts the
+response as a resumable `response_canceled` (not a terminal failure); only a
+genuine Provider failure ends the Session. `MYSTRA_AGENTOS_DEADLINE_SECONDS` and
+`MYSTRA_AGENTOS_IDLE_SECONDS` must be positive integers and are validated at
+startup.
+
 ## Task Workspace materialization
 
 The daemon advertises `task-repository` / `shared-mutable`, claims only work

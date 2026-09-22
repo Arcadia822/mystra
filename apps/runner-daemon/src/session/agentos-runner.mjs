@@ -6,9 +6,20 @@ import { AgentOs } from '@rivet-dev/agentos-core';
 import pi from '@agentos-software/pi';
 import { mystraBinding } from './mystra-binding.mjs';
 
-const DEADLINE_SECONDS = Number(process.env.MYSTRA_AGENTOS_DEADLINE_SECONDS ?? 900);
-const IDLE_SECONDS = Number(process.env.MYSTRA_AGENTOS_IDLE_SECONDS ?? 180);
+function positiveSecondsEnvironment(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined) return fallback;
+  if (!/^[1-9]\d*$/.test(value)) throw new Error(`${name} must be a positive integer`);
+  return Number(value);
+}
+
+const DEADLINE_SECONDS = positiveSecondsEnvironment('MYSTRA_AGENTOS_DEADLINE_SECONDS', 900);
+const IDLE_SECONDS = positiveSecondsEnvironment('MYSTRA_AGENTOS_IDLE_SECONDS', 180);
 const IDLE_POLL_MS = 15_000;
+/** Bounded guest-side capability probe; a wedged shell must not hold the Session open. */
+const BINDING_CHECK_TIMEOUT_MS = 30_000;
+/** Binding collection name; becomes the guest command `agentos-mystra`. */
+const MYSTRA_BINDING_COLLECTION = 'mystra';
 const STATE_ROOT = process.env.MYSTRA_AGENTOS_SESSION_STATE_ROOT ?? '/root/.mystra/agentos-sessions';
 const MODEL_CONFIG_PATH = process.env.MYSTRA_AGENTOS_MODEL_CONFIG ?? '/opt/agentos/task-config.json';
 const GUEST_BIN_DIRECTORY = process.env.MYSTRA_AGENTOS_GUEST_BIN
@@ -161,6 +172,34 @@ async function assertSessionRestored(vm, sessionId, mode, aborted) {
   return info;
 }
 
+/**
+ * FR-006 requires the sandboxed Agent to reach its Session-scoped capability through the
+ * Runtime-provided workload CLI. AgentOS projects `agentos` / `agentos-<collection>` command
+ * stubs into the guest, but agentos-core 0.2.19 dispatches them only through the host-side
+ * `execFile` path: inside the guest the shell answers `command not found` (measured on
+ * host-c1, exit 127). A Session that silently lost every capability call would look
+ * successful while never reporting status, so the guest channel is verified before any
+ * model credential is written and the Session fails closed with the measured reason.
+ */
+async function assertGuestWorkloadBinding(vm, onLog, aborted) {
+  const result = await bounded(
+    vm.process.exec('agentos list-bindings', {
+      timeoutMs: BINDING_CHECK_TIMEOUT_MS,
+      output: { capture: 'all' },
+    }),
+    aborted,
+  );
+  const stdout = String(result?.stdout ?? '');
+  if (result?.exitCode !== 0 || !stdout.includes(`"${MYSTRA_BINDING_COLLECTION}"`)) {
+    throw new Error(
+      `AgentOS Pi cannot reach the Runtime-provided workload binding from inside the guest`
+      + ` (agentos list-bindings exit ${result?.exitCode ?? 'unknown'}); this Session would run`
+      + ' without its Session-scoped capability',
+    );
+  }
+  onLog('[agentos-pi] guest workload binding reachable');
+}
+
 async function cancelActivePrompt(vm, sessionId, onLog) {
   try {
     const result = await withinGrace(vm.sessions.cancelPrompt({ sessionId }), CANCEL_GRACE_MS, null);
@@ -265,6 +304,7 @@ export async function runPiInAgentOs({
       mounts,
       permissions: permissionsForModelEndpoint(model.baseUrl),
     }), aborted);
+    await assertGuestWorkloadBinding(vm, onLog, aborted);
     await bounded(configurePiModel(vm, model, onLog), aborted);
 
     onLog(`[agentos-pi] opening ${mode} pi session ${sessionId} in ${GUEST_WORKSPACE}`);
@@ -357,15 +397,6 @@ export async function runPiInAgentOs({
       message: messageText,
       providerSessionId: sessionId,
       errorMessage: `AgentOS Pi stopped with ${stopReason}`,
-    };
-  }
-  if (messageText.trim().length === 0) {
-    return {
-      success: false,
-      stopReason,
-      message: '',
-      providerSessionId: sessionId,
-      errorMessage: 'AgentOS Pi completed the turn without assistant text',
     };
   }
   return { success: true, stopReason, message: messageText, providerSessionId: sessionId };

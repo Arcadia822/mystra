@@ -12,6 +12,19 @@ describe("resolveRuntimeType", () => {
       .toThrow(/MYSTRA_RUNNER_RUNTIME_TYPE is not agentos/u);
     expect(() => resolveRuntimeType({ MYSTRA_RUNNER_RUNTIME_TYPE: "agentos" }))
       .toThrow(/requires MYSTRA_PI_PATH/u);
+    for (const [name, value] of [
+      ["MYSTRA_AGENTOS_DEADLINE_SECONDS", ""],
+      ["MYSTRA_AGENTOS_DEADLINE_SECONDS", "soon"],
+      ["MYSTRA_AGENTOS_DEADLINE_SECONDS", "1.5"],
+      ["MYSTRA_AGENTOS_IDLE_SECONDS", "0"],
+      ["MYSTRA_AGENTOS_IDLE_SECONDS", "NaN"],
+    ] as const) {
+      expect(() => resolveRuntimeType({
+        MYSTRA_RUNNER_RUNTIME_TYPE: "agentos",
+        MYSTRA_PI_PATH: "/opt/agentos/pi-agentos-shim.mjs",
+        [name]: value,
+      })).toThrow(`${name} must be a positive integer`);
+    }
   });
 });
 

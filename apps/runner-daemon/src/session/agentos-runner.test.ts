@@ -74,6 +74,13 @@ describe("AgentOS Pi isolation", () => {
     };
     const vm = {
       filesystem,
+      process: {
+        exec: vi.fn(async () => ({
+          exitCode: 0,
+          stdout: JSON.stringify({ bindings: [{ name: "mystra", bindings: ["run"] }] }),
+          stderr: "",
+        })),
+      },
       sessions: {
         open: vi.fn(async () => { order.push("open"); }),
         get: vi.fn(async ({ sessionId }: { sessionId: string }) => ({ sessionId, latestSequence: 1 })),
@@ -117,6 +124,99 @@ describe("AgentOS Pi isolation", () => {
     ]));
     expect(JSON.stringify(createOptions)).not.toContain("model-secret");
     expect(filesystem.remove).toHaveBeenCalledOnce();
+  });
+
+  it("completes an end_turn even when the agent wrote the deliverable without assistant text", async () => {
+    const workspaceDirectory = await temporaryDirectory("agentos-workspace-");
+    const stateRoot = await temporaryDirectory("agentos-state-");
+    const modelConfigPath = path.join(await temporaryDirectory("agentos-model-"), "model.json");
+    await writeFile(modelConfigPath, JSON.stringify({
+      model: {
+        provider: "example", baseUrl: "https://model.example.test/v1", api: "openai-completions",
+        apiKey: "model-secret", id: "example-model",
+      },
+    }));
+    agentOs.create.mockResolvedValue({
+      filesystem: { writeFile: vi.fn(async () => undefined), remove: vi.fn(async () => undefined) },
+      process: {
+        exec: vi.fn(async () => ({
+          exitCode: 0,
+          stdout: JSON.stringify({ bindings: [{ name: "mystra", bindings: ["run"] }] }),
+          stderr: "",
+        })),
+      },
+      sessions: {
+        open: vi.fn(async () => undefined),
+        get: vi.fn(async ({ sessionId }: { sessionId: string }) => ({ sessionId, latestSequence: 1 })),
+        prompt: vi.fn(async () => ({ stopReason: "end_turn", message: { content: [] } })),
+        cancelPrompt: vi.fn(async () => undefined),
+      },
+      dispose: vi.fn(async () => undefined),
+    });
+
+    await expect(runPiInAgentOs({
+      workspaceDirectory,
+      userMessage: "Write the requested file.",
+      systemPrompt: "System instructions",
+      sessionId: "00000000-0000-4000-8000-000000000061",
+      mode: "start",
+      agentPath: "/opt/mystra-agent",
+      controlPlaneUrl: "https://control.example.test",
+      executionCode: "execution-secret",
+      capabilities: ["context:read"],
+      stateRoot,
+      modelConfigPath,
+      onLog: vi.fn(),
+    })).resolves.toEqual({
+      success: true,
+      stopReason: "end_turn",
+      message: "",
+      providerSessionId: "00000000-0000-4000-8000-000000000061",
+    });
+  });
+
+  it("fails closed before writing a credential when the guest cannot reach the workload binding", async () => {
+    const workspaceDirectory = await temporaryDirectory("agentos-workspace-");
+    const stateRoot = await temporaryDirectory("agentos-state-");
+    const modelConfigPath = path.join(await temporaryDirectory("agentos-model-"), "model.json");
+    await writeFile(modelConfigPath, JSON.stringify({
+      model: {
+        provider: "example", baseUrl: "https://model.example.test/v1", api: "openai-completions",
+        apiKey: "model-secret", id: "example-model",
+      },
+    }));
+    // Measured host-c1 behaviour of agentos-core 0.2.19: the projected `agentos` stub is not
+    // dispatchable from inside the guest shell.
+    const writeFileMock = vi.fn(async () => undefined);
+    const openMock = vi.fn(async () => undefined);
+    agentOs.create.mockResolvedValue({
+      filesystem: { writeFile: writeFileMock, remove: vi.fn(async () => undefined) },
+      process: {
+        exec: vi.fn(async () => ({ exitCode: 127, stdout: "", stderr: "error: command not found: agentos" })),
+      },
+      sessions: { open: openMock, get: vi.fn(), prompt: vi.fn(), cancelPrompt: vi.fn() },
+      dispose: vi.fn(async () => undefined),
+    });
+
+    await expect(runPiInAgentOs({
+      workspaceDirectory,
+      userMessage: "Read the task and deliver it.",
+      systemPrompt: "System instructions",
+      sessionId: "00000000-0000-4000-8000-000000000062",
+      mode: "start",
+      agentPath: "/opt/mystra-agent",
+      controlPlaneUrl: "https://control.example.test",
+      executionCode: "execution-secret",
+      capabilities: ["context:read"],
+      stateRoot,
+      modelConfigPath,
+      onLog: vi.fn(),
+    })).rejects.toThrow(/cannot reach the Runtime-provided workload binding/u);
+
+    // The capability is unverifiable, so no model credential may be written and no Pi
+    // session may start: the Session fails closed instead of running without its capability.
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(openMock).not.toHaveBeenCalled();
   });
 
   it("fails closed without cleanup calls when the VM cannot be created", async () => {

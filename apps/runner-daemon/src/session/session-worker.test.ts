@@ -191,6 +191,48 @@ describe("executeSessionAssignment", () => {
     });
   });
 
+  it("maps a bounded AgentOS abort to a resumable response cancellation", async () => {
+    const appendEvents = vi.fn(async (_assignment: SessionClaimAssignment, _events: SessionEventInput[]) => undefined);
+    const assignment = {
+      session: {
+        id: "00000000-0000-4000-8000-000000000001", teamId: "00000000-0000-4000-8000-000000000002",
+        taskId: "00000000-0000-4000-8000-000000000003", projectId: null,
+        runtimeId: "00000000-0000-4000-8000-000000000005", providerKey: "pi",
+        agentId: null, agentRevision: null, state: "dispatched",
+        activeMessageId: "00000000-0000-4000-8000-000000000007", lastMessageId: null,
+        interruptKind: null, continuationMode: null, failureCode: null, metadata: {},
+        createdAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
+      },
+      lease: {
+        id: "00000000-0000-4000-8000-000000000008", sessionId: "00000000-0000-4000-8000-000000000001",
+        runtimeId: "00000000-0000-4000-8000-000000000005", runnerId: "runner-1", leaseToken: "x".repeat(32),
+        providerSessionId: "00000000-0000-4000-8000-0000000000aa", leaseExpiresAt: "2026-08-10T00:01:00.000Z",
+        claimedAt: "2026-08-10T00:00:00.000Z", updatedAt: "2026-08-10T00:00:00.000Z",
+      },
+      systemPrompt: "System prompt",
+      workspace: { kind: "task", taskWorkspaceId: "00000000-0000-4000-8000-000000000009", runtimeId: "00000000-0000-4000-8000-000000000005", workspaceRef: "host-task-workspace:00000000-0000-4000-8000-000000000009", sharingMode: "shared-mutable" },
+      message: { messageId: "00000000-0000-4000-8000-000000000007", content: [{ type: "text", text: "Continue" }] },
+    } as SessionClaimAssignment;
+
+    await executeSessionAssignment({
+      assignment,
+      client: { appendEvents },
+      workspace: { resolveReadyWorkspace: vi.fn(async () => ({ directory: "/workspace" })) },
+      providerExecutable: "/opt/agentos/pi-agentos-shim.mjs",
+      runProcess: vi.fn(async () => ({
+        exitCode: 124,
+        stdout: "",
+        stderr: "AgentOS Pi execution failed: AgentOS Pi idle timeout\n",
+      })),
+    });
+
+    const events = appendEvents.mock.calls.flatMap((call) => call[1]);
+    expect(events.map((event) => event.kind)).toEqual([
+      "session.response_started", "session.response_canceled",
+    ]);
+    expect(events[1]?.payload).toEqual({ reason: "AgentOS Pi execution failed: AgentOS Pi idle timeout" });
+  });
+
   it("reports workspace, Provider, and cancellation failures as typed events", async () => {
     const assignment = {
       session: {

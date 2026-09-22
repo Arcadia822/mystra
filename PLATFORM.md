@@ -189,7 +189,12 @@ pnpm lsp:typescript
   read-only, and egress is denied by default except for the configured model
   endpoint's `tcp://<host>:<port>` resource; `model.baseUrl` must be HTTPS.
   Environment reference and measured semantics: `apps/runner-daemon/README.md`
-  and `specs/059-agentos-pi-runtime/research.md`.
+  and `specs/059-agentos-pi-runtime/research.md`. Deadline or idle aborts are
+  resumable response cancellations, not terminal Session failures, and an
+  AgentOS Session fails closed before any model credential is written when the
+  guest cannot reach the Runtime-provided workload binding (measured limitation
+  of agentos-core 0.2.19: binding commands dispatch only through the host-side
+  `execFile` path, not from inside the guest).
 - Runtime secrets are injected through environment variables or read-only files.
 - Caches are disposable performance hints and must fall back to cold setup.
 - Core production is direct and Task-bound: Start, optionally with Agent Context, creates a

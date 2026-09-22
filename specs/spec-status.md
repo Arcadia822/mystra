@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=7ecf239d3e096499eea8735453f048adff008c13 updated=2026-09-20T15:29:24Z -->
+<!-- spec-status: project=mystra commit=5008162cb1ae8384a55d9ca8a7be4e499dd6a124 updated=2026-09-22T04:01:46Z -->
 
 | Feature                            | Specify | Plan | Tasks | Implement |
 |------------------------------------|---------|------|-------|-----------|
@@ -53,7 +53,7 @@
 | 056-skill-library                  | ✓     | ✓  | ✓   | ✓ Complete |
 | 057-workflow-harness-runtime       | ✓     | ✓  | ✓   | ✓ Complete |
 | 058-event-subscription-protocol    | ✓     | ✓  | ✓   | ● 32/33 (96%) |
-| 059-agentos-pi-runtime             | ✓     | ✓  | ✓   | ✓ Complete |
+| 059-agentos-pi-runtime             | ✓     | ✓  | ✓   | ● 26/27 (96%) |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -105,4 +105,4 @@
 <!-- feature: 056-skill-library has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=52 tasks_completed=52 checklist_files=requirements.md -->
 <!-- feature: 057-workflow-harness-runtime has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=47 tasks_completed=47 checklist_files=requirements.md -->
 <!-- feature: 058-event-subscription-protocol has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=33 tasks_completed=32 checklist_files=requirements.md -->
-<!-- feature: 059-agentos-pi-runtime has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=25 tasks_completed=25 checklist_files=requirements.md -->
+<!-- feature: 059-agentos-pi-runtime has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=27 tasks_completed=26 checklist_files=requirements.md -->

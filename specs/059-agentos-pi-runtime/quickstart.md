@@ -60,8 +60,27 @@ host-c1新增control-plane专属drop-in `/etc/systemd/system/mystra-control-plan
 - 两轮日志均出现 `ephemeral model credential removed before prompt`；工作区文件与 `session.sqlite`（159744 字节）均不含模型 apiKey（原始与 UTF-16 两种编码都不含）。
 - 加固后的出口策略未阻断真实模型调用，说明 `tcp://api.deepseek.com:443` 放行规则成立。
 
+## 2026-09-20 独立审查整改（T026）
+
+独立 reviewer 在 PR Arcadia822/mystra#43 上给出四项非阻断发现，全部进入本 lane：
+
+- **deadline/idle 终止语义**：超时/空闲中止原先映射为 `session.response_failed`，而该投影是终态，一次慢响应即可毁掉整个 Session。现在 Pi Provider 的 `exitCode=124` 映射为 `session.response_canceled`（可续接），仅真实失败才进入 failed；`end_turn` 但没有 assistant 文本不再判失败（Agent 写完交付物后不回复是合理的）。回归用例：`apps/runner-daemon/src/session/session-worker.test.ts`、`agentos-runner.test.ts`。
+- **时间参数校验**：`MYSTRA_AGENTOS_DEADLINE_SECONDS`/`MYSTRA_AGENTOS_IDLE_SECONDS` 现在要求正整数字符串；空值、`1.5`、`NaN` 在 Runner 启动与适配器加载时 fail fast，不再静默变成“每次会话立刻超时”或“关闭空闲保护”。回归用例：`apps/runner-daemon/src/index.test.ts`。
+- **Standard Execution Prompt 正向断言**：恢复 TaskExecutionContext bootstrap 用例中对 `$MYSTRA_AGENT_PATH context get`、host-local `linctl`、host-local `gh`、以及“不校验 Agent 自述”的责任断言。
+- **guest→host workload binding 端到端验证**：见下。
+
+### guest workload binding 复验结果（失败关闭）
+
+按 reviewer 建议在 host-c1 用部署版适配器、真实模型配置与真实 host_dir 工作区探测 guest 侧能力通道：
+
+- 未加固前的研究只证明了宿主侧契约；实测 guest 内 `agentos list-bindings` 返回 `exit 127`（stderr 被 SDK 归一化为 `command not found`）。三层通道对照与最小配置复现记录在 `research.md`「AgentOS binding 命令分派实测」。
+- 适配器现在于 **写入任何模型凭据之前** 探测 guest 通道并失败关闭。实测输出：
+  `AgentOS Pi cannot reach the Runtime-provided workload binding from inside the guest (agentos list-bindings exit 127); this Session would run without its Session-scoped capability`（2.9 秒返回，未写 `models.json`、未开 Pi 会话）。
+- 该结论意味着 **FR-006 在当前 SDK 版本下未达成**：AgentOS Session 会明确失败而不是“看似成功但没有能力调用”。修复需要产品/架构决策（见 tasks T027），本 lane 不擅自放宽 059 已评审的“guest 不持有 execution code”约束。
+- 部署一致性：`/opt/agentos/agentos-runner.mjs` 与仓库同文件 md5 一致；`mystra-agentos-runner.service` restart 后 `active`，Runtime `b5797837-…` 仍以 `type=agentos` 注册、`pi` provider `available`。
+
 ## 已完成与后续风险
 
-完整Mystra Task文档产出、正式Pi适配器跨VM续接和实际文件修改均已通过。仍需后续单独处理两个非阻断发现：首次大型clone可能超过固定Workspace lease，以及当前用户界面未暴露049的后续`sendMessage`入口；本次续接调用canonical `SessionService.sendMessage`，没有伪造SessionEvent或新建替代Session。
+完整Mystra Task文档产出、正式Pi适配器跨VM续接和实际文件修改均已通过。**但 T026 复验证明 guest 侧 workload binding 在当前 SDK 版本不可用**：Session 现在按 FR-006 要求失败关闭，而不是在没有能力调用的状态下“成功”。这是本特性当前唯一的阻断项，处置方案见 `tasks.md` T027。仍需后续单独处理两个非阻断发现：首次大型clone可能超过固定Workspace lease，以及当前用户界面未暴露049的后续`sendMessage`入口；本次续接调用canonical `SessionService.sendMessage`，没有伪造SessionEvent或新建替代Session。
 
 加固复验另观察到一条与本特性改动无关、需要单独排查的宿主挂载行为：以 059 使用的宿主用户身份（uid 1000 `agentos`）执行 `vm.exec` 时，host_dir 挂载的**根目录**枚举返回 `general io error: Invalid argument (os error 28)`，且在该根目录直接创建新文件返回 `Permission denied`；子目录的枚举与读取正常（`ls docs`、`cat docs/a.md` 成功），ACP Agent 进程自身可正常写入工作区（本轮 `docs/PROBE.md` 即由 Agent 写出）。该现象在不加 `.pi/extensions` 遮蔽挂载时同样出现，因此不是本次遮蔽改动引入；本轮不扩大范围处理，留待宿主挂载层单独确认。

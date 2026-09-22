@@ -61,6 +61,15 @@ function positiveIntEnv(name: string, fallback: number): number {
   return parsed;
 }
 
+function positiveIntFromEnvironment(environment: NodeJS.ProcessEnv, name: string, fallback: number): number {
+  const value = environment[name];
+  if (value === undefined) return fallback;
+  if (!/^[1-9]\d*$/u.test(value)) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return Number(value);
+}
+
 function endpointFromArgs(): string | undefined {
   const endpointIndex = process.argv.indexOf("--endpoint");
   if (endpointIndex === -1) {
@@ -98,6 +107,10 @@ export function resolveRuntimeType(environment: NodeJS.ProcessEnv = process.env)
   }
   if (!piPath && runtimeType === "agentos") {
     throw new Error("MYSTRA_RUNNER_RUNTIME_TYPE=agentos requires MYSTRA_PI_PATH to identify the AgentOS Pi shim");
+  }
+  if (runtimeType === "agentos") {
+    positiveIntFromEnvironment(environment, "MYSTRA_AGENTOS_DEADLINE_SECONDS", 900);
+    positiveIntFromEnvironment(environment, "MYSTRA_AGENTOS_IDLE_SECONDS", 180);
   }
   return runtimeType;
 }

@@ -181,13 +181,19 @@ export async function executeSessionAssignment(input: {
   if (assistantMessage) {
     events.push(event("session.agent_message_chunk", { text: assistantMessage.slice(0, 32_768) }, assignment.message.messageId));
   }
+  const boundedAgentOsAbort = assignment.session.providerKey === "pi" && result.exitCode === 124;
   events.push(parsed.success
     ? event("session.response_completed", { stopReason: "end_turn" }, assignment.message.messageId)
-    : event("session.response_failed", {
-        code: "provider_failed",
-        message: redactExecutionCode(parsed.errorMessage, assignment.execution?.code)?.slice(0, 500)
-          ?? `Provider execution failed with exit code ${result.exitCode}`,
-      }, assignment.message.messageId));
+    : boundedAgentOsAbort
+      ? event("session.response_canceled", {
+          reason: redactExecutionCode(parsed.errorMessage, assignment.execution?.code)?.slice(0, 500)
+            ?? "AgentOS Pi response exceeded its execution bound",
+        }, assignment.message.messageId)
+      : event("session.response_failed", {
+          code: "provider_failed",
+          message: redactExecutionCode(parsed.errorMessage, assignment.execution?.code)?.slice(0, 500)
+            ?? `Provider execution failed with exit code ${result.exitCode}`,
+        }, assignment.message.messageId));
   await input.client.appendEvents(assignment, events);
 }
 

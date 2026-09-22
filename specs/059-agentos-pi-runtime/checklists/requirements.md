@@ -13,6 +13,7 @@ taco_scope: "spec"
 - [x] SDK恢复的不确定性已通过独立源码研究和真实两轮实验缩小；正式集成仍须验证。
 - [x] 成功标准区分Session状态与实际产物，禁止把ready当成完成。
 - [x] 沙箱最小权限有可验证合同：模型凭据只存在ephemeral挂载并在首个caller prompt前删除，仓库扩展不执行，guest出口默认拒绝且只放行模型端点；实现与实测见`research.md`。
+- [ ] **未达成（阻断）**：FR-006 要求沙箱 Agent 取得 Session 能力。实测 agentos-core 0.2.19 的 binding CLI 在 guest 内不可分派，适配器已改为 fail closed；处置方案待 owner 决策（`tasks.md` T027）。
 
 ## 需求评分
 

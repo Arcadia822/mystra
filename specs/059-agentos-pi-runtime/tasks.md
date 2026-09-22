@@ -43,6 +43,14 @@ status: "进行中"
 - [x] T024 保留adapter提供的`MYSTRA_SESSION_ID`，仅在adapter未提供时回填Mystra Session id，Pi续接身份合同可达。
 - [x] T025 部署更新后的runner与adapter到host-c1并跑一次真实验收，确认凭据/出口加固不破坏Pi执行与跨VM续接；证据见`quickstart.md`「加固后复验」。
 
+## 独立审查整改（PR #43）
+
+- [x] T026 处理独立审查四项发现：Pi `exitCode=124` 映射为可续接的`session.response_canceled`；`end_turn` 无 assistant 文本不再判失败；AgentOS deadline/idle 环境变量改为正整数并在 Runner 启动与适配器加载时 fail fast；恢复 Standard Execution Prompt 正向责任断言；新增 guest workload binding 探测并在写入凭据前失败关闭。证据见`quickstart.md`「独立审查整改」。
+- [ ] T027 **阻断项，需产品决策**：agentos-core 0.2.19 的 binding CLI 只支持宿主侧 `vm.process.execFile`，guest 内不可分派（实测见`research.md`），因此 FR-006 在当前 SDK 版本未达成，AgentOS Session 会在写入凭据前失败关闭。处置方案（三选一，均需 owner 决定）：
+  - (a) 等待/推动上游修复 binding 的 guest 分派，本特性维持失败关闭；
+  - (b) 改为 host-side 会话代理：Runner 内起一个只服务该 Session 的本地代理，guest 经 `loopbackExemptPorts` + 定向 `tcp://127.0.0.1:<port>` 放行访问，execution code 仍留在宿主，guest 只持有会话级 token（需要新规格、计划与评审）；
+  - (c) 明确本版本 AgentOS Session 不提供能力回报（放弃 FR-006 的该条），仅把 Agent 产物作为交付物。
+
 ## 并发约束
 
 Lane A拥有shared指令、控制面、MCP、CLI及相关测试；Lane B拥有Runner/session、agent-adapters及其包依赖。Main拥有锁文件统一安装、生成、运行验证、部署与特性文档。代理实现者不运行build/lint/tests。T014取决于T004结果；其余修复不依赖该实验。

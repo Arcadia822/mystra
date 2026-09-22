@@ -92,6 +92,20 @@ host-a1经Tailscale100.85.55.0可登录并直连GitHub。已部署：
 
 独立LaunchContractReview复核代理，无阻断缺陷。残余运维约束：脚本参数需由受信任操作者配置，服务unit固定Tailscale地址；不作为公网通用代理。
 
+## AgentOS binding 命令分派实测（2026-09-20 独立审查复验）
+
+独立 reviewer 指出 FR-006 的 guest→host workload binding 只有单元级证据，未端到端验证。复验在 host-c1 用同一 agentos-core 0.2.19 sidecar 测量了三类通道：
+
+| 通道 | 命令 | 结果 |
+|---|---|---|
+| guest shell（Pi `bash` 工具与 `vm.process.exec` 同一 `sh`） | `agentos list-bindings`、`agentos-mystra run …`、`/bin/agentos-mystra …` | `exit 127`，stderr 被 SDK 归一化为 `error: command not found: agentos` |
+| guest Node | `require('child_process').execFileSync('/bin/agentos-probe', …)` | 挂起至超时（`exit 137`） |
+| host API `vm.process.execFile` | `/bin/agentos-probe sum --a 1 --b 2`、`/bin/agentos list-bindings` | `exit 0`，`{"ok":true,"result":{…}}` |
+
+最小配置（SDK 自带 `binding()` helper、无 mounts、无 session、单一 `sum` binding）同样复现：stub 文件确实被投影到 `/bin/agentos` 与 `/bin/agentos-<collection>`（32 字节 `# kernel command stub`），但 guest 内任何进程都无法分派它；只有宿主侧 `execFile` 能路由到 host callback。
+
+结论：agentos-core 0.2.19 的 binding CLI 只在宿主侧可用，**guest 内不可用**。`buildBindingReference` 写给 Agent 的 “Run `agentos list-bindings`” 指引与实际情况不符，属上游行为差异。因此 `apps/runner-daemon/src/session/guest-bin/mystra-agent` 在本 SDK 版本下不可能成功；适配器改为在写入任何模型凭据之前探测 guest 通道，命中即 failed closed（见 `quickstart.md` 的 T026 记录），不再让 Session 在“看似成功但没有任何能力调用”的状态下运行。
+
 ## 工具边界
 
 GitNexus全局mystra名称已属于主工作树。本特性使用`GITNEXUS_HOME=$PWD/.gitnexus/session-registry`运行固定pnpm gitnexus:rebuild，保留相同repo名称且不修改全局registry。LSP可用，已发现production start的9处引用。TaskProductionService blast radius HIGH：13总影响、5直接依赖、2流程；用户已获告知。
