@@ -1,5 +1,5 @@
 # Spec-Driven Development Status
-<!-- spec-status: project=mystra commit=38600e9613148591dc4acfef344b6e87bfdcd59e updated=2026-09-22T10:43:53Z -->
+<!-- spec-status: project=mystra commit=f1302a5f609d9d5732291fb1a6aa883267beb9b0 updated=2026-09-28T08:25:54Z -->
 
 | Feature                              | Specify | Plan | Tasks | Implement |
 |--------------------------------------|---------|------|-------|-----------|
@@ -58,6 +58,7 @@
 | 060-coordinator-flow-myst-7          | ✓     | ✓  | ✓   | ● 13/14 (92%) |
 | 061-agentos-taco-cli                 | ✓     | ✓  | ✓   | ✓ Complete |
 | 062-session-continuation-entrypoints | ✓     | ✓  | ✓   | ✓ Complete |
+| 063-myst-4-journey                   | ✓     | -    | -     | -         |
 
 <!-- feature: 001-project-and-sqlite has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=68 tasks_completed=68 checklist_files=requirements.md -->
 <!-- feature: 002-runtime-profile-context has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=true has_quickstart=true has_contracts=true has_checklists=true tasks_total=73 tasks_completed=73 checklist_files=requirements.md,runtime-contract.md -->
@@ -114,3 +115,4 @@
 <!-- feature: 060-coordinator-flow-myst-7 has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=false has_quickstart=false has_contracts=true has_checklists=true tasks_total=14 tasks_completed=13 checklist_files=requirements.md -->
 <!-- feature: 061-agentos-taco-cli has_spec=true has_plan=true has_tasks=true has_research=false has_data_model=false has_quickstart=true has_contracts=false has_checklists=false tasks_total=8 tasks_completed=8 checklist_files= -->
 <!-- feature: 062-session-continuation-entrypoints has_spec=true has_plan=true has_tasks=true has_research=true has_data_model=false has_quickstart=false has_contracts=true has_checklists=false tasks_total=18 tasks_completed=18 checklist_files= -->
+<!-- feature: 063-myst-4-journey has_spec=true has_plan=false has_tasks=false has_research=false has_data_model=false has_quickstart=false has_contracts=false has_checklists=true tasks_total=0 tasks_completed=0 checklist_files=requirements.md -->
