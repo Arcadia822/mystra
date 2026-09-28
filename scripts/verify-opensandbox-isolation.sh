@@ -9,6 +9,8 @@
 #   R1  execd started WITHOUT an access token (deployment default): does an unauthenticated
 #       POST /command from an unprivileged (uid 65534) in-container process execute, and as
 #       which uid?  (Root means the sandbox does not contain its own guest.)
+#   R3  cross-sandbox reachability: with the deployment's `network_mode = "bridge"`, can a
+#       guest container reach a *different* sandbox's execd on the shared docker bridge?
 #   R2  execd started WITH `-access-token`: is the unauthenticated call rejected, does the
 #       authenticated call still run as a non-root uid, and can the uid 65534 process read
 #       the token from its environment, /proc/1/environ or /proc/1/cmdline?
@@ -128,8 +130,31 @@ if start_execd mystra-probe-token -access-token "$FAKE_TOKEN"; then
     'cat /proc/1/status 2>/dev/null | grep -iE "^(Name|CapEff)" | tr "\n" " "' 2>&1 | head -c 120)"
 fi
 
+# ---------------------------------------------------------------- R3: cross-sandbox
+docker rm -f mystra-probe-b mystra-probe-a >/dev/null 2>&1 || true
+docker run -d --name mystra-probe-b --network bridge \
+  --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges \
+  --entrypoint /execd "$EXECD_IMAGE" >/dev/null
+docker run -d --name mystra-probe-a --network bridge \
+  --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges \
+  --entrypoint sh "$EXECD_IMAGE" -c 'sleep infinity' >/dev/null
+sleep 2
+b_ip="$(docker inspect mystra-probe-b --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')"
+printf 'R3 sandbox B execd address from sandbox A: %s (port %s)\n' "$b_ip" "$EXECD_PORT"
+r3=""
+if [ -n "$b_ip" ]; then
+  r3="$(docker exec -u "$PROBE_USER" mystra-probe-a sh -c \
+    "wget -q -S -O - --header=\"Content-Type: application/json\" --post-data=\"{\\\"command\\\":\\\"id\\\"}\" http://${b_ip}:${EXECD_PORT}/command" 2>&1 || true)"
+fi
+r3_status="$(printf '%s' "$r3" | grep -oE 'HTTP/1\.1 [0-9]{3}' | head -1 || true)"
+r3_uid="$(printf '%s' "$r3" | grep -oE 'uid=[0-9]+' | head -1 || true)"
+result "r3.cross_sandbox_command" "${r3_status:-http=none} ${r3_uid:-uid=none}"
+if printf '%s' "$r3" | grep -q 'uid=0'; then
+  bad "r3: a guest can run a command as root in another sandbox's execd over the shared bridge"
+fi
+
 if [ "$KEEP" -eq 0 ]; then
-  docker rm -f mystra-probe-notoken mystra-probe-token >/dev/null 2>&1 || true
+  docker rm -f mystra-probe-notoken mystra-probe-token mystra-probe-a mystra-probe-b >/dev/null 2>&1 || true
 fi
 
 printf '== offline probes: %s ==\n' "$([ "$verdict" -eq 0 ] && echo PASS || echo "$verdict FAILURE(S)")"
