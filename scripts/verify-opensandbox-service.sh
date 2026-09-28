@@ -1,4 +1,12 @@
-# every sandbox created here is deleted, and the deployed unit/config are left untouched.
+#!/usr/bin/env bash
+#
+# MYST-38 service-level validation on host-c1: lifecycle API auth, guest→host reachability,
+# real disposable sandboxes from the design image, in-sandbox tool/execd probes, cross-sandbox
+# reachability, and the deployed-binding exposure check. Run as root on host-c1.
+#
+# The lifecycle server runs on a temporary loopback-only config first (so the validation
+# cannot expose the API), then once on the deployed binding for the exposure probe. Every
+# sandbox this script creates is deleted; the deployed unit and config.toml are untouched.
 #
 set -uo pipefail
 
@@ -84,10 +92,11 @@ docker exec -u 65534 "$CID_A" sh -c '
   echo "uid=$(id -u) pwd=$(pwd)"
   gh --version | head -1
   linctl --version | head -1
-  taco-cli --version | head -1
+  taco-cli --version
   git --version
   node --version
 ' 2>&1 | tail -8
+printf 'taco-cli binaryVersion: %s\n' "$(docker exec -u 65534 "$CID_A" taco-cli --version 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("binaryVersion"))' 2>/dev/null)"
 
 echo "--- in-sandbox execd, unauthenticated /command from uid 65534"
 probe_command "$CID_A" -
