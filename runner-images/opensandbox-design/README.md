@@ -155,9 +155,13 @@ pre-existing images were preserved. Required before a real start:
 
 ### Host build notes (host-c1)
 
-- DNS on the host pointed at tailnet resolvers `100.96.0.2`/`100.96.0.3`, which timed out
-  for every query (public and tailnet), blocking all outbound fetches. `/etc/resolv.conf`
-  now carries public resolvers with a comment recording the original tailnet entries.
+- DNS on the host listed the tailnet addresses `100.96.0.2`/`100.96.0.3` (tailnet device IPs,
+  configured outside this work), which timed out for every query and blocked all outbound
+  fetches. The build ran with public resolvers prepended temporarily; that hand-written
+  content is gone. Re-applying the tailscale DNS setting (`tailscale set --accept-dns=true`)
+  made tailscaled regenerate `/etc/resolv.conf` with MagicDNS (`100.100.100.100`, IPv6
+  resolver, search domain `tail0fe215.ts.net`), which resolves both tailnet and public names.
+  No hand-written resolver configuration remains on the host.
 - The Docker daemon cannot reach Docker Hub (its proxy drop-in does not cover
   `registry-1.docker.io`), so the base and builder images are pulled through
   `docker.m.daocloud.io` and re-tagged locally; the mirror digests equal the Docker Hub
