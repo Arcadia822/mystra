@@ -43,9 +43,8 @@ start_execd() { # start_execd <name> [extra execd args...]
     "$EXECD_IMAGE" "$@" >/dev/null
   local i
   for i in $(seq 1 40); do
-    # /health answers 404 on this build; any HTTP status line proves the listener is up.
-    if docker exec "$name" wget -q -S -O /dev/null "http://127.0.0.1:${EXECD_PORT}/health" 2>&1 \
-        | grep -q 'HTTP/1.1'; then
+    # /health answers 404 on this build, so probe the TCP listener instead of a status code.
+    if docker exec "$name" sh -c "nc -w 1 127.0.0.1 ${EXECD_PORT} </dev/null" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.5
@@ -68,7 +67,7 @@ command_uid() { # command_uid <container> [token] -> prints "http=<status> uid=<
   local status uid
   status="$(printf '%s' "$out" | grep -oE 'HTTP/1\.1 [0-9]{3}' | head -1 || true)"
   uid="$(printf '%s' "$out" | grep -oE 'uid=[0-9]+' | head -1 || true)"
-  printf '%s uid=%s' "${status:-http=none}" "${uid:-none}"
+  printf '%s %s' "${status:-http=none}" "${uid:-uid=none}"
 }
 
 printf '== OpenSandbox offline execd isolation probes ==\n'

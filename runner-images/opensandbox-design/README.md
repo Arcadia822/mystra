@@ -101,5 +101,63 @@ code as root through the guest-resident `execd`. `scripts/verify-opensandbox-iso
 runs exactly those probes on the deployed build (fake credential only, no host mounts, no
 host ports, no real secrets) and exits non-zero when any probe fails.
 
-See the PR description for the evidence collected on the current deployment and for the
-remaining blockers.
+### Result on host-c1 (2026-09-28): gate NOT passed, service left stopped
+
+Built and verified on the host:
+
+| Item | Value |
+| --- | --- |
+| Image | `mystra-opensandbox-design:20260928`, id `sha256:39129f7e59f6ccb54f441957608b4575b4f8a2736b057801c1d7c6884314121c`, 378,479,737 bytes, `linux/amd64` |
+| `scripts/verify-opensandbox-design-image.sh` | PASS (tool presence + no credential ENV/files/token strings) |
+| Tools in a real OpenSandbox sandbox (uid 65534, `/workspace`) | `gh 2.101.0`, `linctl 0.1.12`, `taco-cli 0.2.1`, `git 2.39.5`, `node v22.23.3` |
+| Sandbox posture | `network_mode=bridge`, `capDrop=[AUDIT_WRITE MKNOD NET_ADMIN NET_RAW SYS_ADMIN SYS_MODULE SYS_PTRACE SYS_TIME SYS_TTY_CONFIG]`, `no-new-privileges=true`, no host binds, execd published `0.0.0.0:44772`→host port |
+
+Probe results against the deployed execd (`sandbox-registry…/execd:v1.1.0`, image digest
+`sha256:6cf7dba2f21f0b536e100563d841ac58a9f31c2b0a081b7ac76796a24d6f47e2`, build commit
+`48b0215f1bd097b31d0f022a44640e00c11ac49d`):
+
+| Probe | Result |
+| --- | --- |
+| R1 unauthenticated `/command` from uid 65534, execd without a token (deployment default) | HTTP 200, `uid=0(root)` |
+| R2 unauthenticated `/command`, execd with `-access-token` | HTTP 401 |
+| R2 authenticated `/command` | HTTP 200, `uid=0(root)` — the token is root-equivalent |
+| R2 token exposure | absent from the workload env, `/proc/1/environ` denied to uid 65534, but visible in world-readable `/proc/1/cmdline` when passed as argv |
+| R3 cross-sandbox (`bridge`) | sandbox A (uid 65534) → sandbox B execd = HTTP 200, `uid=0` |
+| P1 lifecycle API from a guest, deployed `host = "0.0.0.0"` | `/health` reachable from the bridge (HTTP 200); management calls need `OPEN-SANDBOX-API-KEY` (401 without) |
+| P1 lifecycle API from a guest, `host = "127.0.0.1"` | connection refused |
+
+Two further deployment facts found during the run:
+
+- `docker.publish_host = "127.0.0.1"` in `/etc/opensandbox/config.toml` is not honoured by
+  this server build (the key is not referenced anywhere in `opensandbox_server`): created
+  sandboxes publish execd on `0.0.0.0`, so any host, LAN or tailnet peer can reach a
+  sandbox's execd. Confirmed from a tailnet peer with an unauthenticated `/command` that
+  returned `uid=0(root)` inside the sandbox container.
+- `execd` runs the workload as root by design, so the per-sandbox access token — not the
+  uid — is the only barrier, and it must never be passed as argv.
+
+Therefore `opensandbox.service` was left `inactive`/`disabled`; every sandbox created for
+this validation was deleted, the deployed config/unit were not modified, and all
+pre-existing images were preserved. Required before a real start:
+
+1. bind `[server] host` to the tailnet address and add `INPUT` drops for the docker bridge
+   interfaces on the API port;
+2. stop sharing one bridge with inter-container communication: per-sandbox networks with
+   ICC disabled (or `enable_icc=false`);
+3. give every sandbox an execd access token delivered via the environment (never argv) and
+   treat it as root-equivalent;
+4. re-run `scripts/verify-opensandbox-isolation.sh` with R1/R2/R3 clean before enabling the
+   unit.
+
+### Host build notes (host-c1)
+
+- DNS on the host pointed at tailnet resolvers `100.96.0.2`/`100.96.0.3`, which timed out
+  for every query (public and tailnet), blocking all outbound fetches. `/etc/resolv.conf`
+  now carries public resolvers with a comment recording the original tailnet entries.
+- The Docker daemon cannot reach Docker Hub (its proxy drop-in does not cover
+  `registry-1.docker.io`), so the base and builder images are pulled through
+  `docker.m.daocloud.io` and re-tagged locally; the mirror digests equal the Docker Hub
+  digests recorded above.
+- `proxy.golang.org` is unreachable; the linctl stage is built with
+  `MYSTRA_DESIGN_GOPROXY=https://goproxy.cn,direct` and
+  `MYSTRA_DESIGN_GOSUMDB=sum.golang.google.cn` so dependency content stays checksum-verified.
