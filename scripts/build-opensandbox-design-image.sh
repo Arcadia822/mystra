@@ -15,6 +15,8 @@
 #   MYSTRA_DESIGN_IMAGE_TAG      target tag (default mystra-opensandbox-design:20260928)
 #   MYSTRA_DESIGN_BASE_IMAGE     base image ref (default node:22-bookworm-slim)
 #   MYSTRA_DESIGN_BASE_DIGEST    expected repo digest of the base image (default pinned below)
+#   MYSTRA_DESIGN_GOLANG_IMAGE   builder image ref (default golang:1.24.5-bookworm)
+#   MYSTRA_DESIGN_GOLANG_DIGEST  expected repo digest of the builder image
 #   MYSTRA_DESIGN_BASE_MIRROR    registry mirror used only to fetch the base image
 #                                (e.g. docker.m.daocloud.io) before it is re-tagged locally
 #   MYSTRA_DESIGN_PLATFORM       build platform (default linux/amd64)
@@ -29,9 +31,10 @@ VERIFY_SCRIPT="$ROOT_DIR/scripts/verify-opensandbox-design-image.sh"
 IMAGE_TAG="${MYSTRA_DESIGN_IMAGE_TAG:-mystra-opensandbox-design:20260928}"
 PLATFORM="${MYSTRA_DESIGN_PLATFORM:-linux/amd64}"
 BASE_IMAGE="${MYSTRA_DESIGN_BASE_IMAGE:-node:22-bookworm-slim}"
-# RepoDigest of the linux/amd64 manifest of node:22-bookworm-slim used for this recipe.
-# Empty means "not yet recorded": the build proceeds but reports that the base is unpinned.
-BASE_DIGEST="${MYSTRA_DESIGN_BASE_DIGEST:-}"
+# Manifest digests recorded from the first reviewed build; asserted below.
+BASE_DIGEST="${MYSTRA_DESIGN_BASE_DIGEST:-sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c}"
+GOLANG_IMAGE="${MYSTRA_DESIGN_GOLANG_IMAGE:-golang:1.24.5-bookworm}"
+GOLANG_DIGEST="${MYSTRA_DESIGN_GOLANG_DIGEST:-sha256:ef8c5c733079ac219c77edab604c425d748c740d8699530ea6aced9de79aea40}"
 
 if [ ! -f "$IMAGE_CONTEXT/Dockerfile" ]; then
   echo "Missing repository-owned image context: $IMAGE_CONTEXT" >&2
@@ -49,6 +52,10 @@ if ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
   printf 'Pulling base image %s for %s.\n' "$BASE_IMAGE" "$PLATFORM"
   docker pull --platform "$PLATFORM" "$BASE_IMAGE"
 fi
+if ! docker image inspect "$GOLANG_IMAGE" >/dev/null 2>&1; then
+  printf 'Pulling builder image %s for %s.\n' "$GOLANG_IMAGE" "$PLATFORM"
+  docker pull --platform "$PLATFORM" "$GOLANG_IMAGE"
+fi
 
 actual_base_digest="$(docker image inspect "$BASE_IMAGE" --format '{{index .RepoDigests 0}}' | sed 's/.*@//')"
 printf 'Base image %s digest: %s\n' "$BASE_IMAGE" "$actual_base_digest"
@@ -62,11 +69,20 @@ if [ "${MYSTRA_DESIGN_SKIP_BASE_PIN:-0}" != "1" ]; then
     printf 'MYSTRA_DESIGN_SKIP_BASE_PIN=1 for a throwaway local build.\n' >&2
     exit 1
   fi
+  actual_golang_digest="$(docker image inspect "$GOLANG_IMAGE" --format '{{index .RepoDigests 0}}' | sed 's/.*@//')"
+  printf 'Builder image %s digest: %s\n' "$GOLANG_IMAGE" "$actual_golang_digest"
+  if [ -z "$GOLANG_DIGEST" ]; then
+    printf 'WARNING: no reviewed builder digest is recorded; set MYSTRA_DESIGN_GOLANG_DIGEST=%s after review.\n' \
+      "$actual_golang_digest" >&2
+  elif [ "$actual_golang_digest" != "$GOLANG_DIGEST" ]; then
+    printf 'Builder image digest mismatch: expected %s, got %s\n' "$GOLANG_DIGEST" "$actual_golang_digest" >&2
+    exit 1
+  fi
 fi
 
 # Build proxies pass through as build args, mirroring scripts/build-runner-image.sh so a
 # host behind an HTTP proxy can still fetch pinned artifacts.
-build_args=()
+build_args=(--build-arg "BASE_IMAGE=$BASE_IMAGE" --build-arg "GOLANG_IMAGE=$GOLANG_IMAGE")
 for name in HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy; do
   value="${!name:-}"
   if [ -n "$value" ]; then

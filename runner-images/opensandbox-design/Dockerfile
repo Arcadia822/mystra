@@ -17,10 +17,14 @@
 # Build through scripts/build-opensandbox-design-image.sh so the base image digest and
 # every pinned artifact checksum are enforced.
 
+# Base images are overridable so the build script can pass the exact reviewed digest.
+ARG GOLANG_IMAGE=golang:1.24.5-bookworm
+ARG BASE_IMAGE=node:22-bookworm-slim
+
 # ---------------------------------------------------------------------------
 # Stage 1: build linctl from the pinned upstream source tag.
 # ---------------------------------------------------------------------------
-FROM golang:1.24.5-bookworm AS linctl-builder
+FROM ${GOLANG_IMAGE} AS linctl-builder
 
 ARG LINCTL_VERSION=0.1.12
 # sha256 of https://github.com/dorkitude/linctl/archive/refs/tags/v0.1.12.tar.gz
@@ -43,7 +47,7 @@ RUN set -eux; \
 # ---------------------------------------------------------------------------
 # Stage 2: runtime image.
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
+FROM ${BASE_IMAGE} AS runtime
 
 ARG TARGETARCH=amd64
 ARG GH_VERSION=2.101.0
