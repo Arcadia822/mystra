@@ -117,7 +117,15 @@ if [ -n "$CID_B" ]; then
   echo "--- authenticated /command from uid 65534"
   probe_command "$CID_B" "$FAKE_TOKEN"
   echo "--- workload spawned *by execd*: does it inherit the token?"
-  probe_command "$CID_B" "$FAKE_TOKEN" 'env | grep -c EXECD_ACCESS_TOKEN; cat /proc/1/cmdline | tr "\\0" " "'
+  env_out="$(docker exec -u 65534 "$CID_B" curl -sS -m 12 -o - \
+    -H 'Content-Type: application/json' -H "X-EXECD-ACCESS-TOKEN: $FAKE_TOKEN" \
+    --data '{"command":"env"}' http://127.0.0.1:44772/command 2>&1)"
+  if printf '%s' "$env_out" | grep -qF "$FAKE_TOKEN"; then
+    printf 'token inherited by execd-spawned workload: YES\n'
+  else
+    printf 'token inherited by execd-spawned workload: no (env lines=%s)\n' \
+      "$(printf '%s' "$env_out" | grep -c 'type":"stdout' || true)"
+  fi
   echo "--- direct uid 65534 read of /proc/1/environ and /proc/1/cmdline in sandbox B"
   docker exec -u 65534 "$CID_B" sh -c 'cat /proc/1/cmdline | tr "\0" " "; echo; cat /proc/1/environ 2>&1 | head -c 120; echo'
 fi
