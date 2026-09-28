@@ -121,7 +121,8 @@ Probe results against the deployed execd (`sandbox-registry…/execd:v1.1.0`, im
 | R1 unauthenticated `/command` from uid 65534, execd without a token (deployment default) | HTTP 200, `uid=0(root)` |
 | R2 unauthenticated `/command`, execd with `-access-token` | HTTP 401 |
 | R2 authenticated `/command` | HTTP 200, `uid=0(root)` — the token is root-equivalent |
-| R2 token exposure | absent from the workload env, `/proc/1/environ` denied to uid 65534, but visible in world-readable `/proc/1/cmdline` when passed as argv |
+| R2 token exposure, `-access-token` argv | visible to any in-container process in world-readable `/proc/1/cmdline` |
+| R2 token exposure, `EXECD_ACCESS_TOKEN` in the sandbox env (real sandbox) | `/proc/1/environ` denied to uid 65534, but the token **is inherited by the workload execd spawns** |
 | R3 cross-sandbox (`bridge`) | sandbox A (uid 65534) → sandbox B execd = HTTP 200, `uid=0` |
 | P1 lifecycle API from a guest, deployed `host = "0.0.0.0"` | `/health` reachable from the bridge (HTTP 200); management calls need `OPEN-SANDBOX-API-KEY` (401 without) |
 | P1 lifecycle API from a guest, `host = "127.0.0.1"` | connection refused |
@@ -134,7 +135,10 @@ Two further deployment facts found during the run:
   sandbox's execd. Confirmed from a tailnet peer with an unauthenticated `/command` that
   returned `uid=0(root)` inside the sandbox container.
 - `execd` runs the workload as root by design, so the per-sandbox access token — not the
-  uid — is the only barrier, and it must never be passed as argv.
+  uid — is the only barrier. Neither delivery path hides it from the sandbox: argv is
+  readable through `/proc/1/cmdline`, and an environment token is inherited by the workload
+  execd spawns. A token therefore only separates an *unprivileged* guest process from root;
+  it does not make the sandbox unusable-by/opaque-to its own workload.
 
 Therefore `opensandbox.service` was left `inactive`/`disabled`; every sandbox created for
 this validation was deleted, the deployed config/unit were not modified, and all
