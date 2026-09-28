@@ -20,6 +20,9 @@
 #   MYSTRA_DESIGN_BASE_MIRROR    registry mirror used only to fetch the base image
 #                                (e.g. docker.m.daocloud.io) before it is re-tagged locally
 #   MYSTRA_DESIGN_PLATFORM       build platform (default linux/amd64)
+#   MYSTRA_DESIGN_GOPROXY        Go module proxy passed to the linctl build stage
+#                                (e.g. https://goproxy.cn,direct where proxy.golang.org is blocked)
+#   MYSTRA_DESIGN_GOSUMDB        checksum database for that stage (e.g. sum.golang.google.cn)
 #   MYSTRA_DESIGN_SKIP_BASE_PIN  set to 1 to skip the base image digest assertion
 #
 set -euo pipefail
@@ -83,6 +86,12 @@ fi
 # Build proxies pass through as build args, mirroring scripts/build-runner-image.sh so a
 # host behind an HTTP proxy can still fetch pinned artifacts.
 build_args=(--build-arg "BASE_IMAGE=$BASE_IMAGE" --build-arg "GOLANG_IMAGE=$GOLANG_IMAGE")
+if [ -n "${MYSTRA_DESIGN_GOPROXY:-}" ]; then
+  build_args+=(--build-arg "GOPROXY_URL=$MYSTRA_DESIGN_GOPROXY")
+fi
+if [ -n "${MYSTRA_DESIGN_GOSUMDB:-}" ]; then
+  build_args+=(--build-arg "GOSUMDB_URL=$MYSTRA_DESIGN_GOSUMDB")
+fi
 for name in HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy; do
   value="${!name:-}"
   if [ -n "$value" ]; then

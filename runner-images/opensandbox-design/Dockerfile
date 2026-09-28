@@ -29,6 +29,12 @@ FROM ${GOLANG_IMAGE} AS linctl-builder
 ARG LINCTL_VERSION=0.1.12
 # sha256 of https://github.com/dorkitude/linctl/archive/refs/tags/v0.1.12.tar.gz
 ARG LINCTL_SOURCE_SHA256=013d7a16ff062db66dca6edc56babd05a2a99f3b7631d54cab193f75026c39c0
+# Module proxy and checksum database. Upstream defaults are used unless a build passes a
+# reachable mirror (host-c1 cannot reach proxy.golang.org); the checksum database is still
+# consulted, so dependency content stays verified either way.
+ARG GOPROXY_URL=https://proxy.golang.org,direct
+ARG GOSUMDB_URL=sum.golang.org
+ENV GOPROXY=${GOPROXY_URL} GOSUMDB=${GOSUMDB_URL}
 
 RUN set -eux; \
     curl -fsSL --retry 3 -o /tmp/linctl-src.tar.gz \
