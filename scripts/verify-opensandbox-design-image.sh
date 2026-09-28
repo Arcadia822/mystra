@@ -40,14 +40,20 @@ tool_report="$(docker run --rm --network none --entrypoint sh "$IMAGE" -c '
 ' 2>&1)"
 printf '%s\n' "$tool_report" | sed 's/^/  /'
 
-for tool in gh linctl taco-cli git node; do
-  if printf '%s\n' "$tool_report" | grep -q "^${tool}"; then
-    report "tool present: $tool" "OK"
+# tool -> grep pattern identifying its version line
+check_tool() { # check_tool <label> <pattern>
+  if printf '%s\n' "$tool_report" | grep -qE "$2"; then
+    report "tool present: $1" "OK"
   else
-    report "tool present: $tool" "FAIL (missing)"
+    report "tool present: $1" "FAIL (missing)"
     failures=$((failures + 1))
   fi
-done
+}
+check_tool gh '^gh version '
+check_tool linctl '^linctl version '
+check_tool taco-cli '^taco-cli '
+check_tool git '^git version '
+check_tool node '^v[0-9]+\.[0-9]+'
 
 # --- credential absence --------------------------------------------------
 env_secrets="$(docker image inspect "$IMAGE" --format '{{range .Config.Env}}{{println .}}{{end}}' \
