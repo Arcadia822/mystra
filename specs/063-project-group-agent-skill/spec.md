@@ -15,7 +15,7 @@ input: |-
 
 后续澄清：通用 Skill **不包含 Spec-Kit 流程**，也不强制 `spec.md`、`plan.md` 文件名、模板或 Checkpoints；仍保留 Linear 验收要求的需求说明与实施计划两个可独立评审的设计产物。此仓库的 `specs/063-project-group-agent-skill/` 使用 Mystra 自身的 Spec-Kit 约定记录本次开发，与采用 Skill 的项目是否使用该方法无关。
 
-本轮授权澄清：IST 在本 Skill 中指当前群绑定的 Issue 跟踪系统/来源；仓库并无独立 `IST` 产品或 API 合同，因此不假设它一定是 Linear、GitHub Issues 或某个固定工具。Agent 必须先由可信群 ID 与有权维护的配置分别找到 repo 和 IST 的稳定身份/范围；群绑定是**路由事实**，不是对两端所有行为的授权。
+本轮授权澄清：IST 在本 Skill 中指当前群绑定的 Issue 跟踪系统/来源；仓库并无独立 `IST` 产品或 API 合同，因此不假设它一定是 Linear、GitHub Issues 或某个固定工具。Agent 可由可信群身份查有权维护的配置，也可从**已核验属于当前群的项目 workspace** 中读取受控配置，分别找到 repo 和 IST 的稳定身份/范围；不强制要求群 ID。普通 workspace 文件只提供线索，不能单独证明绑定；绑定是**路由事实**，不是对两端所有行为的授权。
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -23,7 +23,7 @@ input: |-
 
 作为项目群成员，我希望 Agent 先找到当前群受信配置中的 repo 和 IST，并针对每项读取、提交和工单动作分别核验授权；对查询/闲聊仅在群中答复，对已获权限的明确委派才在绑定 repo 开占位 Draft PR、准备唯一 Issue Thread 和任务工作区，以免默认凭据或 Issue 链接把工作路由到别的项目。
 
-**Independent Test**：给群绑定缺失/多义、repo 与 IST 指向不同归属、凭据可写但委派者只获读权、仅查询、首次/重复委派及准备一半失败等输入；检查 Agent 是否先从稳定群身份及可信配置找到双绑定，按 repo/IST 分别判权；工具缺失时说明缺口，不伪造调用。
+**Independent Test**：给群绑定缺失/多义、无群 ID 但 workspace 受控配置可核验、普通文件冒充绑定、repo 与 IST 指向不同归属、凭据可写但委派者只获读权、仅查询、首次/重复委派及准备一半失败等输入；检查 Agent 是否从当前群的可信身份或已核验的所属 workspace 找到双绑定、按 repo/IST 分别判权；工具缺失时说明缺口，不伪造调用。
 
 **Acceptance Scenarios**：
 1. Given 含 Issue ID 的状态询问但无委派，When Agent 分诊，Then 查询真实来源并在群中回答，不建 Thread/任务工作区。
@@ -33,6 +33,8 @@ input: |-
 5. Given 仅有聊天中的仓库 URL、Issue 内的仓库链接或 Agent 的默认登录/最近仓库，而当前群的 repo/IST 可信绑定未核实，When Agent 处理委派，Then 不猜选 repo/IST、不跨群读取私有 Issue、不推送/提 PR、不建任务入口；请有权维护群绑定的人确认稳定目标。
 6. Given 群绑定 repo R-A、IST 范围 T-A，但目标 Issue 经 IST 查询属于 T-B 且文本指向 repo R-B，When Agent 的工具恰好可写 R-B/T-B，Then 不借该凭据跨范围操作；报告归属冲突，请有权所有者裁决，不泄漏 T-B 私有内容。
 7. Given 群双绑定正确但成员只获 repo/IST 读取权限且 Agent 的凭据可写两端，When 该成员要求分支、Draft PR、Issue 状态/指派更新，Then 仅做有权读取；分别拒绝未经委派的 repo 写入和未经 IST 授权的工单写入。已授权开 PR 仍不能自动把 Issue 设为 `In Review`。
+8. Given 宿主未提供群 ID，但已核实当前群所属项目 workspace 的受控配置分别绑定 R-A 与 IST 范围 T-A，When 已授权 Agent 处理归属 T-A 的 Issue，Then 使用该双绑定继续判权和任务分诊，不仅因缺少群 ID 而阻塞。
+9. Given workspace 中仅有普通文件声称绑定 R-B/T-B，或两个各自可信的配置分别绑定 R-A/T-A 与 R-B/T-B，When Agent 考虑读取、提 PR 或写回 Issue，Then 普通文件只作线索，不单独建立绑定，也不推翻已核验的配置；核对 workspace 归属、配置维护权限及来源/版本，可信配置冲突未裁决时不选任一套，不越权启动工作。
 
 ### User Story 2 - 长期协作与降噪 (Priority: P1)
 
@@ -72,7 +74,7 @@ input: |-
 ### Functional Requirements
 
 - **FR-001**: 交付符合 Agent Skills 结构的自包含 `.agents/skills/mystra-flow/SKILL.md`，可按项目群协作、Issue Thread、定时/事件通知等触发发现并由非 Mystra Agent 读取；移除同名旧预设源，显式发布时打包同一份文件。
-- **FR-002**: Skill 须明确从稳定群 ID 及可信群→项目配置分别找到 repo 的稳定身份/目标分支与 IST 的提供者/连接/允许的稳定 Issue 范围，核验精确 Issue 归属；群消息、默认登录与 Issue 的 repo 链接不能覆盖绑定。仅明确委派且 IST Issue 读取与 repo 分支/PR 写入的各自授权已核实，才在绑定 repo 为该工作先创建或复用占位 Draft PR；具备任务启动授权后再准备唯一 Thread/任务工作区，不等待设计批准。IST 写入不是启动前提，也不随 PR 自动授权。
+- **FR-002**: Skill 须明确从可信群身份/配置或已核实属于当前群的项目 workspace 内受控配置分别找到 repo 的稳定身份/目标分支与 IST 的提供者/连接/允许的稳定 Issue 范围，不把群 ID 设为唯一入口；核验 workspace 归属、配置维护权限及来源/版本，并核验精确 Issue 归属。普通 workspace 文件、群消息、默认登录与 Issue 的 repo 链接不能覆盖绑定。仅明确委派且 IST Issue 读取与 repo 分支/PR 写入的各自授权已核实，才在绑定 repo 为该工作先创建或复用占位 Draft PR；具备任务启动授权后再准备唯一 Thread/任务工作区，不等待设计批准。IST 写入不是启动前提，也不随 PR 自动授权。
 - **FR-003**: Skill 须区分项目工作区/任务工作区、多 Session 续作、父基线更新与双向授权读写；失败/冲突时停止，不以群空间替代任务空间。
 - **FR-004**: Skill 须规范主动沟通相关性、证据、授权、价值、去重、安静时段及安全投递目标。
 - **FR-005**: Skill 只有设计与交付两阶段：早期 Draft PR 属于阶段一，不是第三阶段或代码实施许可；分别形成可独立评审的需求说明与实施计划，项目现有规则优先，不强制 Spec-Kit、文件名或模板；非作者复核、原 Thread 的评审反馈批处理、同一评审件更新与当前版本的人类批准是进入阶段二的硬门槛，沿用原 PR 至合并前。
@@ -87,7 +89,7 @@ input: |-
 - **SC-002**: Agent Skills frontmatter 可读取；从空白 Agent 上下文可读到完整指令，无需 Mystra-only 工具或 Spec-Kit 即可判断分诊、门槛和失败处置。
 - **SC-003**: 仓库及预设发布器只有一个 `mystra-flow` 权威 Skill 源；旧三阶段预设与过时文案/测试已切换，发布器能打包并校验同一源。平台和 DSH 插件不做运行时接入；交付为关联 MYST-38/#64 的未合并 Draft PR，不宣称已发布至任何实例。
 - **SC-004**: 在群 repo/IST 双绑定、Issue 归属、工作委派及 repo PR 写权限已确认但设计尚未批准的情景，Agent 先提或复用该工作 Draft PR；在仅查询情景不创建新工作 PR；PR 缺可比较改动、权限或创建回执时明确阻塞；设计批准仍是进入代码实施的门槛。
-- **SC-005**: 对无群绑定、Issue 指向别的 repo/IST、Agent 凭据可写但发起者只读、repo PR 已授权而 IST 状态写入未授权四类情景，Agent 应选对可信目标或明确停机：不跨群泄漏、不越权推送/创建 PR/更新工单；每一端的允许与拒绝有独立理由和回执。
+- **SC-005**: 对无可信绑定、仅有可核验 workspace 绑定而无群 ID、普通 workspace 文件假冒绑定、两个可信来源冲突、Issue 指向别的 repo/IST、Agent 凭据可写但发起者只读、repo PR 已授权而 IST 状态写入未授权等情景，Agent 应选对可信目标或明确停机：不因缺群 ID 误阻塞，不跨群泄漏、不越权推送/创建 PR/更新工单；每一端的允许与拒绝有独立理由和回执。
 
 ## Assumptions & boundaries
 

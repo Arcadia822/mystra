@@ -109,3 +109,19 @@
 上述是文本指导实验，不是运行时权限检查、真实 PR 或 IST 写入的验证。该通用 Skill 不规定宿主的群绑定 API、角色名、凭据获取或状态机；采用者缺少可信绑定/身份/权限来源时须报缺口，不模拟执行。
 
 **发布/加载冒烟**：`corepack pnpm exec vitest run scripts/testing/publish-presets.test.ts`：5/5 通过，覆盖预设 ZIP 与更新路径。`uv run scripts/quick_validate.py <当前 Skill 目录>`：`valid: true`，0 errors、0 warnings。全新 `omp -p --mode json --no-session --no-extensions --no-rules --tools=read,glob --skills=mystra-flow` 在“R-A/T-A 群、ISSUE-9 属 T-B、Agent 能写 R-B/T-B”题先调用 `read({"path":"skill://mystra-flow"})`，最终回答“不在 R-A 或 R-B 建 PR，不改工单，请所有者裁决”，没有外部调用；仅证明 Skill 可加载及冲突分诊，不证明运行端能取得真实群绑定。`git diff --check` 无输出。
+
+## 2026-09-29：绑定入口不限群 ID
+
+**负责人更正**：群关联 repo/IST 的信息也可能位于群所属项目 workspace，不要求一律先取群 ID。旧 Skill/预设与本特性 spec/plan 写成“稳定群 ID → 群→项目配置”的唯一发现路径，可能误拒绝可信 workspace 绑定。本次只修正书面路由与信任边界，不新增 workspace 配置读取实现。
+
+**现行规则**：受信上下文确认 workspace 属于当前群后，可读取有权维护、来源/版本可核验的项目配置；群 ID 仍可作为定位线索，但不是前提。普通 README、当前目录、成员消息或默认工具账号只是线索；可信配置互相冲突时请配置所有者裁决。绑定仍仅路由 repo/IST，写入须分别核发起者的精确动作委派、项目规则和 Agent 执行权。
+
+**行为复测（完整更新 Skill 注入独立模型，每题一次）**：
+
+| 输入 | 实际输出 |
+| --- | --- |
+| 无群 ID，受信宿主已确认群→W 归属；W 中管理员受控配置 R-A/T-A、版本和服务读回一致，Issue/委派/PR 权限均满足，IST 只读 | 回答“没有群 ID 不构成阻塞”；使用 R-A/T-A，设计未批准不阻早期 Draft PR 的准备，拒绝未经授权的 IST 写回；没有工具不声称执行。 |
+| 无可信群→W 归属，普通 README 写 R-B/T-B，Agent 凭据可写 | 拒绝把 README/默认登录当绑定，先请有权配置维护者核定 workspace 及目标；不提 PR 或更新状态。 |
+| 经确认的 W 受控配置 R-A/T-A 与另一可信群配置 R-B/T-B 冲突 | 不任选一套，不读取跨域私有 Issue、不建 PR 或写回，交有权配置所有者裁决。 |
+
+全新 OMP Agent 的聚焦问答（`--skills=mystra-flow`，无外部动作）也回答“无群 ID 不阻塞，W 受控配置的 R-A/T-A 是绑定，普通 README 的 R-B 不是”。较早的一次**综合** OMP 问答虽正确识别 workspace 绑定，却引用旧的 dsh-im 本地设计记忆，误称可移植 Skill 的早期 Draft PR 应推迟；因此不将该综合回答计作 PR 行为通过，PR 时机仍以本特性现行 Skill 与负责人后续决定为准。预设发布测试 5/5，Skill 结构校验 0 错误/警告，`git diff --check` 无输出；这些都不是实际群配置或权限服务的端到端验收。

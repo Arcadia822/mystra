@@ -19,6 +19,7 @@
 - [x] 负责人更正已纳入 SC-004/005：已委派工作须核实群关联 repo/IST 双绑定、Issue 归属及 repo PR 授权后先提或复用占位 Draft PR；只有实施须等当前设计获批。纯查询不启动工作，PR 无分支差异/权限/回执时不得虚报成功。
 - [x] 已区分“当前群绑定的 repo/IST 目标”与“发起者按精确动作的授权、Agent 执行凭据、项目规则”的交集；IST 仅作 Issue 跟踪来源通称，不假设特定产品/API。
 - [x] 未知/冲突绑定、Issue 错范围、仅凭据有写权、PR 可提但 IST 写入未授权均有拒绝路径；群消息/默认登录/Issue repo 链接不得升级为授权。
+- [x] 群 ID 是可选定位线索；已核验当前群所属 workspace 的受控配置也可提供双绑定，无群 ID 不单独阻塞。普通文件、未核归属的 workspace 和冲突配置不能授予 repo/IST 动作权限。
 
 ## Product Requirements Review
 
