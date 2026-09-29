@@ -20,5 +20,6 @@
 - [x] T009 [US3] 按负责人后续命名决定切换唯一源为 `.agents/skills/mystra-flow/SKILL.md`；删除同名旧预设，更新发布入口及 Coordinator/Designer 旧三阶段文案，移除过时的测试断言。
 - [x] T010 [US3] 记录旧规则保留/淘汰依据；新名称从空白 Agent 上下文加载并复测评审反馈及无 Spec-Kit 项目，验证预设 ZIP、相关测试与 Taco 一致性；非作者指出的发布文档路径已修正并更新 Draft PR，保持未合并且不执行实例发布。
 - [x] T011 [US1/US3] 按负责人更正保留群仓库确认后的早期占位 Draft PR，将 PR 创建与设计批准/代码实施分开；同步 Skill、Coordinator/Designer、规格/计划及证据，复测无设计批准、重复委派和 PR 权限失败，刷新 Taco，更新现有 Draft PR。
+- [x] T012 [US1/US2] 从稳定群身份发现 repo 与 IST 双绑定，分别判权 repo 查询/推送/PR/合并及 IST Issue 查询/创建/评论/状态/指派，拒绝跨群、错范围和凭据越权；同步 Coordinator/Designer、spec/plan/清单与证据，复测正反情景并刷新 Taco；保持 Draft PR 未合并。验证见 `evidence/skill-verification.md`（2026-09-29 双端权限节）。
 
 **Exit**: Skill 可复制、加载并在规定情景指导 Agent；审查及验证证据可读；Draft PR 未合并，不宣称连接了真实飞书或 DSH。
