@@ -5,26 +5,26 @@
 
 ## Summary
 
-新增仓库内可单独复制的 Agent Skill，不改变已有 `mystra-flow` 预设、平台 Skill Library、运行时或 DSH 插件。采用简短主 SKILL.md 与必要时的独立场景参考，先用无 Skill 压力场景观察错误，再写规则并复测。此方案是**业务规程资产**，不是将飞书/工作区能力伪装成服务端实现。
+沿用已有资产名 `mystra-flow`，以 `.agents/skills/mystra-flow/SKILL.md` 为唯一可复制、可发现的业务规程源。删除同名过时预设，令既有发布工具显式打包这一份文件；更新 Coordinator/Designer 提示词，避免重新引入旧三阶段行为。仍先查证真实行为再宣称成功；本方案是**业务规程资产及分发源切换**，不是将飞书/工作区能力伪装成服务端实现。
 
 ## Technical Context
 
 **Language/Version**: Markdown + YAML frontmatter（Agent Skills 规范）；Node 24.14.0 用于静态检查。
 **Primary Dependencies**: 无运行依赖；本仓库 `.agents/skills/` 的可发现路径。
-**Storage**: 仅 Git 版本化文件；不发布至 Mystra Skill Library。
-**Testing**: Agent 无/有 Skill 压力测试，frontmatter 检查，Spec-Kit/Taco 静态核对。
+**Storage**: Git 版本化的单一 Skill 文件；已有发布工具仅在操作者显式运行时可上传其 ZIP，本单不对任何实例发布。
+**Testing**: Agent 无/有 Skill 压力测试、新名称发现/读取冒烟、预设 ZIP 校验与出版工具相关测试；本仓库特性文档另做 Spec-Kit/Taco 静态核对，不把它们写进通用 Skill。
 **Target Platform**: 能读取 Agent Skills 的任意 Agent 环境；本仓库仅是存放与版本控制位置。
 **Project Type**: 便携流程 Skill，不是服务或 UI。
 **Performance Goals**: 不适用（静态文本）。
-**Constraints**: 不能调用不存在的 API；不引入配置、网络、存储或 Mystra 依赖；与旧预设并存但不是其替代或别名。
-**Scale/Scope**: 一个 Skill 与一组最小 Spec-Kit 产物，不碰生产平台实现。
+**Constraints**: Skill 内容不能调用不存在的 API，不引入配置、网络、存储或 Mystra 依赖；唯一同名源，不能把旧版三阶段预设留作第二套权威。
+**Scale/Scope**: 单一 Skill 与必要的预设发布入口/预设提示词切换，以及本仓库所需的最小特性文档；采用者无需 Spec-Kit，也不预设需求或计划文件名；不改平台执行、飞书或 DSH 实现。
 
 ## Constitution Check
 
 - I：已正式改写 Linear，本 Skill 仅书面指导，不扩展 Mystra MVP/触发器/API。
 - II–IV：不新增服务边界、持久化、执行凭据或沙箱接口；强调来源和权限，不对外宣称部署。
 - V：用无/有 Skill 的行为证据、静态结构与独立审查验证资产；无真实飞书接入不声称端到端通过。
-- UI：无用户界面，`apps/spec-prototype` 不适用。GitNexus 运行流/影响分析不适用：只新增 Markdown，不编辑现有 symbol 或进程调用图。若后来触碰现有函数，先做 impact 检查。
+- UI：无用户界面，`apps/spec-prototype` 不适用。GitNexus 对 `readSkillPresets` 上游评估 LOW（直接调用者 `publishPresets`、下游发布脚本及 E2E，未识别业务执行流程）；切换预设发布入口后需验 ZIP 与更新/未变两条路径，不声称运行端已经装载。
 
 ## Project Structure
 
@@ -43,20 +43,36 @@ specs/063-project-group-agent-skill/
 ### Source Code (repository root)
 
 ```text
-.agents/skills/project-group-agent/SKILL.md
+.agents/skills/mystra-flow/SKILL.md
+presets/agents/coordinator.md
+presets/agents/requirement-designer.md
+scripts/publish-presets.mjs
+scripts/testing/publish-presets.test.ts
 ```
 
-**Structure Decision**: 仿照仓库现有 `.agents/skills/<name>/SKILL.md`，而非 `presets/skills/`。后者由 `publish-presets.mjs` 自动上传到 Mystra，既会引入平台侧交付声明又会破坏 `publish-presets.test.ts` 的预设清单。Skill 内容不含 Mystra 专属入口；仓库目录只是开发与分发载体，复制该目录即可脱离 Mystra。
+**Structure Decision**: repo-local `.agents/skills/mystra-flow/` 是唯一权威源；`presets/skills/mystra-flow/` 的旧正文与新两阶段门槛冲突，因此直接移除。显式运行 `publish-presets.mjs` 时，从 repo-local 源打包同名 Skill；不自动上传，也不把上传/安装等同于宿主飞书/工作区能力。预设提示词只按可用能力协调，不再硬编码旧三阶段调度。
 
 ## Design and verification gates
 
 1. 需求门槛：确认源设计版本、Linear 新范围、用户的人审决定及原范围遗留；读取现有仓库 Skill/frontmatter 习惯。
 2. RED：无 Skill 输入三类以上情景，保存模型原话与错误；包含仅查询却开楼、准备一半却退回群工作区、模糊批准等。
-3. GREEN：写唯一完整 Skill，先写分诊/任务身份，再写空间协作/主动通知/两阶段；对相同情景和额外变体复测。不写从未验收的具体命令。
+3. GREEN：写唯一完整 Skill，先写分诊/任务身份，再写空间协作/主动通知/两阶段；需求说明和实施计划分别可审，但采用者的文档约定优先，没有通用的 Spec-Kit 或固定文件名。对相同情景和额外变体复测。不写从未验收的具体命令。按负责人新命名决定切到 `mystra-flow`，逐条审核旧预设，保留反馈批处理、原评审件复用、显式批准和真实回执；删除无条件建楼、旧三阶段、强制占位 PR 等冲突行为。
 4. REVIEW：非作者检查遗漏、冻结设计一致性、措辞将内容与能力分开的真实性；修订后复测。Taco 只镜像本目录产物而非替代冻结源 Taco。
-5. DELIVERY：校验 Skill frontmatter、Taco bundle、相关静态检查、Draft PR 关联；PR 停在合并前。
+5. DELIVERY：校验 Skill frontmatter、新名称的独立 Agent 发现/读取、预设 ZIP 及发布差异路径、Taco bundle、相关静态检查、Draft PR 关联；PR 停在合并前，不发布到任何实例。
 
-**工程评审**：无需引入接口/数据模型/运行图，也无并发代码或性能风险。最大风险为把书面规程当成飞书/工作区功能；通过前置条件、失败停机与明确验证界限解决。未来若要求真实承载，须另行设计并实测，不向当前 Skill 增加假的适配层。
+**工程评审**：业务 Skill 不增加接口/数据模型、并发代码或性能风险。切换现有预设读取路径会影响显式发布命令的内容，因此核对唯一源、ZIP 校验和既有版本发布/未变分支；发布不自动执行。最大风险仍是把书面规程当成飞书/工作区功能，通过前置条件、失败停机与明确验证界限解决。未来若要求真实承载，须另行设计并实测，不向当前 Skill 增加假的适配层。
+
+## 旧预设逐项取舍（仅审查业务规则）
+
+| 旧 `mystra-flow` 规则 | 取舍与当前落点 |
+| --- | --- |
+| 核实 Issue、项目、仓库及已有任务，防止重复创建 | 保留并扩展至原消息、权限、原 Thread/任务空间身份；见 Skill「先核实什么」「工作区与任务身份」。 |
+| 原 Thread 集中评审，读完未决 Taco 评论后批量修订、刷新同一评审件并通知复审 | 保留为与具体产品无关的一轮反馈流程；提醒不等于已读，逐条记录争议、源版本和回执。 |
+| 只有明确的人类批准才能进入下一阶段；模糊赞同和催促不算 | 保留并加强批准人权限、批准的需求说明/实施计划版本与未决意见核查；仅出现“通过”字样不自动过门。 |
+| 工具未提供、消息已发送但未处理、Taco 未更新时不可虚报 | 保留为通用的缺能力停机与每一步独立回执；不绑定 MYST-28 具体工具或幂等字段。 |
+| 主群只要 `@Bot + Issue ID` 就强制建楼及启动 Mystra Task | 淘汰：查询与提及不是委派；可追踪且授权的工作才进入唯一任务上下文。 |
+| 三阶段以及四字“跳过设计”旁路、首轮占位提交/Draft PR、强制 `In Review` | 淘汰：冻结业务设计只有“完整设计 → 获人批准后交付”两阶段；开发 PR 遵项目政策但不能占位，Issue 状态要以真实权限与回执更新。 |
+| Coordinator 不得亲自写任何设计内容、必须选择特定 Agent/Runtime/Provider | 不作为可移植 Skill 规则；单人可兼任职责但审查须非作者，运行资源由采用者实际能力决定。 |
 
 ## Complexity Tracking
 

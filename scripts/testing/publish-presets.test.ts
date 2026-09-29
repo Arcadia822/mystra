@@ -15,21 +15,6 @@ function json(body: unknown) {
 }
 
 describe("Mystra flow presets", () => {
-  it("ships the two Agent Profiles with their责任断言 intact", () => {
-    const agents = readAgentPresets() as { name: string; systemPrompt: string }[];
-    expect(agents.map((agent) => agent.name)).toEqual(["coordinator", "requirement-designer"]);
-
-    const coordinator = agents.find((agent) => agent.name === "coordinator")!.systemPrompt;
-    expect(coordinator).toContain("严格禁止");
-    expect(coordinator).toContain("mystra-flow");
-    expect(coordinator).toContain("mystra_start_task_production");
-
-    const designer = agents.find((agent) => agent.name === "requirement-designer")!.systemPrompt;
-    expect(designer).toContain("Draft PR");
-    expect(designer).toContain("taco-cli publish");
-    expect(designer).toContain("In Review");
-  });
-
   it("ships a mystra-flow Skill that the canonical validator accepts", async () => {
     const skills = readSkillPresets() as { name: string; files: { path: string; content: Buffer }[] }[];
     expect(skills.map((skill) => skill.name)).toEqual(["mystra-flow"]);
@@ -44,23 +29,6 @@ describe("Mystra flow presets", () => {
       expect(agent.name).toMatch(SKILL_NAME_PATTERN);
       expect(agent.systemPrompt.trim().length).toBeGreaterThan(0);
       expect(agent.systemPrompt.length).toBeLessThanOrEqual(32_768);
-    }
-  });
-
-  it("names the concrete MCP capability each flow step depends on", () => {
-    const skill = (readSkillPresets() as { files: { path: string; content: Buffer }[] }[])
-      .flatMap((entry) => entry.files)
-      .find((file) => file.path === "SKILL.md")!;
-    const text = skill.content.toString("utf8");
-    for (const tool of [
-      "mystra_list_agents",
-      "mystra_create_task",
-      "mystra_start_task_production",
-      "mystra_list_task_sessions",
-      "mystra_get_session",
-      "mystra_send_session_message",
-    ]) {
-      expect(text).toContain(tool);
     }
   });
 
