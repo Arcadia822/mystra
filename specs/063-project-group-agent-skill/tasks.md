@@ -19,5 +19,6 @@
 - [x] T008 [US3] 非作者审查最初交付，修正遗漏；刷新 `063-project-group-agent-skill.taco.html`，核对 bundle 内容；运行相关检查并提交 Mystra Draft PR（关联 MYST-38 与 #64）。
 - [x] T009 [US3] 按负责人后续命名决定切换唯一源为 `.agents/skills/mystra-flow/SKILL.md`；删除同名旧预设，更新发布入口及 Coordinator/Designer 旧三阶段文案，移除过时的测试断言。
 - [x] T010 [US3] 记录旧规则保留/淘汰依据；新名称从空白 Agent 上下文加载并复测评审反馈及无 Spec-Kit 项目，验证预设 ZIP、相关测试与 Taco 一致性；非作者指出的发布文档路径已修正并更新 Draft PR，保持未合并且不执行实例发布。
+- [x] T011 [US1/US3] 按负责人更正保留群仓库确认后的早期占位 Draft PR，将 PR 创建与设计批准/代码实施分开；同步 Skill、Coordinator/Designer、规格/计划及证据，复测无设计批准、重复委派和 PR 权限失败，刷新 Taco，更新现有 Draft PR。
 
 **Exit**: Skill 可复制、加载并在规定情景指导 Agent；审查及验证证据可读；Draft PR 未合并，不宣称连接了真实飞书或 DSH。

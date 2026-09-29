@@ -48,7 +48,7 @@
 
 ## 2026-09-29：`mystra-flow` 单一来源与旧规则审查
 
-负责人要求 Skill 改用旧预设名，逐条取舍已记录于 [plan.md「旧预设逐项取舍」](../plan.md#旧预设逐项取舍仅审查业务规则)。此前有两份名称/内容冲突：仓库内新 Skill 用 `project-group-agent`，旧 `presets/skills/mystra-flow/SKILL.md` 要求 `@Bot + Issue ID` 强制建楼、三阶段并强制占位 PR；后者不再是当前业务规程。切换后唯一权威源为 `.agents/skills/mystra-flow/SKILL.md`，现有发布器只从该源读取，不调用真实 Mystra/IM 服务。
+负责人要求 Skill 改用旧预设名，逐条取舍已记录于 [plan.md「旧预设逐项取舍」](../plan.md#旧预设逐项取舍仅审查业务规则)。此前有两份名称/内容冲突：仓库内新 Skill 用 `project-group-agent`，旧 `presets/skills/mystra-flow/SKILL.md` 要求 `@Bot + Issue ID` 强制建楼、三阶段与首轮占位 PR；后续负责人更正：**首轮占位 PR 应保留**，只删除前两种强制行为及特定平台依赖。切换后唯一权威源为 `.agents/skills/mystra-flow/SKILL.md`，现有发布器只从该源读取，不调用真实 Mystra/IM 服务。
 
 **命名与加载实测**：`omp -p --mode json --no-session --no-extensions --no-rules --tools=read,glob --skills=mystra-flow` 从此工作树启动独立 Agent；JSON 记录的第一条工具调用为 `read({"path":"skill://mystra-flow"})`，返回包含 frontmatter `name: mystra-flow`、新增评审反馈规则以及最后“常见错误”章节的完整正文。Agent 的实际回答是“不建楼（不创建 Thread/任务工作区）”，在原群从有权来源核实状态，引用 Skill「先核实什么」与「常见错误」。这证明当前仓库发现/读取新名称，不证明宿主实例安装或外部工具调用。
 
@@ -58,9 +58,9 @@
 | --- | --- |
 | 原 Thread “已评论，请修改”，三条评论含一条与仓库事实冲突，且无 Taco 编辑权限 | 回复先核意见/源版本，能确认的逐条处理、冲突的请人裁决；明确不能声称已刷新 Taco/已解决/已请求复审，须待有权限者更新同一评审件和回执。符合。 |
 | 仅问 MYST-42 状态，旁人催建楼，Issue 读取及飞书工具均缺失 | 留在群里说明读权限不足、不建 Thread；后续委派仍需核归属/授权，不能虚报已启动。符合。 |
-| Thread 出现“通过”，但审批人权限和 spec/plan 版本均不明，团队催开发先提 PR | 不启动阶段二、不先提 PR；核对人/版本/未决意见并按获批范围执行，不冒称已提交。符合。 |
+| Thread 出现“通过”，但审批人权限和 spec/plan 版本均不明，团队催开发先提 PR | 当时模型“不启动阶段二、不先提 PR”；前半段仍符合，后半段**不能作为新规则的成功证据**：该题没有说明群仓库、工作授权和 PR 是否已核实。若已核实，应先创建/复用占位 PR，不等设计批准。 |
 
-旧版基线的 10/10 是更名前的历史数据，不能替代本轮新名冒烟。所有模型题仅检验书面决策，非真实飞书/DSH/工作区/Taco 发布验收。
+旧版基线的 10/10 是更名前且早期 PR 更正前的历史数据，**不覆盖现行 PR-first 验收**。所有模型题仅检验书面决策，非真实飞书/DSH/工作区/Taco 发布验收。
 
 **本轮执行证据**：
 - `corepack pnpm exec vitest run scripts/testing/publish-presets.test.ts`：5/5；验证 repo-local `mystra-flow` ZIP 经控制面校验器接受，预设变更可触发新 Revision，分节发布不误触另一节。
@@ -69,4 +69,23 @@
 - 本地 `node scripts/e2e-publish-presets.mjs --port 3472` 初次因缺少 Next `.next` 生产构建而无法就绪；按 `scripts/README.md` 构建后重跑，在一次性 SQLite/本地生产服务上 10/10 检查通过：两个 Agent Profiles 创建、重复不更新、偏移版本增长、恢复原内容。该脚本未传 `--with-skills`，所以**没有**实际上传 Skill Revision 至 S3/控制面；Skill 的 ZIP/差异发布分支由上述单测和验证器覆盖。
 - 非作者 reviewer 检查本次 Skill 名称切换后指出 P2：`scripts/README.md` 仍称 Skills 位于 `presets/`，而代码读取 `.agents/skills/mystra-flow/`；已同步为唯一源与显式发布说明。未发现其余可操作缺陷；本仓库 Taco 后续刷新并经 `pack.mjs verify` 确认仍是原 docId、5 个文件、0 条评论。在独立 Chromium 新标签实际打开并看到 `mystra-flow` 与“通用 Skill 不包含 Spec-Kit”正文；该浏览器核对不等于真实 IM/工作区验证。
 
-**通用流程不依赖 Spec-Kit 的复测**：给完整现行 Skill 的独立模型输入“新项目没有 Spec-Kit、固定 `spec.md`/`plan.md` 名或 Taco，设计获明确委派但没有评审工具”；输出分别要求需求说明与实施计划、按项目约定选名称和真实评审方式、非作者审查及当前版本的人类批准；若无获认可的评审方式，标记待评审/待批准并停在第一阶段，不声称已发布。另从此工作树启动新的 `omp -p --mode json --no-session --no-extensions --no-rules --tools=read,glob --skills=mystra-flow`，首次工具调用实际为 `read({"path":"skill://mystra-flow"})`；向其提问无 Spec-Kit/固定文件名的设计交付时，回答两个分别可审产物、非作者审查和明确的人类版本批准，没有要求安装 Spec-Kit 或使用固定文件名。文本决策及文件读取均已观察；不代表在外部系统里实际写入、审查或批准。
+**通用流程不依赖 Spec-Kit 的前次复测**：给当时完整 Skill 的独立模型输入“新项目没有 Spec-Kit、固定 `spec.md`/`plan.md` 名或 Taco，设计获明确委派但没有评审工具”；输出分别要求需求说明与实施计划、按项目约定选名称和真实评审方式、非作者审查及当前版本的人类批准；若无获认可的评审方式，标记待评审/待批准并停在第一阶段，不声称已发布。另从此工作树启动新的 `omp -p --mode json --no-session --no-extensions --no-rules --tools=read,glob --skills=mystra-flow`，首次工具调用实际为 `read({"path":"skill://mystra-flow"})`；向其提问无 Spec-Kit/固定文件名的设计交付时，回答两个分别可审产物、非作者审查和明确的人类版本批准，没有要求安装 Spec-Kit 或使用固定文件名。此题不验证后续更正的早期 Draft PR 规则；文本决策及文件读取均已观察，不代表在外部系统里实际写入、审查或批准。
+
+## 2026-09-29：负责人纠正早期占位 Draft PR
+
+**修正的验收**：确认群对应 repo 和已委派工作身份后，阶段一立即创建或复用同一工作的占位 Draft PR；不等待设计批准或代码完成。设计批准仍是进入阶段二的硬门槛，PR 需实际可比较的分支差异及创建/关联回执。仅问状态不构成新工作，不能仅因仓库已知而自动开 PR 或 Thread。
+
+**RED（更正前文本）**：在完整更正前 Skill 中输入“已明确委派、群/仓库/Issue/写权限已核实、分支有最小追踪改动、无设计批准；负责人要求立即提占位 Draft PR”。模型回答“可以准备这个评审与追踪载体，但先要核实……仓库规则允许在设计批准前开 Draft PR”，又称“若变更不符合仓库规则，就先停下澄清”。旧文还要求“项目若要求开发开始先开 Draft PR，须核实分支与真实变更后”，把 PR 错放到阶段二、错误淘汰占位 PR；这不满足最新负责人明确要求。
+
+**GREEN（更正后，同一题及三种变体；独立模型注入完整现行 Skill，未给工具）**：
+
+| 输入 | 实际输出及判定 |
+| --- | --- |
+| 已授权工作，仓库/权限已核实，分支仅有最小追踪改动，设计未批准 | “现在应先提占位 Draft PR，不等设计批准”；推送可比较分支、关联 Issue、如实标明设计和实现尚未完成；PR 不授予实施许可。符合。 |
+| 同一工作重复委派，已有分支/关联 Issue 的 Draft PR，设计未批准 | 不建第二个 PR/Thread；核对原工作身份后复用 PR/任务上下文，停在阶段一。符合。 |
+| 工作分支有起始内容但推送被拒，无远端 PR 回执，人催称已提并开工 | 明言“PR 尚未提出”，记录本地改动/权限阻塞；不因催促进入代码实施。符合。 |
+| 仅查询 Issue 状态，仓库绑定已知但无工作委派 | 不开新 PR/Thread，在群里从有权来源查询；旁人建议不等于委派。符合。 |
+
+这是模型对文本文档的行动决策，不证明外部 Git 托管、群 Thread 或审批系统真的运行；PR 与 Issue 关联仍需要部署现场的授权和回执。
+
+**新 Agent 读取与早期 PR 冒烟**：从此工作树重启 `omp -p --mode json --no-session --no-extensions --no-rules --tools=read,glob --skills=mystra-flow`，首个工具调用实际为 `read({"path":"skill://mystra-flow"})`；给“已委派 MYST-42、群仓库/写权限/最小起始内容已核实，设计未获批准且没有外部工具”的情景。回答“现在即可提交（阶段一初期）”占位 Draft PR，“代码实施须在当前设计与实施方案获得人类明确批准后”，并明确没有执行提交、推送或 PR 创建。该结果只证明可发现及文本决策，不是远端 PR 创建验收。
