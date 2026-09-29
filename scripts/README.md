@@ -6,13 +6,15 @@ persistence, or Integration implementations.
 
 ## Preset assets
 
-`presets/` holds the Agent Profiles and Skills that Mystra hosts and distributes.
-They are product assets, not scripts; the scripts below only move them.
+`presets/agents/` holds the Agent Profile product assets. The single canonical
+`mystra-flow` Skill source is `.agents/skills/mystra-flow/SKILL.md`; there is no
+second Skill copy under `presets/`. The scripts below publish these assets only
+when explicitly invoked.
 
-`publish-presets.mjs` publishes them through the canonical management API using
-the operator session store, so repository maintenance needs no second credential
-format. It is idempotent: an unchanged asset is skipped, and a changed asset is
-published as a new revision rather than overwritten.
+`publish-presets.mjs` reads Agent Profiles and the canonical Skill through the
+management API using the operator session store, so repository maintenance needs
+no second credential format. It is idempotent: an unchanged asset is skipped,
+and a changed asset is published as a new revision rather than overwritten.
 
 ```sh
 node scripts/publish-presets.mjs                 # Agent Profiles + Skills

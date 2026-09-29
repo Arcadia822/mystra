@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Publishes the Mystra flow presets (Agent Profiles and the `mystra-flow` Skill)
-// to a Mystra Control Plane through the canonical management API.
-//
-// The canonical assets live under `presets/`; this script never invents content.
+// Publishes the Mystra Agent Profiles and the repo-local portable `mystra-flow`
+// Skill to a Mystra Control Plane through the canonical management API.
+// Canonical Agent Profiles live in `presets/agents/`; the Skill lives in
+// `.agents/skills/mystra-flow/`. Publication is explicit, not automatic.
 // It reuses the operator CLI's human session store so no second credential
 // format exists for repository maintenance.
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -30,15 +30,9 @@ export function readAgentPresets(root = presetsRoot) {
     }));
 }
 
-export function readSkillPresets(root = presetsRoot) {
-  const directory = path.join(root, "skills");
-  return readdirSync(directory)
-    .filter((entry) => statSync(path.join(directory, entry)).isDirectory())
-    .sort()
-    .map((entry) => {
-      const skillDirectory = path.join(directory, entry);
-      return { name: entry, files: collectFiles(skillDirectory, "") };
-    });
+export function readSkillPresets() {
+  const directory = path.join(repoRoot, ".agents", "skills", "mystra-flow");
+  return [{ name: "mystra-flow", files: collectFiles(directory, "") }];
 }
 
 function collectFiles(directory, prefix) {
@@ -170,7 +164,7 @@ export async function publishPresets(options = {}) {
     });
     report.agents.push({ name: agent.name, id: updated.agent.id, outcome: "updated" });
   }
-  for (const skill of only === "agents" ? [] : readSkillPresets(options.presetsRoot)) {
+  for (const skill of only === "agents" ? [] : readSkillPresets()) {
     const zip = buildSkillZip(skill.files);
     const listing = await requestJson(
       fetchImpl,
