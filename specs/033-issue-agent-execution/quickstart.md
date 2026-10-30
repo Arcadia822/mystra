@@ -6,6 +6,7 @@ This is the acceptance runbook. It must not print or persist secret values.
 
 ```sh
 fnm install 24.14.0
+eval "$(fnm env --shell bash)"
 fnm use 24.14.0
 corepack use pnpm@10.25.0
 pnpm install

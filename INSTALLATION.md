@@ -8,6 +8,7 @@ All three use Prisma ORM; Supabase does not use its Data API for relational CRUD
 
 ```sh
 fnm install 24.14.0
+eval "$(fnm env --shell bash)"
 fnm use 24.14.0
 corepack enable
 corepack use pnpm@10.25.0

@@ -117,7 +117,7 @@ Use the repository-pinned runtime before running installs, tests, LSP, or
 GitNexus:
 
 - `.nvmrc` pins Node to `24.14.0`; `package.json` also requires `>=24 <25`.
-- On machines with `fnm`, run `fnm install 24.14.0 && fnm use 24.14.0`.
+- On machines with `fnm`, run `fnm install 24.14.0 && eval "$(fnm env --shell bash)" && fnm use 24.14.0`. The `eval "$(fnm env ...)"` in the middle is required: without it fnm warns that node is not on PATH and the following `corepack`/`pnpm` calls cannot find node.
 - On machines with `nvm`, run `nvm use`.
 - Use Corepack for the pinned package manager: `corepack use pnpm@10.25.0`.
 

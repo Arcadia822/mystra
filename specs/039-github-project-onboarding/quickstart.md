@@ -26,6 +26,7 @@ Do not set `MYSTRA_GITHUB_TOKEN`; 039 removes that repository credential path. `
 ## Start locally
 
 ```bash
+eval "$(fnm env --shell bash)"
 fnm use 24.14.0
 corepack use pnpm@10.25.0
 pnpm --filter @mystra/control-plane dev

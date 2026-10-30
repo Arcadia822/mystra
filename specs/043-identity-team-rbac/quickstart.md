@@ -13,6 +13,7 @@
 
 ```sh
 # 运行时（Node 24.14.0 + pnpm 10.25.0）
+eval "$(fnm env --shell bash)"
 fnm use 24.14.0 || nvm use
 corepack use pnpm@10.25.0
 

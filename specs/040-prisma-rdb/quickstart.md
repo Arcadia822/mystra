@@ -5,6 +5,7 @@
 ## 前置条件
 
 ```sh
+eval "$(fnm env --shell bash)"
 fnm use 24.14.0
 corepack use pnpm@10.25.0
 pnpm install

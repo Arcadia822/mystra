@@ -17,6 +17,7 @@ pending in_progress blocked done canceled
 ## Focused Verification
 
 ```bash
+eval "$(fnm env --shell bash)"
 fnm use
 corepack use pnpm@10.25.0
 corepack pnpm --filter @mystra/control-plane db:generate
